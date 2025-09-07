@@ -1,4 +1,4 @@
-import { NavLink, useLocation } from "react-router-dom";
+import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { 
@@ -10,7 +10,8 @@ import {
   Search,
   MessageSquarePlus,
   Users,
-  X
+  X,
+  Crown
 } from "lucide-react";
 
 interface SidebarProps {
@@ -20,6 +21,7 @@ interface SidebarProps {
 
 const Sidebar = ({ isOpen = false, onClose }: SidebarProps) => {
   const location = useLocation();
+  const navigate = useNavigate();
 
   const navItems = [
     { label: "Profiles", href: "/dashboard", icon: Users },
@@ -133,9 +135,10 @@ const Sidebar = ({ isOpen = false, onClose }: SidebarProps) => {
         </NavLink>
       </nav>
 
-      {/* Upgrade Section */}
-      <div className="absolute bottom-4 left-4 right-4">
-        <div className="bg-gradient-primary p-3 sm:p-4 rounded-lg text-primary-foreground">
+      {/* Bottom CTA Section */}
+      <div className="absolute bottom-4 left-4 right-4 space-y-3">
+        {/* Ask for Reviews */}
+        <div className="bg-gradient-primary p-3 sm:p-4 rounded-lg text-primary-foreground shadow-lg">
           <div className="flex items-center gap-3 mb-3">
             <MessageSquarePlus className="h-5 w-5 sm:h-6 sm:w-6" />
             <h3 className="font-semibold text-sm sm:text-base">Ask for Reviews</h3>
@@ -157,6 +160,28 @@ const Sidebar = ({ isOpen = false, onClose }: SidebarProps) => {
               Generate QR
             </Button>
           </a>
+        </div>
+
+        {/* Divider */}
+        <div className="h-px bg-border/50"></div>
+
+        {/* Payment CTA */}
+        <div className="bg-gradient-to-r from-yellow-500 to-yellow-600 p-3 sm:p-4 rounded-lg text-white shadow-lg">
+          <div className="flex items-center gap-3 mb-3">
+            <Crown className="h-5 w-5 sm:h-6 sm:w-6" />
+            <h3 className="font-semibold text-sm sm:text-base">Upgrade to Pro</h3>
+          </div>
+          <p className="text-xs sm:text-sm opacity-90 mb-3">
+            You're on a 15-day free trial. Upgrade now to keep growing your business!
+          </p>
+          <Button 
+            onClick={() => navigate('/dashboard/upgrade')}
+            variant="secondary" 
+            size="sm" 
+            className="w-full text-yellow-600 hover:bg-white/90 text-xs sm:text-sm font-medium"
+          >
+            Upgrade Now
+          </Button>
         </div>
       </div>
     </div>

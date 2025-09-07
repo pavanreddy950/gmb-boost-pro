@@ -8,13 +8,12 @@ import { ArrowLeft, MapPin, Star, Globe, Phone, Mail, ExternalLink } from "lucid
 import { AutoPostingTab } from "@/components/ProfileDetails/AutoPostingTab";
 import PostsTab from "@/components/ProfileDetails/PostsTab";
 import ReviewsTab from "@/components/ProfileDetails/ReviewsTab";
-import InsightsTab from "@/components/ProfileDetails/InsightsTab";
-import PerformanceTab from "@/components/ProfileDetails/PerformanceTab";
 import PhotosTab from "@/components/ProfileDetails/PhotosTab";
 import EditProfileTab from "@/components/ProfileDetails/EditProfileTab";
-import SettingsTab from "@/components/ProfileDetails/SettingsTab";
 import { useGoogleBusinessProfile } from "@/hooks/useGoogleBusinessProfile";
 import { BusinessLocation } from "@/lib/googleBusinessProfile";
+import { automationStorage, type AutoPostingStats } from "@/lib/automationStorage";
+import { BarChart3 } from "lucide-react";
 
 interface BusinessProfile {
   id: string;
@@ -34,6 +33,7 @@ const ProfileDetails = () => {
   const { profileId } = useParams();
   const [location, setLocation] = useState<BusinessLocation | null>(null);
   const [loading, setLoading] = useState(true);
+  const [globalStats, setGlobalStats] = useState<AutoPostingStats | null>(null);
   const { accounts, isLoading: googleLoading } = useGoogleBusinessProfile();
 
   useEffect(() => {
@@ -62,8 +62,14 @@ const ProfileDetails = () => {
       setLoading(false);
     };
 
+    const loadGlobalStats = () => {
+      const stats = automationStorage.getGlobalStats();
+      setGlobalStats(stats);
+    };
+
     if (!googleLoading) {
       findLocation();
+      loadGlobalStats();
     }
   }, [profileId, accounts, googleLoading]);
 
@@ -108,90 +114,105 @@ const ProfileDetails = () => {
         <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold tracking-tight truncate">{location.displayName}</h1>
       </div>
 
-      {/* Profile Overview */}
-      <Card className="shadow-card border-0">
-        <CardHeader>
-          <CardTitle className="text-xl">Profile Overview</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 lg:gap-6">
-            {/* Basic Info */}
-            <div className="lg:col-span-2 space-y-3 sm:space-y-4">
-              <div className="flex items-start gap-2">
-                <MapPin className="h-4 w-4 mt-1 text-muted-foreground" />
-                <span className="text-sm">
-                  {location.address.addressLines.length > 0 
-                    ? `${location.address.addressLines.join(', ')}, ${location.address.locality}`
-                    : location.address.locality || 'No address available'
-                  }
-                </span>
-              </div>
-              
-              {location.phoneNumber && (
-                <div className="flex items-center gap-2">
-                  <Phone className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-sm">{location.phoneNumber}</span>
-                </div>
-              )}
-              
-              {location.websiteUrl && (
-                <div className="flex items-center gap-2">
-                  <Globe className="h-4 w-4 text-muted-foreground" />
-                  <a 
-                    href={location.websiteUrl} 
-                    target="_blank" 
-                    rel="noopener noreferrer"
-                    className="text-sm text-primary hover:text-primary-hover flex items-center gap-1"
-                  >
-                    {location.websiteUrl}
-                    <ExternalLink className="h-3 w-3" />
-                  </a>
-                </div>
-              )}
-              
-              <div className="flex flex-wrap gap-1">
-                {location.categories.map((category) => (
-                  <Badge key={category.name} variant="secondary">
-                    {category.name}
-                  </Badge>
-                ))}
-              </div>
+      {/* Profile Overview & Today's Statistics */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Profile Overview */}
+        <Card className="shadow-sm">
+          <CardHeader>
+            <CardTitle className="text-xl">Profile Overview</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex items-start gap-2">
+              <MapPin className="h-4 w-4 mt-1 text-muted-foreground" />
+              <span className="text-sm">
+                {location.address.addressLines.length > 0 
+                  ? `${location.address.addressLines.join(', ')}, ${location.address.locality}`
+                  : location.address.locality || 'No address available'
+                }
+              </span>
             </div>
             
-            {/* Stats */}
-            <div className="space-y-3 sm:space-y-4">
+            {location.websiteUrl && (
               <div className="flex items-center gap-2">
-                <Star className="h-5 w-5 fill-yellow-400 text-yellow-400" />
-                <span className="text-xl font-bold">--</span>
-                <span className="text-sm text-muted-foreground">
-                  (Rating data available via Reviews API)
-                </span>
+                <Globe className="h-4 w-4 text-muted-foreground" />
+                <a 
+                  href={location.websiteUrl} 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="text-sm text-primary hover:text-primary-hover flex items-center gap-1"
+                >
+                  {location.websiteUrl}
+                  <ExternalLink className="h-3 w-3" />
+                </a>
               </div>
-              
-              <div>
-                <h4 className="font-medium mb-2">Business Hours</h4>
-                <div className="space-y-1">
-                  <div className="text-sm text-muted-foreground">
-                    Business hours data available via Google Business Profile API
-                  </div>
-                </div>
-              </div>
+            )}
+            
+            <div className="flex flex-wrap gap-1">
+              {location.categories.map((category) => (
+                <Badge key={category.name} variant="secondary">
+                  {category.name}
+                </Badge>
+              ))}
             </div>
-          </div>
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
+
+        {/* Today's Statistics */}
+        {globalStats && (
+          <Card className="shadow-sm">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <BarChart3 className="h-5 w-5" />
+                Today's Statistics
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-2 gap-4">
+                {/* Successful Posts Box */}
+                <Card className="border border-green-200 bg-green-50">
+                  <CardContent className="p-4 text-center">
+                    <div className="text-2xl font-bold text-green-600">{globalStats.successfulPostsToday}</div>
+                    <div className="text-sm text-muted-foreground">Successful Posts</div>
+                  </CardContent>
+                </Card>
+                
+                {/* Failed Posts Box */}
+                <Card className="border border-red-200 bg-red-50">
+                  <CardContent className="p-4 text-center">
+                    <div className="text-2xl font-bold text-red-600">{globalStats.failedPostsToday}</div>
+                    <div className="text-sm text-muted-foreground">Failed Posts</div>
+                  </CardContent>
+                </Card>
+                
+                {/* Active Locations Box */}
+                <Card className="border border-blue-200 bg-blue-50">
+                  <CardContent className="p-4 text-center">
+                    <div className="text-2xl font-bold text-blue-600">{globalStats.activeConfigurations}</div>
+                    <div className="text-sm text-muted-foreground">Active Locations</div>
+                  </CardContent>
+                </Card>
+                
+                {/* Total Posts Box */}
+                <Card className="border border-gray-200 bg-gray-50">
+                  <CardContent className="p-4 text-center">
+                    <div className="text-2xl font-bold text-gray-700">{globalStats.totalPostsToday}</div>
+                    <div className="text-sm text-muted-foreground">Total Posts</div>
+                  </CardContent>
+                </Card>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+      </div>
 
       {/* Tabs */}
       <Tabs defaultValue="auto-posting" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 h-auto">
+        <TabsList className="grid w-full grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 h-auto">
           <TabsTrigger value="auto-posting" className="text-xs sm:text-sm px-2 sm:px-3">Auto Posting</TabsTrigger>
           <TabsTrigger value="posts" className="text-xs sm:text-sm px-2 sm:px-3">Posts</TabsTrigger>
           <TabsTrigger value="reviews" className="text-xs sm:text-sm px-2 sm:px-3">Reviews</TabsTrigger>
           <TabsTrigger value="photos" className="text-xs sm:text-sm px-2 sm:px-3">Photos</TabsTrigger>
           <TabsTrigger value="edit" className="text-xs sm:text-sm px-2 sm:px-3">Edit Profile</TabsTrigger>
-          <TabsTrigger value="settings" className="text-xs sm:text-sm px-2 sm:px-3">Settings</TabsTrigger>
-          <TabsTrigger value="insights" className="text-xs sm:text-sm px-2 sm:px-3">Insights</TabsTrigger>
-          <TabsTrigger value="performance" className="text-xs sm:text-sm px-2 sm:px-3">Performance</TabsTrigger>
         </TabsList>
         
         <TabsContent value="auto-posting">
@@ -212,24 +233,12 @@ const ProfileDetails = () => {
           <ReviewsTab profileId={location.locationId} />
         </TabsContent>
         
-        <TabsContent value="insights">
-          <InsightsTab profileId={location.locationId} />
-        </TabsContent>
-        
-        <TabsContent value="performance">
-          <PerformanceTab profileId={location.locationId} />
-        </TabsContent>
-        
         <TabsContent value="photos">
           <PhotosTab profileId={location.locationId} />
         </TabsContent>
         
         <TabsContent value="edit">
           <EditProfileTab profileId={location.locationId} />
-        </TabsContent>
-        
-        <TabsContent value="settings">
-          <SettingsTab profileId={location.locationId} />
         </TabsContent>
       </Tabs>
     </div>

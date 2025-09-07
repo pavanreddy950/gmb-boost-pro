@@ -9,7 +9,6 @@ import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { 
   Chrome, 
-  Download, 
   RefreshCw, 
   Settings as SettingsIcon, 
   Shield,
@@ -18,7 +17,7 @@ import {
   Globe,
   User,
   LogOut,
-  Building2
+  Users
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
@@ -42,21 +41,6 @@ const Settings = () => {
   const { currentUser, logout } = useAuth();
   const navigate = useNavigate();
 
-  const handleExportProfile = async (profileId: string) => {
-    console.log("Exporting profile:", profileId);
-    toast({
-      title: "Export Started",
-      description: "Your profile data export will be ready for download shortly.",
-    });
-  };
-
-  const handleExportAll = async () => {
-    console.log("Exporting all data...");
-    toast({
-      title: "Export Started", 
-      description: "All profile data will be exported and sent to your email.",
-    });
-  };
 
   const handleLogout = async () => {
     try {
@@ -78,9 +62,9 @@ const Settings = () => {
       </div>
 
       <Tabs defaultValue="connections" className="space-y-4 sm:space-y-6">
-        <TabsList className="grid w-full grid-cols-2 sm:grid-cols-4 h-auto">
+        <TabsList className="grid w-full grid-cols-2 sm:grid-cols-3 h-auto">
           <TabsTrigger value="connections" className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm px-2 sm:px-3 py-2">
-            <Building2 className="h-3 w-3 sm:h-4 sm:w-4" />
+            <Users className="h-3 w-3 sm:h-4 sm:w-4" />
             <span className="hidden sm:inline">Connections</span>
             <span className="sm:hidden">Connect</span>
           </TabsTrigger>
@@ -92,10 +76,6 @@ const Settings = () => {
           <TabsTrigger value="account" className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm px-2 sm:px-3 py-2">
             <User className="h-3 w-3 sm:h-4 sm:w-4" />
             Account
-          </TabsTrigger>
-          <TabsTrigger value="data" className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm px-2 sm:px-3 py-2">
-            <Download className="h-3 w-3 sm:h-4 sm:w-4" />
-            Data
           </TabsTrigger>
         </TabsList>
 
@@ -337,53 +317,6 @@ const Settings = () => {
           </Card>
         </TabsContent>
 
-        {/* Data Tab */}
-        <TabsContent value="data" className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Download className="h-5 w-5" />
-                Data Export
-              </CardTitle>
-              <CardDescription>
-                Download your business profile data and analytics
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="p-4 border rounded-lg">
-                  <h4 className="font-medium mb-2">Individual Profile Export</h4>
-                  <p className="text-sm text-muted-foreground mb-3">
-                    Export data for a specific business profile
-                  </p>
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
-                    onClick={() => handleExportProfile("sample-profile")}
-                  >
-                    <Download className="h-4 w-4 mr-2" />
-                    Export Profile
-                  </Button>
-                </div>
-                
-                <div className="p-4 border rounded-lg">
-                  <h4 className="font-medium mb-2">Complete Data Export</h4>
-                  <p className="text-sm text-muted-foreground mb-3">
-                    Export all your business profile data
-                  </p>
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
-                    onClick={handleExportAll}
-                  >
-                    <Download className="h-4 w-4 mr-2" />
-                    Export All Data
-                  </Button>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
       </Tabs>
     </div>
   );

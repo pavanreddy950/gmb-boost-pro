@@ -15,6 +15,7 @@ import Reviews from "./pages/Reviews";
 import AskForReviews from "./pages/AskForReviews";
 import Settings from "./pages/Settings";
 import AuditTool from "./pages/AuditTool";
+import Upgrade from "./pages/Upgrade";
 import { AuthProvider } from "./contexts/AuthContext";
 import { NotificationProvider } from "./contexts/NotificationContext";
 
@@ -62,6 +63,13 @@ const App = () => (
               <Route path="settings" element={<Settings />} />
               <Route path="audit" element={<AuditTool />} />
             </Route>
+            
+            {/* Upgrade page without layout */}
+            <Route path="/dashboard/upgrade" element={
+              <ProtectedRoute>
+                <Upgrade />
+              </ProtectedRoute>
+            } />
             
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />

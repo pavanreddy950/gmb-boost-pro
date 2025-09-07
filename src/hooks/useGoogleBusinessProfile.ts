@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { BusinessAccount, BusinessLocation, googleBusinessProfileService } from '@/lib/googleBusinessProfile';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
+import { useNavigate } from 'react-router-dom';
 
 interface UseGoogleBusinessProfileReturn {
   isConnected: boolean;
@@ -27,6 +28,7 @@ export const useGoogleBusinessProfile = (): UseGoogleBusinessProfileReturn => {
   const [error, setError] = useState<string | null>(null);
   const { toast } = useToast();
   const { currentUser } = useAuth();
+  const navigate = useNavigate();
 
   // Load business accounts
   const loadBusinessAccounts = useCallback(async () => {
@@ -103,6 +105,10 @@ export const useGoogleBusinessProfile = (): UseGoogleBusinessProfileReturn => {
         title: "Connection successful!",
         description: "Loading your business profiles...",
       });
+      
+      // Redirect to dashboard after successful OAuth callback connection
+      console.log('🔄 Redirecting to dashboard after OAuth callback...');
+      navigate('/dashboard');
     };
 
     window.addEventListener('googleBusinessProfileConnected', handleConnectionEvent as EventListener);
@@ -112,7 +118,7 @@ export const useGoogleBusinessProfile = (): UseGoogleBusinessProfileReturn => {
     return () => {
       window.removeEventListener('googleBusinessProfileConnected', handleConnectionEvent as EventListener);
     };
-  }, [toast, loadBusinessAccounts, currentUser]);
+  }, [toast, loadBusinessAccounts, currentUser, navigate]);
 
   // Connect to Google Business Profile (frontend-only)
   const connectGoogleBusiness = useCallback(async () => {
@@ -137,6 +143,10 @@ export const useGoogleBusinessProfile = (): UseGoogleBusinessProfileReturn => {
         title: "Connected successfully!",
         description: "Your Google Business Profile has been connected and data loaded.",
       });
+
+      // Redirect to dashboard after successful connection
+      console.log('🔄 Redirecting to dashboard...');
+      navigate('/dashboard');
     } catch (error) {
       console.error('❌ Error connecting to Google Business Profile:', error);
       setError('Failed to connect');
@@ -148,7 +158,7 @@ export const useGoogleBusinessProfile = (): UseGoogleBusinessProfileReturn => {
     } finally {
       setIsLoading(false);
     }
-  }, [loadBusinessAccounts, toast, currentUser]);
+  }, [loadBusinessAccounts, toast, currentUser, navigate]);
 
 
   // Disconnect from Google Business Profile

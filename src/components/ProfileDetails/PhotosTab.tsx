@@ -26,8 +26,6 @@ const PhotosTab: React.FC<PhotosTabProps> = ({ profileId }) => {
   const [photos, setPhotos] = useState<PhotoData[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [selectedCategory, setSelectedCategory] = useState('all');
-
   // Load photos on component mount
   useEffect(() => {
     loadPhotos();
@@ -58,27 +56,6 @@ const PhotosTab: React.FC<PhotosTabProps> = ({ profileId }) => {
   const handleRefresh = () => {
     loadPhotos();
   };
-
-  // Filter photos by category
-  const filteredPhotos = selectedCategory === 'all' 
-    ? photos 
-    : photos.filter(p => p.category.toLowerCase() === selectedCategory.toLowerCase());
-
-  // Calculate categories with counts
-  const categories = [
-    { key: 'all', label: 'All Photos', count: photos.length },
-    { key: 'cover', label: 'Cover', count: photos.filter(p => p.category === 'COVER').length },
-    { key: 'profile', label: 'Profile', count: photos.filter(p => p.category === 'PROFILE').length },
-    { key: 'exterior', label: 'Exterior', count: photos.filter(p => p.category === 'EXTERIOR').length },
-    { key: 'interior', label: 'Interior', count: photos.filter(p => p.category === 'INTERIOR').length },
-    { key: 'product', label: 'Product', count: photos.filter(p => p.category === 'PRODUCT').length },
-    { key: 'team', label: 'Team', count: photos.filter(p => p.category === 'TEAM').length },
-    { key: 'at_work', label: 'At Work', count: photos.filter(p => p.category === 'AT_WORK').length },
-    { key: 'food_and_drink', label: 'Food & Drink', count: photos.filter(p => p.category === 'FOOD_AND_DRINK').length },
-    { key: 'menu', label: 'Menu', count: photos.filter(p => p.category === 'MENU').length },
-    { key: 'common_area', label: 'Common Area', count: photos.filter(p => p.category === 'COMMON_AREA').length },
-    { key: 'rooms', label: 'Rooms', count: photos.filter(p => p.category === 'ROOMS').length },
-  ].filter(category => category.count > 0 || category.key === 'all');
 
   return (
     <div className="space-y-6">
@@ -144,26 +121,8 @@ const PhotosTab: React.FC<PhotosTabProps> = ({ profileId }) => {
 
           {/* Photos Content */}
           {!loading && !error && photos.length > 0 && (
-            <>
-              <div className="flex flex-wrap gap-2 mb-6">
-                {categories.map((category) => (
-                  <Button
-                    key={category.key}
-                    variant={selectedCategory === category.key ? "default" : "outline"}
-                    size="sm"
-                    className="flex items-center gap-2"
-                    onClick={() => setSelectedCategory(category.key)}
-                  >
-                    {category.label}
-                    <span className="bg-muted px-2 py-1 rounded text-xs">
-                      {category.count}
-                    </span>
-                  </Button>
-                ))}
-              </div>
-              
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                {filteredPhotos.map((photo) => (
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+              {photos.map((photo) => (
                   <Card key={photo.id} className="overflow-hidden group">
                     <div className="relative aspect-square">
                       <img
@@ -201,8 +160,7 @@ const PhotosTab: React.FC<PhotosTabProps> = ({ profileId }) => {
                     </CardContent>
                   </Card>
                 ))}
-              </div>
-            </>
+            </div>
           )}
 
           {/* No Photos State */}

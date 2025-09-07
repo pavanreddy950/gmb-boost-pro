@@ -10,7 +10,7 @@ import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Clock, Zap, Calendar, BarChart3, Play, Pause, TestTube, Tags, Plus, X, MapPin, Building, Hash, Tag, Edit, RefreshCw, Trash2, Sparkles, MousePointer } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { automationStorage, type AutoPostingConfig, type AutoPostingStats } from '@/lib/automationStorage';
+import { automationStorage, type AutoPostingConfig } from '@/lib/automationStorage';
 import { automationService } from '@/lib/automationService';
 import { toast } from '@/hooks/use-toast';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
@@ -33,7 +33,6 @@ interface AutoPostingTabProps {
 
 export function AutoPostingTab({ location }: AutoPostingTabProps) {
   const [config, setConfig] = useState<AutoPostingConfig | null>(null);
-  const [globalStats, setGlobalStats] = useState<AutoPostingStats | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isTesting, setIsTesting] = useState(false);
   const [customTimes, setCustomTimes] = useState<string[]>(['09:00']);
@@ -116,17 +115,12 @@ export function AutoPostingTab({ location }: AutoPostingTabProps) {
 
   useEffect(() => {
     loadConfiguration();
-    loadGlobalStats();
     
     // Listen for real-time updates
     const unsubscribeConfig = automationStorage.onConfigurationChange((locationId, updatedConfig) => {
       if (locationId === location.id) {
         setConfig(updatedConfig);
       }
-    });
-    
-    const unsubscribeStats = automationStorage.onGlobalStatsUpdated((stats) => {
-      setGlobalStats(stats);
     });
     
     const unsubscribePostSuccess = automationService.onAutoPostSuccess((event) => {
@@ -143,7 +137,6 @@ export function AutoPostingTab({ location }: AutoPostingTabProps) {
 
     return () => {
       unsubscribeConfig();
-      unsubscribeStats();
       unsubscribePostSuccess();
       unsubscribePostError();
     };
@@ -190,10 +183,6 @@ export function AutoPostingTab({ location }: AutoPostingTabProps) {
     setIsLoading(false);
   };
 
-  const loadGlobalStats = () => {
-    const stats = automationStorage.getGlobalStats();
-    setGlobalStats(stats);
-  };
 
 
   const saveConfiguration = (updates: Partial<AutoPostingConfig>) => {
@@ -547,40 +536,9 @@ export function AutoPostingTab({ location }: AutoPostingTabProps) {
 
   return (
     <div className="space-y-6">
-      {/* Global Stats */}
-      {globalStats && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <BarChart3 className="h-5 w-5" />
-              Today's Statistics
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <div className="text-center">
-                <div className="text-2xl font-bold text-green-600">{globalStats.successfulPostsToday}</div>
-                <div className="text-sm text-muted-foreground">Successful Posts</div>
-              </div>
-              <div className="text-center">
-                <div className="text-2xl font-bold text-red-600">{globalStats.failedPostsToday}</div>
-                <div className="text-sm text-muted-foreground">Failed Posts</div>
-              </div>
-              <div className="text-center">
-                <div className="text-2xl font-bold text-blue-600">{globalStats.activeConfigurations}</div>
-                <div className="text-sm text-muted-foreground">Active Locations</div>
-              </div>
-              <div className="text-center">
-                <div className="text-2xl font-bold">{globalStats.totalPostsToday}</div>
-                <div className="text-sm text-muted-foreground">Total Posts</div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      )}
 
-      {/* Main Configuration */}
-      <Card>
+      {/* Auto Posting Configuration */}
+      <Card className="shadow-sm">
         <CardHeader>
           <CardTitle className="flex items-center justify-between">
             <div className="flex items-center gap-2">
@@ -627,87 +585,20 @@ export function AutoPostingTab({ location }: AutoPostingTabProps) {
               <Hash className="h-4 w-4" />
               Keywords for Content Generation
             </Label>
-            <Tabs defaultValue="all" className="w-full mt-2">
-              <TabsList className="grid w-full grid-cols-2">
-                <TabsTrigger value="all">Keywords</TabsTrigger>
-                <TabsTrigger value="custom">Custom</TabsTrigger>
-              </TabsList>
-
-              {/* All Keywords Tab */}
-              <TabsContent value="all" className="space-y-4">
-                <div className="flex flex-wrap gap-2 p-4 bg-gray-50 rounded-lg border min-h-[120px]">
-                  {keywords.map((keyword, index) => {
-                    const defaultKeywords = generateDefaultKeywords();
-                    const isAutoGenerated = defaultKeywords.includes(keyword);
-                    
-                    return (
-                      <div key={index} className="flex items-center gap-1">
-                        <Badge 
-                          variant={isAutoGenerated ? "default" : "outline"}
-                          className="flex items-center gap-1"
-                        >
-                          {isAutoGenerated && <Hash className="h-3 w-3" />}
-                          {keyword}
-                          <button
-                            type="button"
-                            onClick={() => removeKeyword(keyword)}
-                            disabled={!config.enabled}
-                            className="ml-1 hover:bg-red-500 hover:text-white rounded-full p-0.5 transition-colors"
-                          >
-                            <X className="h-3 w-3" />
-                          </button>
-                        </Badge>
-                      </div>
-                    );
-                  })}
-                  {keywords.length === 0 && (
-                    <p className="text-muted-foreground text-sm">No keywords added yet. Click "Generate Keywords" to auto-populate based on your business profile.</p>
-                  )}
-                </div>
-                <div className="flex gap-2">
-                  <Button 
-                    type="button" 
-                    variant="outline" 
-                    size="sm" 
-                    onClick={generateAndSetKeywords}
-                    disabled={!config.enabled}
-                  >
-                    <RefreshCw className="h-4 w-4 mr-1" />
-                    Generate Keywords
-                  </Button>
-                  <Button 
-                    type="button" 
-                    variant="outline" 
-                    size="sm" 
-                    onClick={cleanUpGenericKeywords}
-                    disabled={!config.enabled}
-                  >
-                    <Sparkles className="h-4 w-4 mr-1" />
-                    Clean Generic
-                  </Button>
-                  <Button 
-                    type="button" 
-                    variant="outline" 
-                    size="sm" 
-                    onClick={() => setKeywords([])}
-                    disabled={!config.enabled}
-                  >
-                    <Trash2 className="h-4 w-4 mr-1" />
-                    Clear All
-                  </Button>
-                </div>
-                <p className="text-sm text-muted-foreground">
-                  Smart keyword generation focuses on your business name ({location.name}), location ({location.address?.locality}, {location.address?.administrativeArea}), and specific categories while filtering out generic terms like "quality service", "professional", etc.
-                </p>
-              </TabsContent>
-
-              {/* Custom Keywords Tab */}
-              <TabsContent value="custom" className="space-y-4">
-                <div className="flex flex-wrap gap-2 p-4 bg-green-50 rounded-lg border min-h-[120px]">
-                  {customKeywords.map((keyword, index) => (
+            <div className="space-y-4 mt-2">
+              {/* Keywords Display */}
+              <div className="flex flex-wrap gap-2 p-4 bg-gray-50 rounded-lg border min-h-[120px]">
+                {keywords.map((keyword, index) => {
+                  const defaultKeywords = generateDefaultKeywords();
+                  const isAutoGenerated = defaultKeywords.includes(keyword);
+                  
+                  return (
                     <div key={index} className="flex items-center gap-1">
-                      <Badge variant="outline" className="flex items-center gap-1">
-                        <Edit className="h-3 w-3" />
+                      <Badge 
+                        variant={isAutoGenerated ? "default" : "outline"}
+                        className="flex items-center gap-1"
+                      >
+                        {isAutoGenerated && <Hash className="h-3 w-3" />}
                         {keyword}
                         <button
                           type="button"
@@ -719,235 +610,80 @@ export function AutoPostingTab({ location }: AutoPostingTabProps) {
                         </button>
                       </Badge>
                     </div>
-                  ))}
-                  {customKeywords.length === 0 && (
-                    <p className="text-muted-foreground text-sm">No custom keywords added yet. Add your own keywords below.</p>
-                  )}
-                </div>
-                <div className="flex gap-2">
-                  <Input
-                    placeholder="Enter a custom keyword"
-                    value={newKeyword}
-                    onChange={(e) => setNewKeyword(e.target.value)}
-                    onKeyPress={(e) => {
-                      if (e.key === 'Enter') {
-                        e.preventDefault();
-                        addKeyword();
-                      }
-                    }}
-                    disabled={!config.enabled}
-                  />
-                  <Button 
-                    type="button" 
-                    onClick={addKeyword} 
-                    size="sm"
-                    disabled={!config.enabled || !newKeyword.trim()}
-                  >
-                    <Plus className="h-4 w-4" />
-                  </Button>
-                </div>
-                <p className="text-sm text-muted-foreground">
-                  Add custom keywords that represent your business, values, or specific services not covered by location/category keywords.
-                </p>
-              </TabsContent>
-            </Tabs>
-          </div>
+                  );
+                })}
+                {keywords.length === 0 && (
+                  <p className="text-muted-foreground text-sm">No keywords added yet. Click "Generate Keywords" to auto-populate based on your business profile.</p>
+                )}
+              </div>
 
-          <Separator />
-
-          {/* Button Configuration */}
-          <div>
-            <Label className="flex items-center gap-2">
-              <MousePointer className="h-4 w-4" />
-              Post Button Settings
-            </Label>
-            <div className="space-y-3 mt-2">
-              <div className="flex items-center space-x-2">
-                <Switch
-                  checked={config.button?.enabled ?? true}
-                  onCheckedChange={(enabled) => saveConfiguration({
-                    button: { ...config.button, enabled, type: config.button?.type || 'auto' }
-                  })}
+              {/* Add Custom Keyword */}
+              <div className="flex gap-2">
+                <Input
+                  placeholder="Enter custom keyword..."
+                  value={newKeyword}
+                  onChange={(e) => setNewKeyword(e.target.value)}
+                  onKeyPress={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      addKeyword();
+                    }
+                  }}
                   disabled={!config.enabled}
                 />
-                <span className="text-sm font-medium">
-                  Add buttons to posts
-                </span>
+                <Button 
+                  type="button" 
+                  onClick={addKeyword} 
+                  size="sm"
+                  disabled={!config.enabled || !newKeyword.trim()}
+                >
+                  <Plus className="h-4 w-4 mr-1" />
+                  Add Keyword
+                </Button>
               </div>
-              
-              {config.button?.enabled && (
-                <div className="space-y-3 ml-6">
-                  <div>
-                    <Label htmlFor="buttonType">Button Type</Label>
-                    <Select
-                      value={config.button?.type || 'auto'}
-                      onValueChange={(value: 'auto' | 'book' | 'order' | 'buy' | 'learn_more' | 'sign_up' | 'call') => 
-                        saveConfiguration({
-                          button: { ...config.button, enabled: config.button?.enabled ?? true, type: value }
-                        })
-                      }
-                      disabled={!config.enabled}
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="auto">🎯 Smart Selection (Recommended)</SelectItem>
-                        <SelectItem value="book">📅 Book</SelectItem>
-                        <SelectItem value="order">🍽️ Order Online</SelectItem>
-                        <SelectItem value="buy">🛒 Buy</SelectItem>
-                        <SelectItem value="learn_more">ℹ️ Learn More</SelectItem>
-                        <SelectItem value="sign_up">✍️ Sign Up</SelectItem>
-                        <SelectItem value="call">📞 Call Now</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
 
-                  {config.button?.type !== 'auto' && (
-                    <div>
-                      <Label htmlFor="buttonUrl">Button URL (Optional)</Label>
-                      <Input
-                        id="buttonUrl"
-                        type="url"
-                        placeholder={config.websiteUrl || "https://example.com"}
-                        value={config.button?.customUrl || ''}
-                        onChange={(e) => saveConfiguration({
-                          button: { ...config.button, enabled: config.button?.enabled ?? true, type: config.button?.type || 'learn_more', customUrl: e.target.value }
-                        })}
-                        disabled={!config.enabled}
-                      />
-                      <div className="text-xs text-muted-foreground mt-1">
-                        Leave empty to use website URL: {config.websiteUrl || 'Not set'}
-                      </div>
-                    </div>
-                  )}
-
-                  <div className="text-xs text-muted-foreground bg-blue-50 p-3 rounded-lg">
-                    {config.button?.type === 'auto' ? (
-                      <div>
-                        <strong>🎯 Smart Selection:</strong> Automatically chooses the best button based on your business category:
-                        <ul className="mt-1 ml-4 list-disc">
-                          <li>Restaurants → Order Online</li>
-                          <li>Salons/Health → Book Appointment</li>
-                          <li>Retail → Shop Now</li>
-                          <li>Education → Sign Up</li>
-                          <li>Others → Learn More</li>
-                        </ul>
-                      </div>
-                    ) : (
-                      `All posts will include a "${config.button?.type?.replace('_', ' ')}" button that redirects to your specified URL.`
-                    )}
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-
-          <Separator />
-
-          {/* Schedule Configuration */}
-          <div>
-            <Label className="flex items-center gap-2">
-              <Calendar className="h-4 w-4" />
-              Posting Schedule
-            </Label>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-2">
-              <div>
-                <Label htmlFor="frequency">Frequency</Label>
-                <Select
-                  value={config.schedule.frequency}
-                  onValueChange={handleFrequencyChange}
+              {/* Action Buttons */}
+              <div className="flex gap-2">
+                <Button 
+                  type="button" 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={generateAndSetKeywords}
                   disabled={!config.enabled}
                 >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="daily">Daily</SelectItem>
-                    <SelectItem value="alternative">Alternative Days</SelectItem>
-                    <SelectItem value="weekly">Weekly</SelectItem>
-                    <SelectItem value="custom">Custom Schedule</SelectItem>
-                    <SelectItem value="test30s">🧪 Test (30 seconds)</SelectItem>
-                  </SelectContent>
-                </Select>
+                  <RefreshCw className="h-4 w-4 mr-1" />
+                  Generate Keywords
+                </Button>
+                <Button 
+                  type="button" 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={cleanUpGenericKeywords}
+                  disabled={!config.enabled}
+                >
+                  <Sparkles className="h-4 w-4 mr-1" />
+                  Clean Generic
+                </Button>
+                <Button 
+                  type="button" 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={() => setKeywords([])}
+                  disabled={!config.enabled}
+                >
+                  <Trash2 className="h-4 w-4 mr-1" />
+                  Clear All
+                </Button>
               </div>
 
-              {config.schedule.frequency !== 'custom' && config.schedule.frequency !== 'test30s' && (
-                <div>
-                  <Label htmlFor="time">
-                    <Clock className="h-4 w-4 inline mr-1" />
-                    Post Time
-                  </Label>
-                  <Input
-                    id="time"
-                    type="time"
-                    value={config.schedule.time}
-                    onChange={(e) => handleTimeChange(e.target.value)}
-                    disabled={!config.enabled}
-                  />
-                </div>
-              )}
+              <p className="text-sm text-muted-foreground">
+                Smart keyword generation focuses on your business name ({location.name}), location ({location.address?.locality}, {location.address?.administrativeArea}), and specific categories while filtering out generic terms like "quality service", "professional", etc.
+              </p>
             </div>
-
-            {/* Custom Times */}
-            {config.schedule.frequency === 'custom' && (
-              <div className="mt-4">
-                <Label>Custom Post Times</Label>
-                <div className="space-y-2 mt-2">
-                  {customTimes.map((time, index) => (
-                    <div key={index} className="flex items-center gap-2">
-                      <Input
-                        type="time"
-                        value={time}
-                        onChange={(e) => {
-                          const newTimes = [...customTimes];
-                          newTimes[index] = e.target.value;
-                          handleCustomTimesChange(newTimes);
-                        }}
-                        disabled={!config.enabled}
-                      />
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={() => removeCustomTime(index)}
-                        disabled={!config.enabled || customTimes.length <= 1}
-                      >
-                        Remove
-                      </Button>
-                    </div>
-                  ))}
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={addCustomTime}
-                    disabled={!config.enabled}
-                  >
-                    Add Time
-                  </Button>
-                </div>
-              </div>
-            )}
-
-            {/* Test Mode Warning */}
-            {config.schedule.frequency === 'test30s' && (
-              <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
-                <div className="flex items-center gap-2 text-yellow-800">
-                  <TestTube className="h-4 w-4" />
-                  <strong>Test Mode Active</strong>
-                </div>
-                <p className="text-sm text-yellow-700 mt-1">
-                  Posts will be generated every 30 seconds. Remember to switch back to a normal schedule after testing!
-                </p>
-              </div>
-            )}
           </div>
 
-          <Separator />
-
           {/* Status and Actions */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4 border-t">
             <div>
               <Label>Next Post</Label>
               <div className="mt-1 p-2 bg-muted rounded text-sm">
@@ -973,7 +709,7 @@ export function AutoPostingTab({ location }: AutoPostingTabProps) {
           </div>
 
           {/* Test Button */}
-          <div className="flex gap-2">
+          <div className="flex gap-2 pt-2">
             <Button
               onClick={handleTestNow}
               disabled={!config.enabled || isTesting}
@@ -996,53 +732,205 @@ export function AutoPostingTab({ location }: AutoPostingTabProps) {
         </CardContent>
       </Card>
 
-      {/* Statistics */}
-      <Card>
+      {/* Post Button Settings */}
+      <Card className="shadow-sm">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <BarChart3 className="h-5 w-5" />
-            Location Statistics
+            <MousePointer className="h-5 w-5" />
+            Post Button Settings
           </CardTitle>
+          <CardDescription>
+            Configure call-to-action buttons for your posts
+          </CardDescription>
         </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <div className="text-center">
-              <div className="text-2xl font-bold">{config.stats.totalPosts}</div>
-              <div className="text-sm text-muted-foreground">Total Posts</div>
-            </div>
-            <div className="text-center">
-              <div className="text-2xl font-bold text-green-600">{config.stats.successfulPosts}</div>
-              <div className="text-sm text-muted-foreground">Successful</div>
-            </div>
-            <div className="text-center">
-              <div className="text-2xl font-bold text-red-600">{config.stats.failedPosts}</div>
-              <div className="text-sm text-muted-foreground">Failed</div>
-            </div>
-            <div className="text-center">
-              <div className="text-2xl font-bold">
-                {config.stats.totalPosts > 0 ? Math.round((config.stats.successfulPosts / config.stats.totalPosts) * 100) : 0}%
-              </div>
-              <div className="text-sm text-muted-foreground">Success Rate</div>
-            </div>
+        <CardContent className="space-y-4">
+          <div className="flex items-center space-x-2">
+            <Switch
+              checked={config.button?.enabled ?? true}
+              onCheckedChange={(enabled) => saveConfiguration({
+                button: { ...config.button, enabled, type: config.button?.type || 'auto' }
+              })}
+              disabled={!config.enabled}
+            />
+            <span className="text-sm font-medium">
+              Add buttons to posts
+            </span>
           </div>
           
-          {config.lastPost && (
-            <div className="mt-4 pt-4 border-t">
-              <div className="text-sm text-muted-foreground">
-                Last post: {new Date(config.lastPost).toLocaleString()}
-                {config.stats.lastPostStatus && (
-                  <Badge 
-                    variant={config.stats.lastPostStatus === 'success' ? 'default' : 'destructive'} 
-                    className="ml-2"
-                  >
-                    {config.stats.lastPostStatus === 'success' ? '✅ Success' : '❌ Failed'}
-                  </Badge>
+          {config.button?.enabled && (
+            <div className="space-y-4">
+              <div>
+                <Label htmlFor="buttonType">Button Type</Label>
+                <Select
+                  value={config.button?.type || 'auto'}
+                  onValueChange={(value: 'auto' | 'book' | 'order' | 'buy' | 'learn_more' | 'sign_up' | 'call') => 
+                    saveConfiguration({
+                      button: { ...config.button, enabled: config.button?.enabled ?? true, type: value }
+                    })
+                  }
+                  disabled={!config.enabled}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="auto">🎯 Smart Selection (Recommended)</SelectItem>
+                    <SelectItem value="book">📅 Book</SelectItem>
+                    <SelectItem value="order">🍽️ Order Online</SelectItem>
+                    <SelectItem value="buy">🛒 Buy</SelectItem>
+                    <SelectItem value="learn_more">ℹ️ Learn More</SelectItem>
+                    <SelectItem value="sign_up">✍️ Sign Up</SelectItem>
+                    <SelectItem value="call">📞 Call Now</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {config.button?.type !== 'auto' && (
+                <div>
+                  <Label htmlFor="buttonUrl">Button URL (Optional)</Label>
+                  <Input
+                    id="buttonUrl"
+                    type="url"
+                    placeholder={config.websiteUrl || "https://example.com"}
+                    value={config.button?.customUrl || ''}
+                    onChange={(e) => saveConfiguration({
+                      button: { ...config.button, enabled: config.button?.enabled ?? true, type: config.button?.type || 'learn_more', customUrl: e.target.value }
+                    })}
+                    disabled={!config.enabled}
+                  />
+                  <div className="text-xs text-muted-foreground mt-1">
+                    Leave empty to use website URL: {config.websiteUrl || 'Not set'}
+                  </div>
+                </div>
+              )}
+
+              <div className="text-xs text-muted-foreground bg-blue-50 p-3 rounded-lg">
+                {config.button?.type === 'auto' ? (
+                  <div>
+                    <strong>🎯 Smart Selection:</strong> Automatically chooses the best button based on your business category:
+                    <ul className="mt-1 ml-4 list-disc">
+                      <li>Restaurants → Order Online</li>
+                      <li>Salons/Health → Book Appointment</li>
+                      <li>Retail → Shop Now</li>
+                      <li>Education → Sign Up</li>
+                      <li>Others → Learn More</li>
+                    </ul>
+                  </div>
+                ) : (
+                  `All posts will include a "${config.button?.type?.replace('_', ' ')}" button that redirects to your specified URL.`
                 )}
               </div>
             </div>
           )}
         </CardContent>
       </Card>
+
+      {/* Posting Schedule */}
+      <Card className="shadow-sm">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Calendar className="h-5 w-5" />
+            Posting Schedule
+          </CardTitle>
+          <CardDescription>
+            Set when and how often to publish posts
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <Label htmlFor="frequency">Frequency</Label>
+              <Select
+                value={config.schedule.frequency}
+                onValueChange={handleFrequencyChange}
+                disabled={!config.enabled}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="daily">Daily</SelectItem>
+                  <SelectItem value="alternative">Alternative Days</SelectItem>
+                  <SelectItem value="weekly">Weekly</SelectItem>
+                  <SelectItem value="custom">Custom Schedule</SelectItem>
+                  <SelectItem value="test30s">🧪 Test (30 seconds)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {config.schedule.frequency !== 'custom' && config.schedule.frequency !== 'test30s' && (
+              <div>
+                <Label htmlFor="time">
+                  <Clock className="h-4 w-4 inline mr-1" />
+                  Post Time
+                </Label>
+                <Input
+                  id="time"
+                  type="time"
+                  value={config.schedule.time}
+                  onChange={(e) => handleTimeChange(e.target.value)}
+                  disabled={!config.enabled}
+                />
+              </div>
+            )}
+          </div>
+
+          {/* Custom Times */}
+          {config.schedule.frequency === 'custom' && (
+            <div>
+              <Label>Custom Post Times</Label>
+              <div className="space-y-2 mt-2">
+                {customTimes.map((time, index) => (
+                  <div key={index} className="flex items-center gap-2">
+                    <Input
+                      type="time"
+                      value={time}
+                      onChange={(e) => {
+                        const newTimes = [...customTimes];
+                        newTimes[index] = e.target.value;
+                        handleCustomTimesChange(newTimes);
+                      }}
+                      disabled={!config.enabled}
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => removeCustomTime(index)}
+                      disabled={!config.enabled || customTimes.length <= 1}
+                    >
+                      Remove
+                    </Button>
+                  </div>
+                ))}
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={addCustomTime}
+                  disabled={!config.enabled}
+                >
+                  Add Time
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {/* Test Mode Warning */}
+          {config.schedule.frequency === 'test30s' && (
+            <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+              <div className="flex items-center gap-2 text-yellow-800">
+                <TestTube className="h-4 w-4" />
+                <strong>Test Mode Active</strong>
+              </div>
+              <p className="text-sm text-yellow-700 mt-1">
+                Posts will be generated every 30 seconds. Remember to switch back to a normal schedule after testing!
+              </p>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
     </div>
   );
 }

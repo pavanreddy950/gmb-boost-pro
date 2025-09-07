@@ -11,7 +11,9 @@
     "preview": "vite preview",
     "build:production": "npm run build && npm run server:install",
     "server:install": "cd server && npm install --omit=dev",
-    "start:production": "cd server && NODE_ENV=production npm start"
+    "start:production": "cd server && NODE_ENV=production npm start",
+    "env:localhost": "ren .env.local .env.local.backup && ren .env.azure .env.local",
+    "env:azure": "ren .env.local .env.azure && ren .env.local.backup .env.local"
   },
   "dependencies": {
     "@google-cloud/local-auth": "^3.0.1",

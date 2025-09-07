@@ -26,16 +26,17 @@ const Dashboard = () => {
           {/* Interactive button overlay positioned over the banner button */}
           <Link 
             to="/dashboard/settings" 
-            className="absolute bottom-4 left-1/2 transform -translate-x-1/2 sm:left-auto sm:transform-none"
+            className="absolute"
             style={{
-              left: 'clamp(20px, 10%, 110px)',
-              bottom: '10%',
-              width: 'clamp(140px, 20%, 180px)',
-              height: 'clamp(35px, 8%, 45px)'
+              left: '19%',
+              top: '68%',
+              transform: 'translateY(-50%)',
+              width: '180px',
+              height: '42px'
             }}
           >
             <Button 
-              className="w-full h-full bg-white hover:bg-gray-100 font-medium text-xs sm:text-sm rounded-lg border-0 shadow-lg transition-all duration-200"
+              className="w-full h-full bg-white hover:bg-gray-100 font-medium text-sm rounded-lg border-0 shadow-lg transition-all duration-200"
               style={{
                 color: '#1B29CB'
               }}
@@ -86,15 +87,15 @@ const Dashboard = () => {
             to="/dashboard/settings" 
             className="absolute"
             style={{
-              left: 'clamp(20px, 10%, 110px)',
-              top: '60%',
+              left: '19%',
+              top: '68%',
               transform: 'translateY(-50%)',
-              width: 'clamp(140px, 20%, 180px)',
-              height: 'clamp(35px, 8%, 45px)'
+              width: '180px',
+              height: '42px'
             }}
           >
             <Button 
-              className="w-full h-full bg-white hover:bg-gray-100 font-medium text-xs sm:text-sm rounded-lg border-0 shadow-lg transition-all duration-200"
+              className="w-full h-full bg-white hover:bg-gray-100 font-medium text-sm rounded-lg border-0 shadow-lg transition-all duration-200"
               style={{
                 color: '#1B29CB'
               }}
