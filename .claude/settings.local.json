@@ -28,7 +28,8 @@
       "Bash(npm run lint)",
       "Bash(npm run build:*)",
       "Bash(tasklist:*)",
-      "Bash(npm install:*)"
+      "Bash(npm install:*)",
+      "Bash(npx kill-port:*)"
     ],
     "deny": [],
     "ask": []
