@@ -2,10 +2,10 @@ import fetch from 'node-fetch';
 
 class AIReviewService {
   constructor() {
-    this.azureEndpoint = process.env.AZURE_OPENAI_ENDPOINT || 'https://gmbboostpro.openai.azure.com/';
-    this.apiKey = process.env.AZURE_OPENAI_API_KEY || '60b5e15c026747639e487fb4bc17f0fe';
-    this.deploymentName = 'gpt-4o-mini';
-    this.apiVersion = '2024-08-01-preview';
+    this.azureEndpoint = process.env.AZURE_OPENAI_ENDPOINT || 'https://agentplus.openai.azure.com/';
+    this.apiKey = process.env.AZURE_OPENAI_API_KEY || '1TPW16ifwPJccSiQPSHq63nU7IcT6R9DrduIHBYwCm5jbUWiSbkLJQQJ99BDACYeBjFXJ3w3AAABACOG3Yia';
+    this.deploymentName = process.env.AZURE_OPENAI_DEPLOYMENT || 'gpt-4o';
+    this.apiVersion = process.env.AZURE_OPENAI_API_VERSION || '2024-02-15-preview';
   }
 
   async generateReviewSuggestions(businessName, location, businessType = 'business') {

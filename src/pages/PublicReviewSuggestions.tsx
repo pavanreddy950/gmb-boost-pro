@@ -83,46 +83,22 @@ const PublicReviewSuggestions = () => {
       } else {
         const errorText = await response.text();
         console.error('AI reviews error response:', errorText);
-        // Use fallback reviews if API fails
-        setAiReviews(getFallbackReviews());
+        toast({
+          title: "Unable to load review suggestions",
+          description: "Please try again later or write your own review.",
+          variant: "destructive"
+        });
       }
     } catch (error) {
       console.error('Error fetching AI reviews:', error);
-      // Use fallback reviews on network error
-      setAiReviews(getFallbackReviews());
+      toast({
+        title: "Connection error",
+        description: "Unable to load review suggestions. Please check your connection.",
+        variant: "destructive"
+      });
     } finally {
       setLoading(false);
     }
-  };
-  
-  const getFallbackReviews = () => {
-    const businessNameDecoded = decodeURIComponent(businessName);
-    const locationDecoded = decodeURIComponent(location);
-    const locationPhrase = locationDecoded && locationDecoded !== 'Location' ? ` in ${locationDecoded}` : '';
-    
-    return [
-      {
-        id: 'fallback_1',
-        review: `Had an amazing experience at ${businessNameDecoded}${locationPhrase}! The service was exceptional and the staff went above and beyond to ensure customer satisfaction. Highly recommend!`,
-        rating: 5,
-        focus: 'service',
-        length: 'medium'
-      },
-      {
-        id: 'fallback_2',
-        review: `${businessNameDecoded} provides excellent quality and value. Professional team, quick service, and attention to detail. Will definitely be returning!`,
-        rating: 5,
-        focus: 'quality',
-        length: 'short'
-      },
-      {
-        id: 'fallback_3',
-        review: `Very impressed with ${businessNameDecoded}${locationPhrase}. From start to finish, everything was handled professionally. The team is knowledgeable, friendly, and delivers great results. Couldn't be happier with the experience!`,
-        rating: 5,
-        focus: 'experience',
-        length: 'long'
-      }
-    ];
   };
   
   const copyReviewToClipboard = async (review: string, reviewId: string) => {
