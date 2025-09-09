@@ -164,10 +164,10 @@ class GoogleBusinessProfileService {
           const tokens: StoredGoogleTokens = {
             access_token: tokenResponse.access_token,
             token_type: 'Bearer',
-            expires_in: tokenResponse.expires_in,
+            expires_in: tokenResponse.expires_in || 3600, // Default to 1 hour if not provided
             scope: tokenResponse.scope,
             stored_at: Date.now(),
-            expires_at: Date.now() + (tokenResponse.expires_in * 1000)
+            expires_at: Date.now() + ((tokenResponse.expires_in || 3600) * 1000)
           };
 
           // Store in localStorage (existing functionality - don't break anything)
@@ -353,9 +353,86 @@ class GoogleBusinessProfileService {
     }
   }
 
+  // Check if token is expired or about to expire (within 5 minutes)
+  isTokenExpired(): boolean {
+    const tokens = localStorage.getItem('google_business_tokens');
+    if (!tokens) return true;
+    
+    try {
+      const parsed = JSON.parse(tokens);
+      const expiresAt = parsed.expires_at || (parsed.stored_at + (parsed.expires_in * 1000));
+      const now = Date.now();
+      const fiveMinutes = 5 * 60 * 1000;
+      
+      // Token is expired or will expire in the next 5 minutes
+      return now >= (expiresAt - fiveMinutes);
+    } catch {
+      return true;
+    }
+  }
+
+  // Silently refresh the access token
+  async refreshAccessToken(): Promise<void> {
+    return new Promise((resolve, reject) => {
+      if (!window.google?.accounts?.oauth2) {
+        reject(new Error('Google Identity Services not loaded'));
+        return;
+      }
+
+      console.log('🔄 Refreshing Google access token...');
+      
+      const client = window.google.accounts.oauth2.initTokenClient({
+        client_id: this.clientId,
+        scope: SCOPES.join(' '),
+        prompt: '', // Silent refresh - no user interaction
+        callback: (tokenResponse: any) => {
+          if (tokenResponse.error) {
+            console.error('❌ Token refresh failed:', tokenResponse.error);
+            reject(new Error(`Token refresh failed: ${tokenResponse.error}`));
+            return;
+          }
+
+          console.log('✅ Token refreshed successfully');
+          this.accessToken = tokenResponse.access_token;
+
+          // Update stored tokens
+          const tokens: StoredGoogleTokens = {
+            access_token: tokenResponse.access_token,
+            token_type: 'Bearer',
+            expires_in: tokenResponse.expires_in || 3600,
+            scope: tokenResponse.scope,
+            stored_at: Date.now(),
+            expires_at: Date.now() + ((tokenResponse.expires_in || 3600) * 1000)
+          };
+
+          localStorage.setItem('google_business_tokens', JSON.stringify(tokens));
+          localStorage.setItem('google_business_connection_time', Date.now().toString());
+          
+          // Update Firestore if available
+          this.storeTokensInFirestore(tokens);
+          
+          resolve();
+        },
+      });
+
+      client.requestAccessToken();
+    });
+  }
+
+  // Ensure token is valid before making API calls
+  async ensureValidToken(): Promise<void> {
+    if (this.isTokenExpired()) {
+      console.log('Token expired or expiring soon, refreshing...');
+      await this.refreshAccessToken();
+    }
+  }
+
   // Get all business accounts via backend to avoid CORS (with timeout)
   async getBusinessAccounts(): Promise<BusinessAccount[]> {
     try {
+      // Ensure token is valid before making the request
+      await this.ensureValidToken();
+      
       if (!this.accessToken) {
         throw new Error('No access token available');
       }
@@ -383,6 +460,35 @@ class GoogleBusinessProfileService {
       if (!response.ok) {
         const errorData = await response.json();
         console.error('Backend accounts API error:', errorData);
+        
+        // If we get a 401, try to refresh the token once
+        if (response.status === 401) {
+          console.log('Got 401, attempting to refresh token...');
+          try {
+            await this.refreshAccessToken();
+            // Retry the request with the new token
+            const retryResponse = await fetch(`${this.backendUrl}/api/accounts?_t=${Date.now()}`, {
+              method: 'GET',
+              headers: {
+                'Authorization': `Bearer ${this.accessToken}`,
+                'Content-Type': 'application/json',
+              },
+            });
+            
+            if (retryResponse.ok) {
+              const data = await retryResponse.json();
+              console.log('Retry successful after token refresh');
+              const accounts = data.accounts || [];
+              if (accounts.length === 0) {
+                throw new Error('No Google Business Profile accounts found.');
+              }
+              return accounts;
+            }
+          } catch (refreshError) {
+            console.error('Token refresh failed:', refreshError);
+            throw new Error('Authentication expired. Please reconnect your Google Business Profile.');
+          }
+        }
         
         if (response.status === 403) {
           throw new Error('Access denied. Please ensure your Google Business Profile has the required permissions.');

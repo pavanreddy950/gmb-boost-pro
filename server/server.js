@@ -5,6 +5,12 @@ import fetch from 'node-fetch';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import config from './config.js';
+import paymentRoutes from './routes/payment.js';
+import aiReviewsRoutes from './routes/aiReviews.js';
+import reviewLinkRoutes from './routes/reviewLink.js';
+import googleReviewLinkRoutes from './routes/googleReviewLink.js';
+import { checkSubscription, trackTrialStart, addTrialHeaders } from './middleware/subscriptionCheck.js';
+import SubscriptionService from './services/subscriptionService.js';
 
 // Configuration is now managed by config.js
 // All hardcoded values have been moved to .env files
@@ -45,6 +51,9 @@ if (process.env.NODE_ENV === 'production') {
 
 // In-memory token storage (use a database in production)
 const tokenStore = new Map();
+
+// Initialize subscription service
+const subscriptionService = new SubscriptionService();
 
 // Function to refresh access token when expired
 async function refreshAccessToken(refreshToken) {
@@ -99,6 +108,31 @@ const SCOPES = [
   'profile',
   'email'
 ];
+
+// Payment routes (no subscription check needed)
+app.use('/api/payment', paymentRoutes);
+app.use('/api/ai-reviews', aiReviewsRoutes);
+app.use('/api/review-link', reviewLinkRoutes);
+app.use('/api/google-review', googleReviewLinkRoutes);
+
+// Apply subscription check middleware to all routes
+// This will enforce payment after 15-day trial expiry
+app.use((req, res, next) => {
+  // Skip certain routes that don't need subscription check
+  const exemptRoutes = ['/health', '/config', '/auth'];
+  if (exemptRoutes.some(route => req.path.startsWith(route))) {
+    return next();
+  }
+  
+  // Apply subscription check for all API routes
+  checkSubscription(req, res, next);
+});
+
+// Track trial start when GBP is connected
+app.use('/auth/google/callback', trackTrialStart);
+
+// Add trial headers to all responses
+app.use(addTrialHeaders);
 
 // Health check endpoint
 app.get('/health', (req, res) => {
@@ -176,6 +210,34 @@ app.post('/auth/google/callback', async (req, res) => {
       timestamp: Date.now()
     });
 
+    // Check if user has a Google Business Profile account
+    try {
+      // Get accounts to extract GBP Account ID
+      oauth2Client.setCredentials(tokens);
+      const mybusiness = google.mybusinessaccountmanagement({ 
+        version: 'v1', 
+        auth: oauth2Client 
+      });
+      
+      const accountsResponse = await mybusiness.accounts.list();
+      const accounts = accountsResponse.data.accounts || [];
+      
+      // If user has GBP accounts, create trial subscription for the first one
+      if (accounts.length > 0) {
+        const gbpAccountId = accounts[0].name.split('/')[1];
+        console.log('Creating trial subscription for GBP account:', gbpAccountId);
+        
+        // Create trial subscription
+        await subscriptionService.createTrialSubscription(
+          userId,
+          gbpAccountId,
+          userInfo.data.email
+        );
+      }
+    } catch (gbpError) {
+      console.error('Error checking GBP accounts for trial setup:', gbpError);
+    }
+    
     // Return tokens and user info to frontend
     res.json({
       success: true,
@@ -1388,4 +1450,4 @@ app.listen(PORT, () => {
 });
 
 
-// restart
+// restart - reload with Razorpay on port 5002

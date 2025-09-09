@@ -1,0 +1,68 @@
+import express from 'express';
+import AIReviewService from '../services/aiReviewService.js';
+
+const router = express.Router();
+const aiReviewService = new AIReviewService();
+
+// Generate AI review suggestions
+router.post('/generate', async (req, res) => {
+  try {
+    const { businessName, location, businessType } = req.body;
+    
+    if (!businessName || !location) {
+      return res.status(400).json({ 
+        error: 'Business name and location are required' 
+      });
+    }
+    
+    console.log(`[AI Reviews] Generating suggestions for ${businessName} in ${location}`);
+    
+    const suggestions = await aiReviewService.generateReviewSuggestions(
+      businessName, 
+      location, 
+      businessType
+    );
+    
+    res.json({ 
+      success: true,
+      suggestions,
+      generatedAt: new Date().toISOString()
+    });
+  } catch (error) {
+    console.error('Error generating review suggestions:', error);
+    res.status(500).json({ 
+      error: 'Failed to generate review suggestions',
+      message: error.message 
+    });
+  }
+});
+
+// Generate review link for a specific place
+router.post('/review-link', async (req, res) => {
+  try {
+    const { placeId, businessName, location } = req.body;
+    
+    let reviewLink;
+    if (placeId) {
+      reviewLink = aiReviewService.generateReviewLink(placeId);
+    } else if (businessName && location) {
+      reviewLink = aiReviewService.generateMapsSearchLink(businessName, location);
+    } else {
+      return res.status(400).json({ 
+        error: 'Either placeId or businessName and location are required' 
+      });
+    }
+    
+    res.json({ 
+      success: true,
+      reviewLink 
+    });
+  } catch (error) {
+    console.error('Error generating review link:', error);
+    res.status(500).json({ 
+      error: 'Failed to generate review link' 
+    });
+  }
+});
+
+export default router;

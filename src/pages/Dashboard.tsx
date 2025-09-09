@@ -1,18 +1,30 @@
-import React from "react";
+import React, { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Building2, MapPin, Star, Calendar, ArrowRight, Settings, AlertCircle } from "lucide-react";
+import { Plus, Building2, MapPin, Star, Calendar, ArrowRight, Settings, AlertCircle, CreditCard } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useGoogleBusinessProfile } from "@/hooks/useGoogleBusinessProfile";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
+import { TrialBanner } from "@/components/TrialBanner";
+import { PaymentModal } from "@/components/PaymentModal";
+import { useSubscription } from "@/contexts/SubscriptionContext";
 
 const Dashboard = () => {
   const { isConnected, accounts: profiles, isLoading } = useGoogleBusinessProfile();
+  const subscription = useSubscription();
+  const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
+  
+  // Safely destructure subscription context
+  const subscriptionStatus = subscription?.status || 'none';
+  const daysRemaining = subscription?.daysRemaining || null;
+  const isFeatureBlocked = subscription?.isFeatureBlocked || false;
 
   console.log('Dashboard: isConnected =', isConnected);
   console.log('Dashboard: profiles =', profiles);
   console.log('Dashboard: isLoading =', isLoading);
+  console.log('Dashboard: subscriptionStatus =', subscriptionStatus);
+  console.log('Dashboard: daysRemaining =', daysRemaining);
 
   if (isLoading) {
     return (
@@ -23,28 +35,30 @@ const Dashboard = () => {
             alt="Upgrade Plan Banner" 
             className="w-full max-w-4xl h-auto"
           />
-          {/* Interactive button overlay positioned over the banner button */}
-          <Link 
-            to="/dashboard/settings" 
-            className="absolute"
-            style={{
-              left: '19%',
-              top: '68%',
-              transform: 'translateY(-50%)',
-              width: '180px',
-              height: '42px'
-            }}
-          >
-            <Button 
-              className="w-full h-full bg-white hover:bg-gray-100 font-medium text-sm rounded-lg border-0 shadow-lg transition-all duration-200"
+          {/* Interactive button overlay - attached to banner with responsive positioning */}
+          <div className="absolute inset-0 flex items-center max-w-4xl mx-auto">
+            <Link 
+              to="/dashboard/settings" 
+              className="absolute"
               style={{
-                color: '#1B29CB'
+                left: 'clamp(15%, 15.5vw, 19.5%)',
+                top: 'clamp(55%, 60vh, 62%)',
+                transform: 'translateY(-50%)'
               }}
             >
-              <span className="hidden sm:inline">Connect Your GBP</span>
-              <span className="sm:hidden">Connect GBP</span>
-            </Button>
-          </Link>
+              <Button 
+                className="bg-white hover:bg-gray-100 font-medium rounded-lg border-0 shadow-lg transition-all duration-200 whitespace-nowrap"
+                style={{
+                  color: '#1B29CB',
+                  fontSize: 'clamp(10px, 2.5vw, 14px)',
+                  padding: 'clamp(6px, 1.5vw, 12px) clamp(12px, 3vw, 24px)'
+                }}
+              >
+                <span className="hidden sm:inline">Connect Your GBP</span>
+                <span className="sm:hidden">Connect GBP</span>
+              </Button>
+            </Link>
+          </div>
         </div>
         
         <div className="flex flex-col items-center justify-center py-16 space-y-4">
@@ -82,28 +96,30 @@ const Dashboard = () => {
             alt="Upgrade Plan Banner" 
             className="w-full max-w-4xl h-auto"
           />
-          {/* Interactive button overlay positioned over the banner button */}
-          <Link 
-            to="/dashboard/settings" 
-            className="absolute"
-            style={{
-              left: '19%',
-              top: '68%',
-              transform: 'translateY(-50%)',
-              width: '180px',
-              height: '42px'
-            }}
-          >
-            <Button 
-              className="w-full h-full bg-white hover:bg-gray-100 font-medium text-sm rounded-lg border-0 shadow-lg transition-all duration-200"
+          {/* Interactive button overlay - attached to banner with responsive positioning */}
+          <div className="absolute inset-0 flex items-center max-w-4xl mx-auto">
+            <Link 
+              to="/dashboard/settings" 
+              className="absolute"
               style={{
-                color: '#1B29CB'
+                left: 'clamp(15%, 15.5vw, 19.5%)',
+                top: 'clamp(55%, 60vh, 62%)',
+                transform: 'translateY(-50%)'
               }}
             >
-              <span className="hidden sm:inline">Connect Your GBP</span>
-              <span className="sm:hidden">Connect GBP</span>
-            </Button>
-          </Link>
+              <Button 
+                className="bg-white hover:bg-gray-100 font-medium rounded-lg border-0 shadow-lg transition-all duration-200 whitespace-nowrap"
+                style={{
+                  color: '#1B29CB',
+                  fontSize: 'clamp(10px, 2.5vw, 14px)',
+                  padding: 'clamp(6px, 1.5vw, 12px) clamp(12px, 3vw, 24px)'
+                }}
+              >
+                <span className="hidden sm:inline">Connect Your GBP</span>
+                <span className="sm:hidden">Connect GBP</span>
+              </Button>
+            </Link>
+          </div>
         </div>
         
         <div className="flex flex-col items-center justify-center min-h-[400px] text-center">
@@ -129,7 +145,15 @@ const Dashboard = () => {
   const totalLocations = totalProfiles;
 
   return (
-    <div className="space-y-6">
+    <>
+      {/* Trial Banner */}
+      {(subscriptionStatus === 'trial' || subscriptionStatus === 'expired') && (
+        <div className="-mx-6 -mt-6 mb-6">
+          <TrialBanner />
+        </div>
+      )}
+      
+      <div className="space-y-6">
 
       {/* Header with Manage Profiles text and Create Post button */}
       <div className="flex justify-between items-center gap-2">
@@ -148,6 +172,32 @@ const Dashboard = () => {
           </Link>
         </div>
       </div>
+
+      {/* Feature Blocked Alert */}
+      {isFeatureBlocked && (
+        <Card className="border-red-200 bg-red-50 mb-4">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-3">
+                <AlertCircle className="h-5 w-5 text-red-600" />
+                <div>
+                  <p className="font-medium text-red-900">Trial Expired - Upgrade Required</p>
+                  <p className="text-sm text-red-700 mt-1">
+                    Your trial has expired. Upgrade now to continue managing your Google Business Profiles.
+                  </p>
+                </div>
+              </div>
+              <Button 
+                onClick={() => setIsPaymentModalOpen(true)}
+                className="bg-red-600 hover:bg-red-700"
+              >
+                <CreditCard className="mr-2 h-4 w-4" />
+                Upgrade Now
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Stats Cards */}
       <div className="grid gap-3 sm:gap-4 grid-cols-2 lg:grid-cols-4">
@@ -326,6 +376,13 @@ const Dashboard = () => {
         )}
       </div>
     </div>
+      
+      {/* Payment Modal */}
+      <PaymentModal 
+        isOpen={isPaymentModalOpen}
+        onClose={() => setIsPaymentModalOpen(false)}
+      />
+    </>
   );
 };
 

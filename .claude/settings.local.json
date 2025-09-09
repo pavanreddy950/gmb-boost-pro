@@ -26,7 +26,9 @@
       "Bash(npm run start:azure:*)",
       "Bash(ren:*)",
       "Bash(npm run lint)",
-      "Bash(npm run build:*)"
+      "Bash(npm run build:*)",
+      "Bash(tasklist:*)",
+      "Bash(npm install:*)"
     ],
     "deny": [],
     "ask": []

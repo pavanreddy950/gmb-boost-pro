@@ -1,4 +1,4 @@
-import { NavLink, useLocation, useNavigate } from "react-router-dom";
+import { NavLink, useLocation, useNavigate, Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { 
@@ -11,7 +11,8 @@ import {
   MessageSquarePlus,
   Users,
   X,
-  Crown
+  Crown,
+  CreditCard
 } from "lucide-react";
 
 interface SidebarProps {
@@ -28,6 +29,7 @@ const Sidebar = ({ isOpen = false, onClose }: SidebarProps) => {
     { label: "Posts", href: "/dashboard/posts", icon: FileText },
     { label: "Reviews", href: "/dashboard/reviews", icon: Star },
     { label: "Audit Tool", href: "/dashboard/audit", icon: Search },
+    { label: "Billing", href: "/dashboard/billing", icon: CreditCard },
   ];
 
   const isActive = (href: string) => {
@@ -136,7 +138,7 @@ const Sidebar = ({ isOpen = false, onClose }: SidebarProps) => {
       </nav>
 
       {/* Bottom CTA Section */}
-      <div className="absolute bottom-4 left-4 right-4 space-y-3">
+      <div className="absolute bottom-4 left-4 right-4">
         {/* Ask for Reviews */}
         <div className="bg-gradient-primary p-3 sm:p-4 rounded-lg text-primary-foreground shadow-lg">
           <div className="flex items-center gap-3 mb-3">
@@ -146,10 +148,8 @@ const Sidebar = ({ isOpen = false, onClose }: SidebarProps) => {
           <p className="text-xs sm:text-sm opacity-90 mb-3">
             Generate QR codes for easy reviews
           </p>
-          <a 
-            href="https://demo.scalepointstrategy.com/qr" 
-            target="_blank" 
-            rel="noopener noreferrer"
+          <Link 
+            to="/dashboard/ask-for-reviews"
             className="block w-full"
           >
             <Button 
@@ -159,29 +159,7 @@ const Sidebar = ({ isOpen = false, onClose }: SidebarProps) => {
             >
               Generate QR
             </Button>
-          </a>
-        </div>
-
-        {/* Divider */}
-        <div className="h-px bg-border/50"></div>
-
-        {/* Payment CTA */}
-        <div className="bg-gradient-to-r from-yellow-500 to-yellow-600 p-3 sm:p-4 rounded-lg text-white shadow-lg">
-          <div className="flex items-center gap-3 mb-3">
-            <Crown className="h-5 w-5 sm:h-6 sm:w-6" />
-            <h3 className="font-semibold text-sm sm:text-base">Upgrade to Pro</h3>
-          </div>
-          <p className="text-xs sm:text-sm opacity-90 mb-3">
-            You're on a 15-day free trial. Upgrade now to keep growing your business!
-          </p>
-          <Button 
-            onClick={() => navigate('/dashboard/upgrade')}
-            variant="secondary" 
-            size="sm" 
-            className="w-full text-yellow-600 hover:bg-white/90 text-xs sm:text-sm font-medium"
-          >
-            Upgrade Now
-          </Button>
+          </Link>
         </div>
       </div>
     </div>

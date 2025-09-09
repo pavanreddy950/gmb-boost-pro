@@ -61,6 +61,49 @@ export const useGoogleBusinessProfile = (): UseGoogleBusinessProfileReturn => {
     }
   }, [toast]);
 
+  // Set up automatic token refresh interval
+  useEffect(() => {
+    if (!isConnected) return;
+    
+    // Check and refresh token every 45 minutes (tokens expire after 60 minutes)
+    const refreshInterval = setInterval(async () => {
+      try {
+        console.log('⏰ Checking token expiry...');
+        if (googleBusinessProfileService.isTokenExpired()) {
+          console.log('🔄 Token expired or expiring soon, refreshing...');
+          await googleBusinessProfileService.refreshAccessToken();
+          toast({
+            title: "Connection refreshed",
+            description: "Your Google Business Profile connection has been renewed.",
+          });
+        }
+      } catch (error) {
+        console.error('Failed to refresh token:', error);
+        // If refresh fails, the connection is lost
+        setIsConnected(false);
+        toast({
+          title: "Connection lost",
+          description: "Please reconnect your Google Business Profile.",
+          variant: "destructive",
+        });
+      }
+    }, 45 * 60 * 1000); // 45 minutes
+    
+    // Also check immediately when component mounts
+    const checkToken = async () => {
+      try {
+        if (googleBusinessProfileService.isTokenExpired()) {
+          await googleBusinessProfileService.refreshAccessToken();
+        }
+      } catch (error) {
+        console.error('Initial token refresh failed:', error);
+      }
+    };
+    checkToken();
+    
+    return () => clearInterval(refreshInterval);
+  }, [isConnected, toast]);
+
   // Initialize and check existing connection
   useEffect(() => {
     const initializeConnection = async () => {

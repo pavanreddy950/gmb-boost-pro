@@ -577,17 +577,17 @@ const Reviews = () => {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Reviews</h1>
-          <p className="text-muted-foreground mt-1">
+          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Reviews</h1>
+          <p className="text-sm sm:text-base text-muted-foreground mt-1">
             Manage customer reviews across all your business profiles
           </p>
         </div>
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3 sm:gap-4">
         <Card className="shadow-card border border-border">
           <CardContent className="pt-6">
             <div className="text-2xl font-bold">{stats.total}</div>
@@ -635,16 +635,17 @@ const Reviews = () => {
         <CardContent className="pt-6">
           <div className="space-y-4">
             {/* Search, Refresh, and Export */}
-            <div className="flex items-center gap-4">
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-4">
               <div className="relative flex-1">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
-                  placeholder="Search reviews by content, author, or location..."
+                  placeholder="Search reviews..."
                   value={filters.search}
                   onChange={(e) => updateFilter('search', e.target.value)}
-                  className="pl-10"
+                  className="pl-10 text-sm"
                 />
               </div>
+              <div className="flex items-center gap-3 sm:gap-4">
               <TooltipProvider>
                 <Tooltip>
                   <TooltipTrigger asChild>
@@ -663,8 +664,8 @@ const Reviews = () => {
               
               {/* Export Dropdown */}
               <Select onValueChange={(value) => value && exportReviews(value as 'csv' | 'json')}>
-                <SelectTrigger className="w-36">
-                  <Download className="mr-2 h-4 w-4" />
+                <SelectTrigger className="w-32 sm:w-36">
+                  <Download className="mr-1 sm:mr-2 h-4 w-4" />
                   <SelectValue placeholder="Export" />
                 </SelectTrigger>
                 <SelectContent>
@@ -672,13 +673,14 @@ const Reviews = () => {
                   <SelectItem value="json">Export JSON</SelectItem>
                 </SelectContent>
               </Select>
+              </div>
             </div>
             
             {/* Filter Row */}
-            <div className="flex flex-wrap gap-3">
+            <div className="flex flex-wrap gap-2 sm:gap-3">
               <Select value={filters.rating} onValueChange={(value) => updateFilter('rating', value)}>
-                <SelectTrigger className="w-36">
-                  <Filter className="mr-2 h-4 w-4" />
+                <SelectTrigger className="w-28 sm:w-36">
+                  <Filter className="mr-1 sm:mr-2 h-4 w-4" />
                   <SelectValue placeholder="Rating" />
                 </SelectTrigger>
                 <SelectContent>
@@ -692,9 +694,9 @@ const Reviews = () => {
               </Select>
               
               <Select value={filters.reply} onValueChange={(value) => updateFilter('reply', value)}>
-                <SelectTrigger className="w-40">
-                  <MessageSquare className="mr-2 h-4 w-4" />
-                  <SelectValue placeholder="Reply Status" />
+                <SelectTrigger className="w-32 sm:w-40">
+                  <MessageSquare className="mr-1 sm:mr-2 h-4 w-4" />
+                  <SelectValue placeholder="Reply" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All</SelectItem>
@@ -704,8 +706,8 @@ const Reviews = () => {
               </Select>
               
               <Select value={filters.location} onValueChange={(value) => updateFilter('location', value)}>
-                <SelectTrigger className="w-48">
-                  <Filter className="mr-2 h-4 w-4" />
+                <SelectTrigger className="w-36 sm:w-48">
+                  <Filter className="mr-1 sm:mr-2 h-4 w-4" />
                   <SelectValue placeholder="Location" />
                 </SelectTrigger>
                 <SelectContent>
@@ -717,8 +719,8 @@ const Reviews = () => {
               </Select>
               
               <Select value={filters.sentiment} onValueChange={(value) => updateFilter('sentiment', value)}>
-                <SelectTrigger className="w-36">
-                  <Heart className="mr-2 h-4 w-4" />
+                <SelectTrigger className="w-32 sm:w-36">
+                  <Heart className="mr-1 sm:mr-2 h-4 w-4" />
                   <SelectValue placeholder="Sentiment" />
                 </SelectTrigger>
                 <SelectContent>
@@ -730,8 +732,8 @@ const Reviews = () => {
               </Select>
               
               <Select value={filters.dateRange} onValueChange={(value) => updateFilter('dateRange', value)}>
-                <SelectTrigger className="w-36">
-                  <Calendar className="mr-2 h-4 w-4" />
+                <SelectTrigger className="w-28 sm:w-36">
+                  <Calendar className="mr-1 sm:mr-2 h-4 w-4" />
                   <SelectValue placeholder="Date" />
                 </SelectTrigger>
                 <SelectContent>
@@ -787,8 +789,8 @@ const Reviews = () => {
 
       {/* Reviews List */}
       <Card className="shadow-card border border-border">
-        <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle>All Reviews ({filteredAndSortedReviews.length})</CardTitle>
+        <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-2">
+          <CardTitle className="text-lg sm:text-xl">All Reviews ({filteredAndSortedReviews.length})</CardTitle>
           <div className="flex items-center gap-2">
             {refreshing && (
               <div className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -836,34 +838,36 @@ const Reviews = () => {
           ) : (
             <div className="space-y-6">
               {filteredAndSortedReviews.map((review, index) => (
-                <div key={review.id} className="border border-border rounded-lg p-4 shadow-sm hover:bg-muted/30 transition-colors">
-                  <div className="flex gap-4">
-                    <Avatar className="h-10 w-10">
-                      <AvatarFallback className="bg-primary/10 text-primary">
+                <div key={review.id} className="border border-border rounded-lg p-3 sm:p-4 shadow-sm hover:bg-muted/30 transition-colors">
+                  <div className="flex gap-3 sm:gap-4">
+                    <Avatar className="h-8 w-8 sm:h-10 sm:w-10 flex-shrink-0">
+                      <AvatarFallback className="bg-primary/10 text-primary text-xs sm:text-sm">
                         {getInitials(review.author)}
                       </AvatarFallback>
                     </Avatar>
                     
-                    <div className="flex-1 space-y-3">
+                    <div className="flex-1 space-y-3 min-w-0">
                       {/* Review Header */}
-                      <div className="flex items-start justify-between">
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2 mb-1">
-                            <h4 className="font-medium">{review.author}</h4>
-                            <div className="flex items-center gap-1">
-                              {renderStars(review.rating)}
-                            </div>
-                            <Badge variant="outline" className="text-xs">
-                              {review.profileName}
-                            </Badge>
-                            {review.sentiment && (
-                              <Badge variant="outline" className={cn("text-xs", getSentimentColor(review.sentiment))}>
-                                <div className="flex items-center gap-1">
-                                  {getSentimentIcon(review.sentiment)}
-                                  {review.sentiment}
-                                </div>
+                      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex flex-col sm:flex-row sm:items-center gap-2 mb-1">
+                            <h4 className="font-medium text-sm sm:text-base truncate">{review.author}</h4>
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <div className="flex items-center gap-1">
+                                {renderStars(review.rating)}
+                              </div>
+                              <Badge variant="outline" className="text-xs truncate max-w-[120px]">
+                                {review.profileName}
                               </Badge>
-                            )}
+                              {review.sentiment && (
+                                <Badge variant="outline" className={cn("text-xs hidden sm:flex", getSentimentColor(review.sentiment))}>
+                                  <div className="flex items-center gap-1">
+                                    {getSentimentIcon(review.sentiment)}
+                                    {review.sentiment}
+                                  </div>
+                                </Badge>
+                              )}
+                            </div>
                           </div>
                           <div className="flex items-center gap-1 text-xs text-muted-foreground">
                             <Calendar className="h-3 w-3" />
@@ -871,7 +875,7 @@ const Reviews = () => {
                           </div>
                         </div>
                         
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 flex-shrink-0">
                           {review.replied && (
                             <TooltipProvider>
                               <Tooltip>
@@ -884,7 +888,7 @@ const Reviews = () => {
                                       setCustomReply(review.replyContent || '');
                                       setReplyDialogOpen(true);
                                     }}
-                                    className="gap-2 h-8"
+                                    className="h-8 w-8 p-0"
                                   >
                                     <Edit2 className="h-3 w-3" />
                                   </Button>
@@ -899,31 +903,33 @@ const Reviews = () => {
                               variant="outline"
                               size="sm"
                               onClick={() => handleAutoReply(review.id)}
-                              className="gap-2"
+                              className="gap-1 px-2 sm:px-3 text-xs sm:text-sm"
                             >
                               <Bot className="h-3 w-3" />
-                              Reply
+                              <span className="hidden sm:inline">Reply</span>
                             </Button>
                           )}
                         </div>
                       </div>
                       
                       {/* Review Content */}
-                      <p className="text-sm leading-relaxed">{review.content}</p>
+                      <p className="text-sm leading-relaxed break-words">{review.content}</p>
                       
                       {/* Reply */}
                       {review.replied && review.replyContent && (
-                        <div className="bg-muted/50 rounded-lg p-3 ml-4 border-l-2 border-primary/20">
-                          <div className="flex items-center gap-2 mb-2">
-                            <MessageSquare className="h-3 w-3 text-primary" />
-                            <span className="text-xs font-medium text-primary">Your Reply</span>
+                        <div className="bg-muted/50 rounded-lg p-3 ml-2 sm:ml-4 border-l-2 border-primary/20">
+                          <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2 mb-2">
+                            <div className="flex items-center gap-2">
+                              <MessageSquare className="h-3 w-3 text-primary" />
+                              <span className="text-xs font-medium text-primary">Your Reply</span>
+                            </div>
                             {review.repliedAt && (
                               <span className="text-xs text-muted-foreground">
-                                • {formatDate(review.repliedAt)}
+                                {formatDate(review.repliedAt)}
                               </span>
                             )}
                           </div>
-                          <p className="text-sm">{review.replyContent}</p>
+                          <p className="text-sm break-words">{review.replyContent}</p>
                         </div>
                       )}
                     </div>
@@ -937,29 +943,31 @@ const Reviews = () => {
 
       {/* Custom Reply Dialog */}
       <Dialog open={replyDialogOpen} onOpenChange={setReplyDialogOpen}>
-        <DialogContent className="sm:max-w-[600px]">
+        <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Reply to Review</DialogTitle>
+            <DialogTitle className="text-lg sm:text-xl">Reply to Review</DialogTitle>
             <DialogDescription>
               {selectedReview && (
                 <div className="space-y-2">
-                  <div className="flex items-center gap-2">
-                    <span className="font-medium">{selectedReview.author}</span>
-                    <div className="flex items-center gap-1">
-                      {renderStars(selectedReview.rating)}
+                  <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+                    <span className="font-medium text-sm sm:text-base">{selectedReview.author}</span>
+                    <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-1">
+                        {renderStars(selectedReview.rating)}
+                      </div>
+                      <Badge variant="outline" className="text-xs">
+                        {selectedReview.profileName}
+                      </Badge>
                     </div>
-                    <Badge variant="outline" className="text-xs">
-                      {selectedReview.profileName}
-                    </Badge>
                   </div>
-                  <p className="text-sm text-muted-foreground italic">"{selectedReview.content}"</p>
+                  <p className="text-sm text-muted-foreground italic break-words">"{selectedReview.content}"</p>
                 </div>
               )}
             </DialogDescription>
           </DialogHeader>
           
           <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label className="text-sm font-medium mb-2 block">
                   Reply Template (Optional)
@@ -987,14 +995,15 @@ const Reviews = () => {
                   variant="outline"
                   onClick={() => selectedReview && generateAISuggestions(selectedReview)}
                   disabled={loadingSuggestions}
-                  className="w-full justify-start"
+                  className="w-full justify-start text-xs sm:text-sm"
                 >
                   {loadingSuggestions ? (
                     <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
                   ) : (
                     <Bot className="mr-2 h-4 w-4" />
                   )}
-                  Generate Smart Replies
+                  <span className="hidden sm:inline">Generate Smart Replies</span>
+                  <span className="sm:hidden">Generate Replies</span>
                 </Button>
               </div>
             </div>

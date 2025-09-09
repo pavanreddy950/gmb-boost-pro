@@ -13,15 +13,20 @@ import ProfileDetails from "./pages/ProfileDetails";
 import Posts from "./pages/Posts";
 import Reviews from "./pages/Reviews";
 import AskForReviews from "./pages/AskForReviews";
+import PublicReviewSuggestions from "./pages/PublicReviewSuggestions";
 import Settings from "./pages/Settings";
 import AuditTool from "./pages/AuditTool";
 import Upgrade from "./pages/Upgrade";
+import Billing from "./pages/Billing";
 import { AuthProvider } from "./contexts/AuthContext";
 import { NotificationProvider } from "./contexts/NotificationContext";
+import { SubscriptionProvider } from "./contexts/SubscriptionContext";
+import { GoogleBusinessProfileProvider } from "./contexts/GoogleBusinessProfileContext";
 
 import ProtectedRoute from "./components/ProtectedRoute";
 import AuthRedirect from "./components/AuthRedirect";
 import GoogleOAuthCallback from "./pages/GoogleOAuthCallback";
+import { SubscriptionGuard } from "./components/SubscriptionGuard";
 
 const queryClient = new QueryClient();
 
@@ -32,8 +37,10 @@ const App = () => (
       <Sonner />
       <BrowserRouter>
         <AuthProvider>
-          <NotificationProvider>
-            <Routes>
+          <GoogleBusinessProfileProvider>
+            <NotificationProvider>
+              <SubscriptionProvider>
+                <Routes>
             <Route path="/" element={<Index />} />
             <Route path="/login" element={
               <AuthRedirect>
@@ -49,10 +56,15 @@ const App = () => (
             {/* OAuth Callback Route */}
             <Route path="/auth/google/callback" element={<GoogleOAuthCallback />} />
             
-            {/* Protected Dashboard Routes */}
+            {/* Public route for review suggestions */}
+            <Route path="/review/:businessId" element={<PublicReviewSuggestions />} />
+            
+            {/* Protected Dashboard Routes with Subscription Guard */}
             <Route path="/dashboard" element={
               <ProtectedRoute>
-                <DashboardLayout />
+                <SubscriptionGuard>
+                  <DashboardLayout />
+                </SubscriptionGuard>
               </ProtectedRoute>
             }>
               <Route index element={<Dashboard />} />
@@ -62,19 +74,24 @@ const App = () => (
               <Route path="ask-for-reviews" element={<AskForReviews />} />
               <Route path="settings" element={<Settings />} />
               <Route path="audit" element={<AuditTool />} />
+              <Route path="billing" element={<Billing />} />
             </Route>
             
-            {/* Upgrade page without layout */}
+            {/* Upgrade page without layout but with subscription guard */}
             <Route path="/dashboard/upgrade" element={
               <ProtectedRoute>
-                <Upgrade />
+                <SubscriptionGuard>
+                  <Upgrade />
+                </SubscriptionGuard>
               </ProtectedRoute>
             } />
             
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
-            </Routes>
-          </NotificationProvider>
+                </Routes>
+              </SubscriptionProvider>
+            </NotificationProvider>
+          </GoogleBusinessProfileProvider>
         </AuthProvider>
       </BrowserRouter>
     </TooltipProvider>
