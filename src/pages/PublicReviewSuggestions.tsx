@@ -58,7 +58,8 @@ const PublicReviewSuggestions = () => {
       console.log('Fetching AI reviews with:', {
         businessName: decodeURIComponent(businessName),
         location: decodeURIComponent(location),
-        rawLocation: location
+        rawLocation: location,
+        backendUrl: backendUrl
       });
       
       const response = await fetch(`${backendUrl}/api/ai-reviews/generate`, {
@@ -73,15 +74,55 @@ const PublicReviewSuggestions = () => {
         })
       });
       
+      console.log('AI reviews response status:', response.status);
+      
       if (response.ok) {
         const data = await response.json();
+        console.log('AI reviews data received:', data);
         setAiReviews(data.suggestions || []);
+      } else {
+        const errorText = await response.text();
+        console.error('AI reviews error response:', errorText);
+        // Use fallback reviews if API fails
+        setAiReviews(getFallbackReviews());
       }
     } catch (error) {
       console.error('Error fetching AI reviews:', error);
+      // Use fallback reviews on network error
+      setAiReviews(getFallbackReviews());
     } finally {
       setLoading(false);
     }
+  };
+  
+  const getFallbackReviews = () => {
+    const businessNameDecoded = decodeURIComponent(businessName);
+    const locationDecoded = decodeURIComponent(location);
+    const locationPhrase = locationDecoded && locationDecoded !== 'Location' ? ` in ${locationDecoded}` : '';
+    
+    return [
+      {
+        id: 'fallback_1',
+        review: `Had an amazing experience at ${businessNameDecoded}${locationPhrase}! The service was exceptional and the staff went above and beyond to ensure customer satisfaction. Highly recommend!`,
+        rating: 5,
+        focus: 'service',
+        length: 'medium'
+      },
+      {
+        id: 'fallback_2',
+        review: `${businessNameDecoded} provides excellent quality and value. Professional team, quick service, and attention to detail. Will definitely be returning!`,
+        rating: 5,
+        focus: 'quality',
+        length: 'short'
+      },
+      {
+        id: 'fallback_3',
+        review: `Very impressed with ${businessNameDecoded}${locationPhrase}. From start to finish, everything was handled professionally. The team is knowledgeable, friendly, and delivers great results. Couldn't be happier with the experience!`,
+        rating: 5,
+        focus: 'experience',
+        length: 'long'
+      }
+    ];
   };
   
   const copyReviewToClipboard = async (review: string, reviewId: string) => {
