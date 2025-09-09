@@ -1,6 +1,7 @@
 // Frontend-only Google Business Profile integration using Google Identity Services
 
 import { tokenStorageService, type StoredGoogleTokens } from './tokenStorage';
+import { gbpCache } from './gbpCacheService';
 
 // Google Business Profile API configuration
 const SCOPES = [
@@ -430,6 +431,13 @@ class GoogleBusinessProfileService {
   // Get all business accounts via backend to avoid CORS (with timeout)
   async getBusinessAccounts(): Promise<BusinessAccount[]> {
     try {
+      // Check cache first
+      const cachedAccounts = gbpCache.getCachedAccounts(this.currentUserId);
+      if (cachedAccounts) {
+        console.log('✅ Using cached Google Business Profile accounts');
+        return cachedAccounts;
+      }
+
       // Ensure token is valid before making the request
       await this.ensureValidToken();
       
@@ -555,6 +563,10 @@ class GoogleBusinessProfileService {
         }
       }
       
+      // Cache the accounts before returning
+      gbpCache.cacheAccounts(businessAccounts, this.currentUserId);
+      console.log('✅ Cached business accounts for faster future loads');
+      
       return businessAccounts;
     } catch (error) {
       console.error('Error fetching business accounts:', error);
@@ -609,6 +621,14 @@ class GoogleBusinessProfileService {
   // Get locations for a specific account (with timeout)
   async getAccountLocations(accountName: string): Promise<BusinessLocation[]> {
     try {
+      // Check cache first
+      const accountId = accountName.split('/').pop() || accountName;
+      const cachedLocations = gbpCache.getCachedLocations(accountId);
+      if (cachedLocations) {
+        console.log('✅ Using cached locations for account:', accountName);
+        return cachedLocations;
+      }
+
       if (!this.accessToken) {
         throw new Error('No access token available');
       }
@@ -722,7 +742,7 @@ class GoogleBusinessProfileService {
       console.log(`✅ Found ${locations.length} locations via backend with pagination`);
       console.log('✅ First location sample:', locations[0]);
       
-      return locations.map((location: any) => ({
+      const processedLocations = locations.map((location: any) => ({
         name: location.name,
         locationId: this.extractLocationId(location.name),
         displayName: location.title || location.displayName || 'Unnamed Location',
@@ -746,6 +766,13 @@ class GoogleBusinessProfileService {
           canUpdate: location.metadata?.canUpdate !== false,
         },
       }));
+      
+      // Cache the locations before returning
+      const accountId = accountName.split('/').pop() || accountName;
+      gbpCache.cacheLocations(accountId, processedLocations);
+      console.log('✅ Cached locations for account:', accountName);
+      
+      return processedLocations;
     } catch (error) {
       console.error('Error fetching account locations:', error);
       // For CORS errors in frontend-only mode, return empty array gracefully
