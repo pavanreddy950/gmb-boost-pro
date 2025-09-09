@@ -622,8 +622,8 @@ class GoogleBusinessProfileService {
   async getAccountLocations(accountName: string): Promise<BusinessLocation[]> {
     try {
       // Check cache first
-      const accountId = accountName.split('/').pop() || accountName;
-      const cachedLocations = gbpCache.getCachedLocations(accountId);
+      const cacheKey = accountName.split('/').pop() || accountName;
+      const cachedLocations = gbpCache.getCachedLocations(cacheKey);
       if (cachedLocations) {
         console.log('✅ Using cached locations for account:', accountName);
         return cachedLocations;
