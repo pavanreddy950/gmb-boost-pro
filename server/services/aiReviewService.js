@@ -2,10 +2,13 @@ import fetch from 'node-fetch';
 
 class AIReviewService {
   constructor() {
-    this.azureEndpoint = process.env.AZURE_OPENAI_ENDPOINT || '';
-    this.apiKey = process.env.AZURE_OPENAI_API_KEY || '';
-    this.deploymentName = process.env.AZURE_OPENAI_DEPLOYMENT || '';
-    this.apiVersion = process.env.AZURE_OPENAI_API_VERSION || '';
+    // Hardcoded Azure OpenAI configuration - no environment variables needed
+    this.azureEndpoint = 'https://agentplus.openai.azure.com/';
+    this.apiKey = '1TPW16ifwPJccSiQPSHq63nU7IcT6R9DrduIHBYwCm5jbUWiSbkLJQQJ99BDACYeBjFXJ3w3AAABACOG3Yia';
+    this.deploymentName = 'gpt-4o';
+    this.apiVersion = '2024-02-15-preview';
+    
+    console.log('[AIReviewService] Initialized with hardcoded Azure OpenAI configuration');
   }
 
   async generateReviewSuggestions(businessName, location, businessType = 'business') {
@@ -104,9 +107,17 @@ class AIReviewService {
       const data = await response.json();
       const content = data.choices[0].message.content;
       
-      // Parse the JSON response
+      // Parse the JSON response - handle markdown code blocks
       try {
-        const reviews = JSON.parse(content);
+        // Clean up the content - remove markdown code blocks if present
+        let cleanContent = content.trim();
+        if (cleanContent.startsWith('```json')) {
+          cleanContent = cleanContent.replace(/^```json\s*/, '').replace(/\s*```$/, '');
+        } else if (cleanContent.startsWith('```')) {
+          cleanContent = cleanContent.replace(/^```\s*/, '').replace(/\s*```$/, '');
+        }
+        
+        const reviews = JSON.parse(cleanContent);
         
         // Add timestamps and ensure uniqueness
         const timestamp = Date.now();
@@ -119,6 +130,7 @@ class AIReviewService {
         }));
       } catch (parseError) {
         console.error('Error parsing AI response:', parseError);
+        console.error('Raw AI content:', content);
         // AI generation failed
         throw new Error('[AI Review Service] Failed to parse AI response. Please try again.');
       }

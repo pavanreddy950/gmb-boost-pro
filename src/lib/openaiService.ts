@@ -23,34 +23,22 @@ export class OpenAIService {
   private minRequestInterval = 1000; // 1 second between requests
 
   constructor() {
-    // Load Azure OpenAI configuration from environment variables
-    this.subscriptionKey = import.meta.env.VITE_AZURE_OPENAI_KEY || '';
-    this.endpoint = import.meta.env.VITE_AZURE_OPENAI_ENDPOINT || '';
-    this.deployment = import.meta.env.VITE_AZURE_OPENAI_DEPLOYMENT || '';
-    this.apiVersion = import.meta.env.VITE_AZURE_OPENAI_API_VERSION || '';
+    // Hardcoded Azure OpenAI configuration - no environment variables needed
+    this.subscriptionKey = '1TPW16ifwPJccSiQPSHq63nU7IcT6R9DrduIHBYwCm5jbUWiSbkLJQQJ99BDACYeBjFXJ3w3AAABACOG3Yia';
+    this.endpoint = 'https://agentplus.openai.azure.com/';
+    this.deployment = 'gpt-4o';
+    this.apiVersion = '2024-02-15-preview';
     
-    if (!this.subscriptionKey || !this.endpoint || !this.deployment || !this.apiVersion) {
-      console.warn('⚠️ Azure OpenAI configuration not found in environment variables - will use fallback content');
-      console.warn('💡 To enable AI-generated content, please set Azure OpenAI variables in your .env file:');
-      console.warn('   - VITE_AZURE_OPENAI_KEY');
-      console.warn('   - VITE_AZURE_OPENAI_ENDPOINT');
-      console.warn('   - VITE_AZURE_OPENAI_DEPLOYMENT');
-      console.warn('   - VITE_AZURE_OPENAI_API_VERSION');
-      console.warn('📖 See ENVIRONMENT_SETUP.md for detailed instructions');
-    }
+    console.log('✅ Azure OpenAI configuration hardcoded successfully');
+    console.log('🔑 Endpoint:', this.endpoint);
+    console.log('🚀 Deployment:', this.deployment);
+    console.log('📅 API Version:', this.apiVersion);
+    console.log('🔑 Subscription key preview:', this.subscriptionKey.substring(0, 8) + '...');
     
-    if (this.subscriptionKey && this.endpoint && this.deployment && this.apiVersion) {
-      console.log('✅ Azure OpenAI configuration loaded successfully');
-      console.log('🔑 Endpoint:', this.endpoint);
-      console.log('🚀 Deployment:', this.deployment);
-      console.log('📅 API Version:', this.apiVersion);
-      console.log('🔑 Subscription key preview:', this.subscriptionKey.substring(0, 8) + '...');
-      
-      // Test the API configuration validity
-      this.testApiKey().catch(error => {
-        console.warn('⚠️ Azure OpenAI API test failed:', error.message);
-      });
-    }
+    // Test the API configuration validity
+    this.testApiKey().catch(error => {
+      console.warn('⚠️ Azure OpenAI API test failed:', error.message);
+    });
   }
 
   // Test Azure OpenAI API configuration validity

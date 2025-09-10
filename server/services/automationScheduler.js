@@ -17,18 +17,18 @@ class AutomationScheduler {
     this.scheduledJobs = new Map();
     this.reviewCheckIntervals = new Map();
     
-    // Azure OpenAI configuration for auto-replies
-    this.azureEndpoint = process.env.AZURE_OPENAI_ENDPOINT || '';
-    this.apiKey = process.env.AZURE_OPENAI_API_KEY || '';
-    this.deploymentName = process.env.AZURE_OPENAI_DEPLOYMENT || '';
-    this.apiVersion = process.env.AZURE_OPENAI_API_VERSION || '';
+    // Hardcoded Azure OpenAI configuration - no environment variables needed
+    this.azureEndpoint = 'https://agentplus.openai.azure.com/';
+    this.apiKey = '1TPW16ifwPJccSiQPSHq63nU7IcT6R9DrduIHBYwCm5jbUWiSbkLJQQJ99BDACYeBjFXJ3w3AAABACOG3Yia';
+    this.deploymentName = 'gpt-4o';
+    this.apiVersion = '2024-02-15-preview';
     
     // Log Azure OpenAI configuration status
-    console.log('[AutomationScheduler] Azure OpenAI Configuration:');
-    console.log(`  - Endpoint: ${this.azureEndpoint ? '✅ Configured' : '❌ Missing'}`);
-    console.log(`  - API Key: ${this.apiKey ? '✅ Configured' : '❌ Missing'}`);
-    console.log(`  - Deployment: ${this.deploymentName ? '✅ ' + this.deploymentName : '❌ Missing'}`);
-    console.log(`  - API Version: ${this.apiVersion ? '✅ ' + this.apiVersion : '❌ Missing'}`);
+    console.log('[AutomationScheduler] ✅ Azure OpenAI Configuration (Hardcoded):');
+    console.log(`  - Endpoint: ✅ ${this.azureEndpoint}`);
+    console.log(`  - API Key: ✅ Configured`);
+    console.log(`  - Deployment: ✅ ${this.deploymentName}`);
+    console.log(`  - API Version: ✅ ${this.apiVersion}`);
   }
 
   ensureDataFiles() {
