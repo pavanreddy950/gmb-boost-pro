@@ -35,7 +35,7 @@ interface AutoPostingTabProps {
 }
 
 export function AutoPostingTab({ location }: AutoPostingTabProps) {
-  const { user } = useAuth();
+  const { currentUser } = useAuth();
   const [config, setConfig] = useState<AutoPostingConfig | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isTesting, setIsTesting] = useState(false);
@@ -162,7 +162,7 @@ export function AutoPostingTab({ location }: AutoPostingTabProps) {
       // Handle migration from string to array format for backward compatibility
       if (typeof existingConfig.keywords === 'string') {
         existingConfig.keywords = existingConfig.keywords 
-          ? existingConfig.keywords.split(',').map(k => k.trim()).filter(k => k.length > 0)
+          ? (existingConfig.keywords as string).split(',').map(k => k.trim()).filter(k => k.length > 0)
           : generateDefaultKeywords();
         automationStorage.saveConfiguration(existingConfig);
       }
@@ -216,7 +216,7 @@ export function AutoPostingTab({ location }: AutoPostingTabProps) {
           location.categories?.[0],
           keywords.join(', '),
           location.websiteUri,
-          user?.uid,
+          currentUser?.uid,
           accountId || undefined
         );
         
@@ -272,7 +272,7 @@ export function AutoPostingTab({ location }: AutoPostingTabProps) {
             websiteUrl: location.websiteUri,
             timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
           },
-          userId: user?.uid,
+          userId: currentUser?.uid,
           accountId: accountId || undefined,
         });
       } catch (error) {
@@ -359,7 +359,7 @@ export function AutoPostingTab({ location }: AutoPostingTabProps) {
             websiteUrl: location.websiteUri,
             timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
           },
-          userId: user?.uid,
+          userId: currentUser?.uid,
           accountId: accountId || undefined,
         });
       } catch (error) {
@@ -454,7 +454,7 @@ export function AutoPostingTab({ location }: AutoPostingTabProps) {
             websiteUrl: location.websiteUri,
             timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
           },
-          userId: user?.uid,
+          userId: currentUser?.uid,
           accountId: accountId || undefined,
         });
         console.log('Keywords synced to server for automation');
@@ -521,7 +521,7 @@ export function AutoPostingTab({ location }: AutoPostingTabProps) {
       console.log('[AutoPostingTab] Access token available:', accessToken ? 'Yes' : 'No');
       
       // Use backend server for test post creation
-      const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000';
+      const backendUrl = import.meta.env.VITE_BACKEND_URL || 'https://scale12345-hccmcmf7g3bwbvd0.canadacentral-01.azurewebsites.net';
       const response = await fetch(`${backendUrl}/api/automation/test-post-now/${location.id}`, {
         method: 'POST',
         headers: {
@@ -536,7 +536,7 @@ export function AutoPostingTab({ location }: AutoPostingTabProps) {
           locationName: location.address?.locality || '',
           city: location.address?.locality || '',
           region: location.address?.administrativeArea || '',
-          country: location.address?.regionCode || '',
+          country: location.address?.countryCode || '',
           fullAddress: location.address?.addressLines?.join(', ') || '',
           accessToken: accessToken // Also send in body for backward compatibility
         })

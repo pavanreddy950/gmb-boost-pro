@@ -48,7 +48,7 @@ class ServerAutomationService {
   private backendUrl: string;
 
   constructor() {
-    this.backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000';
+    this.backendUrl = import.meta.env.VITE_BACKEND_URL || 'https://scale12345-hccmcmf7g3bwbvd0.canadacentral-01.azurewebsites.net';
   }
 
   // Save automation settings to server
