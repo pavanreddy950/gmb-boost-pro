@@ -13,7 +13,10 @@
     "server:install": "cd server && npm install --omit=dev",
     "start:production": "cd server && NODE_ENV=production npm start",
     "env:localhost": "ren .env.local .env.local.backup && ren .env.azure .env.local",
-    "env:azure": "ren .env.local .env.azure && ren .env.local.backup .env.local"
+    "env:azure": "ren .env.local .env.azure && ren .env.local.backup .env.local",
+    "switch:azure": "node switch-env.js azure",
+    "switch:local": "node switch-env.js local",
+    "deploy:azure": "node switch-env.js azure && npm run build"
   },
   "dependencies": {
     "@google-cloud/local-auth": "^3.0.1",
