@@ -27,22 +27,90 @@ const PORT = config.port;
 
 // Middleware - Origins are now managed by config.js
 const allowedOrigins = config.allowedOrigins;
+console.log(`[SERVER] Starting with allowed origins:`, allowedOrigins);
+console.log(`[SERVER] Config mode:`, config.isAzure ? 'AZURE' : 'LOCAL');
+console.log(`[SERVER] Frontend URL:`, config.frontendUrl);
 
 app.use(cors({
   origin: function(origin, callback) {
+    console.log(`[CORS] Request from origin: ${origin || 'undefined'}`);
+    console.log(`[CORS] Allowed origins (${allowedOrigins.length}):`, allowedOrigins);
+    
     // Allow requests with no origin (like mobile apps or curl requests)
-    if (!origin) return callback(null, true);
+    if (!origin) {
+      console.log(`[CORS] No origin provided, allowing request`);
+      return callback(null, true);
+    }
     
     if (allowedOrigins.includes(origin)) {
+      console.log(`[CORS] ✅ Origin ${origin} is ALLOWED`);
+      return callback(null, true);
+    }
+    
+    console.log(`[CORS] ❌ Origin ${origin} is NOT ALLOWED`);
+    console.log(`[CORS] ❌ Expected one of: ${allowedOrigins.join(', ')}`);
+    
+    // For debugging purposes, still allow in development
+    if (process.env.NODE_ENV === 'development') {
+      console.log(`[CORS] 🔧 DEV MODE: Allowing anyway for debugging`);
       return callback(null, true);
     }
     
     const msg = 'The CORS policy for this site does not allow access from the specified Origin.';
     return callback(new Error(msg), false);
   },
-  credentials: true
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'HEAD'],
+  allowedHeaders: [
+    'Content-Type', 
+    'Authorization', 
+    'X-Requested-With', 
+    'Accept', 
+    'Origin',
+    'Cache-Control',
+    'Pragma'
+  ],
+  exposedHeaders: ['X-Total-Count', 'X-Page-Token'],
+  optionsSuccessStatus: 200,
+  preflightContinue: false
 }));
 app.use(express.json());
+
+// Handle preflight requests manually with enhanced debugging
+app.options('*', (req, res) => {
+  console.log(`[CORS] ✈️ Preflight request for: ${req.method} ${req.path}`);
+  console.log(`[CORS] ✈️ Origin: ${req.headers.origin || 'undefined'}`);
+  console.log(`[CORS] ✈️ Access-Control-Request-Method: ${req.headers['access-control-request-method']}`);
+  console.log(`[CORS] ✈️ Access-Control-Request-Headers: ${req.headers['access-control-request-headers']}`);
+  console.log(`[CORS] ✈️ User-Agent: ${req.headers['user-agent']?.substring(0, 100)}`);
+  
+  const origin = req.headers.origin;
+  const isOriginAllowed = !origin || allowedOrigins.includes(origin);
+  
+  console.log(`[CORS] ✈️ Origin allowed: ${isOriginAllowed} (origin: ${origin || 'none'})`);
+  console.log(`[CORS] ✈️ Allowed origins: ${allowedOrigins.join(', ')}`);
+  
+  if (isOriginAllowed || process.env.NODE_ENV === 'development') {
+    // Set comprehensive CORS headers
+    res.header('Access-Control-Allow-Origin', origin || '*');
+    res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, HEAD');
+    res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept, Origin, Cache-Control, Pragma');
+    res.header('Access-Control-Allow-Credentials', 'true');
+    res.header('Access-Control-Max-Age', '86400'); // 24 hours
+    res.header('Vary', 'Origin'); // Important for caching
+    
+    console.log(`[CORS] ✅ Preflight approved for origin: ${origin || 'no-origin'}`);
+    res.status(200).end();
+  } else {
+    console.log(`[CORS] ❌ Preflight request REJECTED for origin: ${origin}`);
+    console.log(`[CORS] ❌ This origin is not in allowed list: ${allowedOrigins.join(', ')}`);
+    res.status(403).json({ 
+      error: 'CORS policy violation',
+      origin: origin,
+      allowedOrigins: allowedOrigins 
+    });
+  }
+});
 
 // Get __dirname equivalent for ES modules
 const __filename = fileURLToPath(import.meta.url);
@@ -152,6 +220,8 @@ app.post('/api/automation/test-post-now/:locationId', async (req, res) => {
     console.log(`[TEMP FIX] Full auth header:`, authHeader);
     console.log(`[TEMP FIX] Token from body value:`, accessToken ? `${accessToken.substring(0, 20)}...` : 'null');
     console.log(`[TEMP FIX] Final token value:`, token ? `${token.substring(0, 20)}...` : 'null');
+    console.log(`[TEMP FIX] All request headers:`, JSON.stringify(req.headers, null, 2));
+    console.log(`[TEMP FIX] Request body:`, JSON.stringify(req.body, null, 2));
     
     // Create test config with all necessary data
     const testConfig = {

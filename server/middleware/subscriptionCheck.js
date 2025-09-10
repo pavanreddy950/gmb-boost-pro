@@ -21,7 +21,8 @@ export const checkSubscription = (req, res, next) => {
     '/auth/google/url',
     '/auth/google/callback',
     '/api/payment', // Payment routes always accessible
-    '/api/subscription/status' // Status check always accessible
+    '/api/subscription/status', // Status check always accessible
+    '/api/automation' // Automation endpoints for testing
   ];
 
   // Check if current route is exempt

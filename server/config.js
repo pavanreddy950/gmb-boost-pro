@@ -139,7 +139,15 @@ class Config {
     // Always include the configured frontend URL
     origins.push(this.frontendUrl);
 
-    return origins.filter(Boolean);
+    // Remove duplicates and filter out empty values
+    const uniqueOrigins = [...new Set(origins.filter(Boolean))];
+    
+    console.log(`[CONFIG] CORS Origins configured: ${uniqueOrigins.length} origins`);
+    uniqueOrigins.forEach((origin, index) => {
+      console.log(`[CONFIG] Origin ${index + 1}: ${origin}`);
+    });
+
+    return uniqueOrigins;
   }
 
   // Configuration summary for debugging

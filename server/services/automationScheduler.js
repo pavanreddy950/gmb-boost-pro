@@ -69,6 +69,11 @@ class AutomationScheduler {
     return tokenStorage.loadTokens();
   }
 
+  // Get valid token for user with automatic refresh
+  async getValidTokenForUser(userId) {
+    return await tokenStorage.getValidToken(userId);
+  }
+
   // Initialize all automation schedules
   initializeAutomations() {
     console.log('[AutomationScheduler] Initializing all automations...');
@@ -205,12 +210,70 @@ class AutomationScheduler {
       // Generate post content using AI
       const postContent = await this.generatePostContent(config);
       
-      // Create the post via Google Business Profile API
-      // Use the account ID from config or default
-      const accountId = config.accountId || '106433552101751461082';
-      const postUrl = `https://mybusiness.googleapis.com/v4/accounts/${accountId}/locations/${locationId}/localPosts`;
+      // Create the post via Google Business Profile API (v1 - current version)
+      // Updated API endpoint for Google Business Profile API v1
+      const postUrl = `https://businessprofileperformance.googleapis.com/v1/locations/${locationId}/localPosts`;
       console.log(`[AutomationScheduler] Posting to URL: ${postUrl}`);
+      
+      const postData = {
+        languageCode: 'en',
+        summary: postContent.content,
+        topicType: config.topicType || 'STANDARD'
+      };
+
+      // Add call to action if website URL is provided
+      if (postContent.callToAction && postContent.callToAction.url) {
+        postData.callToAction = {
+          actionType: 'LEARN_MORE',
+          url: postContent.callToAction.url
+        };
+      }
+
       const response = await fetch(postUrl, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(postData)
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        console.log(`[AutomationScheduler] ✅ Successfully created post for location ${locationId}:`, result.name || result.id);
+        
+        // Log the post creation
+        this.logAutomationActivity(locationId, 'post_created', {
+          postId: result.name || result.id,
+          content: postContent.content,
+          timestamp: new Date().toISOString()
+        });
+        
+        return result; // Return success result
+      } else {
+        const error = await response.text();
+        console.error(`[AutomationScheduler] ❌ Failed to create post for location ${locationId}:`, error);
+        
+        // Try fallback to older API if the new one fails
+        console.log(`[AutomationScheduler] 🔄 Trying fallback API endpoint...`);
+        return await this.createPostWithFallbackAPI(locationId, postContent, accessToken, config);
+      }
+    } catch (error) {
+      console.error(`[AutomationScheduler] Error creating automated post:`, error);
+      return null; // Return null to indicate failure
+    }
+  }
+
+  // Fallback method for post creation using alternative API
+  async createPostWithFallbackAPI(locationId, postContent, accessToken, config) {
+    try {
+      // Use Google My Business API v4 as fallback
+      const accountId = config.accountId || '106433552101751461082';
+      const fallbackUrl = `https://mybusiness.googleapis.com/v4/accounts/${accountId}/locations/${locationId}/localPosts`;
+      
+      console.log(`[AutomationScheduler] Using fallback API: ${fallbackUrl}`);
+      
+      const response = await fetch(fallbackUrl, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${accessToken}`,
@@ -226,93 +289,88 @@ class AutomationScheduler {
 
       if (response.ok) {
         const result = await response.json();
-        console.log(`[AutomationScheduler] Successfully created post for location ${locationId}:`, result.name);
-        
-        // Log the post creation
-        this.logAutomationActivity(locationId, 'post_created', {
-          postId: result.name,
-          content: postContent.content,
-          timestamp: new Date().toISOString()
-        });
-        
-        return result; // Return success result
+        console.log(`[AutomationScheduler] ✅ Fallback API succeeded for location ${locationId}`);
+        return result;
       } else {
         const error = await response.text();
-        console.error(`[AutomationScheduler] Failed to create post for location ${locationId}:`, error);
-        return null; // Return null to indicate failure
+        console.error(`[AutomationScheduler] ❌ Fallback API also failed:`, error);
+        return null;
       }
     } catch (error) {
-      console.error(`[AutomationScheduler] Error creating automated post:`, error);
-      return null; // Return null to indicate failure
+      console.error(`[AutomationScheduler] Fallback API error:`, error);
+      return null;
     }
   }
 
   // Create an automated post
   async createAutomatedPost(locationId, config) {
     try {
-      console.log(`[AutomationScheduler] Creating automated post for location ${locationId}`);
-      console.log(`[AutomationScheduler] Config received:`, JSON.stringify(config, null, 2));
+      console.log(`[AutomationScheduler] 🤖 Creating automated post for location ${locationId}`);
+      console.log(`[AutomationScheduler] Config:`, { 
+        businessName: config.businessName, 
+        userId: config.userId,
+        frequency: config.frequency,
+        schedule: config.schedule
+      });
       
-      const tokens = this.loadTokens();
+      // Try to get a valid token for the configured user first
+      let userToken = null;
+      const targetUserId = config.userId || 'default';
       
-      // Try to get token by userId, or find any available token
-      let userToken = tokens[config.userId];
+      console.log(`[AutomationScheduler] Attempting to get valid token for user: ${targetUserId}`);
+      userToken = await this.getValidTokenForUser(targetUserId);
       
       if (!userToken) {
-        // Try to find any available token
+        // Try to find any available token from storage
+        console.log(`[AutomationScheduler] No token for ${targetUserId}, checking all available tokens...`);
+        const tokens = this.loadTokens();
         const tokenKeys = Object.keys(tokens);
+        
         if (tokenKeys.length > 0) {
-          userToken = tokens[tokenKeys[0]];
-          console.log(`[AutomationScheduler] Using token from user ${tokenKeys[0]} instead of ${config.userId}`);
-        } else {
-          console.error(`[AutomationScheduler] No tokens available. User needs to reconnect to Google Business Profile.`);
-          console.error(`[AutomationScheduler] Please go to Settings > Connections and connect your Google Business Profile account.`);
-          return null; // Return null to indicate failure
+          console.log(`[AutomationScheduler] Found tokens for users: ${tokenKeys.join(', ')}`);
+          
+          // Try each available token
+          for (const userId of tokenKeys) {
+            const validToken = await this.getValidTokenForUser(userId);
+            if (validToken) {
+              userToken = validToken;
+              console.log(`[AutomationScheduler] ✅ Using valid token from user: ${userId}`);
+              break;
+            }
+          }
+        }
+        
+        if (!userToken) {
+          console.error(`[AutomationScheduler] ❌ No valid tokens available. User needs to reconnect to Google Business Profile.`);
+          console.error(`[AutomationScheduler] 💡 Please go to Settings > Connections and connect your Google Business Profile account.`);
+          
+          // Log this as a failed attempt
+          this.logAutomationActivity(locationId, 'post_failed', {
+            error: 'No valid tokens available',
+            timestamp: new Date().toISOString(),
+            reason: 'authentication_required'
+          });
+          
+          return null;
         }
       }
 
-      // Generate post content using AI
-      const postContent = await this.generatePostContent(config);
+      console.log(`[AutomationScheduler] ✅ Valid token acquired, proceeding with post creation...`);
       
-      // Create the post via Google Business Profile API
-      // Use the account ID from config or default
-      const accountId = config.accountId || '106433552101751461082';
-      const postUrl = `https://mybusiness.googleapis.com/v4/accounts/${accountId}/locations/${locationId}/localPosts`;
-      console.log(`[AutomationScheduler] Posting to URL: ${postUrl}`);
-      const response = await fetch(postUrl, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${userToken.access_token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          languageCode: 'en',
-          summary: postContent.content,
-          callToAction: postContent.callToAction,
-          topicType: config.topicType || 'STANDARD'
-        })
-      });
+      // Use the updated method with better API handling
+      return await this.createAutomatedPostWithToken(locationId, config, userToken.access_token);
 
-      if (response.ok) {
-        const result = await response.json();
-        console.log(`[AutomationScheduler] Successfully created post for location ${locationId}:`, result.name);
-        
-        // Log the post creation
-        this.logAutomationActivity(locationId, 'post_created', {
-          postId: result.name,
-          content: postContent.content,
-          timestamp: new Date().toISOString()
-        });
-        
-        return result; // Return success result
-      } else {
-        const error = await response.text();
-        console.error(`[AutomationScheduler] Failed to create post for location ${locationId}:`, error);
-        return null; // Return null to indicate failure
-      }
     } catch (error) {
       console.error(`[AutomationScheduler] Error creating automated post:`, error);
-      return null; // Return null to indicate failure
+      
+      // Log the error
+      this.logAutomationActivity(locationId, 'post_failed', {
+        error: error.message,
+        timestamp: new Date().toISOString(),
+        reason: 'system_error'
+      });
+      
+      return null;
     }
   }
 
@@ -469,42 +527,82 @@ CRITICAL RULES:
     try {
       console.log(`[AutomationScheduler] 🔍 Checking for new reviews to auto-reply for location ${locationId}`);
       
-      const tokens = this.loadTokens();
+      // Get a valid token using the new token system
+      const targetUserId = config.userId || 'default';
+      console.log(`[AutomationScheduler] Getting valid token for user: ${targetUserId}`);
       
-      // Try to get token by userId, or find any available token
-      let userToken = tokens[config.userId || 'default'];
+      let userToken = await this.getValidTokenForUser(targetUserId);
       
       if (!userToken) {
-        // Try to find any available token
+        // Try to find any available valid token
+        console.log(`[AutomationScheduler] No token for ${targetUserId}, checking all available tokens...`);
+        const tokens = this.loadTokens();
         const tokenKeys = Object.keys(tokens);
+        
         if (tokenKeys.length > 0) {
-          userToken = tokens[tokenKeys[0]];
-          console.log(`[AutomationScheduler] ⚡ Using token from user ${tokenKeys[0]} for review checking`);
-        } else {
-          console.error(`[AutomationScheduler] ⚠️ No tokens available. User needs to reconnect to Google Business Profile.`);
-          console.log(`[AutomationScheduler] 💡 Token will be saved when user reconnects via Settings > Connections`);
-          return null; // Return null to indicate failure
-        }
-      }
-
-      // Get reviews from Google Business Profile API
-      const accountId = config.accountId || '106433552101751461082'; // Use default account if not specified
-      const response = await fetch(
-        `https://mybusiness.googleapis.com/v4/accounts/${accountId}/locations/${locationId}/reviews`,
-        {
-          headers: {
-            'Authorization': `Bearer ${userToken.access_token}`
+          for (const userId of tokenKeys) {
+            const validToken = await this.getValidTokenForUser(userId);
+            if (validToken) {
+              userToken = validToken;
+              console.log(`[AutomationScheduler] ⚡ Using valid token from user: ${userId} for review checking`);
+              break;
+            }
           }
         }
-      );
-
-      if (!response.ok) {
-        console.error(`[AutomationScheduler] ❌ Failed to fetch reviews:`, await response.text());
-        return;
+        
+        if (!userToken) {
+          console.error(`[AutomationScheduler] ⚠️ No valid tokens available. User needs to reconnect to Google Business Profile.`);
+          console.log(`[AutomationScheduler] 💡 Token will be saved when user reconnects via Settings > Connections`);
+          return null;
+        }
       }
 
-      const data = await response.json();
-      const reviews = data.reviews || [];
+      // Get reviews from Google Business Profile API - try modern endpoint first
+      let response;
+      let reviews = [];
+      
+      try {
+        // Try Google Business Profile API v1 first
+        console.log(`[AutomationScheduler] Fetching reviews using modern API for location ${locationId}...`);
+        response = await fetch(
+          `https://businessprofileperformance.googleapis.com/v1/locations/${locationId}/reviews`,
+          {
+            headers: {
+              'Authorization': `Bearer ${userToken.access_token}`
+            }
+          }
+        );
+        
+        if (response.ok) {
+          const data = await response.json();
+          reviews = data.reviews || [];
+          console.log(`[AutomationScheduler] ✅ Modern API: Found ${reviews.length} reviews`);
+        } else {
+          throw new Error(`Modern API failed with status: ${response.status}`);
+        }
+      } catch (error) {
+        console.log(`[AutomationScheduler] 🔄 Modern API failed, trying fallback...`);
+        
+        // Fallback to older API
+        const accountId = config.accountId || '106433552101751461082';
+        response = await fetch(
+          `https://mybusiness.googleapis.com/v4/accounts/${accountId}/locations/${locationId}/reviews`,
+          {
+            headers: {
+              'Authorization': `Bearer ${userToken.access_token}`
+            }
+          }
+        );
+
+        if (!response.ok) {
+          console.error(`[AutomationScheduler] ❌ Both APIs failed to fetch reviews:`, await response.text());
+          return;
+        }
+
+        const data = await response.json();
+        reviews = data.reviews || [];
+        console.log(`[AutomationScheduler] ✅ Fallback API: Found ${reviews.length} reviews`);
+      }
       
       // Get list of already replied reviews
       const repliedReviews = this.getRepliedReviews(locationId);
@@ -513,7 +611,7 @@ CRITICAL RULES:
       const unrepliedReviews = reviews.filter(review => 
         !review.reviewReply && 
         !review.reply &&
-        !repliedReviews.includes(review.reviewId)
+        !repliedReviews.includes(review.reviewId || review.name)
       );
 
       if (unrepliedReviews.length > 0) {
@@ -521,10 +619,13 @@ CRITICAL RULES:
         console.log(`[AutomationScheduler] ⚡ AUTO-REPLYING NOW WITHOUT ANY MANUAL INTERVENTION...`);
 
         for (const review of unrepliedReviews) {
-          console.log(`[AutomationScheduler] 📝 Processing review from ${review.reviewer?.displayName || 'Unknown'} (${review.starRating} stars)`);
+          const reviewerName = review.reviewer?.displayName || 'Unknown';
+          const rating = review.starRating?.value || review.starRating || 'Unknown';
+          console.log(`[AutomationScheduler] 📝 Processing review from ${reviewerName} (${rating} stars)`);
+          
           await this.replyToReview(locationId, review, config, userToken);
           
-          // Add small delay between replies to avoid rate limiting
+          // Add delay between replies to avoid rate limiting
           await new Promise(resolve => setTimeout(resolve, 3000));
         }
         
@@ -534,6 +635,12 @@ CRITICAL RULES:
       }
     } catch (error) {
       console.error(`[AutomationScheduler] ❌ Error checking reviews:`, error);
+      
+      // Log the error
+      this.logAutomationActivity(locationId, 'review_check_failed', {
+        error: error.message,
+        timestamp: new Date().toISOString()
+      });
     }
   }
 
@@ -553,47 +660,104 @@ CRITICAL RULES:
   // Reply to a single review
   async replyToReview(locationId, review, config, token) {
     try {
-      console.log(`[AutomationScheduler] 🤖 AUTO-GENERATING AI REPLY for review ${review.reviewId}`);
-      console.log(`[AutomationScheduler] 📊 Review details: ${review.starRating} stars from ${review.reviewer?.displayName}`);
+      const reviewId = review.reviewId || review.name;
+      const rating = review.starRating?.value || review.starRating;
+      const reviewerName = review.reviewer?.displayName || 'Unknown';
+      
+      console.log(`[AutomationScheduler] 🤖 AUTO-GENERATING AI REPLY for review ${reviewId}`);
+      console.log(`[AutomationScheduler] 📊 Review details: ${rating} stars from ${reviewerName}`);
       
       // Generate reply using AI - FULLY AUTOMATIC
       const replyText = await this.generateReviewReply(review, config);
       console.log(`[AutomationScheduler] 💬 Generated reply: "${replyText.substring(0, 100)}..."`);
       
-      // Send reply via Google Business Profile API
-      const response = await fetch(
-        `https://mybusiness.googleapis.com/v4/accounts/${config.accountId}/locations/${locationId}/reviews/${review.reviewId}/reply`,
-        {
-          method: 'PUT',
-          headers: {
-            'Authorization': `Bearer ${token.access_token}`,
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            comment: replyText
-          })
-        }
-      );
+      // Send reply via Google Business Profile API - try modern endpoint first
+      let success = false;
+      
+      try {
+        // Try Google Business Profile API v1 first
+        console.log(`[AutomationScheduler] Attempting to reply using modern API...`);
+        const modernResponse = await fetch(
+          `https://businessprofileperformance.googleapis.com/v1/locations/${locationId}/reviews/${reviewId}/reply`,
+          {
+            method: 'PATCH',
+            headers: {
+              'Authorization': `Bearer ${token.access_token}`,
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              comment: replyText
+            })
+          }
+        );
 
-      if (response.ok) {
-        console.log(`[AutomationScheduler] Successfully replied to review ${review.reviewId}`);
+        if (modernResponse.ok) {
+          console.log(`[AutomationScheduler] ✅ Modern API: Successfully replied to review ${reviewId}`);
+          success = true;
+        } else {
+          throw new Error(`Modern API failed with status: ${modernResponse.status}`);
+        }
+      } catch (error) {
+        console.log(`[AutomationScheduler] 🔄 Modern API failed, trying fallback...`);
         
+        // Fallback to older API
+        const accountId = config.accountId || '106433552101751461082';
+        const fallbackResponse = await fetch(
+          `https://mybusiness.googleapis.com/v4/accounts/${accountId}/locations/${locationId}/reviews/${reviewId}/reply`,
+          {
+            method: 'PUT',
+            headers: {
+              'Authorization': `Bearer ${token.access_token}`,
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              comment: replyText
+            })
+          }
+        );
+
+        if (fallbackResponse.ok) {
+          console.log(`[AutomationScheduler] ✅ Fallback API: Successfully replied to review ${reviewId}`);
+          success = true;
+        } else {
+          const error = await fallbackResponse.text();
+          console.error(`[AutomationScheduler] ❌ Both APIs failed to reply to review:`, error);
+        }
+      }
+
+      if (success) {
         // Mark review as replied
-        this.markReviewAsReplied(locationId, review.reviewId);
+        this.markReviewAsReplied(locationId, reviewId);
         
         // Log the activity
         this.logAutomationActivity(locationId, 'review_replied', {
-          reviewId: review.reviewId,
-          rating: review.starRating?.value,
+          reviewId: reviewId,
+          rating: rating,
+          reviewerName: reviewerName,
           replyText,
           timestamp: new Date().toISOString()
         });
+        
+        console.log(`[AutomationScheduler] ✅ Review reply completed successfully!`);
       } else {
-        const error = await response.text();
-        console.error(`[AutomationScheduler] Failed to reply to review:`, error);
+        // Log the failure
+        this.logAutomationActivity(locationId, 'review_reply_failed', {
+          reviewId: reviewId,
+          rating: rating,
+          reviewerName: reviewerName,
+          error: 'API request failed',
+          timestamp: new Date().toISOString()
+        });
       }
     } catch (error) {
-      console.error(`[AutomationScheduler] Error replying to review:`, error);
+      console.error(`[AutomationScheduler] ❌ Error replying to review:`, error);
+      
+      // Log the error
+      this.logAutomationActivity(locationId, 'review_reply_failed', {
+        reviewId: review.reviewId || review.name,
+        error: error.message,
+        timestamp: new Date().toISOString()
+      });
     }
   }
 

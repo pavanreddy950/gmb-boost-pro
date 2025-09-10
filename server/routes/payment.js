@@ -8,6 +8,68 @@ const paymentService = new PaymentService();
 const subscriptionService = new SubscriptionService();
 const couponService = new CouponService();
 
+// Health check for payment service
+router.get('/health', async (req, res) => {
+  try {
+    const keyId = process.env.RAZORPAY_KEY_ID;
+    const keySecret = process.env.RAZORPAY_KEY_SECRET;
+    
+    const health = {
+      status: 'ok',
+      razorpay: {
+        configured: !!(keyId && keySecret),
+        keyId: keyId ? `${keyId.substring(0, 10)}...` : 'NOT SET',
+        keySecret: keySecret ? 'SET' : 'NOT SET'
+      },
+      timestamp: new Date().toISOString()
+    };
+    
+    res.json(health);
+  } catch (error) {
+    console.error('Payment health check error:', error);
+    res.status(500).json({ 
+      status: 'error', 
+      error: error.message,
+      timestamp: new Date().toISOString()
+    });
+  }
+});
+
+// Test Razorpay connectivity
+router.get('/test', async (req, res) => {
+  try {
+    console.log('[Payment Test] Testing Razorpay connectivity...');
+    
+    // Try to create a minimal test order
+    const testOrder = await paymentService.createOrder(1, 'INR', { test: true });
+    
+    res.json({
+      status: 'success',
+      message: 'Razorpay is working correctly',
+      testOrder: {
+        id: testOrder.id,
+        amount: testOrder.amount,
+        currency: testOrder.currency,
+        status: testOrder.status
+      },
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    console.error('[Payment Test] Razorpay test failed:', error);
+    res.status(500).json({
+      status: 'error',
+      message: 'Razorpay test failed',
+      error: error.message,
+      details: {
+        code: error.code,
+        statusCode: error.statusCode,
+        response: error.response?.data
+      },
+      timestamp: new Date().toISOString()
+    });
+  }
+});
+
 // Get subscription plans
 router.get('/plans', async (req, res) => {
   try {
@@ -87,17 +149,23 @@ router.get('/coupons', async (req, res) => {
 // Create Razorpay order
 router.post('/order', async (req, res) => {
   try {
+    console.log('[Payment Route] Creating order with body:', req.body);
+    
     const { amount, currency = 'INR', notes = {}, couponCode } = req.body;
     
     if (!amount) {
+      console.log('[Payment Route] Error: Amount is required');
       return res.status(400).json({ error: 'Amount is required' });
     }
+    
+    console.log('[Payment Route] Processing order - Amount:', amount, 'Currency:', currency, 'Coupon:', couponCode);
     
     let finalAmount = amount;
     let couponDetails = null;
     
     // Apply coupon if provided
     if (couponCode) {
+      console.log('[Payment Route] Applying coupon:', couponCode);
       const couponResult = couponService.applyCoupon(couponCode, amount);
       if (couponResult.success) {
         finalAmount = couponResult.finalAmount;
@@ -105,13 +173,17 @@ router.post('/order', async (req, res) => {
         notes.couponCode = couponCode;
         notes.originalAmount = amount;
         notes.discountAmount = couponResult.discountAmount;
-        console.log(`Coupon ${couponCode} applied: Rs. ${amount} -> Rs. ${finalAmount}`);
+        console.log(`[Payment Route] Coupon ${couponCode} applied: Rs. ${amount} -> Rs. ${finalAmount}`);
       } else {
+        console.log('[Payment Route] Coupon application failed:', couponResult.error);
         return res.status(400).json({ error: couponResult.error });
       }
     }
     
+    console.log('[Payment Route] Creating Razorpay order with amount:', finalAmount);
     const order = await paymentService.createOrder(finalAmount, currency, notes);
+    console.log('[Payment Route] Order created successfully:', order.id);
+    
     res.json({ 
       order,
       couponDetails,
@@ -119,8 +191,20 @@ router.post('/order', async (req, res) => {
       finalAmount
     });
   } catch (error) {
-    console.error('Error creating order:', error);
-    res.status(500).json({ error: 'Failed to create order' });
+    console.error('[Payment Route] Error creating order:', error);
+    console.error('[Payment Route] Error stack:', error.stack);
+    console.error('[Payment Route] Error details:', {
+      message: error.message,
+      code: error.code,
+      statusCode: error.statusCode,
+      response: error.response?.data
+    });
+    
+    res.status(500).json({ 
+      error: 'Failed to create order',
+      details: error.message,
+      code: error.code || 'UNKNOWN_ERROR'
+    });
   }
 });
 

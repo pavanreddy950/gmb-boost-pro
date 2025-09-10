@@ -2,6 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import crypto from 'crypto';
+import fetch from 'node-fetch';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -23,28 +24,61 @@ class TokenStorage {
     }
   }
 
-  // Simple encryption for tokens (use proper encryption in production)
+  // Modern encryption for tokens using AES-256-GCM
   encrypt(text) {
     try {
-      const cipher = crypto.createCipher('aes-256-cbc', this.encryptionKey);
+      // Generate a random IV for each encryption
+      const iv = crypto.randomBytes(16);
+      const cipher = crypto.createCipher('aes-256-gcm', this.encryptionKey);
+      cipher.setAAD(Buffer.from('token-data'));
+      
       let encrypted = cipher.update(text, 'utf8', 'hex');
       encrypted += cipher.final('hex');
-      return encrypted;
+      
+      const authTag = cipher.getAuthTag();
+      
+      // Combine IV + authTag + encrypted data
+      const combined = iv.toString('hex') + ':' + authTag.toString('hex') + ':' + encrypted;
+      return combined;
     } catch (error) {
       console.error('[TokenStorage] Encryption error:', error);
-      return text; // Return unencrypted if encryption fails
+      // For development, return unencrypted with warning
+      console.warn('[TokenStorage] ⚠️ Storing token unencrypted due to encryption failure');
+      return `UNENCRYPTED:${text}`;
     }
   }
 
-  decrypt(text) {
+  decrypt(encryptedText) {
     try {
-      const decipher = crypto.createDecipher('aes-256-cbc', this.encryptionKey);
-      let decrypted = decipher.update(text, 'hex', 'utf8');
+      // Handle unencrypted tokens (fallback for development)
+      if (encryptedText.startsWith('UNENCRYPTED:')) {
+        console.warn('[TokenStorage] ⚠️ Reading unencrypted token');
+        return encryptedText.substring(12); // Remove 'UNENCRYPTED:' prefix
+      }
+      
+      // Parse the combined format
+      const parts = encryptedText.split(':');
+      if (parts.length !== 3) {
+        throw new Error('Invalid encrypted token format');
+      }
+      
+      const iv = Buffer.from(parts[0], 'hex');
+      const authTag = Buffer.from(parts[1], 'hex');
+      const encrypted = parts[2];
+      
+      const decipher = crypto.createDecipher('aes-256-gcm', this.encryptionKey);
+      decipher.setAAD(Buffer.from('token-data'));
+      decipher.setAuthTag(authTag);
+      
+      let decrypted = decipher.update(encrypted, 'hex', 'utf8');
       decrypted += decipher.final('utf8');
+      
       return decrypted;
     } catch (error) {
       console.error('[TokenStorage] Decryption error:', error);
-      return text; // Return as-is if decryption fails
+      console.error('[TokenStorage] This may indicate corrupted token data or key mismatch');
+      // Return the text as-is if decryption fails (for backward compatibility)
+      return encryptedText;
     }
   }
 
@@ -136,10 +170,19 @@ class TokenStorage {
     return true;
   }
 
-  // Refresh token if needed
+  // Refresh token if needed using Google OAuth
   async refreshTokenIfNeeded(userId) {
     const token = this.getUserToken(userId);
-    if (!token || !token.refresh_token) return null;
+    if (!token) {
+      console.log(`[TokenStorage] No token found for user ${userId}`);
+      return null;
+    }
+
+    // Check if we have a refresh token
+    if (!token.refresh_token) {
+      console.warn(`[TokenStorage] No refresh token available for user ${userId}`);
+      return token; // Return existing token (might be expired)
+    }
     
     // Check if token needs refresh (expires in next 5 minutes)
     if (token.expires_at) {
@@ -147,20 +190,88 @@ class TokenStorage {
       const fiveMinutesFromNow = new Date(Date.now() + 5 * 60 * 1000);
       
       if (expiresAt > fiveMinutesFromNow) {
+        console.log(`[TokenStorage] Token for user ${userId} is still valid`);
         return token; // Token still valid
       }
     }
     
-    // Refresh the token
+    // Refresh the token using Google OAuth
     try {
-      console.log(`[TokenStorage] Refreshing token for user ${userId}`);
-      // TODO: Implement actual token refresh with Google OAuth
-      // For now, return existing token
-      return token;
+      console.log(`[TokenStorage] 🔄 Refreshing expired token for user ${userId}...`);
+      
+      const refreshResponse = await fetch('https://oauth2.googleapis.com/token', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: new URLSearchParams({
+          client_id: process.env.GOOGLE_CLIENT_ID,
+          client_secret: process.env.GOOGLE_CLIENT_SECRET,
+          refresh_token: token.refresh_token,
+          grant_type: 'refresh_token'
+        })
+      });
+
+      if (!refreshResponse.ok) {
+        const errorText = await refreshResponse.text();
+        console.error(`[TokenStorage] Token refresh failed:`, errorText);
+        
+        // If refresh token is invalid, remove the token
+        if (refreshResponse.status === 400) {
+          console.warn(`[TokenStorage] Refresh token invalid, removing stored token for user ${userId}`);
+          this.removeUserToken(userId);
+        }
+        
+        return null;
+      }
+
+      const refreshData = await refreshResponse.json();
+      console.log(`[TokenStorage] ✅ Successfully refreshed token for user ${userId}`);
+
+      // Update stored token with new access token and expiration
+      const updatedToken = {
+        ...token,
+        access_token: refreshData.access_token,
+        expires_in: refreshData.expires_in,
+        expires_at: new Date(Date.now() + (refreshData.expires_in * 1000)).toISOString(),
+        refreshed_at: new Date().toISOString()
+      };
+
+      // If we got a new refresh token, update it too
+      if (refreshData.refresh_token) {
+        updatedToken.refresh_token = refreshData.refresh_token;
+      }
+
+      // Save the updated token
+      this.saveUserToken(userId, updatedToken);
+      
+      return updatedToken;
     } catch (error) {
       console.error(`[TokenStorage] Error refreshing token for user ${userId}:`, error);
       return null;
     }
+  }
+
+  // Get a valid token (with automatic refresh)
+  async getValidToken(userId) {
+    console.log(`[TokenStorage] Getting valid token for user ${userId}...`);
+    
+    // Try to refresh token if needed
+    const token = await this.refreshTokenIfNeeded(userId);
+    
+    if (!token) {
+      console.warn(`[TokenStorage] No valid token available for user ${userId}`);
+      return null;
+    }
+
+    // Final validation
+    if (!token.access_token) {
+      console.error(`[TokenStorage] Token missing access_token for user ${userId}`);
+      return null;
+    }
+
+    console.log(`[TokenStorage] ✅ Valid token retrieved for user ${userId}`);
+    return token;
   }
 }
 

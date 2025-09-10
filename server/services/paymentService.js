@@ -10,39 +10,115 @@ export class PaymentService {
     console.log('Initializing Razorpay with:');
     console.log('Key ID:', keyId ? `${keyId.substring(0, 10)}...` : 'NOT SET');
     console.log('Key Secret:', keySecret ? 'SET (hidden)' : 'NOT SET');
+    console.log('All environment variables:', Object.keys(process.env).filter(key => key.includes('RAZORPAY')));
     
     if (!keyId || !keySecret) {
-      console.error('WARNING: Razorpay credentials not found in environment variables!');
+      console.error('ERROR: Razorpay credentials not found in environment variables!');
       console.error('Please ensure RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET are set in .env file');
+      throw new Error('Razorpay credentials not configured');
     }
     
     this.razorpay = new Razorpay({
-      key_id: keyId || 'rzp_test_example',
-      key_secret: keySecret || 'example_secret'
+      key_id: keyId,
+      key_secret: keySecret
     });
+    
+    console.log('Razorpay initialized successfully');
   }
 
   async createOrder(amount, currency = 'INR', notes = {}) {
     try {
+      console.log('[PaymentService] 💳 Creating order with amount:', amount, 'currency:', currency);
+      
+      // Enhanced validation
+      if (!amount || isNaN(amount) || amount <= 0) {
+        const error = new Error(`Invalid amount provided: ${amount}. Amount must be a positive number.`);
+        error.code = 'INVALID_AMOUNT';
+        throw error;
+      }
+
+      if (!currency || typeof currency !== 'string') {
+        const error = new Error(`Invalid currency provided: ${currency}. Currency must be a string.`);
+        error.code = 'INVALID_CURRENCY';
+        throw error;
+      }
+      
       // Generate a shorter receipt ID (max 40 chars)
-      // Using timestamp + random string to keep it unique and short
       const timestamp = Date.now().toString(36);
       const randomStr = Math.random().toString(36).substring(2, 8);
       const receipt = `rcpt_${timestamp}_${randomStr}`;
       
       const options = {
-        amount: amount * 100, // Amount in paise
-        currency,
+        amount: Math.round(amount * 100), // Amount in paise, ensure it's an integer
+        currency: currency.toUpperCase(),
         receipt,
-        notes
+        notes: {
+          ...notes,
+          created_at: new Date().toISOString(),
+          service: 'GBP_Management_Platform'
+        }
       };
 
+      console.log('[PaymentService] 📋 Razorpay order options:', {
+        ...options,
+        notes: { service: options.notes.service, created_at: options.notes.created_at }
+      });
+      
       const order = await this.razorpay.orders.create(options);
-      console.log('Created Razorpay order:', order);
+      console.log('[PaymentService] ✅ Successfully created Razorpay order:', order.id);
+      
       return order;
     } catch (error) {
-      console.error('Error creating Razorpay order:', error);
-      throw error;
+      console.error('[PaymentService] ❌ Error creating Razorpay order:', error);
+      
+      // Enhanced error logging with context
+      const errorContext = {
+        operation: 'createOrder',
+        input: { amount, currency, notes },
+        timestamp: new Date().toISOString(),
+        error: {
+          message: error.message,
+          code: error.code,
+          statusCode: error.statusCode,
+          name: error.constructor.name
+        }
+      };
+      
+      // Log Razorpay-specific error details
+      if (error.response?.data) {
+        errorContext.razorpayError = error.response.data;
+      }
+      
+      console.error('[PaymentService] 📊 Error context:', errorContext);
+      
+      // Create a more user-friendly error
+      if (error.code === 'INVALID_AMOUNT' || error.code === 'INVALID_CURRENCY') {
+        throw error; // These are validation errors, pass them through
+      }
+      
+      // Handle Razorpay-specific errors
+      if (error.statusCode === 400) {
+        const userError = new Error('Invalid payment request. Please check your payment details.');
+        userError.code = 'PAYMENT_VALIDATION_ERROR';
+        userError.originalError = error;
+        throw userError;
+      } else if (error.statusCode === 401) {
+        const userError = new Error('Payment service authentication failed. Please contact support.');
+        userError.code = 'PAYMENT_AUTH_ERROR';
+        userError.originalError = error;
+        throw userError;
+      } else if (error.statusCode >= 500) {
+        const userError = new Error('Payment service is temporarily unavailable. Please try again later.');
+        userError.code = 'PAYMENT_SERVICE_ERROR';
+        userError.originalError = error;
+        throw userError;
+      }
+      
+      // Generic error handling
+      const userError = new Error('Unable to process payment request. Please try again or contact support.');
+      userError.code = 'PAYMENT_PROCESSING_ERROR';
+      userError.originalError = error;
+      throw userError;
     }
   }
 
@@ -111,13 +187,44 @@ export class PaymentService {
   }
 
   verifyPaymentSignature(orderId, paymentId, signature) {
-    const body = orderId + '|' + paymentId;
-    const expectedSignature = crypto
-      .createHmac('sha256', process.env.RAZORPAY_KEY_SECRET || 'example_secret')
-      .update(body.toString())
-      .digest('hex');
+    try {
+      console.log('[PaymentService] 🔐 Verifying payment signature...');
+      
+      // Validate inputs
+      if (!orderId || !paymentId || !signature) {
+        console.error('[PaymentService] Missing required parameters for signature verification');
+        return false;
+      }
 
-    return expectedSignature === signature;
+      const keySecret = process.env.RAZORPAY_KEY_SECRET;
+      if (!keySecret) {
+        console.error('[PaymentService] RAZORPAY_KEY_SECRET not configured');
+        return false;
+      }
+
+      const body = orderId + '|' + paymentId;
+      const expectedSignature = crypto
+        .createHmac('sha256', keySecret)
+        .update(body.toString())
+        .digest('hex');
+
+      const isValid = expectedSignature === signature;
+      
+      if (isValid) {
+        console.log('[PaymentService] ✅ Payment signature verification successful');
+      } else {
+        console.error('[PaymentService] ❌ Payment signature verification failed');
+        console.error('[PaymentService] Expected vs Received:', {
+          expected: expectedSignature.substring(0, 10) + '...',
+          received: signature.substring(0, 10) + '...'
+        });
+      }
+
+      return isValid;
+    } catch (error) {
+      console.error('[PaymentService] Error during signature verification:', error);
+      return false;
+    }
   }
 
   verifyWebhookSignature(body, signature) {
