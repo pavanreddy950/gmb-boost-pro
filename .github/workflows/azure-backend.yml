@@ -26,6 +26,14 @@ jobs:
         cd server
         npm ci --production
         
+    - name: Create deployment package
+      run: |
+        cd server
+        # Ensure data directory exists for QR codes and other storage
+        mkdir -p data
+        echo '{"qrCodes": {}}' > data/qrCodes.json
+        echo "Deployment package created"
+        
     - name: Deploy to Azure Web App
       uses: azure/webapps-deploy@v2
       with:
@@ -33,4 +41,3 @@ jobs:
         slot-name: 'Production'
         publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
         package: ./server
-        restart: true
