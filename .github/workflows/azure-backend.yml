@@ -1,4 +1,4 @@
-name: Deploy Backend to Azure App Service
+name: Deploy Backend to Azure App Service (Docker)
 
 on:
   push:
@@ -10,34 +10,39 @@ on:
   workflow_dispatch:
 
 jobs:
-  deploy:
+  build-and-deploy:
     runs-on: ubuntu-latest
     
     steps:
     - uses: actions/checkout@v3
     
-    - name: Set up Node.js
-      uses: actions/setup-node@v3
+    - name: Azure Login
+      uses: azure/login@v1
       with:
-        node-version: '18'
+        creds: ${{ secrets.AZURE_CREDENTIALS }}
         
-    - name: Install dependencies
+    - name: Build Docker image
       run: |
         cd server
-        npm ci --production
+        docker build -t scale12345-hccmcmf7g3bwbvd0:${{ github.sha }} .
         
-    - name: Create deployment package
+    - name: Login to Azure Container Registry
+      uses: azure/docker-login@v1
+      with:
+        login-server: scale12345.azurecr.io
+        username: ${{ secrets.AZURE_CR_USERNAME }}
+        password: ${{ secrets.AZURE_CR_PASSWORD }}
+        
+    - name: Push Docker image to ACR
       run: |
-        cd server
-        # Ensure data directory exists for QR codes and other storage
-        mkdir -p data
-        echo '{"qrCodes": {}}' > data/qrCodes.json
-        echo "Deployment package created"
+        docker tag scale12345-hccmcmf7g3bwbvd0:${{ github.sha }} scale12345.azurecr.io/scale12345-hccmcmf7g3bwbvd0:${{ github.sha }}
+        docker tag scale12345-hccmcmf7g3bwbvd0:${{ github.sha }} scale12345.azurecr.io/scale12345-hccmcmf7g3bwbvd0:latest
+        docker push scale12345.azurecr.io/scale12345-hccmcmf7g3bwbvd0:${{ github.sha }}
+        docker push scale12345.azurecr.io/scale12345-hccmcmf7g3bwbvd0:latest
         
     - name: Deploy to Azure Web App
       uses: azure/webapps-deploy@v2
       with:
         app-name: 'scale12345-hccmcmf7g3bwbvd0'
         slot-name: 'Production'
-        publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
-        package: ./server
+        images: 'scale12345.azurecr.io/scale12345-hccmcmf7g3bwbvd0:${{ github.sha }}'
