@@ -13,9 +13,26 @@ export class PaymentService {
     console.log('All environment variables:', Object.keys(process.env).filter(key => key.includes('RAZORPAY')));
     
     if (!keyId || !keySecret) {
-      console.error('ERROR: Razorpay credentials not found in environment variables!');
-      console.error('Please ensure RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET are set in .env file');
-      throw new Error('Razorpay credentials not configured');
+      console.error('❌ RAZORPAY CONFIGURATION MISSING:');
+      console.error('Razorpay credentials not found in environment variables!');
+      
+      if (process.env.NODE_ENV === 'production') {
+        console.error('\n🔧 AZURE DEPLOYMENT SETUP REQUIRED:');
+        console.error('Add these environment variables in Azure Container/App Service:');
+        console.error('   RAZORPAY_KEY_ID=rzp_live_your-razorpay-key');
+        console.error('   RAZORPAY_KEY_SECRET=your-razorpay-secret');
+        console.error('   RAZORPAY_WEBHOOK_SECRET=your-webhook-secret');
+        console.error('\n💡 Payment functionality will be disabled until configured.\n');
+        
+        // In production, don't throw error - allow app to start with limited functionality
+        this.razorpay = null;
+        this.isConfigured = false;
+        console.warn('⚠️ PaymentService initialized in DISABLED mode (missing credentials)');
+        return;
+      } else {
+        console.error('Please ensure RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET are set in .env file');
+        throw new Error('Razorpay credentials not configured');
+      }
     }
     
     this.razorpay = new Razorpay({
@@ -23,11 +40,21 @@ export class PaymentService {
       key_secret: keySecret
     });
     
-    console.log('Razorpay initialized successfully');
+    this.isConfigured = true;
+    console.log('✅ Razorpay initialized successfully');
+  }
+
+  _checkConfiguration() {
+    if (!this.isConfigured || !this.razorpay) {
+      const error = new Error('Payment service is not properly configured. Please check environment variables.');
+      error.code = 'PAYMENT_NOT_CONFIGURED';
+      throw error;
+    }
   }
 
   async createOrder(amount, currency = 'INR', notes = {}) {
     try {
+      this._checkConfiguration();
       console.log('[PaymentService] 💳 Creating order with amount:', amount, 'currency:', currency);
       
       // Enhanced validation
@@ -124,6 +151,7 @@ export class PaymentService {
 
   async createSubscription(planId, customerId, notes = {}) {
     try {
+      this._checkConfiguration();
       const subscriptionOptions = {
         plan_id: planId,
         customer_id: customerId,

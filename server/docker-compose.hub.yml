@@ -20,11 +20,8 @@ services:
       - RAZORPAY_KEY_ID=rzp_live_RFSzT9EvJ2cwJI
       - RAZORPAY_KEY_SECRET=7i0iikfS6eO7w4DSLXldCBX5
       - RAZORPAY_WEBHOOK_SECRET=gmb_boost_pro_webhook_secret_2024
-      # Azure OpenAI Configuration (REQUIRED for AI features)
-      - AZURE_OPENAI_ENDPOINT=https://agentplus.openai.azure.com/
-      - AZURE_OPENAI_API_KEY=1TPW16ifwPJccSiQPSHq63nU7IcT6R9DrduIHBYwCm5jbUWiSbkLJQQJ99BDACYeBjFXJ3w3AAABACOG3Yia
-      - AZURE_OPENAI_DEPLOYMENT=gpt-4o
-      - AZURE_OPENAI_API_VERSION=2024-02-15-preview
+      # Azure OpenAI Configuration - NOW HARDCODED IN SOURCE CODE
+      # No environment variables needed for AI features anymore!
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "node", "-e", "require('http').get('http://localhost:5000/health', (res) => { if (res.statusCode === 200) { process.exit(0) } else { process.exit(1) } })"]

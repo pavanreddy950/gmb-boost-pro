@@ -196,7 +196,7 @@ const PublicReviewSuggestions = () => {
         <div className="mb-6">
           <h3 className="text-2xl font-bold mb-2">Review Suggestions</h3>
           <p className="text-muted-foreground">
-            Click on any suggestion to copy it, then paste it in your Google review
+            Click on any suggestion to copy it, then click "Write Review" below and paste it in the Google review text box
           </p>
         </div>
         
@@ -248,7 +248,7 @@ const PublicReviewSuggestions = () => {
                   {copiedReview === review.id && (
                     <div className="mt-3 p-2 bg-green-50 rounded-md">
                       <p className="text-sm text-green-700 font-medium">
-                        ✓ Copied! Now click "Write Review on Google" below
+                        ✓ Copied! Now click "Write Review on Google" below and paste (Ctrl+V) in the text box
                       </p>
                     </div>
                   )}

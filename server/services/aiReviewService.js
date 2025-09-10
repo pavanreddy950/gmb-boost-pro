@@ -42,34 +42,20 @@ class AIReviewService {
       
       console.log(`[AI Review Service] Generating AI suggestions for ${businessName} ${locationPhrase}`);
       
-      const prompt = `Generate 5 unique, authentic customer review suggestions for "${businessName}"${locationPhrase ? ` located in "${cleanLocation}"` : ''}. 
+      const prompt = `Generate 5 detailed, authentic customer reviews for "${businessName}"${locationPhrase ? ` in "${cleanLocation}"` : ''}. 
       
-      Requirements:
-      - Each review MUST be completely different and unique
-      - Include specific SEO keywords: "${businessName}"${cleanLocation ? ` and "${cleanLocation}"` : ''} naturally
-      - Vary the tone: some enthusiastic, some moderate, some professional
-      - Vary the length: medium (5-6 sentences minimum), long (7-9 sentences), very detailed (10-12 sentences)
-      - MINIMUM 5 sentences per review, aim for 80-120 words per review
-      - Include different aspects: service quality, staff interactions, atmosphere, value for money, specific experiences
-      - Make them sound genuine and human-written with personal touches
-      - Use different writing styles and vocabulary for each
-      - Include specific details, anecdotes, or scenarios that feel authentic
-      - Mention specific positive experiences or interactions
-      - Ratings should vary between 4-5 stars
-      - DO NOT use template phrases or repeat patterns
+      Each review should be 60-100 words, detailed and personal like real customer experiences.
+      Include specific details about:
+      - Service quality and staff interactions
+      - Specific experiences or moments
+      - Recommendations and personal touches
+      - Why you'd recommend to others
       
-      Format as JSON array with objects containing:
-      - review: the review text
-      - rating: 4 or 5
-      - focus: main aspect (service/quality/experience/value/staff)
-      - length: short/medium/long
+      Use these focuses: service, quality, atmosphere, value, staff
+      Ratings: 4 or 5 stars
       
-      Example variety needed:
-      1. Enthusiastic first-timer mentioning specific service
-      2. Regular customer praising consistency
-      3. Professional noting business efficiency
-      4. Family perspective on atmosphere
-      5. Value-focused practical review`;
+      Return valid JSON only:
+      [{"review": "detailed review text here", "rating": 5, "focus": "service"}]`;
 
       const url = `${this.azureEndpoint}openai/deployments/${this.deploymentName}/chat/completions?api-version=${this.apiVersion}`;
       
@@ -83,14 +69,14 @@ class AIReviewService {
           messages: [
             {
               role: 'system',
-              content: 'You are an expert at generating diverse, authentic-sounding customer reviews with strong SEO optimization. Each review must be completely unique with no repeated phrases or patterns. Create detailed, engaging reviews with minimum 80 words each, including specific experiences and personal touches that make them feel genuine.'
+              content: 'Generate authentic customer reviews. Return only valid JSON array format. Keep reviews short and unique.'
             },
             {
               role: 'user',
               content: prompt
             }
           ],
-          max_tokens: 3000, // Increased for longer, detailed reviews
+          max_tokens: 1500, // Increased for detailed reviews
           temperature: 0.9, // High temperature for more variety
           top_p: 0.95,
           frequency_penalty: 1.2, // Penalize repetition
@@ -107,17 +93,71 @@ class AIReviewService {
       const data = await response.json();
       const content = data.choices[0].message.content;
       
-      // Parse the JSON response - handle markdown code blocks
+      // Parse the JSON response - handle markdown code blocks and other formats
       try {
-        // Clean up the content - remove markdown code blocks if present
+        // Clean up the content - remove markdown code blocks and other formatting
         let cleanContent = content.trim();
+        
+        // Remove markdown code blocks
         if (cleanContent.startsWith('```json')) {
           cleanContent = cleanContent.replace(/^```json\s*/, '').replace(/\s*```$/, '');
         } else if (cleanContent.startsWith('```')) {
           cleanContent = cleanContent.replace(/^```\s*/, '').replace(/\s*```$/, '');
         }
         
+        // Remove any text before the JSON array starts
+        const jsonStart = cleanContent.indexOf('[');
+        let jsonEnd = cleanContent.lastIndexOf(']') + 1;
+        
+        // Handle truncated JSON responses comprehensively
+        if (jsonStart >= 0) {
+          if (jsonEnd <= jsonStart || jsonEnd === 0) {
+            // No closing bracket found - response was truncated
+            cleanContent = cleanContent.substring(jsonStart);
+          } else {
+            cleanContent = cleanContent.substring(jsonStart, jsonEnd);
+          }
+          
+          // Comprehensive truncation recovery
+          if (!cleanContent.endsWith(']')) {
+            // Find the last complete object
+            const lastCompleteObject = cleanContent.lastIndexOf('}');
+            
+            if (lastCompleteObject > 0) {
+              // Truncate to last complete object and close array
+              cleanContent = cleanContent.substring(0, lastCompleteObject + 1);
+              
+              // Remove any trailing incomplete content after the last }
+              const afterLastBrace = cleanContent.substring(lastCompleteObject + 1);
+              if (afterLastBrace.trim().startsWith(',')) {
+                // Remove trailing comma if present
+                cleanContent = cleanContent.substring(0, lastCompleteObject + 1);
+              }
+              
+              // Ensure array is properly closed
+              if (!cleanContent.endsWith(']')) {
+                cleanContent += ']';
+              }
+            } else {
+              // No complete objects found, return empty array
+              cleanContent = '[]';
+            }
+          }
+        }
+        
+        // Clean up common JSON issues
+        cleanContent = cleanContent
+          .replace(/,\s*]/g, ']')  // Remove trailing commas in arrays
+          .replace(/,\s*}/g, '}')  // Remove trailing commas in objects
+          .replace(/'/g, '"')      // Replace single quotes with double quotes
+          .trim();
+        
         const reviews = JSON.parse(cleanContent);
+        
+        // Validate the response
+        if (!Array.isArray(reviews) || reviews.length === 0) {
+          throw new Error('AI response is not a valid array of reviews');
+        }
         
         // Add timestamps and ensure uniqueness
         const timestamp = Date.now();
@@ -130,7 +170,7 @@ class AIReviewService {
         }));
       } catch (parseError) {
         console.error('Error parsing AI response:', parseError);
-        console.error('Raw AI content:', content);
+        console.error('Raw AI content (first 500 chars):', content.substring(0, 500));
         // AI generation failed
         throw new Error('[AI Review Service] Failed to parse AI response. Please try again.');
       }

@@ -35,7 +35,13 @@
       "Bash(python:*)",
       "Bash(find:*)",
       "Bash(xargs:*)",
-      "Bash(node:*)"
+      "Bash(node:*)",
+      "Bash(docker build:*)",
+      "Bash(docker tag:*)",
+      "Bash(docker push:*)",
+      "Bash(docker run:*)",
+      "Bash(docker logs:*)",
+      "Bash(docker stop:*)"
     ],
     "deny": [],
     "ask": []

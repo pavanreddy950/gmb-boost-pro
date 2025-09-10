@@ -53,10 +53,69 @@ class Config {
       'HARDCODED_ACCOUNT_ID'
     ];
 
+    const optional = [
+      'RAZORPAY_KEY_ID',
+      'RAZORPAY_KEY_SECRET', 
+      'AZURE_OPENAI_ENDPOINT',
+      'AZURE_OPENAI_API_KEY'
+    ];
+
     const missing = required.filter(key => !process.env[key]);
+    const missingOptional = optional.filter(key => !process.env[key]);
+
     if (missing.length > 0) {
-      console.warn(`⚠️ Missing required environment variables: ${missing.join(', ')}`);
+      console.error(`❌ CRITICAL: Missing required environment variables: ${missing.join(', ')}`);
+      
+      if (this.isProduction) {
+        console.error(`\n🔧 AZURE DEPLOYMENT CONFIGURATION REQUIRED:`);
+        console.error(`Set the following environment variables in your Azure Container/App Service:`);
+        console.error(`\n📋 Required Environment Variables:`);
+        missing.forEach(key => {
+          const example = this.getExampleValue(key);
+          console.error(`   ${key}=${example}`);
+        });
+        
+        console.error(`\n📋 Optional but Recommended:`);
+        missingOptional.forEach(key => {
+          const example = this.getExampleValue(key);
+          console.error(`   ${key}=${example}`);
+        });
+        
+        console.error(`\n🚀 Azure Configuration Steps:`);
+        console.error(`1. Go to Azure Portal > Container Apps/App Service`);
+        console.error(`2. Navigate to Configuration > Environment Variables`);
+        console.error(`3. Add each environment variable listed above`);
+        console.error(`4. Restart the container/app service`);
+        console.error(`\n⚠️ WARNING: Application may not function correctly without required variables!\n`);
+      }
     }
+
+    if (missingOptional.length > 0 && missing.length === 0) {
+      console.warn(`⚠️ Missing optional environment variables: ${missingOptional.join(', ')}`);
+      console.warn(`Some features may not work correctly. Check deployment configuration.`);
+    }
+
+    // Log successful configuration
+    if (missing.length === 0) {
+      console.log(`✅ All required environment variables are configured`);
+      if (missingOptional.length === 0) {
+        console.log(`✅ All optional environment variables are configured`);
+      }
+    }
+  }
+
+  getExampleValue(key) {
+    const examples = {
+      'GOOGLE_CLIENT_ID': 'your-google-client-id.apps.googleusercontent.com',
+      'GOOGLE_CLIENT_SECRET': 'GOCSPX-your-google-client-secret',
+      'FRONTEND_URL': 'https://your-frontend-url.azurestaticapps.net',
+      'HARDCODED_ACCOUNT_ID': '106433552101751461082',
+      'RAZORPAY_KEY_ID': 'rzp_live_your-razorpay-key',
+      'RAZORPAY_KEY_SECRET': 'your-razorpay-secret',
+      'AZURE_OPENAI_ENDPOINT': 'https://your-openai-resource.openai.azure.com/',
+      'AZURE_OPENAI_API_KEY': 'your-azure-openai-api-key'
+    };
+    return examples[key] || 'your-value-here';
   }
 
   // Getters for common configuration values
