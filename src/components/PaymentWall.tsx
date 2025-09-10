@@ -13,7 +13,7 @@ interface PaymentWallProps {
 }
 
 export const PaymentWall: React.FC<PaymentWallProps> = ({ 
-  message = "Your 15-day trial has expired",
+  message = "Your 2-minute trial has expired", // TEST MODE
   daysRemaining = 0,
   isExpired = true
 }) => {

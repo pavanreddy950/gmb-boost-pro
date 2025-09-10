@@ -1,0 +1,65 @@
+{
+  "automations": {
+    "14977377147025961194": {
+      "autoReply": {
+        "enabled": true,
+        "businessName": "Scale Point Strategy",
+        "category": "Digital Marketing Agency",
+        "keywords": "SEO, Google Business Profile, digital marketing, online presence",
+        "replyToAll": true,
+        "userId": "default",
+        "accountId": "106433552101751461082"
+      },
+      "updatedAt": "2025-09-10T09:21:53.095Z",
+      "autoPosting": {
+        "enabled": true,
+        "schedule": "09:00",
+        "frequency": "alternative",
+        "businessName": "Scale Point Strategy",
+        "category": "Digital Marketing Agency",
+        "keywords": "SEO, Google Business Profile, digital marketing, online presence",
+        "websiteUrl": "",
+        "locationName": "",
+        "timezone": "America/New_York",
+        "userId": "default"
+      }
+    },
+    "9152028977863765725": {
+      "autoPosting": {
+        "enabled": true,
+        "schedule": "09:00",
+        "frequency": "alternative",
+        "businessName": "Tree House Retreat Mohani",
+        "category": "Resort hotel",
+        "keywords": "Tree House Retreat Mohani, tree, house, retreat, mohani, Kullu, Tree House Retreat Mohani Kullu",
+        "timezone": "Asia/Calcutta",
+        "userId": "default"
+      },
+      "updatedAt": "2025-09-10T08:10:31.709Z"
+    },
+    "17697790081864925086": {
+      "autoPosting": {
+        "enabled": true,
+        "schedule": "09:00",
+        "frequency": "alternative",
+        "businessName": "Business",
+        "category": "business",
+        "keywords": "quality service, customer satisfaction, professional",
+        "websiteUrl": "",
+        "locationName": "",
+        "timezone": "America/New_York",
+        "userId": "default"
+      },
+      "autoReply": {
+        "enabled": true,
+        "businessName": "Business",
+        "category": "business",
+        "keywords": "quality service, customer satisfaction, professional",
+        "replyToAll": true,
+        "userId": "default",
+        "accountId": "106433552101751461082"
+      },
+      "updatedAt": "2025-09-10T09:27:15.086Z"
+    }
+  }
+}

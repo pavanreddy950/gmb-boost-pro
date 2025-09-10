@@ -228,12 +228,25 @@ router.post('/verify', async (req, res) => {
         paidAt: new Date().toISOString()
       });
       
-      // Update subscription status to active/paid
-      const updatedSubscription = subscriptionService.updateSubscription(subscription.id, {
-        status: 'active',
+      // Update subscription status to active/paid with proper end date
+      const now = new Date();
+      const endDate = new Date();
+      
+      // Set end date based on plan
+      if (planId === 'yearly_basic') {
+        endDate.setFullYear(endDate.getFullYear() + 1); // 1 year
+      } else {
+        endDate.setMonth(endDate.getMonth() + 1); // 1 month (default)
+      }
+      
+      const updatedSubscription = subscriptionService.markSubscriptionAsPaid(gbpAccountId || subscription.gbpAccountId, {
         planId: planId || 'monthly_basic',
-        lastPaymentDate: new Date().toISOString(),
-        nextBillingDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString() // 30 days from now
+        lastPaymentDate: now.toISOString(),
+        subscriptionEndDate: endDate.toISOString(),
+        razorpayPaymentId: razorpay_payment_id,
+        razorpayOrderId: razorpay_order_id,
+        amount: payment.amount / 100,
+        currency: payment.currency
       });
       
       console.log('[Payment Verify] Subscription updated to active:', updatedSubscription);

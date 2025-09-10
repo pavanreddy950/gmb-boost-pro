@@ -26,7 +26,8 @@ import { GoogleBusinessProfileProvider } from "./contexts/GoogleBusinessProfileC
 import ProtectedRoute from "./components/ProtectedRoute";
 import AuthRedirect from "./components/AuthRedirect";
 import GoogleOAuthCallback from "./pages/GoogleOAuthCallback";
-import { SubscriptionGuard } from "./components/SubscriptionGuard";
+import { PaymentSuccess } from "./components/PaymentSuccess";
+// SubscriptionGuard is now handled inside DashboardLayout
 
 const queryClient = new QueryClient();
 
@@ -59,12 +60,10 @@ const App = () => (
             {/* Public route for review suggestions */}
             <Route path="/review/:businessId" element={<PublicReviewSuggestions />} />
             
-            {/* Protected Dashboard Routes with Subscription Guard */}
+            {/* Protected Dashboard Routes - SubscriptionGuard is applied inside DashboardLayout */}
             <Route path="/dashboard" element={
               <ProtectedRoute>
-                <SubscriptionGuard>
-                  <DashboardLayout />
-                </SubscriptionGuard>
+                <DashboardLayout />
               </ProtectedRoute>
             }>
               <Route index element={<Dashboard />} />
@@ -77,12 +76,17 @@ const App = () => (
               <Route path="billing" element={<Billing />} />
             </Route>
             
-            {/* Upgrade page without layout but with subscription guard */}
+            {/* Upgrade page without layout and without subscription guard (billing-related) */}
             <Route path="/dashboard/upgrade" element={
               <ProtectedRoute>
-                <SubscriptionGuard>
-                  <Upgrade />
-                </SubscriptionGuard>
+                <Upgrade />
+              </ProtectedRoute>
+            } />
+            
+            {/* Payment success page */}
+            <Route path="/payment-success" element={
+              <ProtectedRoute>
+                <PaymentSuccess />
               </ProtectedRoute>
             } />
             

@@ -12,8 +12,11 @@ import { Clock, Zap, Calendar, BarChart3, Play, Pause, TestTube, Tags, Plus, X, 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { automationStorage, type AutoPostingConfig } from '@/lib/automationStorage';
 import { automationService } from '@/lib/automationService';
+import { serverAutomationService } from '@/lib/serverAutomationService';
+import { useAuth } from '@/contexts/AuthContext';
 import { toast } from '@/hooks/use-toast';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
+import { googleBusinessProfileService } from '@/lib/googleBusinessProfile';
 
 interface AutoPostingTabProps {
   location: {
@@ -32,12 +35,14 @@ interface AutoPostingTabProps {
 }
 
 export function AutoPostingTab({ location }: AutoPostingTabProps) {
+  const { user } = useAuth();
   const [config, setConfig] = useState<AutoPostingConfig | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isTesting, setIsTesting] = useState(false);
   const [customTimes, setCustomTimes] = useState<string[]>(['09:00']);
   const [newKeyword, setNewKeyword] = useState('');
   const [keywords, setKeywords] = useState<string[]>([]);
+  const [isSavingToServer, setIsSavingToServer] = useState(false);
 
   // Smart keyword filtering to avoid generic terms
   const getGenericKeywordBlacklist = () => [
@@ -193,25 +198,56 @@ export function AutoPostingTab({ location }: AutoPostingTabProps) {
     automationStorage.saveConfiguration(updatedConfig);
   };
 
-  const handleToggleEnabled = (enabled: boolean) => {
+  const handleToggleEnabled = async (enabled: boolean) => {
     saveConfiguration({ enabled });
     
-    if (enabled) {
+    // Save to server for persistent automation
+    setIsSavingToServer(true);
+    try {
+      if (enabled) {
+        // Get account ID from localStorage (set during Google connection)
+        const accountId = localStorage.getItem('google_business_account_id');
+        
+        await serverAutomationService.enableAutoPosting(
+          location.id,
+          location.name,
+          config?.schedule.time || '09:00',
+          config?.schedule.frequency || 'daily',
+          location.categories?.[0],
+          keywords.join(', '),
+          location.websiteUri,
+          user?.uid,
+          accountId || undefined
+        );
+        
+        toast({
+          title: "Auto-posting enabled! 🚀",
+          description: `Posts will be automatically generated for ${location.name} even when you're offline`,
+          duration: 4000,
+        });
+      } else {
+        await serverAutomationService.disableAutoPosting(location.id);
+        
+        toast({
+          title: "Auto-posting disabled",
+          description: `Automatic posting stopped for ${location.name}`,
+          duration: 3000,
+        });
+      }
+    } catch (error) {
+      console.error('Failed to save to server:', error);
       toast({
-        title: "Auto-posting enabled! 🚀",
-        description: `Posts will be automatically generated for ${location.name}`,
-        duration: 3000,
+        title: "Server sync failed",
+        description: "Settings saved locally but server sync failed. Automation may not work when offline.",
+        variant: "destructive",
+        duration: 5000,
       });
-    } else {
-      toast({
-        title: "Auto-posting disabled",
-        description: `Automatic posting stopped for ${location.name}`,
-        duration: 3000,
-      });
+    } finally {
+      setIsSavingToServer(false);
     }
   };
 
-  const handleFrequencyChange = (value: 'daily' | 'alternative' | 'weekly' | 'custom' | 'test30s') => {
+  const handleFrequencyChange = async (value: 'daily' | 'alternative' | 'weekly' | 'custom' | 'test30s') => {
     const newConfig = { ...config! };
     newConfig.schedule.frequency = value;
     
@@ -220,6 +256,29 @@ export function AutoPostingTab({ location }: AutoPostingTabProps) {
     newConfig.nextPost = nextPost;
     
     saveConfiguration(newConfig);
+    
+    // Update server if enabled
+    if (config?.enabled) {
+      try {
+        const accountId = localStorage.getItem('google_business_account_id');
+        await serverAutomationService.saveAutomationSettings(location.id, {
+          autoPosting: {
+            enabled: true,
+            schedule: newConfig.schedule.time,
+            frequency: value,
+            businessName: location.name,
+            category: location.categories?.[0],
+            keywords: keywords.join(', '),
+            websiteUrl: location.websiteUri,
+            timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+          },
+          userId: user?.uid,
+          accountId: accountId || undefined,
+        });
+      } catch (error) {
+        console.error('Failed to update server:', error);
+      }
+    }
     
     if (value === 'test30s') {
       toast({
@@ -279,11 +338,34 @@ export function AutoPostingTab({ location }: AutoPostingTabProps) {
     return nextPost.toISOString();
   };
 
-  const handleTimeChange = (time: string) => {
+  const handleTimeChange = async (time: string) => {
     const newConfig = { ...config! };
     newConfig.schedule.time = time;
     newConfig.nextPost = calculateNextPost(newConfig.schedule.frequency, time);
     saveConfiguration(newConfig);
+    
+    // Update server if enabled
+    if (config?.enabled) {
+      try {
+        const accountId = localStorage.getItem('google_business_account_id');
+        await serverAutomationService.saveAutomationSettings(location.id, {
+          autoPosting: {
+            enabled: true,
+            schedule: time,
+            frequency: newConfig.schedule.frequency,
+            businessName: location.name,
+            category: location.categories?.[0],
+            keywords: keywords.join(', '),
+            websiteUrl: location.websiteUri,
+            timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+          },
+          userId: user?.uid,
+          accountId: accountId || undefined,
+        });
+      } catch (error) {
+        console.error('Failed to update server:', error);
+      }
+    }
   };
 
   const handleCustomTimesChange = (times: string[]) => {
@@ -354,8 +436,32 @@ export function AutoPostingTab({ location }: AutoPostingTabProps) {
     });
   };
   
-  const updateKeywordsInConfig = (keywords: string[]) => {
+  const updateKeywordsInConfig = async (keywords: string[]) => {
     saveConfiguration({ keywords: keywords });
+    
+    // Also sync to server if auto-posting is enabled
+    if (config?.enabled) {
+      try {
+        const accountId = localStorage.getItem('google_business_account_id');
+        await serverAutomationService.saveAutomationSettings(location.id, {
+          autoPosting: {
+            enabled: true,
+            schedule: config?.schedule.time || '09:00',
+            frequency: config?.schedule.frequency || 'daily',
+            businessName: location.name,
+            category: location.categories?.[0],
+            keywords: keywords.join(', '),
+            websiteUrl: location.websiteUri,
+            timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+          },
+          userId: user?.uid,
+          accountId: accountId || undefined,
+        });
+        console.log('Keywords synced to server for automation');
+      } catch (error) {
+        console.error('Failed to sync keywords to server:', error);
+      }
+    }
   };
   
   const resetToDefaultKeywords = () => {
@@ -410,18 +516,44 @@ export function AutoPostingTab({ location }: AutoPostingTabProps) {
     setIsTesting(true);
     
     try {
-      const result = await automationService.executeManualPost(location.id);
+      // Get the access token from the frontend Google service
+      const accessToken = googleBusinessProfileService.getAccessToken();
+      console.log('[AutoPostingTab] Access token available:', accessToken ? 'Yes' : 'No');
       
-      if (result.success) {
+      // Use backend server for test post creation
+      const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000';
+      const response = await fetch(`${backendUrl}/api/automation/test-post-now/${location.id}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': accessToken ? `Bearer ${accessToken}` : '',
+        },
+        body: JSON.stringify({
+          businessName: location.name,
+          category: location.categories?.[0] || 'business',
+          keywords: config.keywords || 'quality service, customer satisfaction',
+          websiteUrl: location.websiteUri || '',
+          locationName: location.address?.locality || '',
+          city: location.address?.locality || '',
+          region: location.address?.administrativeArea || '',
+          country: location.address?.regionCode || '',
+          fullAddress: location.address?.addressLines?.join(', ') || '',
+          accessToken: accessToken // Also send in body for backward compatibility
+        })
+      });
+      
+      const result = await response.json();
+      
+      if (response.ok && result.success) {
         toast({
           title: "Test post successful! ✅",
-          description: "Your post has been published to Google Business Profile",
+          description: result.message || "Your post has been published to Google Business Profile",
           duration: 5000,
         });
       } else {
         toast({
           title: "Test post failed ❌",
-          description: result.error || "Failed to publish post",
+          description: result.error || result.details || "Failed to publish post",
           variant: "destructive",
           duration: 6000,
         });
@@ -549,9 +681,17 @@ export function AutoPostingTab({ location }: AutoPostingTabProps) {
               <Switch
                 checked={config.enabled}
                 onCheckedChange={handleToggleEnabled}
+                disabled={isSavingToServer}
               />
               <span className="text-sm font-medium">
-                {config.enabled ? 'Enabled' : 'Disabled'}
+                {isSavingToServer ? (
+                  <span className="flex items-center gap-1">
+                    <div className="animate-spin h-3 w-3 border-2 border-current border-t-transparent rounded-full" />
+                    Saving...
+                  </span>
+                ) : (
+                  config.enabled ? 'Enabled' : 'Disabled'
+                )}
               </span>
             </div>
           </CardTitle>
@@ -696,7 +836,7 @@ export function AutoPostingTab({ location }: AutoPostingTabProps) {
                 {config.enabled ? (
                   <>
                     <Play className="h-4 w-4 text-green-600" />
-                    <span className="text-sm text-green-600">Active</span>
+                    <span className="text-sm text-green-600">Active (Server-side)</span>
                   </>
                 ) : (
                   <>
@@ -705,6 +845,11 @@ export function AutoPostingTab({ location }: AutoPostingTabProps) {
                   </>
                 )}
               </div>
+              {config.enabled && (
+                <p className="text-xs text-muted-foreground mt-1">
+                  Running on server - continues even when offline
+                </p>
+              )}
             </div>
           </div>
 

@@ -110,7 +110,7 @@ export const SubscriptionProvider: React.FC<SubscriptionProviderProps> = ({ chil
         if (data.status === 'trial' && data.daysRemaining && data.daysRemaining <= 3) {
           toast({
             title: "Trial Ending Soon",
-            description: `Your trial ends in ${data.daysRemaining} days. Upgrade now to continue using all features.`,
+            description: `Your trial ends in ${data.daysRemaining} day(s). Upgrade now to continue using all features.`,
             variant: "default"
           });
         }
@@ -182,7 +182,7 @@ export const SubscriptionProvider: React.FC<SubscriptionProviderProps> = ({ chil
         const data = await response.json();
         setSubscription(data.subscription);
         setStatus('trial');
-        setDaysRemaining(15);
+        setDaysRemaining(15); // 15 days trial
         setIsFeatureBlocked(false);
         
         toast({
@@ -199,7 +199,7 @@ export const SubscriptionProvider: React.FC<SubscriptionProviderProps> = ({ chil
         
         setSubscription(newSubscription);
         setStatus('trial');
-        setDaysRemaining(15);
+        setDaysRemaining(15); // 15 days trial
         setIsFeatureBlocked(false);
         
         toast({

@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Outlet } from "react-router-dom";
 import Sidebar from "./Sidebar";
 import Topbar from "./Topbar";
+import { ConditionalSubscriptionGuard } from "../ConditionalSubscriptionGuard";
 
 const DashboardLayout = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -24,7 +25,9 @@ const DashboardLayout = () => {
           
           <main className="flex-1 p-4 sm:p-6 bg-muted/30">
             <div className="animate-fade-in">
-              <Outlet />
+              <ConditionalSubscriptionGuard>
+                <Outlet />
+              </ConditionalSubscriptionGuard>
             </div>
           </main>
         </div>

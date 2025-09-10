@@ -9,8 +9,11 @@ import paymentRoutes from './routes/payment.js';
 import aiReviewsRoutes from './routes/aiReviews.js';
 import reviewLinkRoutes from './routes/reviewLink.js';
 import googleReviewLinkRoutes from './routes/googleReviewLink.js';
+import automationRoutes from './routes/automation.js';
 import { checkSubscription, trackTrialStart, addTrialHeaders } from './middleware/subscriptionCheck.js';
 import SubscriptionService from './services/subscriptionService.js';
+import automationScheduler from './services/automationScheduler.js';
+import tokenStorage from './services/tokenStorage.js';
 
 // Configuration is now managed by config.js
 // All hardcoded values have been moved to .env files
@@ -114,6 +117,7 @@ app.use('/api/payment', paymentRoutes);
 app.use('/api/ai-reviews', aiReviewsRoutes);
 app.use('/api/review-link', reviewLinkRoutes);
 app.use('/api/google-review', googleReviewLinkRoutes);
+app.use('/api/automation', automationRoutes);
 
 // Apply subscription check middleware to all routes
 // This will enforce payment after 15-day trial expiry
@@ -208,6 +212,15 @@ app.post('/auth/google/callback', async (req, res) => {
       tokens,
       userInfo: userInfo.data,
       timestamp: Date.now()
+    });
+    
+    // Save tokens for automation service
+    tokenStorage.saveUserToken(userId, {
+      access_token: tokens.access_token,
+      refresh_token: tokens.refresh_token,
+      expires_at: new Date(tokens.expiry_date).toISOString(),
+      scope: tokens.scope,
+      token_type: tokens.token_type || 'Bearer'
     });
 
     // Check if user has a Google Business Profile account

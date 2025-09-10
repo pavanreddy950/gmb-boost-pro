@@ -13,9 +13,12 @@ import { Star, MessageSquare, Bot, Calendar, Settings2, RefreshCw } from "lucide
 import { cn } from "@/lib/utils";
 import { googleBusinessProfileService } from "@/lib/googleBusinessProfile";
 import { reviewAutomationService } from "@/lib/reviewAutomationService";
+import { serverAutomationService } from "@/lib/serverAutomationService";
+import { automationStorage } from "@/lib/automationStorage";
 import { toast } from "@/hooks/use-toast";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { useNotifications } from "@/contexts/NotificationContext";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface Review {
   id: string;
@@ -34,11 +37,13 @@ interface ReviewsTabProps {
 }
 
 const ReviewsTab = ({ profileId }: ReviewsTabProps) => {
+  const { user } = useAuth();
   const [reviews, setReviews] = useState<Review[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [autoPolling, setAutoPolling] = useState(false);
   const [lastReviewCount, setLastReviewCount] = useState(0);
+  const [isSavingToServer, setIsSavingToServer] = useState(false);
   const { addNotification } = useNotifications();
   
   // Review automation state
@@ -185,10 +190,11 @@ const ReviewsTab = ({ profileId }: ReviewsTabProps) => {
     }
   };
 
-  const saveReviewConfiguration = (updates: Partial<typeof reviewConfig>) => {
+  const saveReviewConfiguration = async (updates: Partial<typeof reviewConfig>) => {
     const updatedReviewConfig = { ...reviewConfig, ...updates };
     setReviewConfig(updatedReviewConfig);
     
+    // Save locally first
     reviewAutomationService.saveConfiguration({
       locationId: profileId,
       businessName: 'Current Location', // We don't have business name in this component
@@ -199,10 +205,64 @@ const ReviewsTab = ({ profileId }: ReviewsTabProps) => {
       maxRating: updatedReviewConfig.maxRating,
     });
 
-    toast({
-      title: "Review Settings Saved",
-      description: "Your review automation settings have been updated.",
-    });
+    // Save to server for persistent automation
+    if (updatedReviewConfig.autoReplyEnabled) {
+      setIsSavingToServer(true);
+      try {
+        const accountId = localStorage.getItem('google_business_account_id');
+        const businessName = localStorage.getItem('google_business_name') || 'Current Location';
+        
+        // Get keywords from AutoPosting configuration
+        const automationConfig = automationStorage.getConfiguration(profileId);
+        const keywords = automationConfig?.keywords 
+          ? (Array.isArray(automationConfig.keywords) 
+              ? automationConfig.keywords.join(', ') 
+              : automationConfig.keywords)
+          : '';
+        const category = automationConfig?.categories?.[0] || '';
+        
+        await serverAutomationService.enableAutoReply(
+          profileId,
+          businessName,
+          true, // replyToAll
+          user?.uid,
+          accountId || undefined,
+          keywords,
+          category
+        );
+        
+        toast({
+          title: "Review Settings Saved",
+          description: "Auto-reply will continue running even when you're offline.",
+          duration: 4000,
+        });
+      } catch (error) {
+        console.error('Failed to save to server:', error);
+        toast({
+          title: "Server sync failed",
+          description: "Settings saved locally but server sync failed. Auto-reply may not work when offline.",
+          variant: "destructive",
+          duration: 5000,
+        });
+      } finally {
+        setIsSavingToServer(false);
+      }
+    } else {
+      // Disable on server
+      try {
+        await serverAutomationService.disableAutoReply(profileId);
+        toast({
+          title: "Review Settings Saved",
+          description: "Auto-reply has been disabled.",
+        });
+      } catch (error) {
+        console.error('Failed to disable on server:', error);
+        toast({
+          title: "Review Settings Saved",
+          description: "Your review automation settings have been updated.",
+        });
+      }
+    }
   };
 
   const handleAutoReply = async (reviewId: string, reviewContent: string, reviewerName: string, rating: number) => {

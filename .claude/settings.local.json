@@ -29,7 +29,9 @@
       "Bash(npm run build:*)",
       "Bash(tasklist:*)",
       "Bash(npm install:*)",
-      "Bash(npx kill-port:*)"
+      "Bash(npx kill-port:*)",
+      "Bash(cat:*)",
+      "Bash(sed:*)"
     ],
     "deny": [],
     "ask": []

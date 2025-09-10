@@ -134,7 +134,7 @@ export class OpenAIService {
     } catch (error) {
       if (error.name === 'AbortError') {
         console.warn('⏰ OpenAI API request timed out');
-        throw new Error('OpenAI API request timed out - falling back to template content');
+        throw new Error('OpenAI API request timed out. Please try again.');
       }
       console.error('🚨 OpenAI API request failed:', error);
       throw error;
@@ -184,103 +184,14 @@ export class OpenAIService {
     return { actionType: 'LEARN_MORE', url: defaultUrl };
   }
 
-  // Improved fallback content with more variety and recent post tracking
+  // No fallback - AI only
   private getFallbackContent(businessName: string, category: string, keywords: string | string[], locationName?: string, websiteUrl?: string): PostContent {
-    const keywordArray = typeof keywords === 'string' 
-      ? keywords.split(',').map(k => k.trim()).filter(k => k.length > 0)
-      : keywords;
-
-    // Get location display text
-    const locationText = locationName ? ` in ${locationName}` : '';
-    
-    // Check recent posts to avoid repetition
-    const recentPosts = this.getRecentPosts();
-    const now = Date.now();
-    const currentHour = new Date().getHours();
-    const dayOfWeek = new Date().getDay();
-    
-    const diverseTemplates = [
-      // Success stories
-      `Join satisfied customers choosing ${businessName}${locationText}! Our ${keywordArray[0] || category} expertise speaks for itself. Experience the difference today!`,
-      
-      // Problem solving
-      `Need ${keywordArray[0] || category}? ${businessName}${locationText} has solutions! We understand your needs and deliver results that exceed expectations.`,
-      
-      // Quality focus
-      `Quality matters at ${businessName}${locationText}! We're passionate about ${keywordArray[0] || category} and dedicated to excellence. See why customers trust us!`,
-      
-      // Community connection
-      `Proud to serve ${locationName || 'our community'}! ${businessName} brings ${keywordArray[0] || 'professional'} ${category} services to your neighborhood. Contact us today!`,
-      
-      // Innovation angle
-      `Discover better with ${businessName}${locationText}! We combine ${keywordArray[0] || 'modern'} approaches with ${keywordArray[1] || 'personal'} attention for outstanding results.`,
-      
-      // Experience highlight
-      `What sets ${businessName}${locationText} apart? Our commitment to ${keywordArray[0] || 'exceptional'} ${category} services and genuine customer care. Experience it!`,
-      
-      // Results oriented
-      `Get real results with ${businessName}${locationText}! We specialize in ${keywordArray[0] || category} solutions that make a difference. Ready to start?`,
-      
-      // Trust building
-      `Trust ${businessName}${locationText} for ${category} needs! Our ${keywordArray[0] || 'reliable'} service and ${keywordArray[1] || 'professional'} approach deliver every time.`,
-      
-      // Value proposition
-      `Why choose ${businessName}${locationText}? We deliver ${keywordArray[0] || 'outstanding'} value through ${keywordArray[1] || 'expert'} ${category} services. Find out more!`,
-      
-      // Customer focused
-      `Your ${category} goals matter at ${businessName}${locationText}! We provide ${keywordArray[0] || 'personalized'} solutions with ${keywordArray[1] || 'exceptional'} care.`,
-      
-      // Expertise angle
-      `Looking for ${category} expertise? ${businessName}${locationText} brings years of ${keywordArray[0] || 'professional'} service experience. Let us help you succeed!`,
-      
-      // Unique approach
-      `At ${businessName}${locationText}, we do ${category} differently! Our focus on ${keywordArray[0] || 'quality'} and ${keywordArray[1] || 'satisfaction'} sets us apart.`,
-      
-      // Invitation style
-      `Ready for excellence? Visit ${businessName}${locationText} for ${keywordArray[0] || 'professional'} ${category} services that truly make a difference!`,
-      
-      // Achievement focused
-      `Celebrating another successful ${category} project! ${businessName}${locationText} continues delivering ${keywordArray[0] || 'outstanding'} results for valued customers.`,
-      
-      // Future oriented
-      `Building your future starts here! ${businessName}${locationText} provides ${keywordArray[0] || 'innovative'} ${category} solutions for ${keywordArray[1] || 'lasting'} success.`
-    ];
-
-    // Filter out recently used templates to ensure variety
-    const availableTemplates = diverseTemplates.filter((template, index) => {
-      const recentlyUsed = recentPosts.some(post => 
-        post.templateIndex === index && 
-        (now - post.timestamp < 24 * 60 * 60 * 1000) // Within last 24 hours
-      );
-      return !recentlyUsed;
-    });
-    
-    // If all templates were used recently, use all templates but add time-based selection
-    const templatePool = availableTemplates.length > 0 ? availableTemplates : diverseTemplates;
-    
-    // Use time-based selection for additional randomness
-    const timeBasedIndex = (currentHour + dayOfWeek + now % 100) % templatePool.length;
-    const selectedTemplate = templatePool[timeBasedIndex];
-    
-    // Find the original index of selected template
-    const originalIndex = diverseTemplates.indexOf(selectedTemplate);
-    
-    // Store this post to avoid immediate repetition
-    this.storeRecentPost(originalIndex);
-    
-    console.log(`📝 Using fallback template #${originalIndex + 1} (${availableTemplates.length}/${diverseTemplates.length} available)`);
-    
-    // Enforce word limit on fallback content
-    const limitedContent = this.enforceWordLimit(selectedTemplate);
-    
-    return {
-      content: limitedContent,
-      callToAction: this.getSmartButtonForCategory(category, businessName, websiteUrl)
-    };
+    // NO TEMPLATES - AI GENERATION REQUIRED
+    throw new Error('AI content generation is required. Please configure Azure OpenAI in your environment settings.');
   }
 
   // Validate and enforce word count limit
-  private enforceWordLimit(content: string, maxWords: number = 80): string {
+  private enforceWordLimit(content: string, maxWords: number = 120): string {
     const words = content.trim().split(/\s+/);
     if (words.length <= maxWords) {
       return content;
@@ -305,34 +216,6 @@ export class OpenAIService {
     return truncated + (truncated.endsWith('.') || truncated.endsWith('!') || truncated.endsWith('?') ? '' : '...');
   }
 
-  // Track recent posts to avoid repetition
-  private getRecentPosts(): Array<{templateIndex: number, timestamp: number}> {
-    try {
-      const stored = localStorage.getItem('gmp_recent_fallback_posts');
-      if (!stored) return [];
-      const posts = JSON.parse(stored);
-      const oneDayAgo = Date.now() - (24 * 60 * 60 * 1000);
-      // Filter out posts older than 24 hours
-      return posts.filter((post: any) => post.timestamp > oneDayAgo);
-    } catch {
-      return [];
-    }
-  }
-
-  private storeRecentPost(templateIndex: number): void {
-    try {
-      const recentPosts = this.getRecentPosts();
-      recentPosts.push({
-        templateIndex,
-        timestamp: Date.now()
-      });
-      // Keep only last 10 posts to prevent storage bloat
-      const trimmed = recentPosts.slice(-10);
-      localStorage.setItem('gmp_recent_fallback_posts', JSON.stringify(trimmed));
-    } catch (error) {
-      console.warn('Failed to store recent post data:', error);
-    }
-  }
 
   async generatePostContent(
     businessName: string,
@@ -343,16 +226,11 @@ export class OpenAIService {
   ): Promise<PostContent> {
     // Validate inputs
     if (!businessName || businessName.trim() === '') {
-      console.warn('⚠️ Business name is required, using fallback content');
-      return this.getFallbackContent('Your Business', category || 'business', keywords || [], locationName, websiteUrl);
+      throw new Error('Business information is required to generate content.');
     }
 
     if (!this.subscriptionKey || !this.endpoint || !this.deployment || !this.apiVersion) {
-      console.warn('⚠️ Azure OpenAI not configured, using high-quality template content');
-      console.warn('🎨 Template content is professionally crafted and will work perfectly');
-      console.warn('💡 To enable AI-generated content, add your Azure OpenAI configuration to the .env file');
-      console.warn('🔗 Set up Azure OpenAI in your Azure portal');
-      return this.getFallbackContent(businessName, category, keywords, locationName, websiteUrl);
+      throw new Error('Azure OpenAI not configured. Please configure Azure OpenAI in your environment settings to generate content.');
     }
 
     // Convert keywords to array format if string is provided
@@ -371,35 +249,21 @@ export class OpenAIService {
     const randomSeed = Date.now() % 10;
     
     const promptVariations = [
-      // Customer-focused angle
-      `Write an engaging post for ${businessName}${locationName ? ` in ${locationName}` : ''} that focuses on customer benefits. Business type: ${category}. Include these keywords naturally: ${keywordText}. Keep under 80 words, be conversational, and end with a call-to-action.`,
+      // Location-first approach
+      `Write a post for a ${category} business. Name: ${businessName}. Location: ${locationName || 'local area'}. Focus on: ${keywordText}. Write exactly 100-120 words. Mention the name once. Talk about actual ${category} services/features. End with one clear action.`,
       
-      // Service-focused angle
-      `Create a professional post highlighting ${businessName}'s expertise${locationName ? ` in ${locationName}` : ''}. Business category: ${category}. Naturally incorporate: ${keywordText}. Maximum 75 words, engaging tone, include call-to-action.`,
+      // Service-specific approach
+      `Create a post about what ${businessName} offers as a ${category}${locationName ? ` in ${locationName}` : ''}. Focus areas: ${keywordText}. Write 100-120 words. For hotels: mention rooms, amenities. For restaurants: food, atmosphere. For services: expertise, results. One name mention only.`,
       
-      // Problem-solution angle
-      `Write a post showing how ${businessName}${locationName ? ` in ${locationName}` : ''} solves customer problems. Category: ${category}. Use these keywords naturally: ${keywordText}. Under 80 words, conversational, end with action.`,
+      // Benefits approach
+      `Write about why customers choose this ${category}. Business: ${businessName}${locationName ? ` in ${locationName}` : ''}. Highlight: ${keywordText}. Exactly 100-120 words. Focus on real benefits specific to ${category}. Single name mention. Natural tone.`,
       
-      // Community-focused angle
-      `Create a community-focused post for ${businessName}${locationName ? ` serving ${locationName}` : ''}. Business type: ${category}. Include keywords: ${keywordText}. 75 words max, friendly tone, clear call-to-action.`,
+      // Experience approach
+      `Describe the ${category} experience at ${businessName}${locationName ? `, ${locationName}` : ''}. Keywords: ${keywordText}. Write 100-120 words focusing on what customers actually experience. One business name mention. Conversational style.`,
       
-      // Experience-focused angle
-      `Write about the experience customers get at ${businessName}${locationName ? ` in ${locationName}` : ''}. Category: ${category}. Include these terms: ${keywordText}. Keep to 80 words, engaging style, end with invitation.`,
+      // Value approach
+      `Explain what makes this ${category} special. Name: ${businessName}${locationName ? `, located in ${locationName}` : ''}. Strengths: ${keywordText}. Write exactly 100-120 words about actual ${category} value. Mention name once only. End with action.`,
       
-      // Quality-focused angle
-      `Highlight what makes ${businessName}${locationName ? ` in ${locationName}` : ''} stand out. Business: ${category}. Keywords to include: ${keywordText}. Maximum 75 words, professional yet warm, call-to-action needed.`,
-      
-      // Results-focused angle
-      `Create a results-oriented post for ${businessName}${locationName ? ` in ${locationName}` : ''}. Type: ${category}. Naturally use: ${keywordText}. Under 80 words, confident tone, strong call-to-action.`,
-      
-      // Trust-building angle
-      `Write a trust-building post for ${businessName}${locationName ? ` in ${locationName}` : ''}. Category: ${category}. Include keywords: ${keywordText}. 75 words max, trustworthy tone, clear next step.`,
-      
-      // Innovation-focused angle
-      `Show how ${businessName}${locationName ? ` in ${locationName}` : ''} brings fresh approaches. Business: ${category}. Keywords: ${keywordText}. Keep under 80 words, modern tone, compelling call-to-action.`,
-      
-      // Value-focused angle
-      `Emphasize the value ${businessName}${locationName ? ` in ${locationName}` : ''} provides. Type: ${category}. Use naturally: ${keywordText}. Maximum 75 words, value-driven, end with action.`
     ];
     
     // Select prompt based on time and randomness for variety
@@ -428,14 +292,14 @@ export class OpenAIService {
           messages: [
             {
               role: 'system',
-              content: `You are a professional social media content creator specializing in Google Business Profile posts. Generate engaging, keyword-focused content under 80 words maximum. STRICT LIMIT: Never exceed 80 words. Always say "BusinessName in City" NOT "BusinessName City". Create unique, varied content that differs from typical business posts. Be creative and original. Count words carefully.`
+              content: `You write natural Google Business Profile posts. RULES: 1) Write 100-120 words exactly. 2) Mention business name ONLY ONCE. 3) Focus on what the business actually offers - for hotels: rooms, amenities, stays; for restaurants: food, dining; for services: solutions, expertise. 4) Never repeat the business name or use it as an adjective. 5) Write conversationally, not like an ad. 6) Be specific to the business type.`
             },
             {
               role: 'user',
               content: prompt
             }
           ],
-          max_tokens: 80, // Reduced to enforce 80-word limit
+          max_tokens: 150, // Increased for 100-120 word content
           temperature: 0.9, // Higher temperature for more creative variety
         }),
         signal: controller.signal,
@@ -482,7 +346,7 @@ export class OpenAIService {
       
       // Log word count for debugging
       const wordCount = limitedContent.trim().split(/\s+/).length;
-      console.log(`📊 Final content word count: ${wordCount}/80 words`);
+      console.log(`📊 Final content word count: ${wordCount}/120 words (min: 100)`);
 
       // Return with smart button selection based on category
       return {
@@ -491,9 +355,8 @@ export class OpenAIService {
       };
 
     } catch (error) {
-      console.error('🚨 Failed to generate content with Azure OpenAI, falling back to template content:', error);
-      console.warn('🎨 Using high-quality template content instead - your posts will still be great!');
-      return this.getFallbackContent(businessName, category, keywords, locationName, websiteUrl);
+      console.error('Failed to generate content with Azure OpenAI:', error);
+      throw new Error('Failed to generate AI content. Please check your Azure OpenAI configuration and try again.');
     }
   }
 
@@ -514,28 +377,9 @@ export class OpenAIService {
     };
   }
 
-  // Hardcoded fallback review responses
+  // No fallback review responses - AI only
   private getFallbackReviewResponse(businessName: string, reviewRating: number): string {
-    if (reviewRating >= 4) {
-      const positiveResponses = [
-        `Thank you so much for your wonderful review! We're thrilled that you had a great experience with ${businessName}. Your feedback motivates our team to continue providing excellent service. We look forward to serving you again soon! 🌟`,
-        `We're delighted to hear about your positive experience! Thank you for taking the time to share your feedback about ${businessName}. It means a lot to our team. We can't wait to welcome you back! ⭐`,
-        `Your kind words truly made our day! We're so happy we could provide you with exceptional service at ${businessName}. Thank you for this amazing review. See you again soon! 😊`
-      ];
-      return positiveResponses[Math.floor(Math.random() * positiveResponses.length)];
-    } else if (reviewRating === 3) {
-      const neutralResponses = [
-        `Thank you for your feedback about ${businessName}. We appreciate you taking the time to share your experience. We're always looking for ways to improve, and your input is valuable to us. Please don't hesitate to reach out if there's anything specific we can do better. 👍`,
-        `We appreciate your honest review of ${businessName}. Your experience matters to us, and we'd love the opportunity to make it even better next time. Please feel free to contact us directly to discuss how we can improve. Thank you for giving us a chance! 🤝`
-      ];
-      return neutralResponses[Math.floor(Math.random() * neutralResponses.length)];
-    } else {
-      const negativeResponses = [
-        `Thank you for bringing this to our attention. We sincerely apologize that your experience at ${businessName} didn't meet your expectations. Your feedback is important to us, and we'd like the opportunity to make this right. Please contact us directly so we can discuss this further and improve. 🙏`,
-        `We're truly sorry to hear about your experience with ${businessName}. This is not the level of service we strive to provide. We take your feedback seriously and would appreciate the chance to discuss this with you directly to ensure this doesn't happen again. Please reach out to us. 🤝`
-      ];
-      return negativeResponses[Math.floor(Math.random() * negativeResponses.length)];
-    }
+    throw new Error('Azure OpenAI is required to generate review responses. Please configure Azure OpenAI in your environment settings.');
   }
 
   async generateReviewResponse(
@@ -544,8 +388,7 @@ export class OpenAIService {
     reviewRating: number
   ): Promise<string> {
     if (!this.subscriptionKey || !this.endpoint || !this.deployment || !this.apiVersion) {
-      console.warn('⚠️ Azure OpenAI not configured, using fallback review response');
-      return this.getFallbackReviewResponse(businessName, reviewRating);
+      throw new Error('Azure OpenAI is required to generate review responses. Please configure Azure OpenAI in your environment settings.');
     }
 
     const tone = reviewRating >= 4 ? 'grateful and professional' : 'understanding and solution-focused';
@@ -603,9 +446,8 @@ Generate ONLY the response text, no additional formatting.`;
       return content;
 
     } catch (error) {
-      console.error('🚨 Failed to generate review response with Azure OpenAI, falling back to hardcoded response:', error);
-      console.warn('📝 Using fallback review response generation...');
-      return this.getFallbackReviewResponse(businessName, reviewRating);
+      console.error('Failed to generate review response with Azure OpenAI:', error);
+      throw new Error('Failed to generate AI review response. Please check your Azure OpenAI configuration and try again.');
     }
   }
 }

@@ -425,7 +425,7 @@ const AskForReviews = () => {
               <Input
                 id="review-link"
                 type="url"
-                placeholder="https://g.page/r/CXsDfEMA-6Z3EBM/review"
+                placeholder="Enter your Google review link"
                 value={reviewLinkModalData.googleReviewLink}
                 onChange={(e) => setReviewLinkModalData({
                   ...reviewLinkModalData,
@@ -434,7 +434,7 @@ const AskForReviews = () => {
                 className="font-mono text-sm"
               />
               <p className="text-xs text-muted-foreground">
-                Example: https://g.page/r/CXsDfEMA-6Z3EBM/review
+                Format: https://g.page/r/YOUR_PLACE_ID/review
               </p>
             </div>
             

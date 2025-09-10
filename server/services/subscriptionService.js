@@ -1,9 +1,10 @@
 import PaymentService from './paymentService.js';
+import PersistentSubscriptionService from './persistentSubscriptionService.js';
 
 class SubscriptionService {
   constructor() {
     this.paymentService = new PaymentService();
-    this.subscriptions = new Map(); // In-memory storage (should use database in production)
+    this.persistentStorage = new PersistentSubscriptionService();
     this.plans = new Map();
     this.initializePlans();
   }
@@ -53,7 +54,10 @@ class SubscriptionService {
 
     const now = new Date();
     const trialEndDate = new Date();
+    // PRODUCTION MODE: 15 days trial
     trialEndDate.setDate(trialEndDate.getDate() + 15); // 15 days trial
+    // TEST MODE: Uncomment below for 2 minutes trial for testing
+    // trialEndDate.setMinutes(trialEndDate.getMinutes() + 2);
 
     const subscription = {
       id: `sub_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
@@ -68,47 +72,35 @@ class SubscriptionService {
       paymentHistory: []
     };
 
-    this.subscriptions.set(subscription.id, subscription);
+    // Save to persistent storage
+    this.persistentStorage.saveSubscription(subscription);
     console.log('Created trial subscription:', subscription);
     return subscription;
   }
 
   getSubscriptionByGBPAccount(gbpAccountId) {
-    for (const [id, subscription] of this.subscriptions) {
-      if (subscription.gbpAccountId === gbpAccountId) {
-        return subscription;
-      }
-    }
-    return null;
+    // Get from persistent storage
+    return this.persistentStorage.getSubscriptionByGBPAccount(gbpAccountId);
   }
 
   getSubscriptionByUserId(userId) {
-    for (const [id, subscription] of this.subscriptions) {
-      if (subscription.userId === userId) {
-        return subscription;
-      }
-    }
-    return null;
+    // Get all subscriptions and find by userId
+    const allSubscriptions = this.persistentStorage.getAllSubscriptions();
+    return allSubscriptions.find(sub => sub.userId === userId) || null;
   }
 
   getSubscriptionById(subscriptionId) {
-    return this.subscriptions.get(subscriptionId) || null;
+    return this.persistentStorage.getSubscriptionById(subscriptionId);
   }
 
   updateSubscription(subscriptionId, updates) {
-    const subscription = this.subscriptions.get(subscriptionId);
+    const subscription = this.persistentStorage.getSubscriptionById(subscriptionId);
     if (!subscription) {
       throw new Error('Subscription not found');
     }
 
-    const updatedSubscription = {
-      ...subscription,
-      ...updates,
-      updatedAt: new Date().toISOString()
-    };
-
-    this.subscriptions.set(subscriptionId, updatedSubscription);
-    return updatedSubscription;
+    // Update in persistent storage
+    return this.persistentStorage.updateSubscription(subscription.gbpAccountId, updates);
   }
 
   checkSubscriptionStatus(gbpAccountId) {
@@ -133,7 +125,11 @@ class SubscriptionService {
     
     if (subscription.status === 'trial') {
       const trialEndDate = new Date(subscription.trialEndDate);
-      const daysRemaining = Math.ceil((trialEndDate - now) / (1000 * 60 * 60 * 24));
+      // PRODUCTION MODE: Calculate days remaining
+      const daysRemaining = Math.ceil((trialEndDate - now) / (1000 * 60 * 60 * 24)); // Days
+      // TEST MODE: Uncomment below to treat minutes as "days" for testing
+      // const minutesRemaining = Math.ceil((trialEndDate - now) / (1000 * 60));
+      // const daysRemaining = minutesRemaining;
       
       if (daysRemaining > 0) {
         return { 
@@ -148,7 +144,7 @@ class SubscriptionService {
         };
       } else {
         // Trial expired - ENFORCE PAYMENT
-        this.updateSubscription(subscription.id, { status: 'expired' });
+        this.persistentStorage.updateSubscription(subscription.gbpAccountId, { status: 'expired' });
         return { 
           isValid: false, 
           status: 'expired', 
@@ -223,11 +219,31 @@ class SubscriptionService {
       throw new Error('No subscription found for this GBP account');
     }
     
-    // Update subscription to paid/active status
-    return this.updateSubscription(subscription.id, {
+    const now = new Date();
+    const endDate = new Date();
+    
+    // Determine subscription duration based on plan
+    if (paymentDetails.planId) {
+      const plan = this.plans.get(paymentDetails.planId);
+      if (plan) {
+        if (plan.interval === 'monthly') {
+          endDate.setMonth(endDate.getMonth() + 1);
+        } else if (plan.interval === 'yearly') {
+          endDate.setFullYear(endDate.getFullYear() + 1);
+        }
+      }
+    } else {
+      // Default to 1 month if no plan specified
+      endDate.setMonth(endDate.getMonth() + 1);
+    }
+    
+    // Update subscription to paid/active status with proper end date
+    return this.persistentStorage.updateSubscription(gbpAccountId, {
       status: 'active',
       ...paymentDetails,
-      paidAt: new Date().toISOString()
+      subscriptionStartDate: now.toISOString(),
+      subscriptionEndDate: endDate.toISOString(),
+      paidAt: now.toISOString()
     });
   }
 
@@ -235,6 +251,11 @@ class SubscriptionService {
     const plan = this.plans.get(planId);
     if (!plan) {
       throw new Error('Invalid plan ID');
+    }
+    
+    const subscription = this.getSubscriptionById(subscriptionId);
+    if (!subscription) {
+      throw new Error('Subscription not found');
     }
 
     const now = new Date();
@@ -246,7 +267,7 @@ class SubscriptionService {
       endDate.setFullYear(endDate.getFullYear() + 1);
     }
 
-    return this.updateSubscription(subscriptionId, {
+    return this.persistentStorage.updateSubscription(subscription.gbpAccountId, {
       status: 'active',
       planId,
       planName: plan.name,
@@ -260,7 +281,7 @@ class SubscriptionService {
   }
 
   addPaymentRecord(subscriptionId, payment) {
-    const subscription = this.subscriptions.get(subscriptionId);
+    const subscription = this.getSubscriptionById(subscriptionId);
     if (!subscription) {
       throw new Error('Subscription not found');
     }
@@ -274,7 +295,11 @@ class SubscriptionService {
     subscription.paymentHistory = subscription.paymentHistory || [];
     subscription.paymentHistory.push(paymentRecord);
     
-    this.subscriptions.set(subscriptionId, subscription);
+    // Update in persistent storage
+    this.persistentStorage.updateSubscription(subscription.gbpAccountId, {
+      paymentHistory: subscription.paymentHistory
+    });
+    
     return paymentRecord;
   }
 

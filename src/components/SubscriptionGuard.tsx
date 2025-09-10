@@ -2,6 +2,7 @@ import React, { useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useSubscription } from '@/contexts/SubscriptionContext';
 import { PaymentWall } from '@/components/PaymentWall';
+import { UpgradeModal } from '@/components/UpgradeModal';
 import { Loader2 } from 'lucide-react';
 
 interface SubscriptionGuardProps {
@@ -25,13 +26,8 @@ export const SubscriptionGuard: React.FC<SubscriptionGuardProps> = ({ children }
   const isBillingPage = location.pathname.includes('/billing') || 
                         location.pathname.includes('/upgrade');
 
-  useEffect(() => {
-    // If subscription requires payment and not on billing page, redirect
-    if (!isLoading && billingOnly && !isBillingPage) {
-      console.log('SubscriptionGuard: Redirecting to billing - billingOnly mode active');
-      navigate('/dashboard/billing');
-    }
-  }, [billingOnly, isBillingPage, isLoading, navigate]);
+  // Remove auto-redirect to prevent navigation issues
+  // Users can manually navigate via the modal button
 
   // Show loading state
   if (isLoading) {
@@ -42,51 +38,40 @@ export const SubscriptionGuard: React.FC<SubscriptionGuardProps> = ({ children }
     );
   }
 
-  // If on billing page, always allow access
+  // If on billing page, always allow access without modal
   if (isBillingPage) {
     return <>{children}</>;
   }
 
-  // If trial expired and payment required, show payment wall
-  if (status === 'expired' && requiresPayment) {
-    return (
-      <PaymentWall 
-        message={message || "Your 15-day trial has expired. Please upgrade to continue."}
-        isExpired={true}
-        daysRemaining={0}
-      />
-    );
-  }
+  // Show modal for expired trials or payment required (but still render the page)
+  const showUpgradeModal = (status === 'expired' && requiresPayment) || 
+                           billingOnly === true || 
+                           canUsePlatform === false;
 
-  // If billing only mode (can't use platform except billing)
-  if (billingOnly === true) {
+  // For non-billing pages, show the page content with upgrade modal overlay
+  if (showUpgradeModal) {
     return (
-      <PaymentWall 
-        message={message || "Please complete your payment to access all features."}
-        isExpired={true}
-        daysRemaining={0}
-      />
-    );
-  }
-
-  // If cannot use platform for any reason
-  if (canUsePlatform === false && !isBillingPage) {
-    return (
-      <PaymentWall 
-        message={message || "Your subscription needs attention. Please upgrade to continue."}
-        isExpired={true}
-        daysRemaining={daysRemaining || 0}
-      />
+      <>
+        {/* Render the actual page content */}
+        {children}
+        
+        {/* Show upgrade modal on top */}
+        <UpgradeModal 
+          isOpen={true}
+          status={status}
+          daysRemaining={daysRemaining || 0}
+        />
+      </>
     );
   }
 
   // Trial warning - show warning but allow access
-  if (status === 'trial' && daysRemaining !== null && daysRemaining <= 3 && daysRemaining > 0) {
+  if (status === 'trial' && daysRemaining !== null && daysRemaining <= 1 && daysRemaining > 0) { // TEST MODE: 1 minute warning
     return (
       <>
         <div className="fixed top-0 left-0 right-0 z-40 bg-orange-500 text-white py-2 px-4 text-center">
           <p className="text-sm font-medium">
-            ⚠️ Your trial expires in {daysRemaining} days. 
+            ⚠️ Your trial expires in {daysRemaining} minute(s). {/* TEST MODE */} 
             <button 
               onClick={() => navigate('/dashboard/billing')}
               className="ml-2 underline hover:no-underline"

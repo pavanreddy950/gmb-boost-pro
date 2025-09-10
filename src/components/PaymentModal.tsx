@@ -17,6 +17,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useSubscription } from '@/contexts/SubscriptionContext';
 import { useToast } from '@/hooks/use-toast';
 import { SUBSCRIPTION_PLANS } from '@/lib/subscriptionService';
+import { useNavigate } from 'react-router-dom';
 
 interface PaymentModalProps {
   isOpen: boolean;
@@ -37,8 +38,9 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
   
   const { Razorpay } = useRazorpay();
   const { currentUser } = useAuth();
-  const { subscription } = useSubscription();
+  const { subscription, checkSubscriptionStatus } = useSubscription();
   const { toast } = useToast();
+  const navigate = useNavigate();
   
   const backendUrl = import.meta.env.VITE_BACKEND_URL || 'https://scale12345-hccmcmf7g3bwbvd0.canadacentral-01.azurewebsites.net';
   const razorpayKeyId = import.meta.env.VITE_RAZORPAY_KEY_ID || 'rzp_test_example';
@@ -158,13 +160,14 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
           });
 
           if (verifyResponse.ok) {
-            toast({
-              title: "Payment Successful!",
-              description: "Your subscription has been activated.",
-            });
+            // Close modal first
             onClose();
-            // Reload to update subscription status
-            window.location.reload();
+            
+            // Refresh subscription status
+            await checkSubscriptionStatus();
+            
+            // Navigate to payment success page
+            navigate('/payment-success');
           } else {
             throw new Error('Payment verification failed');
           }

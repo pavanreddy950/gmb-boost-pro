@@ -162,9 +162,9 @@ const Billing = () => {
                   {daysRemaining} days remaining in your free trial
                 </p>
               )}
-              {status === 'active' && subscription?.nextBillingDate && (
+              {status === 'active' && subscription?.subscriptionEndDate && (
                 <p className="text-sm text-muted-foreground">
-                  Next billing date: {format(new Date(subscription.nextBillingDate), 'MMM dd, yyyy')}
+                  Next billing date: {format(new Date(subscription.subscriptionEndDate), 'MMM dd, yyyy')}
                 </p>
               )}
             </div>
@@ -205,15 +205,22 @@ const Billing = () => {
                   <div>
                     <span className="text-muted-foreground">Started:</span>
                     <p className="font-medium">
-                      {format(new Date(subscription.subscriptionStartDate.seconds * 1000), 'MMM dd, yyyy')}
+                      {format(
+                        new Date(
+                          typeof subscription.subscriptionStartDate === 'string' 
+                            ? subscription.subscriptionStartDate 
+                            : subscription.subscriptionStartDate.seconds * 1000
+                        ), 
+                        'MMM dd, yyyy'
+                      )}
                     </p>
                   </div>
                 )}
-                {subscription?.nextBillingDate && (
+                {subscription?.subscriptionEndDate && (
                   <div>
                     <span className="text-muted-foreground">Next Billing:</span>
                     <p className="font-medium">
-                      {format(new Date(subscription.nextBillingDate), 'MMM dd, yyyy')}
+                      {format(new Date(subscription.subscriptionEndDate), 'MMM dd, yyyy')}
                     </p>
                   </div>
                 )}
@@ -335,7 +342,14 @@ const Billing = () => {
                           <p className="font-medium">₹{payment.amount}</p>
                           <p className="text-sm text-muted-foreground">
                             {payment.paidAt ? format(new Date(payment.paidAt), 'MMM dd, yyyy HH:mm') : 
-                             payment.createdAt ? format(new Date(payment.createdAt.seconds * 1000), 'MMM dd, yyyy') : 
+                             payment.createdAt ? format(
+                               new Date(
+                                 typeof payment.createdAt === 'string' 
+                                   ? payment.createdAt 
+                                   : payment.createdAt.seconds * 1000
+                               ), 
+                               'MMM dd, yyyy'
+                             ) : 
                              'Date not available'}
                           </p>
                           {payment.description && (

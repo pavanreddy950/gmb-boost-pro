@@ -1,0 +1,50 @@
+{
+  "subscriptions": {
+    "17697790081864925086": {
+      "id": "sub_1757488515788_ydlfgg9ro",
+      "userId": "OBm8qZc0jOWcY53x6rQuX4gKKnQ2",
+      "gbpAccountId": "17697790081864925086",
+      "email": "scalepointstrategy@gmail.com",
+      "status": "active",
+      "trialStartDate": "2025-09-10T07:15:15.788Z",
+      "trialEndDate": "2025-09-10T07:17:15.788Z",
+      "createdAt": "2025-09-10T07:15:15.788Z",
+      "updatedAt": "2025-09-10T07:18:24.954Z",
+      "paymentHistory": [
+        {
+          "id": "pay_1757488704953_lmo5xxwf5",
+          "amount": 1,
+          "currency": "INR",
+          "status": "success",
+          "razorpayPaymentId": "pay_RFoVATwOQu5nCJ",
+          "razorpayOrderId": "order_RFoUzi88FeKPcw",
+          "razorpaySignature": "f4071b8bc3e9b067bccaa297aa5d863101003c69c9dc64ebb17f24b86bc92dce",
+          "description": "Monthly Basic",
+          "paidAt": "2025-09-10T07:18:24.952Z",
+          "createdAt": "2025-09-10T07:18:24.953Z"
+        }
+      ],
+      "planId": "monthly_basic",
+      "lastPaymentDate": "2025-09-10T07:18:24.954Z",
+      "subscriptionEndDate": "2025-10-10T07:18:24.954Z",
+      "razorpayPaymentId": "pay_RFoVATwOQu5nCJ",
+      "razorpayOrderId": "order_RFoUzi88FeKPcw",
+      "amount": 1,
+      "currency": "INR",
+      "subscriptionStartDate": "2025-09-10T07:18:24.954Z",
+      "paidAt": "2025-09-10T07:18:24.954Z"
+    },
+    "17339526077864926205": {
+      "id": "sub_1757488628836_bm9lkdsnt",
+      "userId": "jzssBuuuFZUknI20kZuyLXCc6ne2",
+      "gbpAccountId": "17339526077864926205",
+      "email": "jobspring.help@gmail.com",
+      "status": "trial",
+      "trialStartDate": "2025-09-10T07:17:08.836Z",
+      "trialEndDate": "2025-09-25T07:17:08.836Z",
+      "createdAt": "2025-09-10T07:17:08.836Z",
+      "updatedAt": "2025-09-10T07:17:08.836Z",
+      "paymentHistory": []
+    }
+  }
+}
