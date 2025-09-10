@@ -542,7 +542,18 @@ export function AutoPostingTab({ location }: AutoPostingTabProps) {
         })
       });
       
-      const result = await response.json();
+      // Check if response is JSON or HTML
+      const contentType = response.headers.get('content-type');
+      let result;
+      
+      if (contentType && contentType.includes('application/json')) {
+        result = await response.json();
+      } else {
+        // If it's HTML (error page), get the text and throw an error
+        const htmlText = await response.text();
+        console.error('[AutoPostingTab] Received HTML response instead of JSON:', htmlText.substring(0, 200));
+        throw new Error(`Backend returned HTML error page. Status: ${response.status}`);
+      }
       
       if (response.ok && result.success) {
         toast({
