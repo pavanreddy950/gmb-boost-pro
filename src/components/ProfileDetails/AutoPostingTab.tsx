@@ -519,6 +519,8 @@ export function AutoPostingTab({ location }: AutoPostingTabProps) {
       // Get the access token from the frontend Google service
       const accessToken = googleBusinessProfileService.getAccessToken();
       console.log('[AutoPostingTab] Access token available:', accessToken ? 'Yes' : 'No');
+      console.log('[AutoPostingTab] Access token value:', accessToken ? `${accessToken.substring(0, 20)}...` : 'null');
+      console.log('[AutoPostingTab] Access token length:', accessToken ? accessToken.length : 0);
       
       // Use backend server for test post creation
       const backendUrl = import.meta.env.VITE_BACKEND_URL || 'https://scale12345-hccmcmf7g3bwbvd0.canadacentral-01.azurewebsites.net';
