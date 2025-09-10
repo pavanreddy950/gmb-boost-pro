@@ -203,12 +203,39 @@ class ReviewAutomationService {
       });
 
       if (!response.ok) {
-        // Handle temporary API issues gracefully
-        if (response.status === 503 || response.status === 502 || response.status === 500) {
-          console.warn(`⚠️ Google API temporarily unavailable (${response.status}). Will retry on next check.`);
-          return []; // Return empty array instead of throwing error
+        let errorData: any = {};
+        try {
+          errorData = await response.json();
+        } catch (e) {
+          // If response body is not JSON, continue with empty errorData
         }
-        throw new Error(`Failed to fetch reviews: ${response.status}`);
+        
+        // Handle authentication errors
+        if (response.status === 401) {
+          if (errorData.needsReauth) {
+            console.error('🔒 Authentication expired. Please reconnect your Google Business Profile.');
+            // Stop the automation service since we need re-authentication
+            this.stop();
+            return [];
+          }
+          console.warn('⚠️ Authentication issue. Will retry on next check.');
+          return [];
+        }
+        
+        // Handle temporary API issues gracefully
+        if (response.status === 503 || response.status === 502) {
+          console.warn(`⚠️ Google API temporarily unavailable (${response.status}). Will retry on next check.`);
+          return [];
+        }
+        
+        // Handle 500 errors with more detail
+        if (response.status === 500) {
+          console.warn(`⚠️ Server error: ${errorData.message || 'Unknown error'}. Will retry on next check.`);
+          console.debug('Error details:', errorData);
+          return [];
+        }
+        
+        throw new Error(`Failed to fetch reviews: ${response.status} - ${errorData.message || 'Unknown error'}`);
       }
 
       const data = await response.json();
