@@ -477,6 +477,32 @@ app.get('/health', (req, res) => {
   });
 });
 
+// Environment variables check endpoint
+app.get('/env-check', (req, res) => {
+  res.json({
+    environment: {
+      NODE_ENV: process.env.NODE_ENV || 'not-set',
+      PORT: process.env.PORT || 'not-set',
+      GOOGLE_CLIENT_ID: process.env.GOOGLE_CLIENT_ID ? 'SET' : 'NOT SET',
+      GOOGLE_CLIENT_SECRET: process.env.GOOGLE_CLIENT_SECRET ? 'SET' : 'NOT SET',
+      FRONTEND_URL: process.env.FRONTEND_URL || 'not-set',
+      BACKEND_URL: process.env.BACKEND_URL || 'not-set',
+      HARDCODED_ACCOUNT_ID: process.env.HARDCODED_ACCOUNT_ID || 'not-set'
+    },
+    azureOpenAI: {
+      AZURE_OPENAI_ENDPOINT: process.env.AZURE_OPENAI_ENDPOINT ? 'SET (' + (process.env.AZURE_OPENAI_ENDPOINT.substring(0, 30) + '...)') : 'NOT SET',
+      AZURE_OPENAI_API_KEY: process.env.AZURE_OPENAI_API_KEY ? 'SET (' + (process.env.AZURE_OPENAI_API_KEY.substring(0, 10) + '...)') : 'NOT SET',
+      AZURE_OPENAI_DEPLOYMENT: process.env.AZURE_OPENAI_DEPLOYMENT || 'NOT SET',
+      AZURE_OPENAI_API_VERSION: process.env.AZURE_OPENAI_API_VERSION || 'NOT SET'
+    },
+    razorpay: {
+      RAZORPAY_KEY_ID: process.env.RAZORPAY_KEY_ID ? 'SET' : 'NOT SET',
+      RAZORPAY_KEY_SECRET: process.env.RAZORPAY_KEY_SECRET ? 'SET' : 'NOT SET'
+    },
+    timestamp: new Date().toISOString()
+  });
+});
+
 // Get current configuration (for debugging deployment issues)
 app.get('/config', (req, res) => {
   res.json({

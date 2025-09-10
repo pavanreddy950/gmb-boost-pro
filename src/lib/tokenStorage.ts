@@ -27,7 +27,7 @@ class TokenStorageService {
   private readonly COLLECTION_NAME = 'users';
   private readonly TOKEN_DOCUMENT = 'googleTokens';
   private isFirestoreAvailable = true;
-  private readonly FIRESTORE_TIMEOUT = 5000; // 5 seconds timeout
+  private readonly FIRESTORE_TIMEOUT = 10000; // 10 seconds timeout (increased from 5s)
 
   // Save Google Business Profile tokens to Firestore
   async saveTokens(userId: string, tokens: StoredGoogleTokens, userInfo?: { id: string; email: string; name?: string; picture?: string }): Promise<void> {
@@ -215,15 +215,18 @@ class TokenStorageService {
 
   // Handle Firestore errors and adjust availability
   private handleFirestoreError(error: any): void {
-    if (error?.message?.includes('offline') || error?.message?.includes('timeout')) {
-      console.log('⚠️ Firestore appears to be offline or slow, temporarily disabling');
+    if (error?.message?.includes('offline') || error?.message?.includes('timeout') || error?.message?.includes('transport errored')) {
+      console.log('⚠️ Firestore connectivity issues detected, temporarily disabling (errors are non-critical)');
       this.isFirestoreAvailable = false;
       
-      // Re-enable after 30 seconds
+      // Re-enable after 60 seconds (increased from 30s)
       setTimeout(() => {
         console.log('🔄 Re-enabling Firestore availability check');
         this.isFirestoreAvailable = true;
-      }, 30000);
+      }, 60000);
+    } else {
+      // For other errors, log but keep Firestore available
+      console.log('⚠️ Firestore error (keeping service available):', error?.message || 'Unknown error');
     }
   }
 }
