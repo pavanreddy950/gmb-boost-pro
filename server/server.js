@@ -17,6 +17,7 @@ import tokenStorage from './services/tokenStorage.js';
 
 // Configuration is now managed by config.js
 // All hardcoded values have been moved to .env files
+// Deployment: Azure App Service
 
 // Hardcoded account ID for Google Business Profile API
 const HARDCODED_ACCOUNT_ID = process.env.HARDCODED_ACCOUNT_ID || '106433552101751461082';
