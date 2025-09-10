@@ -31,7 +31,9 @@
       "Bash(npm install:*)",
       "Bash(npx kill-port:*)",
       "Bash(cat:*)",
-      "Bash(sed:*)"
+      "Bash(sed:*)",
+      "Bash(python:*)",
+      "Bash(find:*)"
     ],
     "deny": [],
     "ask": []
