@@ -78,8 +78,31 @@ const AskForReviews = () => {
   const [loadingQR, setLoadingQR] = useState<string | null>(null);
   const [loadingReviews, setLoadingReviews] = useState(false);
   const [copiedReview, setCopiedReview] = useState<string | null>(null);
+  const [existingQRCodes, setExistingQRCodes] = useState<Map<string, any>>(new Map());
   
   const backendUrl = import.meta.env.VITE_BACKEND_URL || 'https://scale12345-hccmcmf7g3bwbvd0.canadacentral-01.azurewebsites.net';
+
+  // Load existing QR codes when component mounts
+  useEffect(() => {
+    loadExistingQRCodes();
+  }, [accounts]);
+
+  const loadExistingQRCodes = async () => {
+    try {
+      const response = await fetch(`${backendUrl}/api/qr-codes`);
+      if (response.ok) {
+        const { qrCodes } = await response.json();
+        const qrMap = new Map();
+        qrCodes.forEach((qr: any) => {
+          qrMap.set(qr.locationId, qr);
+        });
+        setExistingQRCodes(qrMap);
+        console.log(`[AskForReviews] Loaded ${qrCodes.length} existing QR codes`);
+      }
+    } catch (error) {
+      console.error('Error loading existing QR codes:', error);
+    }
+  };
 
   const openReviewLinkModal = (location: any) => {
     console.log('Opening review link modal for location:', location);
@@ -88,6 +111,22 @@ const AskForReviews = () => {
       location: location,
       googleReviewLink: ""
     });
+  };
+
+  const showExistingQRCode = (location: any) => {
+    const existingQR = existingQRCodes.get(location.locationId);
+    if (existingQR) {
+      setQrModalData({
+        isOpen: true,
+        locationName: existingQR.locationName,
+        locationId: location.locationId,
+        address: existingQR.address,
+        placeId: existingQR.placeId,
+        qrCodeUrl: existingQR.qrCodeUrl,
+        reviewLink: existingQR.publicReviewUrl,
+        aiReviews: []
+      });
+    }
   };
 
   const generateQRCodeWithLink = async () => {
@@ -106,6 +145,40 @@ const AskForReviews = () => {
     setReviewLinkModalData({ ...reviewLinkModalData, isOpen: false });
     
     try {
+      // Check if QR code already exists for this location
+      const existingQRResponse = await fetch(`${backendUrl}/api/qr-codes/${location.locationId}`);
+      
+      if (existingQRResponse.ok) {
+        // QR code exists, update the review link
+        const updateResponse = await fetch(`${backendUrl}/api/qr-codes/${location.locationId}/review-link`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ googleReviewLink })
+        });
+        
+        if (updateResponse.ok) {
+          const { qrCode } = await updateResponse.json();
+          setQrModalData({
+            isOpen: true,
+            locationName: qrCode.locationName,
+            locationId: location.locationId,
+            address: qrCode.address,
+            placeId: qrCode.placeId,
+            qrCodeUrl: qrCode.qrCodeUrl,
+            reviewLink: qrCode.publicReviewUrl,
+            aiReviews: []
+          });
+          
+          toast({
+            title: "QR Code Updated",
+            description: "Your existing QR code has been updated with the new review link.",
+          });
+          
+          // Update existing QR codes map
+          setExistingQRCodes(prev => new Map(prev.set(location.locationId, qrCode)));
+          return;
+        }
+      }
       // Extract location details
       const businessName = location.displayName;
       
@@ -171,31 +244,44 @@ const AskForReviews = () => {
       const locationName = location.name || '';
       const placeId = location.metadata?.placeId || location.placeId || '';
       
-      // Generate URL to our review suggestions page with the Google review link
-      const baseUrl = window.location.origin;
-      const reviewSuggestionsUrl = `${baseUrl}/review/${location.locationId}?business=${encodeURIComponent(businessName)}&location=${encodeURIComponent(locationForDisplay)}&placeId=${placeId}&locationName=${encodeURIComponent(locationName)}&googleReviewLink=${encodeURIComponent(googleReviewLink)}`;
-      
-      // Generate QR code that links to our review suggestions page
-      const qrCodeDataUrl = await QRCode.toDataURL(reviewSuggestionsUrl, {
-        width: 300,
-        margin: 2,
-        color: {
-          dark: '#000000',
-          light: '#FFFFFF'
-        }
+      // Save QR code permanently to backend
+      const createResponse = await fetch(`${backendUrl}/api/qr-codes`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          locationId: location.locationId,
+          locationName: businessName,
+          address: locationForDisplay,
+          placeId: placeId,
+          googleReviewLink: googleReviewLink
+        })
       });
+      
+      if (!createResponse.ok) {
+        throw new Error('Failed to save QR code');
+      }
+      
+      const { qrCode } = await createResponse.json();
       
       // Open modal with QR code
       setQrModalData({
         isOpen: true,
-        locationName: businessName,
+        locationName: qrCode.locationName,
         locationId: location.locationId,
-        address: locationForDisplay,
-        placeId: location.placeId,
-        qrCodeUrl: qrCodeDataUrl,
-        reviewLink: reviewSuggestionsUrl,
+        address: qrCode.address,
+        placeId: qrCode.placeId,
+        qrCodeUrl: qrCode.qrCodeUrl,
+        reviewLink: qrCode.publicReviewUrl,
         aiReviews: []
       });
+      
+      toast({
+        title: "QR Code Created",
+        description: "Your QR code has been saved permanently to your account.",
+      });
+      
+      // Update existing QR codes map
+      setExistingQRCodes(prev => new Map(prev.set(location.locationId, qrCode)));
       
     } catch (error) {
       console.error('Error generating QR code:', error);
@@ -331,23 +417,55 @@ const AskForReviews = () => {
                     </div>
                   </CardHeader>
                   <CardContent>
-                    <Button
-                      onClick={() => openReviewLinkModal(location)}
-                      disabled={loadingQR === location.locationId}
-                      className="w-full bg-gradient-to-r from-primary to-blue-600 hover:from-primary/90 hover:to-blue-600/90"
-                    >
-                      {loadingQR === location.locationId ? (
-                        <>
-                          <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
-                          Generating...
-                        </>
-                      ) : (
-                        <>
+                    {existingQRCodes.has(location.locationId) ? (
+                      // Show existing QR code options
+                      <div className="space-y-2">
+                        <Button
+                          onClick={() => showExistingQRCode(location)}
+                          className="w-full bg-green-600 hover:bg-green-700 text-white"
+                        >
                           <QrCode className="mr-2 h-4 w-4" />
-                          Generate QR & Reviews
-                        </>
-                      )}
-                    </Button>
+                          View QR Code
+                        </Button>
+                        <Button
+                          onClick={() => openReviewLinkModal(location)}
+                          variant="outline"
+                          className="w-full"
+                          disabled={loadingQR === location.locationId}
+                        >
+                          {loadingQR === location.locationId ? (
+                            <>
+                              <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+                              Updating...
+                            </>
+                          ) : (
+                            <>
+                              <Info className="mr-2 h-4 w-4" />
+                              Update Link
+                            </>
+                          )}
+                        </Button>
+                      </div>
+                    ) : (
+                      // Show generate new QR code option
+                      <Button
+                        onClick={() => openReviewLinkModal(location)}
+                        disabled={loadingQR === location.locationId}
+                        className="w-full bg-gradient-to-r from-primary to-blue-600 hover:from-primary/90 hover:to-blue-600/90"
+                      >
+                        {loadingQR === location.locationId ? (
+                          <>
+                            <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+                            Generating...
+                          </>
+                        ) : (
+                          <>
+                            <QrCode className="mr-2 h-4 w-4" />
+                            Generate QR & Reviews
+                          </>
+                        )}
+                      </Button>
+                    )}
                   </CardContent>
                 </Card>
               ))

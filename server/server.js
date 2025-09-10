@@ -10,6 +10,7 @@ import aiReviewsRoutes from './routes/aiReviews.js';
 import reviewLinkRoutes from './routes/reviewLink.js';
 import googleReviewLinkRoutes from './routes/googleReviewLink.js';
 import automationRoutes from './routes/automation.js';
+import qrCodesRoutes from './routes/qrCodes.js';
 import { checkSubscription, trackTrialStart, addTrialHeaders } from './middleware/subscriptionCheck.js';
 import SubscriptionService from './services/subscriptionService.js';
 import automationScheduler from './services/automationScheduler.js';
@@ -188,6 +189,7 @@ app.use('/api/ai-reviews', aiReviewsRoutes);
 app.use('/api/review-link', reviewLinkRoutes);
 app.use('/api/google-review', googleReviewLinkRoutes);
 app.use('/api/automation', automationRoutes);
+app.use('/api/qr-codes', qrCodesRoutes);
 
 // Temporary fix: Add missing automation endpoints directly to server.js
 // This ensures the endpoints work even if automation routes aren't properly loaded
