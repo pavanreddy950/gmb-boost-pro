@@ -65,4 +65,26 @@ router.post('/review-link', async (req, res) => {
   }
 });
 
+// Debug endpoint to check Azure OpenAI configuration
+router.get('/config-check', async (req, res) => {
+  try {
+    const aiService = new AIReviewService();
+    
+    res.json({
+      azureOpenAI: {
+        hasEndpoint: !!aiService.azureEndpoint,
+        hasApiKey: !!aiService.apiKey,
+        hasDeployment: !!aiService.deploymentName,
+        hasVersion: !!aiService.apiVersion,
+        endpoint: aiService.azureEndpoint ? aiService.azureEndpoint.substring(0, 30) + '...' : 'NOT SET',
+        deployment: aiService.deploymentName || 'NOT SET',
+        version: aiService.apiVersion || 'NOT SET'
+      },
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 export default router;

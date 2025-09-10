@@ -9,9 +9,22 @@ class AIReviewService {
   }
 
   async generateReviewSuggestions(businessName, location, businessType = 'business') {
+    // Enhanced debugging for Azure OpenAI configuration
+    console.log('[AI Review Service] Checking Azure OpenAI configuration...');
+    console.log(`[AI Review Service] Endpoint: ${this.azureEndpoint ? 'SET (' + this.azureEndpoint.substring(0, 30) + '...)' : 'NOT SET'}`);
+    console.log(`[AI Review Service] API Key: ${this.apiKey ? 'SET (' + this.apiKey.substring(0, 10) + '...)' : 'NOT SET'}`);
+    console.log(`[AI Review Service] Deployment: ${this.deploymentName || 'NOT SET'}`);
+    console.log(`[AI Review Service] Version: ${this.apiVersion || 'NOT SET'}`);
+    
     // Check if Azure OpenAI is configured
     if (!this.apiKey || !this.azureEndpoint || !this.deploymentName) {
-      throw new Error('[AI Review Service] Azure OpenAI not configured. AI generation is required for review suggestions.');
+      const missingVars = [];
+      if (!this.azureEndpoint) missingVars.push('AZURE_OPENAI_ENDPOINT');
+      if (!this.apiKey) missingVars.push('AZURE_OPENAI_API_KEY');
+      if (!this.deploymentName) missingVars.push('AZURE_OPENAI_DEPLOYMENT');
+      if (!this.apiVersion) missingVars.push('AZURE_OPENAI_API_VERSION');
+      
+      throw new Error(`[AI Review Service] Missing Azure OpenAI environment variables: ${missingVars.join(', ')}. Please configure these in your Azure App Service settings.`);
     }
     
     try {
