@@ -265,12 +265,22 @@ app.post('/api/automation/test-post-now/:locationId', async (req, res) => {
         });
       }
     } else {
-      // No token available
+      // No token available - provide more helpful error message
+      console.log(`[TEMP FIX] No access token provided for location ${locationId}`);
+      console.log(`[TEMP FIX] Request headers:`, req.headers);
+      console.log(`[TEMP FIX] Request body keys:`, Object.keys(req.body));
+      
       return res.status(401).json({ 
         success: false, 
-        error: 'Failed to create post. No Google account connected.',
-        details: 'Please connect your Google Business Profile account in Settings > Connections first.',
-        requiresAuth: true
+        error: 'Authentication required',
+        details: 'No Google Business Profile access token provided. Please ensure you are logged in and have connected your Google Business Profile account.',
+        requiresAuth: true,
+        debug: {
+          hasAuthHeader: !!req.headers.authorization,
+          hasTokenInBody: !!req.body.accessToken,
+          locationId: locationId,
+          businessName: businessName
+        }
       });
     }
   } catch (error) {
