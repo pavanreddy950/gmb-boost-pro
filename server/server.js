@@ -49,9 +49,10 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 // Serve static files from React build (for production)
-if (process.env.NODE_ENV === 'production') {
-  app.use(express.static(path.join(__dirname, '../dist')));
-}
+// NOTE: Frontend is hosted separately on Azure Static Web Apps, so we don't serve static files
+// if (process.env.NODE_ENV === 'production') {
+//   app.use(express.static(path.join(__dirname, '../dist')));
+// }
 
 // In-memory token storage (use a database in production)
 const tokenStore = new Map();
@@ -1664,12 +1665,29 @@ app.use((error, req, res, next) => {
 });
 
 // Catch all handler: send back React's index.html file for production
+// NOTE: Frontend is hosted separately on Azure Static Web Apps, so we don't serve index.html
 app.get('*', (req, res) => {
-  if (process.env.NODE_ENV === 'production') {
-    res.sendFile(path.join(__dirname, '../dist/index.html'));
-  } else {
-    res.status(404).json({ error: 'Endpoint not found - Development mode' });
-  }
+  // Always return 404 for unmatched routes since frontend is hosted separately
+  res.status(404).json({ 
+    error: 'Endpoint not found', 
+    message: 'This is a backend API server. Frontend is hosted separately.',
+    availableEndpoints: [
+      'GET /health',
+      'GET /config', 
+      'GET /auth/google/url',
+      'POST /auth/google/callback',
+      'GET /api/accounts',
+      'GET /api/accounts/:accountName/locations',
+      'POST /api/locations/:locationId/posts',
+      'GET /api/locations/:locationId/posts',
+      'GET /api/locations/:locationId/reviews',
+      'PUT /api/locations/:locationId/reviews/:reviewId/reply',
+      'GET /api/locations/:locationId/photos',
+      'GET /api/locations/:locationId/insights',
+      'POST /api/automation/test-post-now/:locationId',
+      'POST /api/automation/test-review-check/:locationId'
+    ]
+  });
 });
 
 // Start the server  

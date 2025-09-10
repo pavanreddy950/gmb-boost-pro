@@ -19,8 +19,13 @@ class Config {
     const runMode = process.env.RUN_MODE;
     let envFile = '.env.local'; // Default to local
 
+    // Force Azure mode if running in production or if RUN_MODE is AZURE
     if (runMode === 'AZURE' || process.env.NODE_ENV === 'production') {
       envFile = '.env.azure';
+      // Set RUN_MODE to AZURE if not already set
+      if (!process.env.RUN_MODE) {
+        process.env.RUN_MODE = 'AZURE';
+      }
     }
 
     // Load the appropriate .env file
@@ -76,6 +81,10 @@ class Config {
   }
 
   get frontendUrl() {
+    // Use Azure frontend URL if in production mode
+    if (process.env.NODE_ENV === 'production') {
+      return process.env.FRONTEND_URL || 'https://polite-wave-08ec8c90f.1.azurestaticapps.net';
+    }
     return process.env.FRONTEND_URL || 'http://localhost:3000';
   }
 
@@ -117,6 +126,14 @@ class Config {
       if (process.env.WEBSITE_HOSTNAME) {
         origins.push(`https://${process.env.WEBSITE_HOSTNAME}`);
       }
+    }
+
+    // Always include Azure origins if running in production (fallback)
+    if (process.env.NODE_ENV === 'production') {
+      origins.push(
+        'https://polite-wave-08ec8c90f.1.azurestaticapps.net',
+        'https://scale12345-hccmcmf7g3bwbvd0.canadacentral-01.azurewebsites.net'
+      );
     }
 
     // Always include the configured frontend URL
