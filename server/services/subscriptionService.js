@@ -11,6 +11,7 @@ class SubscriptionService {
 
   initializePlans() {
     // Define subscription plans
+    // Keep old plans for backward compatibility
     this.plans.set('monthly_basic', {
       id: 'monthly_basic',
       name: 'Monthly Basic',
@@ -38,6 +39,26 @@ class SubscriptionService {
         '2 Months Free',
         'Advanced Analytics',
         'API Access',
+        'Dedicated Support'
+      ],
+      trialDays: 15
+    });
+
+    // Current active plan
+    this.plans.set('yearly_pro', {
+      id: 'yearly_pro',
+      name: 'Pro Plan',
+      amount: 9900, // Rs. 99.00
+      currency: 'INR',
+      interval: 'yearly',
+      features: [
+        'Unlimited Google Business Profile Management',
+        'Auto-Post Scheduling',
+        'Review Management & Auto-Reply',
+        'Performance Analytics',
+        'Advanced Analytics',
+        'API Access',
+        'Priority Support',
         'Dedicated Support'
       ],
       trialDays: 15

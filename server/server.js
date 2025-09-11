@@ -14,7 +14,7 @@ import qrCodesRoutes from './routes/qrCodes.js';
 import { checkSubscription, trackTrialStart, addTrialHeaders } from './middleware/subscriptionCheck.js';
 import SubscriptionService from './services/subscriptionService.js';
 import automationScheduler from './services/automationScheduler.js';
-import tokenStorage from './services/tokenStorage.js';
+import firestoreTokenStorage from './services/firestoreTokenStorage.js';
 
 // Configuration is now managed by config.js
 // All hardcoded values have been moved to .env files
@@ -212,6 +212,31 @@ app.post('/api/automation/test-post-now/:locationId', async (req, res) => {
       if (token.length < 10) {
         console.log(`[TEMP FIX] Token too short, treating as invalid: ${token.length} chars`);
         token = null;
+      }
+    }
+    
+    // If no token provided, try to get from existing tokenStore (migration support)
+    if (!token) {
+      console.log(`[TEMP FIX] No token provided, checking in-memory tokenStore...`);
+      for (const [userId, userData] of tokenStore.entries()) {
+        if (userData.tokens && userData.tokens.access_token) {
+          token = userData.tokens.access_token;
+          console.log(`[TEMP FIX] Found existing token for user ${userId}, using it for test`);
+          // Migrate this token to Firestore for future use
+          try {
+            await firestoreTokenStorage.saveUserToken('default', {
+              access_token: userData.tokens.access_token,
+              refresh_token: userData.tokens.refresh_token,
+              expires_at: new Date(userData.tokens.expiry_date || Date.now() + 3600000).toISOString(),
+              scope: userData.tokens.scope || 'https://www.googleapis.com/auth/business.manage',
+              token_type: 'Bearer'
+            });
+            console.log(`[TEMP FIX] ✅ Migrated token to Firestore for user default`);
+          } catch (migrateError) {
+            console.log(`[TEMP FIX] ⚠️ Failed to migrate token to Firestore:`, migrateError.message);
+          }
+          break;
+        }
       }
     }
     
@@ -573,7 +598,7 @@ app.post('/auth/google/callback', async (req, res) => {
     });
     
     // Save tokens for automation service
-    tokenStorage.saveUserToken(userId, {
+    await firestoreTokenStorage.saveUserToken(userId, {
       access_token: tokens.access_token,
       refresh_token: tokens.refresh_token,
       expires_at: new Date(tokens.expiry_date).toISOString(),

@@ -317,14 +317,14 @@ router.post('/verify', async (req, res) => {
       const endDate = new Date();
       
       // Set end date based on plan
-      if (planId === 'yearly_basic') {
+      if (planId === 'yearly_pro' || planId === 'yearly_basic') {
         endDate.setFullYear(endDate.getFullYear() + 1); // 1 year
       } else {
         endDate.setMonth(endDate.getMonth() + 1); // 1 month (default)
       }
       
       const updatedSubscription = subscriptionService.markSubscriptionAsPaid(gbpAccountId || subscription.gbpAccountId, {
-        planId: planId || 'monthly_basic',
+        planId: planId || 'yearly_pro',
         lastPaymentDate: now.toISOString(),
         subscriptionEndDate: endDate.toISOString(),
         razorpayPaymentId: razorpay_payment_id,

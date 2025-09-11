@@ -39,6 +39,150 @@
         "timestamp": "2025-09-10T11:11:09.170Z"
       },
       "timestamp": "2025-09-10T11:11:09.171Z"
+    },
+    {
+      "locationId": "14977377147025961194",
+      "type": "review_check_failed",
+      "details": {
+        "error": "firestoreTokenStorage is not defined",
+        "timestamp": "2025-09-11T09:56:57.685Z"
+      },
+      "timestamp": "2025-09-11T09:56:57.686Z"
+    },
+    {
+      "locationId": "17697790081864925086",
+      "type": "review_check_failed",
+      "details": {
+        "error": "firestoreTokenStorage is not defined",
+        "timestamp": "2025-09-11T09:56:57.687Z"
+      },
+      "timestamp": "2025-09-11T09:56:57.688Z"
+    },
+    {
+      "locationId": "14977377147025961194",
+      "type": "review_check_failed",
+      "details": {
+        "error": "firestoreTokenStorage is not defined",
+        "timestamp": "2025-09-11T09:56:59.869Z"
+      },
+      "timestamp": "2025-09-11T09:56:59.870Z"
+    },
+    {
+      "locationId": "17697790081864925086",
+      "type": "review_check_failed",
+      "details": {
+        "error": "firestoreTokenStorage is not defined",
+        "timestamp": "2025-09-11T09:56:59.871Z"
+      },
+      "timestamp": "2025-09-11T09:56:59.872Z"
+    },
+    {
+      "locationId": "14977377147025961194",
+      "type": "review_check_failed",
+      "details": {
+        "error": "hybridTokenStorage is not defined",
+        "timestamp": "2025-09-11T10:08:25.615Z"
+      },
+      "timestamp": "2025-09-11T10:08:25.616Z"
+    },
+    {
+      "locationId": "17697790081864925086",
+      "type": "review_check_failed",
+      "details": {
+        "error": "hybridTokenStorage is not defined",
+        "timestamp": "2025-09-11T10:08:25.618Z"
+      },
+      "timestamp": "2025-09-11T10:08:25.618Z"
+    },
+    {
+      "locationId": "14977377147025961194",
+      "type": "review_check_failed",
+      "details": {
+        "error": "hybridTokenStorage is not defined",
+        "timestamp": "2025-09-11T10:08:25.632Z"
+      },
+      "timestamp": "2025-09-11T10:08:25.633Z"
+    },
+    {
+      "locationId": "17697790081864925086",
+      "type": "review_check_failed",
+      "details": {
+        "error": "hybridTokenStorage is not defined",
+        "timestamp": "2025-09-11T10:08:25.635Z"
+      },
+      "timestamp": "2025-09-11T10:08:25.636Z"
+    },
+    {
+      "locationId": "14977377147025961194",
+      "type": "review_check_failed",
+      "details": {
+        "error": "hybridTokenStorage is not defined",
+        "timestamp": "2025-09-11T10:08:25.643Z"
+      },
+      "timestamp": "2025-09-11T10:08:25.644Z"
+    },
+    {
+      "locationId": "17697790081864925086",
+      "type": "review_check_failed",
+      "details": {
+        "error": "hybridTokenStorage is not defined",
+        "timestamp": "2025-09-11T10:08:25.646Z"
+      },
+      "timestamp": "2025-09-11T10:08:25.647Z"
+    },
+    {
+      "locationId": "14977377147025961194",
+      "type": "review_check_failed",
+      "details": {
+        "error": "hybridTokenStorage is not defined",
+        "timestamp": "2025-09-11T10:08:28.115Z"
+      },
+      "timestamp": "2025-09-11T10:08:28.117Z"
+    },
+    {
+      "locationId": "17697790081864925086",
+      "type": "review_check_failed",
+      "details": {
+        "error": "hybridTokenStorage is not defined",
+        "timestamp": "2025-09-11T10:08:28.118Z"
+      },
+      "timestamp": "2025-09-11T10:08:28.119Z"
+    },
+    {
+      "locationId": "14977377147025961194",
+      "type": "review_check_failed",
+      "details": {
+        "error": "hybridTokenStorage is not defined",
+        "timestamp": "2025-09-11T10:08:28.416Z"
+      },
+      "timestamp": "2025-09-11T10:08:28.417Z"
+    },
+    {
+      "locationId": "17697790081864925086",
+      "type": "review_check_failed",
+      "details": {
+        "error": "hybridTokenStorage is not defined",
+        "timestamp": "2025-09-11T10:08:28.420Z"
+      },
+      "timestamp": "2025-09-11T10:08:28.421Z"
+    },
+    {
+      "locationId": "14977377147025961194",
+      "type": "review_check_failed",
+      "details": {
+        "error": "hybridTokenStorage is not defined",
+        "timestamp": "2025-09-11T10:08:28.476Z"
+      },
+      "timestamp": "2025-09-11T10:08:28.477Z"
+    },
+    {
+      "locationId": "17697790081864925086",
+      "type": "review_check_failed",
+      "details": {
+        "error": "hybridTokenStorage is not defined",
+        "timestamp": "2025-09-11T10:08:28.479Z"
+      },
+      "timestamp": "2025-09-11T10:08:28.482Z"
     }
   ]
 }

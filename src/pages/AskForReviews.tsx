@@ -5,7 +5,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { 
   MessageSquarePlus, 
-  Star, 
   QrCode, 
   Download, 
   Copy, 
@@ -16,7 +15,8 @@ import {
   X,
   Check,
   Link,
-  Info
+  Info,
+  Eye
 } from "lucide-react";
 import { useGoogleBusinessProfile } from "@/hooks/useGoogleBusinessProfile";
 import { useToast } from "@/hooks/use-toast";
@@ -145,143 +145,71 @@ const AskForReviews = () => {
     setReviewLinkModalData({ ...reviewLinkModalData, isOpen: false });
     
     try {
-      // Check if QR code already exists for this location
-      const existingQRResponse = await fetch(`${backendUrl}/api/qr-codes/${location.locationId}`);
+      console.log('🔍 Generating QR code for custom review suggestions page');
       
-      if (existingQRResponse.ok) {
-        // QR code exists, update the review link
-        const updateResponse = await fetch(`${backendUrl}/api/qr-codes/${location.locationId}/review-link`, {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ googleReviewLink })
-        });
-        
-        if (updateResponse.ok) {
-          const { qrCode } = await updateResponse.json();
-          setQrModalData({
-            isOpen: true,
-            locationName: qrCode.locationName,
-            locationId: location.locationId,
-            address: qrCode.address,
-            placeId: qrCode.placeId,
-            qrCodeUrl: qrCode.qrCodeUrl,
-            reviewLink: qrCode.publicReviewUrl,
-            aiReviews: []
-          });
-          
-          toast({
-            title: "QR Code Updated",
-            description: "Your existing QR code has been updated with the new review link.",
-          });
-          
-          // Update existing QR codes map
-          setExistingQRCodes(prev => new Map(prev.set(location.locationId, qrCode)));
-          return;
-        }
-      }
-      // Extract location details
-      const businessName = location.displayName;
+      // Create custom public review page URL with business info and Google review link
+      const publicReviewUrl = `${window.location.origin}/public-reviews/${location.locationId}?` + 
+        `business=${encodeURIComponent(location.displayName)}&` +
+        `location=${encodeURIComponent(location.address?.locality || location.address?.administrativeArea || 'Location')}&` +
+        `googleReviewLink=${encodeURIComponent(googleReviewLink)}`;
       
-      console.log('Full location data:', JSON.stringify(location, null, 2));
+      console.log('🔍 Public review URL:', publicReviewUrl);
       
-      // Try to get the city/locality - check all possible fields
-      let locationForDisplay = '';
-      
-      // Check various possible field names for city
-      const possibleCityFields = [
-        location.storefrontAddress?.locality,
-        location.storefrontAddress?.city,
-        location.storefrontAddress?.administrativeArea,
-        location.address?.locality,
-        location.address?.city,
-        location.locality,
-        location.city
-      ];
-      
-      console.log('Checking possible city fields:', possibleCityFields);
-      
-      // Find the first non-empty city field
-      for (const field of possibleCityFields) {
-        if (field && field.trim() && field !== 'Location') {
-          locationForDisplay = field;
-          console.log('Found city:', locationForDisplay);
-          break;
-        }
-      }
-      
-      // If still no city, try to parse from address lines
-      if (!locationForDisplay && location.storefrontAddress?.addressLines?.length > 0) {
-        const addressText = location.storefrontAddress.addressLines.join(', ');
-        console.log('Parsing address lines:', addressText);
-        
-        // Look for common patterns
-        // Pattern: "..., Kakinada, ..." or "..., Kakinada 533003"
-        const cityMatch = addressText.match(/,\s*([A-Za-z\s]+?)(?:\s+\d{6}|,)/);
-        if (cityMatch) {
-          locationForDisplay = cityMatch[1].trim();
-          console.log('Extracted city from address pattern:', locationForDisplay);
-        }
-      }
-      
-      // Last resort: use any address component
-      if (!locationForDisplay) {
-        locationForDisplay = location.storefrontAddress?.addressLines?.[location.storefrontAddress.addressLines.length - 1] ||
-                           location.storefrontAddress?.postalCode ||
-                           location.storefrontAddress?.regionCode ||
-                           '';
-        console.log('Using last resort location:', locationForDisplay);
-      }
-      
-      // Final cleanup
-      locationForDisplay = locationForDisplay.trim();
-      if (!locationForDisplay || locationForDisplay === 'Location') {
-        locationForDisplay = 'your area'; // Better than "Location"
-      }
-      
-      console.log('Final location for display:', locationForDisplay);
-      
-      // Extract place ID and location name
-      const locationName = location.name || '';
-      const placeId = location.metadata?.placeId || location.placeId || '';
-      
-      // Save QR code permanently to backend
-      const createResponse = await fetch(`${backendUrl}/api/qr-codes`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          locationId: location.locationId,
-          locationName: businessName,
-          address: locationForDisplay,
-          placeId: placeId,
-          googleReviewLink: googleReviewLink
-        })
+      // Generate QR code for our custom page (not directly to Google)
+      const qrCodeUrl = await QRCode.toDataURL(publicReviewUrl, {
+        errorCorrectionLevel: 'M',
+        type: 'image/png',
+        quality: 0.92,
+        margin: 2,
+        color: {
+          dark: '#000000',
+          light: '#FFFFFF',
+        },
+        width: 512
       });
       
-      if (!createResponse.ok) {
-        throw new Error('Failed to save QR code');
+      // Save QR code data to backend for future reference
+      try {
+        const qrData = {
+          locationId: location.locationId,
+          locationName: location.displayName,
+          address: location.address?.locality || location.address?.administrativeArea || 'Location',
+          googleReviewLink: googleReviewLink,
+          publicReviewUrl: publicReviewUrl,
+          qrCodeUrl: qrCodeUrl,
+          createdAt: new Date().toISOString()
+        };
+        
+        await fetch(`${backendUrl}/api/qr-codes`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(qrData)
+        });
+        
+        // Reload existing QR codes to show the new one
+        await loadExistingQRCodes();
+        
+      } catch (saveError) {
+        console.warn('Failed to save QR code data:', saveError);
       }
       
-      const { qrCode } = await createResponse.json();
+      console.log('✅ QR code generated successfully');
       
-      // Open modal with QR code
       setQrModalData({
         isOpen: true,
-        locationName: qrCode.locationName,
+        locationName: location.displayName,
         locationId: location.locationId,
-        address: qrCode.address,
-        placeId: qrCode.placeId,
-        qrCodeUrl: qrCode.qrCodeUrl,
-        reviewLink: qrCode.publicReviewUrl,
+        address: location.address?.locality || location.address?.administrativeArea || 'Location',
+        placeId: location.placeId || '',
+        qrCodeUrl: qrCodeUrl,
+        reviewLink: publicReviewUrl, // Points to our custom page, not directly to Google
         aiReviews: []
       });
       
       toast({
-        title: "QR Code Created",
-        description: "Your QR code has been saved permanently to your account.",
+        title: "QR Code Generated",
+        description: "Your QR code will show customers AI-generated review suggestions with SEO keywords, then redirect them to your Google review page.",
       });
-      
-      // Update existing QR codes map
-      setExistingQRCodes(prev => new Map(prev.set(location.locationId, qrCode)));
       
     } catch (error) {
       console.error('Error generating QR code:', error);
@@ -306,6 +234,57 @@ const AskForReviews = () => {
     toast({
       title: "QR Code Downloaded",
       description: "The QR code has been saved to your device.",
+    });
+  };
+
+  const copyPreviewLink = async () => {
+    if (!qrModalData.reviewLink) {
+      toast({
+        title: "Copy Error",
+        description: "No preview link available. Please generate a QR code first.",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    try {
+      await navigator.clipboard.writeText(qrModalData.reviewLink);
+      toast({
+        title: "Link Copied!",
+        description: "Preview link has been copied to your clipboard.",
+      });
+    } catch (error) {
+      toast({
+        title: "Copy Error",
+        description: "Failed to copy link. Please try again.",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const previewPublicPage = () => {
+    console.log('🔍 Preview button clicked!');
+    console.log('🔍 qrModalData:', qrModalData);
+    console.log('🔍 reviewLink:', qrModalData.reviewLink);
+    
+    if (!qrModalData.reviewLink) {
+      console.error('❌ No review link available for preview');
+      toast({
+        title: "Preview Error",
+        description: "No review link available. Please generate a QR code first.",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    console.log('🚀 Opening preview URL:', qrModalData.reviewLink);
+    
+    // Open the public review suggestions page in a new tab
+    window.open(qrModalData.reviewLink, '_blank', 'noopener,noreferrer');
+    
+    toast({
+      title: "Preview Opened",
+      description: "The customer review page has been opened in a new tab.",
     });
   };
 
@@ -594,35 +573,48 @@ const AskForReviews = () => {
             <CardContent className="space-y-4 pt-6">
               {qrModalData.qrCodeUrl && (
                 <>
-                  <div className="bg-white p-6 rounded-lg border-2 border-gray-200 flex justify-center">
-                    <img src={qrModalData.qrCodeUrl} alt="QR Code" className="max-w-full" />
+                  <div className="bg-white p-3 rounded-lg border-2 border-gray-200 flex justify-center max-w-xs mx-auto">
+                    <img src={qrModalData.qrCodeUrl} alt="QR Code" className="w-48 h-48" />
                   </div>
                   
                   <div className="bg-blue-50 rounded-lg p-4">
                     <h4 className="font-semibold text-sm mb-2">How it works:</h4>
                     <ol className="text-sm space-y-1 text-muted-foreground">
                       <li>1. Customer scans QR code</li>
-                      <li>2. Sees AI-generated review suggestions</li>
-                      <li>3. Copies a suggestion or writes their own</li>
-                      <li>4. Clicks "Write Review on Google"</li>
+                      <li>2. Sees AI-generated review suggestions with SEO keywords</li>
+                      <li>3. Clicks "Write Review on Google" button</li>
+                      <li>4. Gets redirected to your Google review page</li>
                     </ol>
                   </div>
                   
-                  <div className="flex gap-2">
+                  <div className="space-y-3">
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium text-gray-700">Preview Link</label>
+                      <div className="flex gap-2">
+                        <input 
+                          type="text" 
+                          value={qrModalData.reviewLink || ''}
+                          readOnly
+                          className="flex-1 px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-sm font-mono text-gray-600"
+                          placeholder="No preview link available"
+                        />
+                        <Button 
+                          onClick={copyPreviewLink}
+                          size="sm"
+                          variant="outline"
+                          disabled={!qrModalData.reviewLink}
+                        >
+                          <Copy className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
                     <Button 
                       onClick={downloadQRCode}
-                      className="flex-1"
-                      variant="outline"
+                      className="w-full"
+                      variant="default"
                     >
                       <Download className="mr-2 h-4 w-4" />
-                      Download QR
-                    </Button>
-                    <Button
-                      onClick={() => window.open(qrModalData.reviewLink, '_blank')}
-                      className="flex-1"
-                    >
-                      <Star className="mr-2 h-4 w-4" />
-                      Preview Page
+                      Download QR Code
                     </Button>
                   </div>
                   

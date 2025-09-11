@@ -45,10 +45,10 @@ router.post('/', async (req, res) => {
     }
 
     // Generate public review URL
-    const backendUrl = process.env.BACKEND_URL || 'https://scale12345-hccmcmf7g3bwbvd0.canadacentral-01.azurewebsites.net';
-    const frontendUrl = process.env.FRONTEND_URL || 'https://polite-wave-08ec8c90f.1.azurestaticapps.net';
+    const backendUrl = process.env.BACKEND_URL || 'http://localhost:5000';
+    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
     
-    const publicReviewUrl = `${frontendUrl}/reviews/public?` + 
+    const publicReviewUrl = `${frontendUrl}/review/${locationId}?` + 
       `business=${encodeURIComponent(locationName)}&` +
       `location=${encodeURIComponent(address || '')}&` +
       `placeId=${encodeURIComponent(placeId || '')}&` +
@@ -111,8 +111,8 @@ router.patch('/:locationId/review-link', async (req, res) => {
     const updatedQR = await qrStorage.updateReviewLink(locationId, googleReviewLink);
     
     // Regenerate public URL and QR code with new link
-    const frontendUrl = process.env.FRONTEND_URL || 'https://polite-wave-08ec8c90f.1.azurestaticapps.net';
-    const publicReviewUrl = `${frontendUrl}/reviews/public?` + 
+    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+    const publicReviewUrl = `${frontendUrl}/review/${locationId}?` + 
       `business=${encodeURIComponent(updatedQR.locationName)}&` +
       `location=${encodeURIComponent(updatedQR.address || '')}&` +
       `placeId=${encodeURIComponent(updatedQR.placeId || '')}&` +

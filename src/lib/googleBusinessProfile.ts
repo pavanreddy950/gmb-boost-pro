@@ -452,7 +452,7 @@ class GoogleBusinessProfileService {
       
       // Add timeout control for faster failure
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+      const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout for faster response
       
       const response = await fetch(`${this.backendUrl}/api/accounts?_t=${Date.now()}`, {
         method: 'GET',
@@ -637,7 +637,7 @@ class GoogleBusinessProfileService {
       
       // Add timeout for faster failure handling
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 8000); // 8 second timeout
+      const timeoutId = setTimeout(() => controller.abort(), 4000); // 4 second timeout for faster response
       
       const response = await fetch(`${this.backendUrl}/api/accounts/${encodeURIComponent(accountName)}/locations`, {
         method: 'GET',
@@ -1150,41 +1150,66 @@ class GoogleBusinessProfileService {
     }
   }
 
-  // Disconnect Google Business Profile
+  // Disconnect Google Business Profile - Optimized for speed
   async disconnect(): Promise<void> {
     try {
-      // Revoke tokens if possible
-      if (this.accessToken) {
-        try {
-          await fetch(`https://oauth2.googleapis.com/revoke?token=${this.accessToken}`, {
-            method: 'POST',
-          });
-        } catch (error) {
-          console.warn('Error revoking token:', error);
-        }
-      }
+      // Start all operations concurrently for faster performance
+      const operations: Promise<any>[] = [];
       
-      // Clear stored tokens from both localStorage and Firestore
+      // Store current token for revocation before clearing
+      const currentToken = this.accessToken;
+      
+      // Clear localStorage immediately (synchronous - fastest)
       localStorage.removeItem('google_business_tokens');
       localStorage.removeItem('google_business_connected');
       localStorage.removeItem('google_business_connection_time');
       
-      // Clear from Firestore if user ID is available
+      // Reset access token immediately
+      this.accessToken = null;
+      
+      // Clear cache immediately
+      this.cache.clear();
+      
+      // Optional: Revoke token with timeout (non-blocking background operation)
+      if (currentToken) {
+        operations.push(
+          fetch(`https://oauth2.googleapis.com/revoke?token=${currentToken}`, {
+            method: 'POST',
+          }).catch(error => {
+            console.debug('Token revocation failed (non-critical):', error);
+          })
+        );
+      }
+      
+      // Clear from Firestore with fast timeout (concurrent operation)
       if (this.currentUserId) {
+        operations.push(
+          tokenStorageService.deleteTokens(this.currentUserId)
+            .then(() => console.log('✅ Tokens cleared from Firestore'))
+            .catch(error => console.debug('Firestore cleanup failed (non-critical):', error))
+        );
+        
+        // Reset user ID after starting Firestore operation
+        this.currentUserId = null;
+      }
+      
+      // Wait for all background operations to complete (with fast timeout)
+      if (operations.length > 0) {
         try {
-          await tokenStorageService.deleteTokens(this.currentUserId);
-          console.log('✅ Tokens cleared from Firestore');
-        } catch (firestoreError) {
-          console.warn('⚠️ Failed to clear tokens from Firestore:', firestoreError);
+          await Promise.race([
+            Promise.allSettled(operations),
+            new Promise(resolve => setTimeout(resolve, 1000)) // Max 1 second wait
+          ]);
+        } catch (error) {
+          console.debug('Some disconnect operations failed (non-critical):', error);
         }
       }
       
-      // Reset access token and user ID
-      this.accessToken = null;
-      this.currentUserId = null;
+      console.log('✅ Disconnect completed successfully');
     } catch (error) {
       console.error('Error disconnecting Google Business Profile:', error);
-      throw error;
+      // Don't throw error - disconnection should always succeed locally
+      console.log('⚠️ Disconnect completed with some errors (non-critical)');
     }
   }
 

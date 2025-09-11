@@ -13,11 +13,11 @@ import ProfileDetails from "./pages/ProfileDetails";
 import Posts from "./pages/Posts";
 import Reviews from "./pages/Reviews";
 import AskForReviews from "./pages/AskForReviews";
-import PublicReviewSuggestions from "./pages/PublicReviewSuggestions";
 import Settings from "./pages/Settings";
 import AuditTool from "./pages/AuditTool";
 import Upgrade from "./pages/Upgrade";
 import Billing from "./pages/Billing";
+import PublicReviewSuggestions from "./pages/PublicReviewSuggestions";
 import { AuthProvider } from "./contexts/AuthContext";
 import { NotificationProvider } from "./contexts/NotificationContext";
 import { SubscriptionProvider } from "./contexts/SubscriptionContext";
@@ -36,7 +36,7 @@ const App = () => (
     <TooltipProvider>
       <Toaster />
       <Sonner />
-      <BrowserRouter>
+      <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
         <AuthProvider>
           <GoogleBusinessProfileProvider>
             <NotificationProvider>
@@ -57,8 +57,8 @@ const App = () => (
             {/* OAuth Callback Route */}
             <Route path="/auth/google/callback" element={<GoogleOAuthCallback />} />
             
-            {/* Public route for review suggestions */}
-            <Route path="/review/:businessId" element={<PublicReviewSuggestions />} />
+            {/* Public Review Suggestions Route - No authentication required */}
+            <Route path="/public-reviews/:locationId" element={<PublicReviewSuggestions />} />
             
             {/* Protected Dashboard Routes - SubscriptionGuard is applied inside DashboardLayout */}
             <Route path="/dashboard" element={

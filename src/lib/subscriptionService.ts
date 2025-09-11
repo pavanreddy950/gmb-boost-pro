@@ -58,35 +58,23 @@ export interface SubscriptionPlan {
 
 export const SUBSCRIPTION_PLANS: SubscriptionPlan[] = [
   {
-    id: 'monthly_basic',
-    name: 'Monthly Basic',
-    amount: 999, // Amount in paise (Rs. 9.99)
+    id: 'yearly_pro',
+    name: 'Pro Plan',
+    amount: 9900, // Amount in paise (Rs. 99.00)
     currency: 'INR',
-    interval: 'monthly',
+    interval: 'yearly',
     features: [
       'Unlimited Google Business Profile Management',
       'Auto-Post Scheduling',
       'Review Management & Auto-Reply',
       'Performance Analytics',
-      'Priority Support'
+      'Advanced Analytics',
+      'API Access',
+      'Priority Support',
+      'Dedicated Support'
     ],
     trialDays: 15,
     popular: true
-  },
-  {
-    id: 'yearly_basic',
-    name: 'Yearly Basic',
-    amount: 9999, // Amount in paise (Rs. 99.99)
-    currency: 'INR',
-    interval: 'yearly',
-    features: [
-      'All Monthly Features',
-      '2 Months Free',
-      'Advanced Analytics',
-      'API Access',
-      'Dedicated Support'
-    ],
-    trialDays: 15
   }
 ];
 

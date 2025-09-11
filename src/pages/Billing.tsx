@@ -242,17 +242,6 @@ const Billing = () => {
             </div>
           )}
 
-          {status === 'active' && (
-            <div className="flex justify-end pt-2 border-t">
-              <Button 
-                variant="destructive" 
-                size="sm"
-                onClick={handleCancelSubscription}
-              >
-                Cancel Subscription
-              </Button>
-            </div>
-          )}
         </CardContent>
       </Card>
 

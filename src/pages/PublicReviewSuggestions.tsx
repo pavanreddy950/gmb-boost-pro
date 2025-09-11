@@ -13,7 +13,8 @@ import {
   MapPin,
   Sparkles,
   ArrowDown,
-  Building2
+  Building2,
+  RefreshCw
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
@@ -23,14 +24,39 @@ interface AIReview {
   rating: number;
   focus: string;
   length: string;
+  keywords?: string[];
 }
 
 const PublicReviewSuggestions = () => {
   const { toast } = useToast();
+  const { locationId } = useParams<{ locationId: string }>();
   const [searchParams] = useSearchParams();
-  const businessName = searchParams.get('business') || 'Business';
-  const location = searchParams.get('location') || 'Location';
-  const placeId = searchParams.get('placeId') || '';
+  
+  // QR Code data state
+  const [qrCodeData, setQrCodeData] = useState<any>(null);
+  const [qrCodeLoading, setQrCodeLoading] = useState(true);
+  
+  // Fallback to URL parameters if QR data not available
+  const businessName = qrCodeData?.locationName || searchParams.get('business') || 'Business';
+  const location = qrCodeData?.address || searchParams.get('location') || 'Location';
+  const placeId = qrCodeData?.placeId || searchParams.get('placeId') || '';
+  const googleReviewLink = qrCodeData?.googleReviewLink || searchParams.get('googleReviewLink') || '';
+  
+  // Debug URL parameters on page load
+  console.log('🔍 PUBLIC REVIEW PAGE LOADED:');
+  console.log('🔍 Full URL:', window.location.href);
+  console.log('🔍 Location ID from params:', locationId);
+  console.log('🔍 Search params string:', window.location.search);
+  console.log('🔍 Business Name:', businessName);
+  console.log('🔍 Location:', location);
+  console.log('🔍 Google Review Link:', googleReviewLink);
+  console.log('🔍 All URL parameters:');
+  searchParams.forEach((value, key) => {
+    console.log(`  ${key}: ${value}`);
+  });
+  
+  // Add a visible debug message for testing
+  const isDebugMode = window.location.hostname === 'localhost';
   
   const [aiReviews, setAiReviews] = useState<AIReview[]>([]);
   const [loading, setLoading] = useState(true);
@@ -39,7 +65,44 @@ const PublicReviewSuggestions = () => {
   
   const backendUrl = import.meta.env.VITE_BACKEND_URL || 'https://scale12345-hccmcmf7g3bwbvd0.canadacentral-01.azurewebsites.net';
   
+  // Fetch QR code data from backend with timeout
+  const fetchQRCodeData = async () => {
+    if (!locationId) {
+      console.log('🔍 No location ID provided, using URL parameters only');
+      setQrCodeLoading(false);
+      return;
+    }
+
+    try {
+      console.log('🔍 Fetching QR code data for location:', locationId);
+      
+      // Add timeout for QR code data fetch
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout
+      
+      const response = await fetch(`${backendUrl}/api/qr-codes/${locationId}`, {
+        signal: controller.signal
+      });
+      
+      clearTimeout(timeoutId);
+      
+      if (response.ok) {
+        const data = await response.json();
+        console.log('✅ QR code data received:', data);
+        setQrCodeData(data.qrCode);
+      } else {
+        console.log('⚠️ QR code not found, using URL parameters as fallback');
+      }
+    } catch (error) {
+      console.log('⚠️ Error fetching QR code data (using fallback):', error.message);
+      // Don't show error to users, just continue with URL parameters
+    } finally {
+      setQrCodeLoading(false);
+    }
+  };
+
   useEffect(() => {
+    fetchQRCodeData();
     fetchAIReviews();
     
     // Hide arrow after user scrolls
@@ -51,16 +114,21 @@ const PublicReviewSuggestions = () => {
     
     window.addEventListener('scroll', handleScroll);
     return () => window.removeEventListener('scroll', handleScroll);
-  }, []);
+  }, [locationId]);
   
   const fetchAIReviews = async () => {
+    // Show fallback reviews immediately for instant loading
+    const fallbackReviews = getFallbackReviews();
+    setAiReviews(fallbackReviews);
+    setLoading(false);
+    
+    // Then try to fetch AI reviews in background to replace fallbacks
     try {
-      console.log('Fetching AI reviews with:', {
-        businessName: decodeURIComponent(businessName),
-        location: decodeURIComponent(location),
-        rawLocation: location,
-        backendUrl: backendUrl
-      });
+      console.log('Loading fallback reviews instantly, fetching AI reviews in background...');
+      
+      // Very short timeout for faster user experience
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 2000); // 2 second timeout
       
       const response = await fetch(`${backendUrl}/api/ai-reviews/generate`, {
         method: 'POST',
@@ -71,34 +139,75 @@ const PublicReviewSuggestions = () => {
           businessName: decodeURIComponent(businessName),
           location: decodeURIComponent(location),
           businessType: 'business'
-        })
+        }),
+        signal: controller.signal
       });
       
-      console.log('AI reviews response status:', response.status);
+      clearTimeout(timeoutId);
       
       if (response.ok) {
         const data = await response.json();
-        console.log('AI reviews data received:', data);
-        setAiReviews(data.suggestions || []);
+        console.log('✅ AI reviews loaded, replacing fallback reviews');
+        // Smoothly replace fallback reviews with AI reviews
+        setAiReviews(data.suggestions || fallbackReviews);
       } else {
-        const errorText = await response.text();
-        console.error('AI reviews error response:', errorText);
-        toast({
-          title: "Unable to load review suggestions",
-          description: "Please try again later or write your own review.",
-          variant: "destructive"
-        });
+        console.log('AI reviews failed, keeping fallback reviews');
+        // Keep fallback reviews - no change needed
       }
     } catch (error) {
-      console.error('Error fetching AI reviews:', error);
-      toast({
-        title: "Connection error",
-        description: "Unable to load review suggestions. Please check your connection.",
-        variant: "destructive"
-      });
-    } finally {
-      setLoading(false);
+      console.log('AI reviews timeout/error, keeping fallback reviews:', error.message);
+      // Keep fallback reviews - no change needed
     }
+  };
+  
+  // Fallback reviews for when AI service is unavailable
+  const getFallbackReviews = (): AIReview[] => {
+    const cleanBusinessName = decodeURIComponent(businessName);
+    const cleanLocation = decodeURIComponent(location);
+    const locationText = cleanLocation && cleanLocation !== 'Location' ? ` in ${cleanLocation}` : '';
+    
+    return [
+      {
+        id: 'fallback_1',
+        review: `Great experience at ${cleanBusinessName}${locationText}! The service was excellent and the staff was very professional. I would definitely recommend this business to others. Thank you for the wonderful service!`,
+        rating: 5,
+        focus: 'service',
+        length: 'medium',
+        keywords: ['service', 'professional', 'recommend']
+      },
+      {
+        id: 'fallback_2',
+        review: `${cleanBusinessName} provided exactly what I was looking for. The quality was outstanding and the attention to detail was impressive. Will definitely be returning as a satisfied customer.`,
+        rating: 4,
+        focus: 'quality',
+        length: 'medium',
+        keywords: ['quality', 'outstanding', 'satisfied']
+      },
+      {
+        id: 'fallback_3',
+        review: `Highly recommend ${cleanBusinessName}${locationText}! The team was friendly, knowledgeable, and went above and beyond to help. Excellent customer service all around.`,
+        rating: 5,
+        focus: 'staff',
+        length: 'medium',
+        keywords: ['friendly', 'knowledgeable', 'customer service']
+      },
+      {
+        id: 'fallback_4',
+        review: `Amazing atmosphere at ${cleanBusinessName}! The environment is welcoming and comfortable. Perfect place for what I needed. The overall experience exceeded my expectations completely.`,
+        rating: 5,
+        focus: 'atmosphere',
+        length: 'medium',
+        keywords: ['atmosphere', 'welcoming', 'comfortable']
+      },
+      {
+        id: 'fallback_5',
+        review: `Good value for money at ${cleanBusinessName}${locationText}. Fair pricing and quality service. Would return for their reliable and consistent performance. Definitely worth visiting.`,
+        rating: 4,
+        focus: 'value',
+        length: 'medium',
+        keywords: ['value', 'fair pricing', 'reliable']
+      }
+    ];
   };
   
   const copyReviewToClipboard = async (review: string, reviewId: string) => {
@@ -121,21 +230,93 @@ const PublicReviewSuggestions = () => {
   };
   
   const redirectToGoogleReviews = () => {
-    // Check if we have the actual Google review link from the URL params
-    const googleReviewLink = searchParams.get('googleReviewLink');
+    console.log('🚀 BUTTON CLICKED: Write Review on Google button clicked!');
+    console.log('🔍 QR Code Data:', qrCodeData);
+    console.log('🔍 Google review link from QR data:', qrCodeData?.googleReviewLink);
+    console.log('🔍 Google review link from URL params:', searchParams.get('googleReviewLink'));
+    console.log('🔍 Final googleReviewLink being used:', googleReviewLink);
     
-    if (googleReviewLink && googleReviewLink !== 'undefined' && googleReviewLink !== '') {
-      // We have the actual review link, use it directly
-      const decodedLink = decodeURIComponent(googleReviewLink);
-      console.log('Redirecting to actual Google review link:', decodedLink);
-      window.open(decodedLink, '_blank');
+    if (googleReviewLink && googleReviewLink !== 'undefined' && googleReviewLink !== '' && googleReviewLink !== 'null') {
+      try {
+        let finalLink = googleReviewLink;
+        
+        // If the link comes from QR data, it should already be properly formatted
+        if (qrCodeData && qrCodeData.googleReviewLink) {
+          console.log('✅ Using Google review link from QR code data (no decoding needed)');
+          finalLink = qrCodeData.googleReviewLink;
+        } else {
+          // If it comes from URL parameters, we need to decode it
+          console.log('🔄 Using Google review link from URL params (decoding needed)');
+          try {
+            finalLink = decodeURIComponent(googleReviewLink);
+            
+            // If it's double-encoded, decode again
+            if (finalLink.includes('%2F') || finalLink.includes('%3A')) {
+              try {
+                finalLink = decodeURIComponent(finalLink);
+              } catch (decodeError) {
+                console.error('❌ Second decodeURIComponent failed:', decodeError);
+              }
+            }
+          } catch (decodeError) {
+            console.error('❌ decodeURIComponent failed:', decodeError);
+            console.error('❌ Raw googleReviewLink causing error:', googleReviewLink);
+            toast({
+              title: "Invalid Review Link", 
+              description: "The review link appears to be truncated. Please try generating a new QR code.",
+              variant: "destructive"
+            });
+            return;
+          }
+        }
+        
+        console.log('🎯 Final Google review link:', finalLink);
+      
+        // Ensure it's a valid Google review URL
+        const isValidGoogleUrl = finalLink.includes('g.page') || 
+                                 finalLink.includes('google.com') || 
+                                 finalLink.includes('maps.app.goo.gl') ||
+                                 finalLink.includes('search.google.com/local/writereview');
+        
+        if (isValidGoogleUrl && (finalLink.startsWith('http://') || finalLink.startsWith('https://'))) {
+          console.log('✅ Opening Google review link:', finalLink);
+          // Force new window to prevent any redirects back to our site
+          const newWindow = window.open(finalLink, '_blank', 'noopener,noreferrer');
+          if (!newWindow) {
+            // Fallback if popup blocked
+            window.location.href = finalLink;
+          }
+        } else {
+          console.error('❌ Invalid or non-Google URL:', finalLink);
+        toast({
+          title: "Invalid Review Link",
+          description: "The review link format is invalid. Please contact the business.",
+          variant: "destructive"
+        });
+      }
+      } catch (error) {
+        console.error('❌ Unexpected error in redirectToGoogleReviews:', error);
+        toast({
+          title: "Error",
+          description: "An unexpected error occurred. Please try again.",
+          variant: "destructive"
+        });
+      }
     } else {
-      // No review link provided
-      toast({
-        title: "Review Link Not Available",
-        description: "Please contact the business for their review link.",
-        variant: "destructive"
-      });
+      // No review link provided - try to generate one using place ID
+      const placeId = searchParams.get('placeId');
+      if (placeId) {
+        const fallbackUrl = `https://search.google.com/local/writereview?placeid=${placeId}`;
+        console.log('🔄 Using fallback Google review URL:', fallbackUrl);
+        window.open(fallbackUrl, '_blank', 'noopener,noreferrer');
+      } else {
+        console.log('❌ No valid review link or place ID found');
+        toast({
+          title: "Review Link Not Available",
+          description: "Please contact the business for their review link.",
+          variant: "destructive"
+        });
+      }
     }
   };
   
@@ -202,7 +383,12 @@ const PublicReviewSuggestions = () => {
         
         {loading ? (
           <div className="space-y-4">
-            {Array.from({ length: 3 }).map((_, i) => (
+            <div className="text-center py-8">
+              <RefreshCw className="h-8 w-8 animate-spin mx-auto mb-4 text-primary" />
+              <p className="text-lg font-medium">Generating personalized review suggestions...</p>
+              <p className="text-muted-foreground mt-2">This may take a few seconds</p>
+            </div>
+            {Array.from({ length: 5 }).map((_, i) => (
               <Card key={i} className="animate-pulse">
                 <CardContent className="p-6">
                   <div className="h-4 bg-muted rounded w-1/4 mb-3" />
@@ -245,6 +431,19 @@ const PublicReviewSuggestions = () => {
                     </Button>
                   </div>
                   <p className="text-gray-700 leading-relaxed">{review.review}</p>
+                  
+                  {/* Keywords Display */}
+                  {review.keywords && review.keywords.length > 0 && (
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      <span className="text-xs text-gray-500">Keywords:</span>
+                      {review.keywords.map((keyword, idx) => (
+                        <Badge key={idx} variant="outline" className="text-xs">
+                          {keyword}
+                        </Badge>
+                      ))}
+                    </div>
+                  )}
+                  
                   {copiedReview === review.id && (
                     <div className="mt-3 p-2 bg-green-50 rounded-md">
                       <p className="text-sm text-green-700 font-medium">

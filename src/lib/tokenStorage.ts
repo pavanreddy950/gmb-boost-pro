@@ -26,8 +26,8 @@ export interface UserTokenData {
 class TokenStorageService {
   private readonly COLLECTION_NAME = 'users';
   private readonly TOKEN_DOCUMENT = 'googleTokens';
-  private isFirestoreAvailable = true;
-  private readonly FIRESTORE_TIMEOUT = 10000; // 10 seconds timeout (increased from 5s)
+  private isFirestoreAvailable = false; // Disabled - using backend token storage instead
+  private readonly FIRESTORE_TIMEOUT = 3000; // 3 seconds timeout for faster operations
 
   // Save Google Business Profile tokens to Firestore
   async saveTokens(userId: string, tokens: StoredGoogleTokens, userInfo?: { id: string; email: string; name?: string; picture?: string }): Promise<void> {

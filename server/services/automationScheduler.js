@@ -3,7 +3,7 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import fetch from 'node-fetch';
-import tokenStorage from './tokenStorage.js';
+import firestoreTokenStorage from './firestoreTokenStorage.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -66,12 +66,14 @@ class AutomationScheduler {
 
   loadTokens() {
     // Use centralized token storage
-    return tokenStorage.loadTokens();
+    // Load tokens from Firestore - this is handled differently now
+    // We'll use getValidToken directly instead
+    return {};
   }
 
   // Get valid token for user with automatic refresh
   async getValidTokenForUser(userId) {
-    return await tokenStorage.getValidToken(userId);
+    return await firestoreTokenStorage.getValidToken(userId);
   }
 
   // Initialize all automation schedules
@@ -476,7 +478,7 @@ CRITICAL RULES:
           content,
           callToAction: {
             actionType: 'LEARN_MORE',
-            url: websiteUrl || `https://www.google.com/search?q=${encodeURIComponent(businessName + ' ' + location)}`
+            url: websiteUrl || `https://www.google.com/search?q=${encodeURIComponent(businessName + ' ' + city)}`
           }
         };
       } else {

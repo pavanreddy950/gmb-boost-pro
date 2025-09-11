@@ -8,12 +8,29 @@ class AIReviewService {
     this.deploymentName = 'gpt-4o';
     this.apiVersion = '2024-02-15-preview';
     
+    // Simple in-memory cache for faster responses
+    this.reviewCache = new Map();
+    this.cacheTimeout = 5 * 60 * 1000; // 5 minutes cache
+    
     console.log('[AIReviewService] Initialized with hardcoded Azure OpenAI configuration');
   }
 
   async generateReviewSuggestions(businessName, location, businessType = 'business') {
+    // Check cache first for instant response
+    const cacheKey = `${businessName.toLowerCase()}_${location.toLowerCase()}_${businessType}`;
+    const cached = this.reviewCache.get(cacheKey);
+    
+    if (cached && (Date.now() - cached.timestamp) < this.cacheTimeout) {
+      console.log('[AI Review Service] ⚡ Returning cached reviews for faster response');
+      return cached.reviews.map(review => ({
+        ...review,
+        id: `review_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
+        generatedAt: new Date().toISOString()
+      }));
+    }
+    
     // Enhanced debugging for Azure OpenAI configuration
-    console.log('[AI Review Service] Checking Azure OpenAI configuration...');
+    console.log('[AI Review Service] Generating new reviews (no cache hit)');
     console.log(`[AI Review Service] Endpoint: ${this.azureEndpoint ? 'SET (' + this.azureEndpoint.substring(0, 30) + '...)' : 'NOT SET'}`);
     console.log(`[AI Review Service] API Key: ${this.apiKey ? 'SET (' + this.apiKey.substring(0, 10) + '...)' : 'NOT SET'}`);
     console.log(`[AI Review Service] Deployment: ${this.deploymentName || 'NOT SET'}`);
@@ -42,20 +59,36 @@ class AIReviewService {
       
       console.log(`[AI Review Service] Generating AI suggestions for ${businessName} ${locationPhrase}`);
       
-      const prompt = `Generate 5 detailed, authentic customer reviews for "${businessName}"${locationPhrase ? ` in "${cleanLocation}"` : ''}. 
+      // Create highly unique seed for completely different content each time
+      const timestamp = Date.now();
+      const randomPart1 = Math.random().toString(36).substr(2, 12);
+      const randomPart2 = Math.random().toString(36).substr(2, 12);
+      const userAgent = Math.random().toString(16).substr(2, 8);
+      const uniqueSeed = `${timestamp}_${randomPart1}_${randomPart2}_${userAgent}`;
       
-      Each review should be 60-100 words, detailed and personal like real customer experiences.
-      Include specific details about:
-      - Service quality and staff interactions
-      - Specific experiences or moments
-      - Recommendations and personal touches
-      - Why you'd recommend to others
+      // Add additional randomization factors
+      const toneVariations = ['casual', 'professional', 'enthusiastic', 'detailed', 'concise'];
+      const customerTypes = ['first-time visitor', 'regular customer', 'business client', 'family customer', 'local resident'];
+      const randomTone = toneVariations[Math.floor(Math.random() * toneVariations.length)];
+      const randomCustomerType = customerTypes[Math.floor(Math.random() * customerTypes.length)];
+      const randomTimeOfDay = ['morning', 'afternoon', 'evening', 'weekend'][Math.floor(Math.random() * 4)];
       
-      Use these focuses: service, quality, atmosphere, value, staff
-      Ratings: 4 or 5 stars
+      // Simplified, faster prompt for quick generation
+      const prompt = `Generate 5 different customer reviews for "${businessName}"${locationPhrase ? ` in ${cleanLocation}` : ''}.
       
-      Return valid JSON only:
-      [{"review": "detailed review text here", "rating": 5, "focus": "service"}]`;
+Style: ${randomTone} tone, ${randomCustomerType}, ${randomTimeOfDay} visit
+Seed: ${uniqueSeed}
+      
+Make each review unique in style and focus. Include business name naturally. Mix 4-5 star ratings. Focus areas: service, quality, staff, atmosphere, value.
+      
+Return only JSON array:
+[
+  {"review": "authentic review text", "rating": 5, "focus": "service", "keywords": ["${businessName}", "${cleanLocation}", "service"]},
+  {"review": "different review text", "rating": 4, "focus": "quality", "keywords": ["${businessName}", "${cleanLocation}", "quality"]},
+  {"review": "unique review text", "rating": 5, "focus": "staff", "keywords": ["${businessName}", "${cleanLocation}", "staff"]},
+  {"review": "varied review text", "rating": 5, "focus": "atmosphere", "keywords": ["${businessName}", "${cleanLocation}", "atmosphere"]},
+  {"review": "distinct review text", "rating": 4, "focus": "value", "keywords": ["${businessName}", "${cleanLocation}", "value"]}
+]`;
 
       const url = `${this.azureEndpoint}openai/deployments/${this.deploymentName}/chat/completions?api-version=${this.apiVersion}`;
       
@@ -69,18 +102,18 @@ class AIReviewService {
           messages: [
             {
               role: 'system',
-              content: 'Generate authentic customer reviews. Return only valid JSON array format. Keep reviews short and unique.'
+              content: 'You are a JSON generator. Return ONLY valid JSON arrays. No explanations, no markdown, just JSON.'
             },
             {
               role: 'user',
               content: prompt
             }
           ],
-          max_tokens: 1500, // Increased for detailed reviews
-          temperature: 0.9, // High temperature for more variety
-          top_p: 0.95,
-          frequency_penalty: 1.2, // Penalize repetition
-          presence_penalty: 1.0  // Encourage new topics
+          max_tokens: 800, // Reduced for faster generation
+          temperature: 0.8, // Balanced creativity and speed
+          top_p: 0.9, // More focused sampling
+          frequency_penalty: 0.7, // Moderate to prevent repetition
+          presence_penalty: 0.6  // Moderate to ensure varied content
         })
       });
 
@@ -93,81 +126,115 @@ class AIReviewService {
       const data = await response.json();
       const content = data.choices[0].message.content;
       
-      // Parse the JSON response - handle markdown code blocks and other formats
+      // Parse the JSON response - robust parsing with multiple fallbacks
       try {
-        // Clean up the content - remove markdown code blocks and other formatting
         let cleanContent = content.trim();
+        console.log('Raw AI response:', cleanContent.substring(0, 1000));
         
-        // Remove markdown code blocks
-        if (cleanContent.startsWith('```json')) {
-          cleanContent = cleanContent.replace(/^```json\s*/, '').replace(/\s*```$/, '');
-        } else if (cleanContent.startsWith('```')) {
-          cleanContent = cleanContent.replace(/^```\s*/, '').replace(/\s*```$/, '');
+        // Remove markdown code blocks if present
+        cleanContent = cleanContent.replace(/^```[a-z]*\n?/gi, '').replace(/\n?```$/gi, '');
+        
+        // Extract JSON array - find first [ and last ]
+        const start = cleanContent.indexOf('[');
+        const end = cleanContent.lastIndexOf(']');
+        
+        if (start === -1 || end === -1 || end <= start) {
+          console.error('Could not find JSON array brackets in response');
+          throw new Error('Invalid JSON structure - no array found');
         }
         
-        // Remove any text before the JSON array starts
-        const jsonStart = cleanContent.indexOf('[');
-        let jsonEnd = cleanContent.lastIndexOf(']') + 1;
+        // Extract just the JSON array part
+        let jsonString = cleanContent.substring(start, end + 1);
         
-        // Handle truncated JSON responses comprehensively
-        if (jsonStart >= 0) {
-          if (jsonEnd <= jsonStart || jsonEnd === 0) {
-            // No closing bracket found - response was truncated
-            cleanContent = cleanContent.substring(jsonStart);
-          } else {
-            cleanContent = cleanContent.substring(jsonStart, jsonEnd);
-          }
+        // Clean up common JSON issues
+        jsonString = jsonString
+          .replace(/,\s*}/g, '}')  // Remove trailing commas before }
+          .replace(/,\s*]/g, ']')  // Remove trailing commas before ]
+          .replace(/\n/g, ' ')     // Replace newlines with spaces
+          .replace(/\s+/g, ' ')    // Normalize whitespace
+          .trim();
+        
+        console.log('Cleaned JSON string:', jsonString.substring(0, 500));
+        
+        // Try to parse the cleaned JSON
+        let reviews;
+        try {
+          reviews = JSON.parse(jsonString);
+        } catch (parseError) {
+          console.error('JSON parsing failed, trying manual repair:', parseError.message);
           
-          // Comprehensive truncation recovery
-          if (!cleanContent.endsWith(']')) {
-            // Find the last complete object
-            const lastCompleteObject = cleanContent.lastIndexOf('}');
-            
-            if (lastCompleteObject > 0) {
-              // Truncate to last complete object and close array
-              cleanContent = cleanContent.substring(0, lastCompleteObject + 1);
-              
-              // Remove any trailing incomplete content after the last }
-              const afterLastBrace = cleanContent.substring(lastCompleteObject + 1);
-              if (afterLastBrace.trim().startsWith(',')) {
-                // Remove trailing comma if present
-                cleanContent = cleanContent.substring(0, lastCompleteObject + 1);
-              }
-              
-              // Ensure array is properly closed
-              if (!cleanContent.endsWith(']')) {
-                cleanContent += ']';
-              }
-            } else {
-              // No complete objects found, return empty array
-              cleanContent = '[]';
+          // Try to repair common JSON issues
+          let repairedJson = jsonString
+            .replace(/"([^"]*)"/g, (match, p1) => {
+              // Fix quotes inside quoted strings
+              return '"' + p1.replace(/"/g, "'") + '"';
+            })
+            .replace(/([^,\s})\]])\s*"([^"]+)":/g, '$1,"$2":') // Add missing commas
+            .replace(/:\s*([^"\[{][^,}\]]*[^,}\]\s])([,}\]])/g, ': "$1"$2'); // Quote unquoted values
+          
+          try {
+            reviews = JSON.parse(repairedJson);
+            console.log('Successfully repaired and parsed JSON');
+          } catch (repairError) {
+            console.error('JSON repair also failed:', repairError.message);
+            throw new Error('Could not parse AI response as valid JSON');
+          }
+        }
+        
+        // Validate the response
+        if (!Array.isArray(reviews)) {
+          console.error('Parsed result is not an array:', typeof reviews);
+          throw new Error('AI response is not a valid array');
+        }
+        
+        if (reviews.length === 0) {
+          console.error('AI returned empty array');
+          throw new Error('AI response contains no reviews');
+        }
+        
+        // Ensure we have exactly 5 reviews
+        if (reviews.length !== 5) {
+          console.log(`AI returned ${reviews.length} reviews instead of 5, adjusting...`);
+          
+          if (reviews.length > 5) {
+            // Take first 5 if we have more
+            reviews = reviews.slice(0, 5);
+          } else {
+            // Duplicate and modify if we have less
+            while (reviews.length < 5) {
+              const baseReview = reviews[reviews.length % reviews.length];
+              const newReview = {
+                ...baseReview,
+                review: baseReview.review.replace(/\b(great|excellent|amazing|wonderful)\b/gi, (match) => {
+                  const alternatives = ['outstanding', 'fantastic', 'superb', 'exceptional', 'remarkable'];
+                  return alternatives[Math.floor(Math.random() * alternatives.length)];
+                }),
+                focus: ['service', 'quality', 'staff', 'atmosphere', 'value'][reviews.length],
+                rating: Math.random() > 0.3 ? 5 : 4
+              };
+              reviews.push(newReview);
             }
           }
         }
         
-        // Clean up common JSON issues
-        cleanContent = cleanContent
-          .replace(/,\s*]/g, ']')  // Remove trailing commas in arrays
-          .replace(/,\s*}/g, '}')  // Remove trailing commas in objects
-          .replace(/'/g, '"')      // Replace single quotes with double quotes
-          .trim();
-        
-        const reviews = JSON.parse(cleanContent);
-        
-        // Validate the response
-        if (!Array.isArray(reviews) || reviews.length === 0) {
-          throw new Error('AI response is not a valid array of reviews');
-        }
-        
         // Add timestamps and ensure uniqueness
         const timestamp = Date.now();
-        return reviews.map((review, index) => ({
+        const finalReviews = reviews.map((review, index) => ({
           ...review,
           id: `review_${timestamp}_${index}`,
           businessName,
           location,
           generatedAt: new Date().toISOString()
         }));
+        
+        // Cache successful results for faster future responses
+        this.reviewCache.set(cacheKey, {
+          reviews: finalReviews,
+          timestamp: Date.now()
+        });
+        
+        console.log(`[AI Review Service] ✅ Cached ${finalReviews.length} reviews for faster future access`);
+        return finalReviews;
       } catch (parseError) {
         console.error('Error parsing AI response:', parseError);
         console.error('Raw AI content (first 500 chars):', content.substring(0, 500));

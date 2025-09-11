@@ -28,7 +28,7 @@ interface PaymentModalProps {
 export const PaymentModal: React.FC<PaymentModalProps> = ({
   isOpen,
   onClose,
-  defaultPlanId = 'monthly_basic'
+  defaultPlanId = 'yearly_pro'
 }) => {
   const [selectedPlanId, setSelectedPlanId] = useState(defaultPlanId);
   const [isProcessing, setIsProcessing] = useState(false);
