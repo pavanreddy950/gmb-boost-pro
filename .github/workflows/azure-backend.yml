@@ -19,7 +19,10 @@ jobs:
     - name: Azure Login
       uses: azure/login@v1
       with:
-        creds: ${{ secrets.AZURE_CREDENTIALS }}
+        client-id: "YOUR_CLIENT_ID_HERE"
+        tenant-id: "YOUR_TENANT_ID_HERE"
+        subscription-id: "YOUR_SUBSCRIPTION_ID_HERE"
+        client-secret: "YOUR_CLIENT_SECRET_HERE"
         
     - name: Build Docker image
       run: |
@@ -30,8 +33,8 @@ jobs:
       uses: azure/docker-login@v1
       with:
         login-server: scale12345.azurecr.io
-        username: ${{ secrets.AZURE_CR_USERNAME }}
-        password: ${{ secrets.AZURE_CR_PASSWORD }}
+        username: "YOUR_ACR_USERNAME_HERE"
+        password: "YOUR_ACR_PASSWORD_HERE"
         
     - name: Push Docker image to ACR
       run: |
