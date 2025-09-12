@@ -41,7 +41,8 @@
       "Bash(docker push:*)",
       "Bash(docker run:*)",
       "Bash(docker logs:*)",
-      "Bash(docker stop:*)"
+      "Bash(docker stop:*)",
+      "Bash(del \"C:\\Users\\meena\\OneDrive\\Desktop\\gmb boost pro\\gmp-profile-pulse-main\\gmp-profile-pulse-main\\src\\pages\\Index.tsx\")"
     ],
     "deny": [],
     "ask": []
