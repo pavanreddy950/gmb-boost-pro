@@ -14,8 +14,8 @@ services:
       - PORT=5000
       - RUN_MODE=AZURE
       # Google OAuth Configuration
-      - GOOGLE_CLIENT_ID=1027867101-nngjahkgsj6ogifi45uuebbrgafmkooi.apps.googleusercontent.com
-      - GOOGLE_CLIENT_SECRET=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
+      - GOOGLE_CLIENT_ID=52772597205-9ogv54i6sfvucse3jrqj1nl1hlkspcv1.apps.googleusercontent.com
+      - GOOGLE_CLIENT_SECRET=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
       - FRONTEND_URL=https://delightful-sea-062191a0f.2.azurestaticapps.net
       - BACKEND_URL=http://localhost:5000
       - GOOGLE_REDIRECT_URI=https://delightful-sea-062191a0f.2.azurestaticapps.net/auth/google/callback

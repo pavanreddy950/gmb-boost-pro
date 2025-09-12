@@ -1,6 +1,6 @@
 // Simple Google Authentication with direct OAuth flow
 export class SimpleGoogleAuth {
-  private clientId = '1027867101-nngjahkgsj6ogifi45uuebbrgafmkooi.apps.googleusercontent.com';
+  private clientId = '52772597205-9ogv54i6sfvucse3jrqj1nl1hlkspcv1.apps.googleusercontent.com';
   
   async signIn(): Promise<any> {
     return new Promise((resolve, reject) => {

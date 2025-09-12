@@ -102,7 +102,7 @@ class GoogleBusinessProfileService {
   private readonly CACHE_TTL = 2 * 60 * 1000; // 2 minutes
 
   constructor() {
-    this.clientId = '1027867101-nngjahkgsj6ogifi45uuebbrgafmkooi.apps.googleusercontent.com';
+    this.clientId = '52772597205-9ogv54i6sfvucse3jrqj1nl1hlkspcv1.apps.googleusercontent.com';
     this.backendUrl = import.meta.env.VITE_BACKEND_URL || 'https://pavan-client-backend-bxgdaqhvarfdeuhe.canadacentral-01.azurewebsites.net';
     // Note: loadStoredTokens is now called with userId parameter
     this.initializeGoogleAPI();
