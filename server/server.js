@@ -707,9 +707,32 @@ app.get('/api/accounts', async (req, res) => {
 
   } catch (error) {
     console.error('Error fetching accounts:', error);
+    console.error('Error details:', {
+      name: error.name,
+      message: error.message,
+      code: error.code,
+      status: error.status,
+      details: error.details
+    });
+    
+    // Provide more specific error messages
+    let userMessage = error.message;
+    if (error.code === 403) {
+      userMessage = 'Google Business Profile API access denied. Please check if required APIs are enabled in Google Cloud Console.';
+    } else if (error.code === 404) {
+      userMessage = 'No Google Business Profile found for this account. Please verify you have access to a business profile.';
+    } else if (error.message.includes('invalid_grant')) {
+      userMessage = 'Authentication token expired. Please log in again.';
+    }
+    
     res.status(500).json({ 
       error: 'Failed to fetch accounts',
-      message: error.message 
+      message: userMessage,
+      debug: {
+        errorCode: error.code,
+        errorStatus: error.status,
+        apiError: error.name
+      }
     });
   }
 });
@@ -1828,6 +1851,46 @@ app.use((error, req, res, next) => {
     error: 'Internal server error',
     message: error.message 
   });
+});
+
+// Debug endpoint to validate Google access token
+app.get('/debug/token-info', async (req, res) => {
+  try {
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return res.status(401).json({ error: 'Access token required' });
+    }
+
+    const accessToken = authHeader.split(' ')[1];
+    
+    // Test token validity with Google's tokeninfo endpoint
+    const response = await fetch(`https://oauth2.googleapis.com/v1/tokeninfo?access_token=${accessToken}`);
+    const tokenInfo = await response.json();
+    
+    if (response.ok) {
+      res.json({
+        valid: true,
+        tokenInfo: {
+          scope: tokenInfo.scope,
+          expires_in: tokenInfo.expires_in,
+          email: tokenInfo.email,
+          verified_email: tokenInfo.verified_email
+        }
+      });
+    } else {
+      res.status(400).json({
+        valid: false,
+        error: tokenInfo.error_description || 'Invalid token'
+      });
+    }
+  } catch (error) {
+    console.error('Token validation error:', error);
+    res.status(500).json({
+      valid: false,
+      error: 'Failed to validate token',
+      message: error.message
+    });
+  }
 });
 
 // Catch all handler: send back React's index.html file for production
