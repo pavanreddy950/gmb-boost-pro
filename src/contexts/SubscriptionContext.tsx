@@ -50,7 +50,7 @@ export const SubscriptionProvider: React.FC<SubscriptionProviderProps> = ({ chil
   const { accounts } = useGoogleBusinessProfile();
   const { toast } = useToast();
 
-  const backendUrl = import.meta.env.VITE_BACKEND_URL || 'https://scale12345-hccmcmf7g3bwbvd0.canadacentral-01.azurewebsites.net';
+  const backendUrl = import.meta.env.VITE_BACKEND_URL || 'https://pavan-client-backend-bxgdaqhvarfdeuhe.canadacentral-01.azurewebsites.net';
 
   // Get the first GBP account ID
   const gbpAccountId = accounts && accounts.length > 0 

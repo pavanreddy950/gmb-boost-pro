@@ -1,6 +1,6 @@
 // Simple Google Authentication with direct OAuth flow
 export class SimpleGoogleAuth {
-  private clientId = '52772597205-9ogv54i6sfvucse3jrqj1nl1hlkspcv1.apps.googleusercontent.com';
+  private clientId = '1027867101-nngjahkgsj6ogifi45uuebbrgafmkooi.apps.googleusercontent.com';
   
   async signIn(): Promise<any> {
     return new Promise((resolve, reject) => {
@@ -56,7 +56,7 @@ export class SimpleGoogleAuth {
       const tokenData = JSON.parse(tokens);
       
       // Call backend API to get real Google Business Profile data
-      const backendUrl = import.meta.env.VITE_BACKEND_URL || 'https://scale12345-hccmcmf7g3bwbvd0.canadacentral-01.azurewebsites.net';
+      const backendUrl = import.meta.env.VITE_BACKEND_URL || 'https://pavan-client-backend-bxgdaqhvarfdeuhe.canadacentral-01.azurewebsites.net';
       const response = await fetch(`${backendUrl}/api/accounts`, {
         method: 'GET',
         headers: {

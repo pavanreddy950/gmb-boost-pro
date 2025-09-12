@@ -37,7 +37,7 @@ const Billing = () => {
   } = useSubscription();
   
   const { toast } = useToast();
-  const backendUrl = import.meta.env.VITE_BACKEND_URL || 'https://scale12345-hccmcmf7g3bwbvd0.canadacentral-01.azurewebsites.net';
+  const backendUrl = import.meta.env.VITE_BACKEND_URL || 'https://pavan-client-backend-bxgdaqhvarfdeuhe.canadacentral-01.azurewebsites.net';
 
   // Fetch payment history and check for recent upgrade
   useEffect(() => {

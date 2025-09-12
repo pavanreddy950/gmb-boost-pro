@@ -63,7 +63,7 @@ const PublicReviewSuggestions = () => {
   const [copiedReview, setCopiedReview] = useState<string | null>(null);
   const [showArrow, setShowArrow] = useState(true);
   
-  const backendUrl = import.meta.env.VITE_BACKEND_URL || 'https://scale12345-hccmcmf7g3bwbvd0.canadacentral-01.azurewebsites.net';
+  const backendUrl = import.meta.env.VITE_BACKEND_URL || 'https://pavan-client-backend-bxgdaqhvarfdeuhe.canadacentral-01.azurewebsites.net';
   
   // Fetch QR code data from backend with timeout
   const fetchQRCodeData = async () => {

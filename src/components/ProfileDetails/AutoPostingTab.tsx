@@ -523,7 +523,7 @@ export function AutoPostingTab({ location }: AutoPostingTabProps) {
       console.log('[AutoPostingTab] Access token length:', accessToken ? accessToken.length : 0);
       
       // Use backend server for test post creation
-      const backendUrl = import.meta.env.VITE_BACKEND_URL || 'https://scale12345-hccmcmf7g3bwbvd0.canadacentral-01.azurewebsites.net';
+      const backendUrl = import.meta.env.VITE_BACKEND_URL || 'https://pavan-client-backend-bxgdaqhvarfdeuhe.canadacentral-01.azurewebsites.net';
       const response = await fetch(`${backendUrl}/api/automation/test-post-now/${location.id}`, {
         method: 'POST',
         headers: {

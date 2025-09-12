@@ -187,7 +187,7 @@ class ReviewAutomationService {
 
   private async fetchLocationReviews(locationId: string) {
     try {
-      const backendUrl = import.meta.env.VITE_BACKEND_URL || 'https://scale12345-hccmcmf7g3bwbvd0.canadacentral-01.azurewebsites.net';
+      const backendUrl = import.meta.env.VITE_BACKEND_URL || 'https://pavan-client-backend-bxgdaqhvarfdeuhe.canadacentral-01.azurewebsites.net';
       const accessToken = googleBusinessProfileService.getAccessToken();
       
       console.log('🔍 REVIEWS DEBUG: Backend URL being used:', backendUrl);
@@ -382,7 +382,7 @@ Generate only the reply text, no quotes or extra formatting.`;
   }
 
   private async postReviewReply(locationId: string, reviewName: string, replyText: string): Promise<void> {
-    const backendUrl = import.meta.env.VITE_BACKEND_URL || 'https://scale12345-hccmcmf7g3bwbvd0.canadacentral-01.azurewebsites.net';
+    const backendUrl = import.meta.env.VITE_BACKEND_URL || 'https://pavan-client-backend-bxgdaqhvarfdeuhe.canadacentral-01.azurewebsites.net';
     const accessToken = googleBusinessProfileService.getAccessToken();
     
     // Extract locationId and reviewId from reviewName (format: accounts/.../locations/locationId/reviews/reviewId)
