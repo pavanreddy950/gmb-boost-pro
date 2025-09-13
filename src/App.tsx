@@ -56,8 +56,9 @@ const App = () => (
             {/* OAuth Callback Route */}
             <Route path="/auth/google/callback" element={<GoogleOAuthCallback />} />
             
-            {/* Public Review Suggestions Route - No authentication required */}
+            {/* Public Review Suggestions Routes - No authentication required */}
             <Route path="/public-reviews/:locationId" element={<PublicReviewSuggestions />} />
+            <Route path="/review/:locationId" element={<PublicReviewSuggestions />} />
             
             {/* Protected Dashboard Routes - SubscriptionGuard is applied inside DashboardLayout */}
             <Route path="/dashboard" element={

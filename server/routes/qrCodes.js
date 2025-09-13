@@ -1,6 +1,7 @@
 import express from 'express';
 import QRCode from 'qrcode';
 import QRCodeStorageService from '../services/qrCodeStorage.js';
+import config from '../config.js';
 
 const router = express.Router();
 const qrStorage = new QRCodeStorageService();
@@ -44,11 +45,8 @@ router.post('/', async (req, res) => {
       });
     }
 
-    // Generate public review URL
-    const backendUrl = process.env.BACKEND_URL || 'http://localhost:5000';
-    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
-    
-    const publicReviewUrl = `${frontendUrl}/review/${locationId}?` + 
+    // Generate public review URL using config
+    const publicReviewUrl = `${config.frontendUrl}/review/${locationId}?` + 
       `business=${encodeURIComponent(locationName)}&` +
       `location=${encodeURIComponent(address || '')}&` +
       `placeId=${encodeURIComponent(placeId || '')}&` +
@@ -111,8 +109,7 @@ router.patch('/:locationId/review-link', async (req, res) => {
     const updatedQR = await qrStorage.updateReviewLink(locationId, googleReviewLink);
     
     // Regenerate public URL and QR code with new link
-    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
-    const publicReviewUrl = `${frontendUrl}/review/${locationId}?` + 
+    const publicReviewUrl = `${config.frontendUrl}/review/${locationId}?` + 
       `business=${encodeURIComponent(updatedQR.locationName)}&` +
       `location=${encodeURIComponent(updatedQR.address || '')}&` +
       `placeId=${encodeURIComponent(updatedQR.placeId || '')}&` +
