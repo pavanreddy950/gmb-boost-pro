@@ -7,21 +7,34 @@
         "category": "Internet marketing service",
         "keywords": "Scale Point Strategy & Business Growth Solutions, scale, point, strategy, growth, Jalandhar, Scale Point Strategy & Business Growth Solutions Jalandhar",
         "replyToAll": true,
-        "userId": "default",
+        "userId": "OBm8qZc0jOWcY53x6rQuX4gKKnQ2",
         "accountId": "106433552101751461082"
       },
-      "updatedAt": "2025-09-10T11:10:56.633Z",
+      "updatedAt": "2025-09-19T16:39:29.034Z",
       "autoPosting": {
         "enabled": true,
         "schedule": "09:00",
         "frequency": "weekly",
         "businessName": "Scale Point Strategy & Business Growth Solutions",
         "category": "Internet marketing service",
+        "categories": [
+          "Internet marketing service",
+          "Branding agency",
+          "Marketing agency",
+          "Web Designer",
+          "Business development service"
+        ],
         "keywords": "Scale Point Strategy & Business Growth Solutions, scale, point, strategy, growth, Jalandhar, Scale Point Strategy & Business Growth Solutions Jalandhar",
         "websiteUrl": "https://www.scalepointstrategy.com/",
         "timezone": "Asia/Calcutta",
-        "userId": "default"
-      }
+        "fullAddress": "3204 First Floor Above abhi electrical point near Shehnai palace, Tej Mohan , Nagar, Ashok Nagar",
+        "city": "Jalandhar",
+        "region": "Punjab",
+        "country": "IN",
+        "postalCode": "144001",
+        "userId": "OBm8qZc0jOWcY53x6rQuX4gKKnQ2"
+      },
+      "userId": "OBm8qZc0jOWcY53x6rQuX4gKKnQ2"
     },
     "9152028977863765725": {
       "autoPosting": {

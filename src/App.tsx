@@ -26,6 +26,7 @@ import ProtectedRoute from "./components/ProtectedRoute";
 import AuthRedirect from "./components/AuthRedirect";
 import GoogleOAuthCallback from "./pages/GoogleOAuthCallback";
 import { PaymentSuccess } from "./components/PaymentSuccess";
+import EnvironmentIndicator from "./components/EnvironmentIndicator";
 // SubscriptionGuard is now handled inside DashboardLayout
 
 const queryClient = new QueryClient();
@@ -97,6 +98,8 @@ const App = () => (
             </NotificationProvider>
           </GoogleBusinessProfileProvider>
         </AuthProvider>
+        {/* Environment indicator - only shows in development */}
+        <EnvironmentIndicator />
       </BrowserRouter>
     </TooltipProvider>
   </QueryClientProvider>

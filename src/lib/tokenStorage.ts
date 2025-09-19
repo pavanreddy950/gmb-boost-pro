@@ -26,8 +26,8 @@ export interface UserTokenData {
 class TokenStorageService {
   private readonly COLLECTION_NAME = 'users';
   private readonly TOKEN_DOCUMENT = 'googleTokens';
-  private isFirestoreAvailable = false; // Disabled - using backend token storage instead
-  private readonly FIRESTORE_TIMEOUT = 3000; // 3 seconds timeout for faster operations
+  private isFirestoreAvailable = true; // Enabled for persistent token storage
+  private readonly FIRESTORE_TIMEOUT = 10000; // 10 seconds timeout for better reliability
 
   // Save Google Business Profile tokens to Firestore
   async saveTokens(userId: string, tokens: StoredGoogleTokens, userInfo?: { id: string; email: string; name?: string; picture?: string }): Promise<void> {
@@ -213,20 +213,55 @@ class TokenStorageService {
     return Promise.race([promise, timeoutPromise]);
   }
 
-  // Handle Firestore errors and adjust availability
+  // Enhanced Firestore error handling with retry logic
   private handleFirestoreError(error: any): void {
-    if (error?.message?.includes('offline') || error?.message?.includes('timeout') || error?.message?.includes('transport errored')) {
-      console.log('⚠️ Firestore connectivity issues detected, temporarily disabling (errors are non-critical)');
+    const errorMessage = error?.message || 'Unknown error';
+
+    // Categorize errors
+    const isNetworkError = errorMessage.includes('offline') ||
+                          errorMessage.includes('timeout') ||
+                          errorMessage.includes('transport errored') ||
+                          errorMessage.includes('network error') ||
+                          errorMessage.includes('Failed to fetch');
+
+    const isQuotaError = errorMessage.includes('quota') ||
+                        errorMessage.includes('rate') ||
+                        errorMessage.includes('too many requests');
+
+    const isPermissionError = errorMessage.includes('permission') ||
+                             errorMessage.includes('unauthorized') ||
+                             errorMessage.includes('forbidden');
+
+    if (isNetworkError) {
+      console.log('⚠️ Firestore network connectivity issues detected, temporarily disabling');
       this.isFirestoreAvailable = false;
-      
-      // Re-enable after 60 seconds (increased from 30s)
+
+      // Re-enable after 30 seconds for network issues
       setTimeout(() => {
-        console.log('🔄 Re-enabling Firestore availability check');
+        console.log('🔄 Re-enabling Firestore after network issue resolution attempt');
         this.isFirestoreAvailable = true;
-      }, 60000);
+      }, 30000);
+    } else if (isQuotaError) {
+      console.log('⚠️ Firestore quota/rate limit exceeded, temporarily disabling');
+      this.isFirestoreAvailable = false;
+
+      // Re-enable after 2 minutes for quota issues
+      setTimeout(() => {
+        console.log('🔄 Re-enabling Firestore after quota cooldown');
+        this.isFirestoreAvailable = true;
+      }, 120000);
+    } else if (isPermissionError) {
+      console.error('❌ Firestore permission error - this may require manual intervention:', errorMessage);
+      // Don't disable for permission errors as they need manual fix
     } else {
-      // For other errors, log but keep Firestore available
-      console.log('⚠️ Firestore error (keeping service available):', error?.message || 'Unknown error');
+      // For other errors, log but keep Firestore available with brief cooldown
+      console.log('⚠️ Firestore error (keeping service available):', errorMessage);
+      this.isFirestoreAvailable = false;
+
+      // Short cooldown for unknown errors
+      setTimeout(() => {
+        this.isFirestoreAvailable = true;
+      }, 10000);
     }
   }
 }

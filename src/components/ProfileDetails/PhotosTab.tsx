@@ -1,7 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Upload, Image, Camera, Trash2, RefreshCw, AlertCircle } from 'lucide-react';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Upload, Image, Camera, Trash2, RefreshCw, AlertCircle, ExternalLink, CheckCircle, X } from 'lucide-react';
 import { googleBusinessProfileService } from '@/lib/googleBusinessProfile';
 
 interface PhotosTabProps {
@@ -26,6 +28,11 @@ const PhotosTab: React.FC<PhotosTabProps> = ({ profileId }) => {
   const [photos, setPhotos] = useState<PhotoData[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState<string>('');
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+  const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   // Load photos on component mount
   useEffect(() => {
     loadPhotos();
@@ -57,6 +64,138 @@ const PhotosTab: React.FC<PhotosTabProps> = ({ profileId }) => {
     loadPhotos();
   };
 
+  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = event.target.files;
+    if (files) {
+      const fileArray = Array.from(files);
+      // Validate file types and sizes
+      const validFiles = fileArray.filter(file => {
+        const isValidType = file.type.startsWith('image/');
+        const isValidSize = file.size <= 10 * 1024 * 1024; // 10MB limit
+        return isValidType && isValidSize;
+      });
+
+      if (validFiles.length !== fileArray.length) {
+        setError('Some files were rejected. Please select only image files under 10MB.');
+      }
+
+      setSelectedFiles(validFiles);
+    }
+  };
+
+  const removeSelectedFile = (index: number) => {
+    setSelectedFiles(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const uploadPhotos = async () => {
+    if (selectedFiles.length === 0) return;
+
+    setUploading(true);
+    setUploadProgress('');
+    setError(null);
+
+    try {
+      const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000';
+
+      // Get access token from googleBusinessProfileService
+      const accessToken = googleBusinessProfileService.getAccessToken();
+      if (!accessToken) {
+        throw new Error('No access token available. Please reconnect your Google Business Profile.');
+      }
+
+      for (let i = 0; i < selectedFiles.length; i++) {
+        const file = selectedFiles[i];
+        setUploadProgress(`Uploading ${i + 1} of ${selectedFiles.length}: ${file.name}`);
+
+        // Step 1: Start upload
+        const startResponse = await fetch(`${backendUrl}/api/locations/${profileId}/photos/start-upload`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${accessToken}`,
+          },
+          body: JSON.stringify({
+            fileName: file.name,
+            mimeType: file.type
+          })
+        });
+
+        if (!startResponse.ok) {
+          throw new Error(`Failed to start upload for ${file.name}`);
+        }
+
+        const { uploadUrl, resourceName } = await startResponse.json();
+
+        // Step 2: Upload bytes
+        const uploadResponse = await fetch(`${backendUrl}/api/locations/${profileId}/photos/upload-bytes`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${accessToken}`,
+          },
+          body: JSON.stringify({
+            uploadUrl,
+            fileData: await fileToBase64(file)
+          })
+        });
+
+        if (!uploadResponse.ok) {
+          throw new Error(`Failed to upload bytes for ${file.name}`);
+        }
+
+        // Step 3: Create media
+        const createResponse = await fetch(`${backendUrl}/api/locations/${profileId}/photos/create-media`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${accessToken}`,
+          },
+          body: JSON.stringify({
+            resourceName
+          })
+        });
+
+        if (!createResponse.ok) {
+          throw new Error(`Failed to create media for ${file.name}`);
+        }
+
+        setUploadProgress(`Successfully uploaded ${i + 1} of ${selectedFiles.length}`);
+      }
+
+      // Clear selected files and close dialog
+      setSelectedFiles([]);
+      setUploadDialogOpen(false);
+
+      // Refresh photos list
+      loadPhotos();
+
+      setUploadProgress('');
+    } catch (err) {
+      console.error('Upload failed:', err);
+      setError(`Upload failed: ${err instanceof Error ? err.message : 'Unknown error'}`);
+    } finally {
+      setUploading(false);
+      setUploadProgress('');
+    }
+  };
+
+  const fileToBase64 = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = () => {
+        if (typeof reader.result === 'string') {
+          // Remove data:image/jpeg;base64, prefix
+          const base64 = reader.result.split(',')[1];
+          resolve(base64);
+        } else {
+          reject(new Error('Failed to convert file to base64'));
+        }
+      };
+      reader.onerror = error => reject(error);
+    });
+  };
+
   return (
     <div className="space-y-6">
       <Card>
@@ -81,10 +220,6 @@ const PhotosTab: React.FC<PhotosTabProps> = ({ profileId }) => {
               >
                 <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
                 Refresh
-              </Button>
-              <Button className="flex items-center gap-2">
-                <Upload className="h-4 w-4" />
-                Upload Photos
               </Button>
             </div>
           </div>
@@ -177,21 +312,6 @@ const PhotosTab: React.FC<PhotosTabProps> = ({ profileId }) => {
               </Button>
             </div>
           )}
-          
-          {/* Upload Section - Always Show */}
-          <div className="mt-6 p-6 border-2 border-dashed border-muted rounded-lg text-center">
-            <Upload className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-            <h3 className="text-lg font-medium mb-2">Add More Photos</h3>
-            <p className="text-muted-foreground mb-4">
-              Upload high-quality photos to showcase your business via Google Business Profile manager
-            </p>
-            <Button disabled className="opacity-50">
-              Upload via Google Business Profile
-            </Button>
-            <p className="text-xs text-muted-foreground mt-2">
-              Photo uploads are managed through Google Business Profile directly
-            </p>
-          </div>
         </CardContent>
       </Card>
     </div>

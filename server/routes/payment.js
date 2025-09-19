@@ -84,13 +84,48 @@ router.get('/plans', async (req, res) => {
 // Check subscription status
 router.get('/subscription/status', async (req, res) => {
   try {
-    const { gbpAccountId } = req.query;
-    
-    if (!gbpAccountId) {
-      return res.status(400).json({ error: 'GBP Account ID is required' });
+    const { gbpAccountId, userId } = req.query;
+
+    console.log('[Payment Status] Query params:', { gbpAccountId, userId });
+
+    // If neither gbpAccountId nor userId is provided, return error
+    if (!gbpAccountId && !userId) {
+      return res.status(400).json({ error: 'Either GBP Account ID or User ID is required' });
     }
-    
-    const status = subscriptionService.checkSubscriptionStatus(gbpAccountId);
+
+    let status;
+
+    // Try to get subscription by GBP account ID first (most specific)
+    if (gbpAccountId) {
+      status = subscriptionService.checkSubscriptionStatus(gbpAccountId);
+      console.log('[Payment Status] Status by GBP ID:', status);
+    }
+
+    // If no subscription found by GBP ID or no GBP ID provided, try user ID
+    if ((!status || status.status === 'none') && userId) {
+      const userSubscription = subscriptionService.getSubscriptionByUserId(userId);
+      if (userSubscription) {
+        // Convert subscription to status format
+        status = subscriptionService.checkSubscriptionStatusBySubscription(userSubscription);
+        console.log('[Payment Status] Status by User ID:', status);
+
+        // Add message to reconnect GBP if found by user ID but no GBP connected
+        if (!gbpAccountId && status.status !== 'none') {
+          status.message = 'Subscription found! Please reconnect your Google Business Profile to access all features.';
+        }
+      } else {
+        // No subscription found by user ID either
+        status = {
+          isValid: false,
+          status: 'none',
+          subscription: null,
+          canUsePlatform: true,
+          requiresPayment: false,
+          billingOnly: false
+        };
+      }
+    }
+
     res.json(status);
   } catch (error) {
     console.error('Error checking subscription status:', error);
@@ -388,18 +423,42 @@ router.post('/subscription/cancel', async (req, res) => {
   }
 });
 
+// Store GBP-User association
+router.post('/user/gbp-association', async (req, res) => {
+  try {
+    const { userId, gbpAccountId } = req.body;
+
+    if (!userId || !gbpAccountId) {
+      return res.status(400).json({ error: 'userId and gbpAccountId are required' });
+    }
+
+    console.log('[GBP Association] Saving user-GBP association:', { userId, gbpAccountId });
+
+    // Save the association
+    subscriptionService.persistentStorage.saveUserGbpMapping(userId, gbpAccountId);
+
+    res.json({
+      success: true,
+      message: 'GBP association saved successfully'
+    });
+  } catch (error) {
+    console.error('Error saving GBP association:', error);
+    res.status(500).json({ error: 'Failed to save GBP association' });
+  }
+});
+
 // Get payment history
 router.get('/subscription/:gbpAccountId/payments', async (req, res) => {
   try {
     const { gbpAccountId } = req.params;
-    
+
     const subscription = subscriptionService.getSubscriptionByGBPAccount(gbpAccountId);
     if (!subscription) {
       return res.status(404).json({ error: 'Subscription not found' });
     }
-    
-    res.json({ 
-      payments: subscription.paymentHistory || [] 
+
+    res.json({
+      payments: subscription.paymentHistory || []
     });
   } catch (error) {
     console.error('Error fetching payment history:', error);

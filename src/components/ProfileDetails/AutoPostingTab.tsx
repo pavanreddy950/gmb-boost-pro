@@ -8,7 +8,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
-import { Clock, Zap, Calendar, BarChart3, Play, Pause, TestTube, Tags, Plus, X, MapPin, Building, Hash, Tag, Edit, RefreshCw, Trash2, Sparkles, MousePointer } from 'lucide-react';
+import { Clock, Zap, Calendar, BarChart3, Play, Pause, TestTube, Tags, Plus, X, MapPin, Building, Hash, Tag, Edit, RefreshCw, Trash2, Sparkles } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { automationStorage, type AutoPostingConfig } from '@/lib/automationStorage';
 import { automationService } from '@/lib/automationService';
@@ -63,7 +63,7 @@ export function AutoPostingTab({ location }: AutoPostingTabProps) {
     // Business name keywords (prioritize these)
     if (location.name) {
       keywords.push(location.name);
-      const nameParts = location.name.toLowerCase().split(/[\s\.,\-_]+/);
+      const nameParts = location.name.toLowerCase().split(/[\s.,\-_]+/);
       nameParts.forEach(part => {
         if (part.length > 2 && !blacklist.includes(part.toLowerCase())) {
           keywords.push(part);
@@ -208,6 +208,15 @@ export function AutoPostingTab({ location }: AutoPostingTabProps) {
         // Get account ID from localStorage (set during Google connection)
         const accountId = localStorage.getItem('google_business_account_id');
         
+        // Build complete address information
+        const addressInfo = location.address ? {
+          fullAddress: location.address.addressLines?.join(', ') || '',
+          city: location.address.locality || '',
+          region: location.address.administrativeArea || '',
+          country: location.address.countryCode || '',
+          postalCode: location.address.postalCode || ''
+        } : {};
+
         await serverAutomationService.enableAutoPosting(
           location.id,
           location.name,
@@ -217,7 +226,8 @@ export function AutoPostingTab({ location }: AutoPostingTabProps) {
           keywords.join(', '),
           location.websiteUri,
           currentUser?.uid,
-          accountId || undefined
+          accountId || undefined,
+          addressInfo
         );
         
         toast({
@@ -261,6 +271,15 @@ export function AutoPostingTab({ location }: AutoPostingTabProps) {
     if (config?.enabled) {
       try {
         const accountId = localStorage.getItem('google_business_account_id');
+        // Build complete address information
+        const addressInfo = location.address ? {
+          fullAddress: location.address.addressLines?.join(', ') || '',
+          city: location.address.locality || '',
+          region: location.address.administrativeArea || '',
+          country: location.address.countryCode || '',
+          postalCode: location.address.postalCode || ''
+        } : {};
+
         await serverAutomationService.saveAutomationSettings(location.id, {
           autoPosting: {
             enabled: true,
@@ -268,9 +287,11 @@ export function AutoPostingTab({ location }: AutoPostingTabProps) {
             frequency: value,
             businessName: location.name,
             category: location.categories?.[0],
+            categories: location.categories,
             keywords: keywords.join(', '),
             websiteUrl: location.websiteUri,
             timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+            ...addressInfo,
           },
           userId: currentUser?.uid,
           accountId: accountId || undefined,
@@ -348,6 +369,15 @@ export function AutoPostingTab({ location }: AutoPostingTabProps) {
     if (config?.enabled) {
       try {
         const accountId = localStorage.getItem('google_business_account_id');
+        // Build complete address information
+        const addressInfo = location.address ? {
+          fullAddress: location.address.addressLines?.join(', ') || '',
+          city: location.address.locality || '',
+          region: location.address.administrativeArea || '',
+          country: location.address.countryCode || '',
+          postalCode: location.address.postalCode || ''
+        } : {};
+
         await serverAutomationService.saveAutomationSettings(location.id, {
           autoPosting: {
             enabled: true,
@@ -355,9 +385,11 @@ export function AutoPostingTab({ location }: AutoPostingTabProps) {
             frequency: newConfig.schedule.frequency,
             businessName: location.name,
             category: location.categories?.[0],
+            categories: location.categories,
             keywords: keywords.join(', '),
             websiteUrl: location.websiteUri,
             timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+            ...addressInfo,
           },
           userId: currentUser?.uid,
           accountId: accountId || undefined,
@@ -443,6 +475,15 @@ export function AutoPostingTab({ location }: AutoPostingTabProps) {
     if (config?.enabled) {
       try {
         const accountId = localStorage.getItem('google_business_account_id');
+        // Build complete address information
+        const addressInfo = location.address ? {
+          fullAddress: location.address.addressLines?.join(', ') || '',
+          city: location.address.locality || '',
+          region: location.address.administrativeArea || '',
+          country: location.address.countryCode || '',
+          postalCode: location.address.postalCode || ''
+        } : {};
+
         await serverAutomationService.saveAutomationSettings(location.id, {
           autoPosting: {
             enabled: true,
@@ -450,9 +491,11 @@ export function AutoPostingTab({ location }: AutoPostingTabProps) {
             frequency: config?.schedule.frequency || 'daily',
             businessName: location.name,
             category: location.categories?.[0],
+            categories: location.categories,
             keywords: keywords.join(', '),
             websiteUrl: location.websiteUri,
             timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+            ...addressInfo,
           },
           userId: currentUser?.uid,
           accountId: accountId || undefined,
@@ -894,7 +937,7 @@ export function AutoPostingTab({ location }: AutoPostingTabProps) {
       <Card className="shadow-sm">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <MousePointer className="h-5 w-5" />
+            <Sparkles className="h-5 w-5" />
             Post Button Settings
           </CardTitle>
           <CardDescription>
@@ -906,7 +949,7 @@ export function AutoPostingTab({ location }: AutoPostingTabProps) {
             <Switch
               checked={config.button?.enabled ?? true}
               onCheckedChange={(enabled) => saveConfiguration({
-                button: { ...config.button, enabled, type: config.button?.type || 'auto' }
+                button: { enabled, type: 'auto' }
               })}
               disabled={!config.enabled}
             />
@@ -917,66 +960,18 @@ export function AutoPostingTab({ location }: AutoPostingTabProps) {
           
           {config.button?.enabled && (
             <div className="space-y-4">
-              <div>
-                <Label htmlFor="buttonType">Button Type</Label>
-                <Select
-                  value={config.button?.type || 'auto'}
-                  onValueChange={(value: 'auto' | 'book' | 'order' | 'buy' | 'learn_more' | 'sign_up' | 'call') => 
-                    saveConfiguration({
-                      button: { ...config.button, enabled: config.button?.enabled ?? true, type: value }
-                    })
-                  }
-                  disabled={!config.enabled}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="auto">🎯 Smart Selection (Recommended)</SelectItem>
-                    <SelectItem value="book">📅 Book</SelectItem>
-                    <SelectItem value="order">🍽️ Order Online</SelectItem>
-                    <SelectItem value="buy">🛒 Buy</SelectItem>
-                    <SelectItem value="learn_more">ℹ️ Learn More</SelectItem>
-                    <SelectItem value="sign_up">✍️ Sign Up</SelectItem>
-                    <SelectItem value="call">📞 Call Now</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {config.button?.type !== 'auto' && (
-                <div>
-                  <Label htmlFor="buttonUrl">Button URL (Optional)</Label>
-                  <Input
-                    id="buttonUrl"
-                    type="url"
-                    placeholder={config.websiteUrl || "https://example.com"}
-                    value={config.button?.customUrl || ''}
-                    onChange={(e) => saveConfiguration({
-                      button: { ...config.button, enabled: config.button?.enabled ?? true, type: config.button?.type || 'learn_more', customUrl: e.target.value }
-                    })}
-                    disabled={!config.enabled}
-                  />
-                  <div className="text-xs text-muted-foreground mt-1">
-                    Leave empty to use website URL: {config.websiteUrl || 'Not set'}
-                  </div>
-                </div>
-              )}
-
               <div className="text-xs text-muted-foreground bg-blue-50 p-3 rounded-lg">
-                {config.button?.type === 'auto' ? (
-                  <div>
-                    <strong>🎯 Smart Selection:</strong> Automatically chooses the best button based on your business category:
-                    <ul className="mt-1 ml-4 list-disc">
-                      <li>Restaurants → Order Online</li>
-                      <li>Salons/Health → Book Appointment</li>
-                      <li>Retail → Shop Now</li>
-                      <li>Education → Sign Up</li>
-                      <li>Others → Learn More</li>
-                    </ul>
-                  </div>
-                ) : (
-                  `All posts will include a "${config.button?.type?.replace('_', ' ')}" button that redirects to your specified URL.`
-                )}
+                <div>
+                  <strong>🎯 Smart Selection:</strong> Automatically chooses the best button based on your business category:
+                  <ul className="mt-1 ml-4 list-disc">
+                    <li>Restaurants → Order Online</li>
+                    <li>Salons/Health → Book Appointment</li>
+                    <li>Retail → Shop Now</li>
+                    <li>Education → Sign Up</li>
+                    <li>Others → Learn More</li>
+                  </ul>
+                  <p className="mt-2">All buttons will redirect to your website URL: {config.websiteUrl || 'Not set'}</p>
+                </div>
               </div>
             </div>
           )}

@@ -343,4 +343,53 @@ router.post('/test-review-check/:locationId', async (req, res) => {
   }
 });
 
+// Test endpoint to generate post content only (no actual posting) - for testing address formatting
+router.post('/test-generate-content/:locationId', async (req, res) => {
+  try {
+    const { locationId } = req.params;
+    const { businessName, category, keywords, websiteUrl, city, region, country, fullAddress, postalCode } = req.body;
+
+    console.log(`[Automation API] TEST MODE - Generating post content for location ${locationId}`);
+
+    // Create config for content generation
+    const config = {
+      businessName: businessName || 'Scale Point Strategy',
+      category: category || 'Digital Marketing Agency',
+      keywords: keywords || 'digital marketing, business growth, social media',
+      websiteUrl: websiteUrl || 'https://scalepointstrategy.com',
+      city: city || 'Jalandhar',
+      region: region || 'Punjab',
+      country: country || 'India',
+      postalCode: postalCode || '144001',
+      fullAddress: fullAddress || `${city || 'Jalandhar'}, ${region || 'Punjab'} ${postalCode || '144001'}, ${country || 'India'}`,
+      userId: 'test',
+      test: true
+    };
+
+    console.log(`[Automation API] Content generation config:`, config);
+
+    // Generate content using the automation scheduler's content generation function
+    const result = await automationScheduler.generatePostContent(config);
+
+    res.json({
+      success: true,
+      message: 'Post content generated successfully',
+      config: config,
+      content: result.content,
+      callToAction: result.callToAction,
+      addressCheck: {
+        hasAddressLine: result.content.includes('📍 Address:'),
+        fullAddress: config.fullAddress,
+        expectedFormat: `📍 Address: ${config.fullAddress}`
+      }
+    });
+  } catch (error) {
+    console.error('Error generating post content:', error);
+    res.status(500).json({
+      error: error.message || 'Failed to generate post content',
+      details: error.toString()
+    });
+  }
+});
+
 export default router;

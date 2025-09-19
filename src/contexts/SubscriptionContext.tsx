@@ -61,10 +61,42 @@ export const SubscriptionProvider: React.FC<SubscriptionProviderProps> = ({ chil
   console.log('SubscriptionContext - Accounts:', accounts);
 
   const checkSubscriptionStatus = async () => {
-    console.log('Checking subscription status for GBP:', gbpAccountId);
-    
-    if (!gbpAccountId) {
-      console.log('No GBP account ID, setting status to none');
+    console.log('Checking subscription status for GBP:', gbpAccountId, 'User:', currentUser?.uid);
+
+    // First, try to find subscription by user ID even if GBP is not connected
+    if (currentUser?.uid && !gbpAccountId) {
+      console.log('No GBP connected, checking by user ID:', currentUser.uid);
+      try {
+        const response = await fetch(`${backendUrl}/api/payment/subscription/status?userId=${currentUser.uid}`, {
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          console.log('Subscription found by user ID:', data);
+
+          if (data.status !== 'none') {
+            setStatus(data.status);
+            setDaysRemaining(data.daysRemaining || null);
+            setSubscription(data.subscription);
+            setCanUsePlatform(data.canUsePlatform !== false);
+            setRequiresPayment(data.requiresPayment === true);
+            setBillingOnly(data.billingOnly === true);
+            setMessage(data.message || 'Please reconnect your Google Business Profile to access all features.');
+            setIsFeatureBlocked(data.status === 'expired' || data.billingOnly === true);
+            setIsLoading(false);
+            return;
+          }
+        }
+      } catch (error) {
+        console.log('User ID lookup failed, will check GBP when available:', error);
+      }
+    }
+
+    if (!gbpAccountId && !currentUser?.uid) {
+      console.log('No GBP account ID or user ID, setting status to none');
       setStatus('none');
       setDaysRemaining(null);
       setIsFeatureBlocked(false);
@@ -74,9 +106,13 @@ export const SubscriptionProvider: React.FC<SubscriptionProviderProps> = ({ chil
 
     try {
       setIsLoading(true);
-      
-      // Check subscription status from backend
-      const response = await fetch(`${backendUrl}/api/payment/subscription/status?gbpAccountId=${gbpAccountId}`, {
+
+      // Check subscription status from backend using both userId and gbpAccountId
+      const params = new URLSearchParams();
+      if (gbpAccountId) params.append('gbpAccountId', gbpAccountId);
+      if (currentUser?.uid) params.append('userId', currentUser.uid);
+
+      const response = await fetch(`${backendUrl}/api/payment/subscription/status?${params.toString()}`, {
         headers: {
           'Content-Type': 'application/json'
         }

@@ -13,7 +13,7 @@ export interface AutoPostingConfig {
   };
   button?: {
     enabled: boolean;
-    type: 'auto' | 'book' | 'order' | 'buy' | 'learn_more' | 'sign_up' | 'call';
+    type: 'auto'; // Only smart selection available
     customUrl?: string; // Custom URL when not using websiteUrl
   };
   lastPost?: string; // ISO timestamp

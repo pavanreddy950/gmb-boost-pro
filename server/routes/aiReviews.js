@@ -7,20 +7,21 @@ const aiReviewService = new AIReviewService();
 // Generate AI review suggestions
 router.post('/generate', async (req, res) => {
   try {
-    const { businessName, location, businessType } = req.body;
-    
+    const { businessName, location, businessType, reviewId } = req.body;
+
     if (!businessName || !location) {
-      return res.status(400).json({ 
-        error: 'Business name and location are required' 
+      return res.status(400).json({
+        error: 'Business name and location are required'
       });
     }
-    
-    console.log(`[AI Reviews] Generating suggestions for ${businessName} in ${location}`);
-    
+
+    console.log(`[AI Reviews] Generating suggestions for ${businessName} in ${location}${reviewId ? ` (Review ID: ${reviewId})` : ''}`);
+
     const suggestions = await aiReviewService.generateReviewSuggestions(
-      businessName, 
-      location, 
-      businessType
+      businessName,
+      location,
+      businessType,
+      reviewId
     );
     
     res.json({ 
@@ -65,11 +66,47 @@ router.post('/review-link', async (req, res) => {
   }
 });
 
+// Generate reply suggestions for a specific review
+router.post('/reply-suggestions', async (req, res) => {
+  try {
+    const { businessName, reviewContent, reviewRating, reviewId } = req.body;
+
+    if (!businessName || !reviewContent || !reviewRating) {
+      return res.status(400).json({
+        error: 'Business name, review content, and review rating are required'
+      });
+    }
+
+    console.log(`[AI Reviews] Generating reply suggestions for review ID: ${reviewId}`);
+
+    // Use AI service to generate contextual replies
+    const replySuggestions = await aiReviewService.generateReplySuggestions(
+      businessName,
+      reviewContent,
+      reviewRating,
+      reviewId
+    );
+
+    res.json({
+      success: true,
+      suggestions: replySuggestions,
+      reviewId,
+      generatedAt: new Date().toISOString()
+    });
+  } catch (error) {
+    console.error('Error generating reply suggestions:', error);
+    res.status(500).json({
+      error: 'Failed to generate reply suggestions',
+      message: error.message
+    });
+  }
+});
+
 // Debug endpoint to check Azure OpenAI configuration
 router.get('/config-check', async (req, res) => {
   try {
     const aiService = new AIReviewService();
-    
+
     res.json({
       azureOpenAI: {
         hasEndpoint: !!aiService.azureEndpoint,

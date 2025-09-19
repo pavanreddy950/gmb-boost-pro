@@ -10,14 +10,15 @@ class AIReviewService {
     
     // Simple in-memory cache for faster responses
     this.reviewCache = new Map();
-    this.cacheTimeout = 5 * 60 * 1000; // 5 minutes cache
+    this.cacheTimeout = 30 * 1000; // 30 seconds cache (reduced from 5 minutes)
     
     console.log('[AIReviewService] Initialized with hardcoded Azure OpenAI configuration');
   }
 
-  async generateReviewSuggestions(businessName, location, businessType = 'business') {
-    // Check cache first for instant response
-    const cacheKey = `${businessName.toLowerCase()}_${location.toLowerCase()}_${businessType}`;
+  async generateReviewSuggestions(businessName, location, businessType = 'business', reviewId = null) {
+    // Include reviewId and timestamp in cache key for uniqueness
+    const timestamp = Math.floor(Date.now() / (30 * 1000)); // 30-second buckets
+    const cacheKey = `${businessName.toLowerCase()}_${location.toLowerCase()}_${businessType}_${reviewId || 'general'}_${timestamp}`;
     const cached = this.reviewCache.get(cacheKey);
     
     if (cached && (Date.now() - cached.timestamp) < this.cacheTimeout) {
@@ -59,35 +60,50 @@ class AIReviewService {
       
       console.log(`[AI Review Service] Generating AI suggestions for ${businessName} ${locationPhrase}`);
       
-      // Create highly unique seed for completely different content each time
+      // Create highly unique seed with reviewId for completely different content each time
       const timestamp = Date.now();
       const randomPart1 = Math.random().toString(36).substr(2, 12);
       const randomPart2 = Math.random().toString(36).substr(2, 12);
       const userAgent = Math.random().toString(16).substr(2, 8);
-      const uniqueSeed = `${timestamp}_${randomPart1}_${randomPart2}_${userAgent}`;
+      const reviewSeed = reviewId ? reviewId.slice(-8) : 'general';
+      const uniqueSeed = `${timestamp}_${reviewSeed}_${randomPart1}_${randomPart2}_${userAgent}`;
       
-      // Add additional randomization factors
-      const toneVariations = ['casual', 'professional', 'enthusiastic', 'detailed', 'concise'];
-      const customerTypes = ['first-time visitor', 'regular customer', 'business client', 'family customer', 'local resident'];
-      const randomTone = toneVariations[Math.floor(Math.random() * toneVariations.length)];
-      const randomCustomerType = customerTypes[Math.floor(Math.random() * customerTypes.length)];
-      const randomTimeOfDay = ['morning', 'afternoon', 'evening', 'weekend'][Math.floor(Math.random() * 4)];
+      // Add additional randomization factors with reviewId influence
+      const toneVariations = ['casual', 'professional', 'enthusiastic', 'detailed', 'concise', 'warm', 'friendly'];
+      const customerTypes = ['first-time visitor', 'regular customer', 'business client', 'family customer', 'local resident', 'returning client'];
+      const timeVariations = ['morning', 'afternoon', 'evening', 'weekend', 'weekday', 'lunch hour'];
+
+      // Use reviewId to create consistent but unique variations per review
+      const seedValue = reviewId ? parseInt(reviewId.slice(-4), 16) : Math.floor(Math.random() * 1000);
+      const randomTone = toneVariations[seedValue % toneVariations.length];
+      const randomCustomerType = customerTypes[(seedValue + timestamp) % customerTypes.length];
+      const randomTimeOfDay = timeVariations[(seedValue + timestamp + 100) % timeVariations.length];
       
-      // Simplified, faster prompt for quick generation
-      const prompt = `Generate 5 different customer reviews for "${businessName}"${locationPhrase ? ` in ${cleanLocation}` : ''}.
-      
-Style: ${randomTone} tone, ${randomCustomerType}, ${randomTimeOfDay} visit
-Seed: ${uniqueSeed}
-      
-Make each review unique in style and focus. Include business name naturally. Mix 4-5 star ratings. Focus areas: service, quality, staff, atmosphere, value.
-      
-Return only JSON array:
+      // Enhanced prompt with more variation triggers
+      const prompt = `Generate 5 completely different customer reviews for "${businessName}"${locationPhrase ? ` in ${cleanLocation}` : ''}.
+
+Style Guidelines:
+- Tone: ${randomTone}
+- Customer Type: ${randomCustomerType}
+- Visit Time: ${randomTimeOfDay}
+- Uniqueness Seed: ${uniqueSeed}
+- Variation Level: HIGH (make each review distinctly different)
+
+Requirements:
+- Each review must be unique in style, length, and focus
+- Include business name naturally but vary placement
+- Mix 4-5 star ratings (mostly positive)
+- Use different vocabulary and sentence structures
+- Focus areas: service, quality, staff, atmosphere, value, experience
+- Vary review length (some short, some detailed)
+
+Return ONLY this JSON array:
 [
-  {"review": "authentic review text", "rating": 5, "focus": "service", "keywords": ["${businessName}", "${cleanLocation}", "service"]},
-  {"review": "different review text", "rating": 4, "focus": "quality", "keywords": ["${businessName}", "${cleanLocation}", "quality"]},
-  {"review": "unique review text", "rating": 5, "focus": "staff", "keywords": ["${businessName}", "${cleanLocation}", "staff"]},
-  {"review": "varied review text", "rating": 5, "focus": "atmosphere", "keywords": ["${businessName}", "${cleanLocation}", "atmosphere"]},
-  {"review": "distinct review text", "rating": 4, "focus": "value", "keywords": ["${businessName}", "${cleanLocation}", "value"]}
+  {"review": "[unique authentic review 1]", "rating": 5, "focus": "service", "keywords": ["${businessName}", "service"]},
+  {"review": "[completely different review 2]", "rating": 4, "focus": "quality", "keywords": ["${businessName}", "quality"]},
+  {"review": "[distinct style review 3]", "rating": 5, "focus": "staff", "keywords": ["${businessName}", "staff"]},
+  {"review": "[varied approach review 4]", "rating": 5, "focus": "atmosphere", "keywords": ["${businessName}", "atmosphere"]},
+  {"review": "[unique perspective review 5]", "rating": 4, "focus": "value", "keywords": ["${businessName}", "value"]}
 ]`;
 
       const url = `${this.azureEndpoint}openai/deployments/${this.deploymentName}/chat/completions?api-version=${this.apiVersion}`;
@@ -109,11 +125,11 @@ Return only JSON array:
               content: prompt
             }
           ],
-          max_tokens: 800, // Reduced for faster generation
-          temperature: 0.8, // Balanced creativity and speed
-          top_p: 0.9, // More focused sampling
-          frequency_penalty: 0.7, // Moderate to prevent repetition
-          presence_penalty: 0.6  // Moderate to ensure varied content
+          max_tokens: 1000, // Increased for more detailed responses
+          temperature: 0.9, // Higher creativity for more variation
+          top_p: 0.95, // Allow more diverse token selection
+          frequency_penalty: 0.8, // Higher to prevent repetition
+          presence_penalty: 0.7  // Higher to ensure more varied content
         })
       });
 
@@ -217,21 +233,30 @@ Return only JSON array:
           }
         }
         
-        // Add timestamps and ensure uniqueness
+        // Add timestamps and ensure uniqueness with reviewId
         const timestamp = Date.now();
         const finalReviews = reviews.map((review, index) => ({
           ...review,
-          id: `review_${timestamp}_${index}`,
+          id: `review_${timestamp}_${reviewId || 'gen'}_${index}`,
           businessName,
           location,
-          generatedAt: new Date().toISOString()
+          reviewId: reviewId || null,
+          generatedAt: new Date().toISOString(),
+          cacheKey // Include cache key for debugging
         }));
         
-        // Cache successful results for faster future responses
+        // Cache successful results for faster future responses (short duration)
         this.reviewCache.set(cacheKey, {
           reviews: finalReviews,
           timestamp: Date.now()
         });
+
+        // Clean up old cache entries to prevent memory leaks
+        for (const [key, value] of this.reviewCache.entries()) {
+          if (Date.now() - value.timestamp > this.cacheTimeout) {
+            this.reviewCache.delete(key);
+          }
+        }
         
         console.log(`[AI Review Service] ✅ Cached ${finalReviews.length} reviews for faster future access`);
         return finalReviews;
@@ -270,6 +295,167 @@ Return only JSON array:
   generateMapsSearchLink(businessName, location) {
     const query = encodeURIComponent(`${businessName} ${location}`);
     return `https://www.google.com/maps/search/?api=1&query=${query}`;
+  }
+
+  // Generate AI-powered reply suggestions for existing reviews
+  async generateReplySuggestions(businessName, reviewContent, reviewRating, reviewId = null) {
+    // Create cache key for reply suggestions
+    const timestamp = Math.floor(Date.now() / (30 * 1000)); // 30-second buckets
+    const cacheKey = `reply_${businessName.toLowerCase()}_${reviewRating}_${reviewId || 'general'}_${timestamp}`;
+    const cached = this.reviewCache.get(cacheKey);
+
+    if (cached && (Date.now() - cached.timestamp) < this.cacheTimeout) {
+      console.log('[AI Review Service] ⚡ Returning cached reply suggestions');
+      return cached.suggestions;
+    }
+
+    console.log('[AI Review Service] Generating new reply suggestions');
+
+    // Check if Azure OpenAI is configured
+    if (!this.apiKey || !this.azureEndpoint || !this.deploymentName) {
+      throw new Error('[AI Review Service] Azure OpenAI is required for reply generation. Please configure Azure OpenAI.');
+    }
+
+    try {
+      // Create unique seed for variation
+      const timestamp = Date.now();
+      const reviewSeed = reviewId ? reviewId.slice(-8) : 'general';
+      const uniqueSeed = `${timestamp}_${reviewSeed}_${reviewRating}`;
+
+      // Determine sentiment and tone
+      const sentiment = reviewRating >= 4 ? 'positive' : reviewRating >= 3 ? 'neutral' : 'negative';
+      const toneVariations = ['professional', 'warm', 'grateful', 'understanding', 'empathetic'];
+      const seedValue = reviewId ? parseInt(reviewId.slice(-4), 16) : Math.floor(Math.random() * 1000);
+      const tone = toneVariations[seedValue % toneVariations.length];
+
+      console.log(`[AI Review Service] Generating ${sentiment} reply with ${tone} tone`);
+
+      // Enhanced prompt for reply generation
+      const prompt = `Generate 3 professional business reply suggestions for a ${reviewRating}-star customer review.
+
+Business: ${businessName}
+Customer Review: "${reviewContent}"
+Rating: ${reviewRating}/5 stars
+Reply Tone: ${tone}
+Sentiment: ${sentiment}
+Uniqueness Seed: ${uniqueSeed}
+
+Guidelines:
+- Each reply should be unique in style and approach
+- Keep replies professional but ${tone}
+- Acknowledge the customer's feedback specifically
+- Include business name naturally
+- Vary length and structure
+- For positive reviews: express gratitude and invite return
+- For neutral reviews: show appreciation and willingness to improve
+- For negative reviews: apologize sincerely and offer resolution
+
+Return ONLY this JSON array:
+[
+  {"reply": "[First unique reply approach]", "tone": "${tone}", "focus": "gratitude"},
+  {"reply": "[Second different reply style]", "tone": "${tone}", "focus": "engagement"},
+  {"reply": "[Third distinct reply approach]", "tone": "${tone}", "focus": "resolution"}
+]`;
+
+      const url = `${this.azureEndpoint}openai/deployments/${this.deploymentName}/chat/completions?api-version=${this.apiVersion}`;
+
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'api-key': this.apiKey
+        },
+        body: JSON.stringify({
+          messages: [
+            {
+              role: 'system',
+              content: 'You are a professional business communication expert. Generate authentic, varied reply suggestions that sound natural and appropriate for the business context. Return ONLY valid JSON arrays.'
+            },
+            {
+              role: 'user',
+              content: prompt
+            }
+          ],
+          max_tokens: 800,
+          temperature: 0.8,
+          top_p: 0.9,
+          frequency_penalty: 0.8,
+          presence_penalty: 0.7
+        })
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Azure OpenAI API error:', errorText);
+        throw new Error(`Azure API error: ${response.status}`);
+      }
+
+      const data = await response.json();
+      const content = data.choices[0].message.content;
+
+      // Parse the JSON response
+      try {
+        let cleanContent = content.trim();
+        console.log('Raw AI reply response:', cleanContent.substring(0, 500));
+
+        // Remove markdown code blocks if present
+        cleanContent = cleanContent.replace(/^```[a-z]*\n?/gi, '').replace(/\n?```$/gi, '');
+
+        // Extract JSON array
+        const start = cleanContent.indexOf('[');
+        const end = cleanContent.lastIndexOf(']');
+
+        if (start === -1 || end === -1 || end <= start) {
+          throw new Error('Invalid JSON structure - no array found');
+        }
+
+        let jsonString = cleanContent.substring(start, end + 1);
+        jsonString = jsonString
+          .replace(/,\s*}/g, '}')
+          .replace(/,\s*]/g, ']')
+          .replace(/\n/g, ' ')
+          .replace(/\s+/g, ' ')
+          .trim();
+
+        const replies = JSON.parse(jsonString);
+
+        if (!Array.isArray(replies)) {
+          throw new Error('AI response is not a valid array');
+        }
+
+        // Extract just the reply text
+        const replySuggestions = replies.map((item, index) => ({
+          text: item.reply || item.text || item,
+          id: `reply_${timestamp}_${reviewId || 'gen'}_${index}`,
+          tone: item.tone || tone,
+          focus: item.focus || 'general',
+          generatedAt: new Date().toISOString()
+        }));
+
+        // Cache successful results
+        this.reviewCache.set(cacheKey, {
+          suggestions: replySuggestions,
+          timestamp: Date.now()
+        });
+
+        // Clean up old cache entries
+        for (const [key, value] of this.reviewCache.entries()) {
+          if (Date.now() - value.timestamp > this.cacheTimeout) {
+            this.reviewCache.delete(key);
+          }
+        }
+
+        console.log(`[AI Review Service] ✅ Generated ${replySuggestions.length} reply suggestions`);
+        return replySuggestions;
+      } catch (parseError) {
+        console.error('Error parsing AI reply response:', parseError);
+        console.error('Raw AI content (first 500 chars):', content.substring(0, 500));
+        throw new Error('[AI Review Service] Failed to parse AI reply response. Please try again.');
+      }
+    } catch (error) {
+      console.error('Error generating AI reply suggestions:', error);
+      throw new Error('[AI Review Service] Failed to generate AI reply suggestions. Please check Azure OpenAI configuration.');
+    }
   }
 }
 

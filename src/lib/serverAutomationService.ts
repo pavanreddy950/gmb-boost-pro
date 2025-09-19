@@ -11,11 +11,17 @@ interface AutomationSettings {
     frequency?: string;
     businessName?: string;
     category?: string;
+    categories?: string[];
     keywords?: string;
     websiteUrl?: string;
     timezone?: string;
     dayOfWeek?: number;
     topicType?: string;
+    fullAddress?: string;
+    city?: string;
+    region?: string;
+    country?: string;
+    postalCode?: string;
   };
   autoReply?: {
     enabled: boolean;
@@ -231,7 +237,14 @@ class ServerAutomationService {
     keywords?: string,
     websiteUrl?: string,
     userId?: string,
-    accountId?: string
+    accountId?: string,
+    addressInfo?: {
+      fullAddress?: string;
+      city?: string;
+      region?: string;
+      country?: string;
+      postalCode?: string;
+    }
   ): Promise<boolean> {
     const settings: AutomationSettings = {
       autoPosting: {
@@ -243,6 +256,7 @@ class ServerAutomationService {
         keywords,
         websiteUrl,
         timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+        ...addressInfo,
       },
       userId,
       accountId,

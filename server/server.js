@@ -75,7 +75,9 @@ app.use(cors({
   optionsSuccessStatus: 200,
   preflightContinue: false
 }));
-app.use(express.json());
+// Set high payload limits for photo uploads
+app.use(express.json({ limit: '100mb' }));
+app.use(express.urlencoded({ limit: '100mb', extended: true }));
 
 // Handle preflight requests manually with enhanced debugging
 app.options('*', (req, res) => {
@@ -653,9 +655,81 @@ app.post('/auth/google/callback', async (req, res) => {
 
   } catch (error) {
     console.error('OAuth callback error:', error);
-    res.status(500).json({ 
+    res.status(500).json({
       error: 'Authentication failed',
-      message: error.message 
+      message: error.message
+    });
+  }
+});
+
+// Token refresh endpoint for frontend
+app.post('/auth/google/refresh', async (req, res) => {
+  try {
+    const { refresh_token, userId } = req.body;
+
+    if (!refresh_token) {
+      return res.status(400).json({ error: 'Refresh token is required' });
+    }
+
+    console.log('Refreshing Google token for user:', userId);
+
+    // Set the refresh token for OAuth2 client
+    oauth2Client.setCredentials({
+      refresh_token: refresh_token
+    });
+
+    // Refresh the access token
+    const { credentials } = await oauth2Client.refreshAccessToken();
+
+    if (!credentials.access_token) {
+      throw new Error('Failed to obtain new access token');
+    }
+
+    console.log('Token refresh successful for user:', userId);
+
+    // Update stored tokens if userId is provided
+    if (userId) {
+      // Update in-memory token store
+      for (const [storedUserId, userData] of tokenStore.entries()) {
+        if (storedUserId === userId) {
+          userData.tokens = {
+            ...userData.tokens,
+            access_token: credentials.access_token,
+            expiry_date: credentials.expiry_date
+          };
+          break;
+        }
+      }
+
+      // Update Firestore token storage
+      try {
+        await firestoreTokenStorage.saveUserToken(userId, {
+          access_token: credentials.access_token,
+          refresh_token: refresh_token,
+          expires_at: new Date(credentials.expiry_date).toISOString(),
+          scope: credentials.scope || 'https://www.googleapis.com/auth/business.manage',
+          token_type: 'Bearer'
+        });
+      } catch (firestoreError) {
+        console.warn('Failed to update Firestore tokens (non-critical):', firestoreError);
+      }
+    }
+
+    res.json({
+      success: true,
+      tokens: {
+        access_token: credentials.access_token,
+        token_type: 'Bearer',
+        expires_in: Math.floor((credentials.expiry_date - Date.now()) / 1000),
+        scope: credentials.scope
+      }
+    });
+
+  } catch (error) {
+    console.error('Token refresh error:', error);
+    res.status(401).json({
+      error: 'Token refresh failed',
+      message: error.message || 'Unable to refresh token'
     });
   }
 });
@@ -1688,6 +1762,226 @@ app.get('/api/locations/:locationId/photos', async (req, res) => {
   }
 });
 
+// Step 1: Start photo upload for a location
+// Photo upload specific middleware to ensure large payloads are allowed
+const photoUploadMiddleware = express.json({ limit: '100mb' });
+
+app.post('/api/locations/:locationId/photos/start-upload', photoUploadMiddleware, async (req, res) => {
+  try {
+    console.log('📸 Start-upload endpoint reached for location:', locationId);
+    const { locationId } = req.params;
+    const { category = 'ADDITIONAL' } = req.body; // Default to ADDITIONAL, can be COVER, EXTERIOR, etc.
+    const authHeader = req.headers.authorization;
+
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return res.status(401).json({ error: 'Access token required' });
+    }
+
+    let accessToken = authHeader.split(' ')[1];
+
+    // Find refresh token from stored tokens
+    let refreshToken = null;
+    for (const [userId, userData] of tokenStore.entries()) {
+      if (userData.tokens.access_token === accessToken) {
+        refreshToken = userData.tokens.refresh_token;
+        break;
+      }
+    }
+
+    // Ensure token is valid and refresh if needed
+    try {
+      const validTokens = await ensureValidToken(accessToken, refreshToken);
+      accessToken = validTokens.access_token;
+    } catch (tokenError) {
+      console.error('Token validation/refresh failed for photo upload:', tokenError);
+    }
+
+    console.log(`📸 Starting photo upload for location: ${locationId}`);
+
+    // Call Google Business Profile API to start upload
+    const startUploadUrl = `https://mybusiness.googleapis.com/v4/accounts/${HARDCODED_ACCOUNT_ID}/locations/${locationId}/media:startUpload`;
+
+    const response = await fetch(startUploadUrl, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+        'Content-Type': 'application/json'
+      }
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('Start upload failed:', response.status, errorText);
+      return res.status(response.status).json({
+        error: 'Failed to start upload',
+        details: errorText
+      });
+    }
+
+    const uploadData = await response.json();
+    console.log('✅ Upload started successfully:', uploadData);
+
+    // Return both uploadUrl and resourceName for the next step
+    res.json({
+      success: true,
+      uploadUrl: uploadData.uploadUrl,
+      resourceName: uploadData.resourceName,
+      category: category
+    });
+
+  } catch (error) {
+    console.error('Error starting photo upload:', error);
+    res.status(500).json({
+      error: 'Failed to start photo upload',
+      message: error.message
+    });
+  }
+});
+
+// Step 2: Upload photo bytes
+app.post('/api/locations/:locationId/photos/upload-bytes', photoUploadMiddleware, async (req, res) => {
+  try {
+    console.log('📸 Upload-bytes endpoint reached');
+    console.log('📸 Request body size:', JSON.stringify(req.body).length, 'bytes');
+
+    const { uploadUrl, fileData } = req.body;
+
+    if (!uploadUrl || !fileData) {
+      console.log('📸 Missing required fields:', { uploadUrl: !!uploadUrl, fileData: !!fileData });
+      return res.status(400).json({ error: 'Upload URL and file data required' });
+    }
+
+    console.log(`📸 Uploading photo bytes to: ${uploadUrl}`);
+    console.log(`📸 File data size: ${fileData.length} characters`);
+
+    // Get the uploaded file from the request
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return res.status(401).json({ error: 'Access token required' });
+    }
+
+    const accessToken = authHeader.replace('Bearer ', '');
+
+    // Convert base64 to buffer
+    const imageBuffer = Buffer.from(fileData, 'base64');
+
+    // Upload the file bytes to Google's upload URL
+    const uploadResponse = await fetch(uploadUrl, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/octet-stream',
+        'Authorization': `Bearer ${accessToken}`,
+        'Content-Length': imageBuffer.length.toString()
+      },
+      body: imageBuffer
+    });
+
+    if (!uploadResponse.ok) {
+      const errorText = await uploadResponse.text();
+      console.error('Upload to Google failed:', uploadResponse.status, errorText);
+      throw new Error(`Google upload failed: ${uploadResponse.status} ${errorText}`);
+    }
+
+    console.log('📸 Successfully uploaded photo bytes to Google');
+
+    res.json({
+      success: true,
+      message: 'Photo bytes uploaded successfully'
+    });
+
+  } catch (error) {
+    console.error('Error uploading photo bytes:', error);
+    res.status(500).json({
+      error: 'Failed to upload photo bytes',
+      message: error.message
+    });
+  }
+});
+
+// Step 3: Create media item (finalize upload)
+app.post('/api/locations/:locationId/photos/create-media', photoUploadMiddleware, async (req, res) => {
+  try {
+    const { locationId } = req.params;
+    const { resourceName, category = 'ADDITIONAL' } = req.body;
+    const authHeader = req.headers.authorization;
+
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return res.status(401).json({ error: 'Access token required' });
+    }
+
+    if (!resourceName) {
+      return res.status(400).json({ error: 'Resource name required' });
+    }
+
+    let accessToken = authHeader.split(' ')[1];
+
+    // Find refresh token from stored tokens
+    let refreshToken = null;
+    for (const [userId, userData] of tokenStore.entries()) {
+      if (userData.tokens.access_token === accessToken) {
+        refreshToken = userData.tokens.refresh_token;
+        break;
+      }
+    }
+
+    // Ensure token is valid and refresh if needed
+    try {
+      const validTokens = await ensureValidToken(accessToken, refreshToken);
+      accessToken = validTokens.access_token;
+    } catch (tokenError) {
+      console.error('Token validation/refresh failed for photo finalization:', tokenError);
+    }
+
+    console.log(`📸 Creating media item for location: ${locationId} with resource: ${resourceName}`);
+
+    const createMediaUrl = `https://mybusiness.googleapis.com/v4/accounts/${HARDCODED_ACCOUNT_ID}/locations/${locationId}/media`;
+
+    const mediaData = {
+      mediaFormat: 'PHOTO',
+      locationAssociation: {
+        category: category
+      },
+      dataRef: {
+        resourceName: resourceName
+      }
+    };
+
+    const response = await fetch(createMediaUrl, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(mediaData)
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('Create media failed:', response.status, errorText);
+      return res.status(response.status).json({
+        error: 'Failed to create media item',
+        details: errorText
+      });
+    }
+
+    const mediaItem = await response.json();
+    console.log('✅ Photo uploaded successfully:', mediaItem);
+
+    res.json({
+      success: true,
+      mediaItem: mediaItem,
+      message: 'Photo uploaded successfully'
+    });
+
+  } catch (error) {
+    console.error('Error creating media item:', error);
+    res.status(500).json({
+      error: 'Failed to create media item',
+      message: error.message
+    });
+  }
+});
+
 // Get insights/analytics for a location
 app.get('/api/locations/:locationId/insights', async (req, res) => {
   try {
@@ -1912,6 +2206,9 @@ app.get('*', (req, res) => {
       'GET /api/locations/:locationId/reviews',
       'PUT /api/locations/:locationId/reviews/:reviewId/reply',
       'GET /api/locations/:locationId/photos',
+      'POST /api/locations/:locationId/photos/start-upload',
+      'POST /api/locations/:locationId/photos/upload-bytes',
+      'POST /api/locations/:locationId/photos/create-media',
       'GET /api/locations/:locationId/insights',
       'POST /api/automation/test-post-now/:locationId',
       'POST /api/automation/test-review-check/:locationId'
@@ -1946,6 +2243,9 @@ app.listen(PORT, () => {
   console.log(`   GET  /api/locations/:locationId/reviews`);
   console.log(`   PUT  /api/locations/:locationId/reviews/:reviewId/reply`);
   console.log(`   GET  /api/locations/:locationId/photos`);
+  console.log(`   POST /api/locations/:locationId/photos/start-upload`);
+  console.log(`   POST /api/locations/:locationId/photos/upload-bytes`);
+  console.log(`   POST /api/locations/:locationId/photos/create-media`);
   console.log(`   GET  /api/locations/:locationId/insights`);
 });
 

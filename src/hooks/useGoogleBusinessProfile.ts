@@ -30,23 +30,52 @@ export const useGoogleBusinessProfile = (): UseGoogleBusinessProfileReturn => {
   const { currentUser } = useAuth();
   const navigate = useNavigate();
 
+  // Save GBP-user association
+  const saveGbpAssociation = useCallback(async (gbpAccountId: string) => {
+    if (!currentUser?.uid) return;
+
+    try {
+      const backendUrl = import.meta.env.VITE_BACKEND_URL || 'https://pavan-client-backend-bxgdaqhvarfdeuhe.canadacentral-01.azurewebsites.net';
+      await fetch(`${backendUrl}/api/payment/user/gbp-association`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          userId: currentUser.uid,
+          gbpAccountId: gbpAccountId
+        })
+      });
+      console.log('GBP association saved:', { userId: currentUser.uid, gbpAccountId });
+    } catch (error) {
+      console.error('Failed to save GBP association:', error);
+    }
+  }, [currentUser]);
+
   // Load business accounts
   const loadBusinessAccounts = useCallback(async () => {
     try {
       setIsLoading(true);
       const businessAccounts = await googleBusinessProfileService.getBusinessAccounts();
       setAccounts(businessAccounts);
-      
+
+      // Save GBP associations for all accounts
+      for (const account of businessAccounts) {
+        if (account.accountId) {
+          await saveGbpAssociation(account.accountId);
+        }
+      }
+
       // Auto-select first account if only one exists
       if (businessAccounts.length === 1) {
         setSelectedAccount(businessAccounts[0]);
-        
+
         // Auto-select first location if only one exists
         if (businessAccounts[0].locations.length === 1) {
           setSelectedLocation(businessAccounts[0].locations[0]);
         }
       }
-      
+
       setError(null);
     } catch (error) {
       console.error('Error loading business accounts:', error);
@@ -59,19 +88,28 @@ export const useGoogleBusinessProfile = (): UseGoogleBusinessProfileReturn => {
     } finally {
       setIsLoading(false);
     }
-  }, [toast]);
+  }, [toast, saveGbpAssociation]);
 
-  // Set up automatic token refresh interval
+  // Enhanced automatic token refresh with connection monitoring
   useEffect(() => {
     if (!isConnected) return;
-    
-    // Check and refresh token every 45 minutes (tokens expire after 60 minutes)
-    const refreshInterval = setInterval(async () => {
+
+    let refreshInterval: NodeJS.Timeout;
+    let healthCheckInterval: NodeJS.Timeout;
+    let retryCount = 0;
+    const maxRetries = 3;
+
+    const performTokenRefresh = async () => {
       try {
         console.log('⏰ Checking token expiry...');
         if (googleBusinessProfileService.isTokenExpired()) {
           console.log('🔄 Token expired or expiring soon, refreshing...');
           await googleBusinessProfileService.refreshAccessToken();
+          retryCount = 0; // Reset retry count on success
+
+          // Validate connection after refresh
+          await performConnectionHealthCheck();
+
           toast({
             title: "Connection refreshed",
             description: "Your Google Business Profile connection has been renewed.",
@@ -79,29 +117,89 @@ export const useGoogleBusinessProfile = (): UseGoogleBusinessProfileReturn => {
         }
       } catch (error) {
         console.error('Failed to refresh token:', error);
-        // If refresh fails, the connection is lost
-        setIsConnected(false);
-        toast({
-          title: "Connection lost",
-          description: "Please reconnect your Google Business Profile.",
-          variant: "destructive",
-        });
-      }
-    }, 45 * 60 * 1000); // 45 minutes
-    
-    // Also check immediately when component mounts
-    const checkToken = async () => {
-      try {
-        if (googleBusinessProfileService.isTokenExpired()) {
-          await googleBusinessProfileService.refreshAccessToken();
+        retryCount++;
+
+        if (retryCount < maxRetries) {
+          console.log(`🔄 Retrying token refresh (attempt ${retryCount}/${maxRetries})...`);
+          // Retry after exponential backoff (2s, 4s, 8s)
+          setTimeout(() => performTokenRefresh(), Math.pow(2, retryCount) * 1000);
+        } else {
+          console.error('❌ Max token refresh retries exceeded, attempting connection recovery...');
+
+          // Try connection recovery before giving up
+          try {
+            const recovered = await googleBusinessProfileService.recoverConnection();
+            if (recovered) {
+              console.log('✅ Connection recovered successfully');
+              retryCount = 0; // Reset retry count
+              toast({
+                title: "Connection recovered",
+                description: "Your Google Business Profile connection has been restored.",
+              });
+              return;
+            }
+          } catch (recoveryError) {
+            console.error('❌ Connection recovery failed:', recoveryError);
+          }
+
+          // If recovery failed, mark as disconnected
+          setIsConnected(false);
+          setError('Connection lost due to authentication failure');
+          toast({
+            title: "Connection lost",
+            description: "Unable to refresh your Google Business Profile connection. Please reconnect manually.",
+            variant: "destructive",
+          });
         }
-      } catch (error) {
-        console.error('Initial token refresh failed:', error);
       }
     };
-    checkToken();
-    
-    return () => clearInterval(refreshInterval);
+
+    // Connection health check to verify the connection is working
+    const performConnectionHealthCheck = async () => {
+      try {
+        console.log('🏥 Performing connection health check...');
+        const isValid = await googleBusinessProfileService.validateTokens();
+        if (!isValid) {
+          console.warn('⚠️ Token validation failed during health check');
+          throw new Error('Token validation failed');
+        }
+        console.log('✅ Connection health check passed');
+      } catch (error) {
+        console.error('❌ Connection health check failed:', error);
+        // Don't immediately disconnect on health check failure
+        // Let the token refresh mechanism handle it
+      }
+    };
+
+    // Check and refresh token every 15 minutes (optimized frequency)
+    refreshInterval = setInterval(performTokenRefresh, 15 * 60 * 1000); // 15 minutes
+
+    // Perform health check every 30 minutes
+    healthCheckInterval = setInterval(performConnectionHealthCheck, 30 * 60 * 1000); // 30 minutes
+
+    // Initial token check when component mounts
+    const initialCheck = async () => {
+      try {
+        if (googleBusinessProfileService.isTokenExpired()) {
+          console.log('🔄 Initial token check: token expired, refreshing...');
+          await googleBusinessProfileService.refreshAccessToken();
+        }
+        await performConnectionHealthCheck();
+      } catch (error) {
+        console.error('Initial connection check failed:', error);
+        setError('Initial connection validation failed');
+      }
+    };
+    initialCheck();
+
+    return () => {
+      if (refreshInterval) {
+        clearInterval(refreshInterval);
+      }
+      if (healthCheckInterval) {
+        clearInterval(healthCheckInterval);
+      }
+    };
   }, [isConnected, toast]);
 
   // Initialize and check existing connection

@@ -387,7 +387,8 @@ class AutomationScheduler {
     const country = config.country || '';
     const fullAddress = config.fullAddress || '';
     const websiteUrl = config.websiteUrl || '';
-    
+    const postalCode = config.postalCode || config.pinCode || '';
+
     // Build location string prioritizing city
     let locationStr = city;
     if (region && !locationStr.includes(region)) {
@@ -396,11 +397,25 @@ class AutomationScheduler {
     if (!locationStr && fullAddress) {
       locationStr = fullAddress;
     }
+
+    // Build complete address for the footer
+    let completeAddress = '';
+    if (fullAddress || city) {
+      completeAddress = fullAddress || city;
+      if (region && !completeAddress.includes(region)) {
+        completeAddress += `, ${region}`;
+      }
+      // Only add postal code if it's not already in the fullAddress
+      if (postalCode && !completeAddress.includes(postalCode)) {
+        completeAddress += ` ${postalCode}`;
+      }
+    }
     
     console.log(`[AutomationScheduler] Generating AI content for: ${businessName}`);
     console.log(`[AutomationScheduler] Category: ${category}`);
     console.log(`[AutomationScheduler] Keywords: ${keywords}`);
     console.log(`[AutomationScheduler] Location: ${locationStr}`);
+    console.log(`[AutomationScheduler] Complete Address: ${completeAddress}`);
     console.log(`[AutomationScheduler] Website: ${websiteUrl}`);
     
     if (!this.apiKey || !this.azureEndpoint) {
@@ -423,24 +438,32 @@ class AutomationScheduler {
 Business Name: ${businessName}
 Business Type: ${category}
 Location: ${locationStr || 'local area'}
+Complete Address: ${completeAddress}
 Focus areas: ${Array.isArray(keywordList) ? keywordList.slice(0, 3).join(', ') : keywordList}
+Business Categories: ${config.categories ? config.categories.join(', ') : category}
 ${websiteUrl ? `Website: ${websiteUrl}` : ''}
 
 Context: Write for ${dayOfWeek} ${timeOfDay}
 
-CRITICAL RULES:
-1. Write EXACTLY 100-120 words
-2. MUST mention the exact business name "${businessName}" at least once
-3. MUST mention the city/location "${locationStr}" if provided
+CRITICAL RULES - MUST FOLLOW ALL:
+1. Write EXACTLY 100-120 words for the main content
+2. MUST mention the exact business name "${businessName}" prominently
+3. MUST incorporate business categories and keywords naturally
 4. Focus on what this specific ${category} offers in ${locationStr || 'the area'}
 5. Be location-specific - mention local landmarks, neighborhoods, or what makes this location special
 6. For hotels/resorts: mention stays, rooms, amenities, relaxation
 7. For restaurants: mention food, dining, atmosphere
 8. For services: mention solutions, expertise, results
-9. End with ONE clear action like "Visit us in ${locationStr || 'our location'}" or "Stop by today"
+9. Include relevant business keywords naturally in the content
 10. Write naturally and conversationally
-11. Make it sound like it's from a local business owner who knows the area
-12. Reference the specific location/city when appropriate`;
+11. ⚠️ CRITICAL FORMATTING REQUIREMENT ⚠️: ALWAYS end your response with exactly this format:
+
+[Main post content here]
+
+📍 Address: ${completeAddress}
+
+12. The address line is MANDATORY and must be on a separate line with two line breaks before it
+13. DO NOT include the address anywhere else in the post - only at the very end in the specified format`;
 
       const response = await fetch(
         `${this.azureEndpoint}openai/deployments/${this.deploymentName}/chat/completions?api-version=${this.apiVersion}`,
@@ -454,7 +477,7 @@ CRITICAL RULES:
             messages: [
               {
                 role: 'system',
-                content: `You write natural, conversational posts for Google Business Profiles. Focus on what the business actually offers. For hotels/resorts, talk about accommodations, amenities, experiences. For restaurants, discuss food, atmosphere, service. For services, highlight expertise and results. Never repeat the business name unnecessarily. Write like you're talking to a friend, not creating an ad.`
+                content: `You are a professional social media content writer for Google Business Profiles. CRITICAL FORMATTING RULE: Every post MUST end with the exact format "📍 Address: [complete address]" on a separate line after two line breaks. This address line is mandatory and must be included in every single post. Write engaging content that incorporates business keywords and location details naturally. Focus on what the business offers while mentioning the business name and incorporating relevant keywords.`
               },
               {
                 role: 'user',
@@ -472,8 +495,18 @@ CRITICAL RULES:
 
       if (response.ok) {
         const data = await response.json();
-        const content = data.choices[0].message.content.trim();
+        let content = data.choices[0].message.content.trim();
+
+        // Ensure the address line is properly added if not already present
+        const addressLine = `📍 Address: ${completeAddress}`;
+        if (completeAddress && !content.includes('📍 Address:') && !content.includes(completeAddress)) {
+          // Add two line breaks and then the address
+          content = content + '\n\n' + addressLine;
+        }
+
         console.log(`[AutomationScheduler] AI generated unique content (${content.split(' ').length} words)`);
+        console.log(`[AutomationScheduler] Final post content with address:`, content);
+
         return {
           content,
           callToAction: {

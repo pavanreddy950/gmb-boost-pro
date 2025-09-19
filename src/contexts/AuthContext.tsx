@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { 
+import {
   User,
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
@@ -7,7 +7,9 @@ import {
   onAuthStateChanged,
   signInWithPopup,
   GoogleAuthProvider,
-  updateProfile
+  updateProfile,
+  setPersistence,
+  browserLocalPersistence
 } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
 import { useToast } from '@/hooks/use-toast';
@@ -19,6 +21,7 @@ interface AuthContextType {
   login: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
   loginWithGoogle: () => Promise<void>;
+  refreshToken: () => Promise<string | null>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -42,14 +45,17 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const signup = async (email: string, password: string, displayName?: string) => {
     try {
+      // Ensure persistence is set before signup
+      await setPersistence(auth, browserLocalPersistence);
+
       const result = await createUserWithEmailAndPassword(auth, email, password);
-      
+
       if (displayName && result.user) {
         await updateProfile(result.user, {
           displayName: displayName
         });
       }
-      
+
       toast({
         title: "Account created successfully!",
         description: "Welcome to GMP Boost Pro!",
@@ -67,6 +73,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const login = async (email: string, password: string) => {
     try {
+      // Ensure persistence is set before login
+      await setPersistence(auth, browserLocalPersistence);
+
       await signInWithEmailAndPassword(auth, email, password);
       toast({
         title: "Welcome back!",
@@ -75,7 +84,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     } catch (error: any) {
       console.error('Login error:', error);
       let errorMessage = "An error occurred during login";
-      
+
       switch (error.code) {
         case 'auth/user-not-found':
           errorMessage = "No account found with this email address";
@@ -92,7 +101,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         default:
           errorMessage = error.message;
       }
-      
+
       toast({
         title: "Login failed",
         description: errorMessage,
@@ -104,6 +113,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const loginWithGoogle = async () => {
     try {
+      // Ensure persistence is set before Google login
+      await setPersistence(auth, browserLocalPersistence);
+
       const provider = new GoogleAuthProvider();
       await signInWithPopup(auth, provider);
       toast({
@@ -139,14 +151,52 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
   };
 
+  const refreshToken = async (): Promise<string | null> => {
+    try {
+      if (currentUser) {
+        const token = await currentUser.getIdToken(true);
+        console.log('Firebase token refreshed successfully');
+        return token;
+      }
+      return null;
+    } catch (error) {
+      console.error('Failed to refresh Firebase token:', error);
+      return null;
+    }
+  };
+
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      if (user) {
+        try {
+          // Force token refresh to ensure it's valid
+          await user.getIdToken(true);
+          console.log('User authenticated and token refreshed:', user.email);
+        } catch (error) {
+          console.error('Token refresh failed during auth state change:', error);
+        }
+      }
       setCurrentUser(user);
       setLoading(false);
     });
 
-    return unsubscribe;
-  }, []);
+    // Set up automatic token refresh every 30 minutes
+    const tokenRefreshInterval = setInterval(async () => {
+      if (currentUser) {
+        try {
+          await currentUser.getIdToken(true);
+          console.log('Auth token automatically refreshed');
+        } catch (error) {
+          console.error('Automatic token refresh failed:', error);
+        }
+      }
+    }, 30 * 60 * 1000); // 30 minutes
+
+    return () => {
+      unsubscribe();
+      clearInterval(tokenRefreshInterval);
+    };
+  }, [currentUser]);
 
   const value: AuthContextType = {
     currentUser,
@@ -154,7 +204,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     signup,
     login,
     logout,
-    loginWithGoogle
+    loginWithGoogle,
+    refreshToken
   };
 
   return (

@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Textarea } from "@/components/ui/textarea";
-import { Star, MessageSquare, Bot, Calendar, Search, Filter, RefreshCw, ArrowUpDown, ArrowDown, ArrowUp, Download, Edit2, Send, X, Heart, Frown, Meh } from "lucide-react";
+import { Star, MessageSquare, Bot, Calendar, Search, Filter, RefreshCw, ArrowUpDown, ArrowDown, ArrowUp, Download, Edit2, Send, X, Heart, Frown, Meh, Copy, Check } from "lucide-react";
 import {
   Select,
   SelectContent,
@@ -103,6 +103,7 @@ const Reviews = () => {
   const [replyLoading, setReplyLoading] = useState(false);
   const [aiSuggestions, setAiSuggestions] = useState<string[]>([]);
   const [loadingSuggestions, setLoadingSuggestions] = useState(false);
+  const [copiedSuggestionIndex, setCopiedSuggestionIndex] = useState<number | null>(null);
   
   // Get real-time Google Business Profile data
   const { 
@@ -304,35 +305,88 @@ const Reviews = () => {
   const handleTemplateChange = (templateId: string) => {
     setSelectedTemplate(templateId);
     const template = REPLY_TEMPLATES.find(t => t.id === templateId);
-    if (template) {
+    if (template && templateId !== 'custom') {
       setCustomReply(template.content);
+    }
+  };
+
+  // Handle manual typing - clear template selection if user types manually
+  const handleManualReplyChange = (value: string) => {
+    setCustomReply(value);
+    // Only clear template if content differs significantly from any template
+    const isFromTemplate = REPLY_TEMPLATES.some(template =>
+      template.content === value || value === ''
+    );
+    if (!isFromTemplate && selectedTemplate !== 'custom') {
+      setSelectedTemplate('custom');
     }
   };
 
   // Generate AI-powered reply suggestions
   const generateAISuggestions = async (review: Review) => {
     if (!review) return;
-    
+
     setLoadingSuggestions(true);
     try {
-      // Simulate AI suggestions based on review content and sentiment
-      const suggestions = generateSmartReplies(review);
+      // Try backend AI service first, fall back to local generation
+      let suggestions: string[] = [];
+
+      try {
+        // Call backend AI service for more sophisticated reply suggestions
+        const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000';
+        const response = await fetch(`${backendUrl}/api/ai-reviews/reply-suggestions`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            businessName: review.profileName,
+            reviewContent: review.content,
+            reviewRating: review.rating,
+            reviewId: review.id
+          }),
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          if (data.success && data.suggestions) {
+            // Extract reply text from AI-generated suggestions
+            suggestions = data.suggestions.map((s: any) => s.text || s.reply || s).slice(0, 3);
+            console.log('Using backend AI reply suggestions:', suggestions.length, 'suggestions received');
+          }
+        } else {
+          throw new Error('Backend AI service unavailable');
+        }
+      } catch (backendError) {
+        console.log('Backend AI service unavailable, using local suggestions:', backendError.message);
+        // Fall back to local smart replies
+        suggestions = generateSmartReplies(review);
+      }
+
+      // Ensure we have suggestions
+      if (suggestions.length === 0) {
+        suggestions = generateSmartReplies(review);
+      }
+
       setAiSuggestions(suggestions);
     } catch (error) {
       console.error('Error generating AI suggestions:', error);
+      // Final fallback to empty array
       setAiSuggestions([]);
     } finally {
       setLoadingSuggestions(false);
     }
   };
 
-  // Smart reply generation based on review analysis
+  // Smart reply generation based on review analysis with enhanced variation
   const generateSmartReplies = (review: Review): string[] => {
     const suggestions: string[] = [];
     const businessName = review.profileName;
     const rating = review.rating;
     const content = review.content.toLowerCase();
-    
+    const timestamp = Date.now();
+    const reviewId = review.id;
+
     // Analyze keywords for personalized responses
     const hasService = content.includes('service');
     const hasStaff = content.includes('staff') || content.includes('team');
@@ -342,45 +396,125 @@ const Reviews = () => {
     const hasCleanliness = content.includes('clean');
     const hasFood = content.includes('food') || content.includes('meal');
     const hasAtmosphere = content.includes('atmosphere') || content.includes('ambiance');
-    
+
+    // Add randomization based on review ID and timestamp
+    const seed = parseInt(reviewId.slice(-4), 16) + timestamp;
+    const variationIndex = seed % 3;
+
+    // Enhanced response variations
+    const thankYouPhrases = [
+      'Thank you so much for',
+      'We really appreciate',
+      'We\'re grateful for',
+      'Thank you for taking the time to share'
+    ];
+
+    const positiveClosings = [
+      `We look forward to welcoming you back to ${businessName} soon!`,
+      `We hope to see you again at ${businessName} in the near future!`,
+      `We\'d love to serve you again at ${businessName}!`,
+      `Thank you for choosing ${businessName} and we hope to see you soon!`
+    ];
+
+    const improvementPhrases = [
+      'We\'re always looking for ways to improve',
+      'We\'re committed to continuous improvement',
+      'We value your input as we work to enhance our service',
+      'Your feedback helps us grow and improve'
+    ];
+
     if (rating >= 4) {
-      // Positive reviews
-      suggestions.push(`Thank you so much for your wonderful ${rating}-star review! We're thrilled to hear about your positive experience at ${businessName}. Your feedback means the world to us and motivates our team to continue providing excellent service.`);
-      
+      // Positive reviews with variations
+      const thankYou = thankYouPhrases[variationIndex % thankYouPhrases.length];
+      const closing = positiveClosings[variationIndex % positiveClosings.length];
+
+      suggestions.push(`${thankYou} your wonderful ${rating}-star review! We're thrilled to hear about your positive experience at ${businessName}. Your feedback means the world to us and motivates our team to continue providing excellent service.`);
+
       if (hasService) {
-        suggestions.push(`We're so glad you were happy with our service! Our team works hard to ensure every customer has a great experience. Thank you for taking the time to share your review.`);
+        const serviceResponses = [
+          `We're so glad you were happy with our service! Our team works hard to ensure every customer has a great experience.`,
+          `It's wonderful to hear that our service met your expectations! We pride ourselves on providing excellent customer care.`,
+          `Your satisfaction with our service is exactly what we strive for! Thank you for recognizing our efforts.`
+        ];
+        suggestions.push(serviceResponses[variationIndex % serviceResponses.length]);
       }
-      
+
       if (hasStaff) {
-        suggestions.push(`Our team will be delighted to hear your kind words! We'll make sure to share your feedback with them. Thank you for recognizing their hard work.`);
+        const staffResponses = [
+          `Our team will be delighted to hear your kind words! We'll make sure to share your feedback with them.`,
+          `I'll be sure to pass along your compliments to our team - they'll be thrilled to hear this!`,
+          `Your recognition of our staff means so much to us. They work hard to provide excellent service every day.`
+        ];
+        suggestions.push(staffResponses[variationIndex % staffResponses.length]);
       }
-      
-      suggestions.push(`Your recommendation means everything to us! We look forward to welcoming you back to ${businessName} soon.`);
+
+      suggestions.push(closing);
     } else if (rating === 3) {
-      // Neutral reviews
-      suggestions.push(`Thank you for your honest feedback about your experience at ${businessName}. We appreciate you taking the time to share your thoughts and we're always looking for ways to improve.`);
-      
-      suggestions.push(`We value your feedback and would love to discuss how we can enhance your experience. Please feel free to contact us directly so we can address any concerns.`);
-      
+      // Neutral reviews with variations
+      const improvement = improvementPhrases[variationIndex % improvementPhrases.length];
+
+      suggestions.push(`Thank you for your honest feedback about your experience at ${businessName}. We appreciate you taking the time to share your thoughts and ${improvement.toLowerCase()}.`);
+
+      const neutralResponses = [
+        'We value your feedback and would love to discuss how we can enhance your experience.',
+        'Your input is valuable to us and we\'d appreciate the opportunity to address any concerns.',
+        'We take all feedback seriously and would welcome the chance to improve your experience.'
+      ];
+      suggestions.push(neutralResponses[variationIndex % neutralResponses.length]);
+
       if (hasService) {
-        suggestions.push(`We appreciate your feedback about our service. We're committed to continuous improvement and your input helps us identify areas where we can do better. Thank you for giving us the opportunity to serve you.`);
+        suggestions.push(`We appreciate your feedback about our service. ${improvement} and your input helps us identify areas where we can do better.`);
       }
     } else {
-      // Negative reviews
-      suggestions.push(`We sincerely apologize that your experience at ${businessName} didn't meet your expectations. Your feedback is important to us, and we take all concerns seriously. We'd appreciate the opportunity to discuss this with you directly to make things right.`);
-      
+      // Negative reviews with variations
+      const apologyPhrases = [
+        'We sincerely apologize that your experience',
+        'We\'re truly sorry that your visit',
+        'We deeply regret that your experience'
+      ];
+
+      const apology = apologyPhrases[variationIndex % apologyPhrases.length];
+      suggestions.push(`${apology} at ${businessName} didn't meet your expectations. Your feedback is important to us, and we take all concerns seriously. We'd appreciate the opportunity to discuss this with you directly to make things right.`);
+
       if (hasWait) {
         suggestions.push(`We're sorry about the wait time you experienced. We're working on improving our efficiency to serve our customers better. Please give us another chance to provide you with the quality service you deserve.`);
       }
-      
+
       if (hasService) {
         suggestions.push(`We apologize for falling short in our service. This is not the standard we strive for at ${businessName}. We would welcome the opportunity to speak with you about your experience and show you the level of service we're known for.`);
       }
-      
-      suggestions.push(`Thank you for bringing this to our attention. We're committed to making improvements and would like to invite you back to experience the better service we're working towards.`);
+
+      const invitationPhrases = [
+        'Thank you for bringing this to our attention. We\'re committed to making improvements',
+        'We appreciate you sharing your concerns with us. We\'re dedicated to doing better',
+        'Your feedback helps us grow and improve. We\'re working hard to address these issues'
+      ];
+      suggestions.push(`${invitationPhrases[variationIndex % invitationPhrases.length]} and would like to invite you back to experience the better service we're working towards.`);
     }
-    
-    return suggestions.slice(0, 3); // Return top 3 suggestions
+
+    // Add uniqueness by shuffling and limiting to 3 unique suggestions
+    const uniqueSuggestions = [...new Set(suggestions)];
+    return uniqueSuggestions.slice(0, 3);
+  };
+
+  // Copy suggestion to clipboard
+  const copySuggestionToClipboard = async (suggestion: string, index: number) => {
+    try {
+      await navigator.clipboard.writeText(suggestion);
+      setCopiedSuggestionIndex(index);
+      setTimeout(() => setCopiedSuggestionIndex(null), 2000);
+    } catch (err) {
+      console.error('Failed to copy suggestion:', err);
+      // Fallback for older browsers
+      const textArea = document.createElement('textarea');
+      textArea.value = suggestion;
+      document.body.appendChild(textArea);
+      textArea.select();
+      document.execCommand('copy');
+      document.body.removeChild(textArea);
+      setCopiedSuggestionIndex(index);
+      setTimeout(() => setCopiedSuggestionIndex(null), 2000);
+    }
   };
 
   const formatDate = (dateString: string) => {
@@ -1017,11 +1151,36 @@ const Reviews = () => {
                 <div className="space-y-2 max-h-40 overflow-y-auto">
                   {aiSuggestions.map((suggestion, index) => (
                     <div
-                      key={index}
-                      className="p-3 border rounded-lg cursor-pointer hover:bg-muted/50 transition-colors"
-                      onClick={() => setCustomReply(suggestion)}
+                      key={`suggestion-${index}-${selectedReview?.id}`}
+                      className="p-3 border rounded-lg hover:bg-muted/50 transition-colors group"
                     >
-                      <p className="text-sm line-clamp-3">{suggestion}</p>
+                      <div className="flex gap-2">
+                        <p className="text-sm flex-1 leading-relaxed">{suggestion}</p>
+                        <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => copySuggestionToClipboard(suggestion, index)}
+                            className="h-8 w-8 p-0"
+                            title="Copy to clipboard"
+                          >
+                            {copiedSuggestionIndex === index ? (
+                              <Check className="h-3 w-3 text-green-600" />
+                            ) : (
+                              <Copy className="h-3 w-3" />
+                            )}
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setCustomReply(suggestion)}
+                            className="h-8 w-8 p-0"
+                            title="Use this suggestion"
+                          >
+                            <Send className="h-3 w-3" />
+                          </Button>
+                        </div>
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -1035,7 +1194,7 @@ const Reviews = () => {
               <Textarea
                 placeholder="Write your reply to this review or select an AI suggestion above..."
                 value={customReply}
-                onChange={(e) => setCustomReply(e.target.value)}
+                onChange={(e) => handleManualReplyChange(e.target.value)}
                 rows={4}
                 className="resize-none"
               />
@@ -1066,6 +1225,7 @@ const Reviews = () => {
                 setCustomReply('');
                 setSelectedTemplate('');
                 setAiSuggestions([]);
+                setCopiedSuggestionIndex(null);
               }}
             >
               <X className="w-4 h-4 mr-2" />

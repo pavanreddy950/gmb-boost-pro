@@ -105,9 +105,8 @@ class SubscriptionService {
   }
 
   getSubscriptionByUserId(userId) {
-    // Get all subscriptions and find by userId
-    const allSubscriptions = this.persistentStorage.getAllSubscriptions();
-    return allSubscriptions.find(sub => sub.userId === userId) || null;
+    // Use the new persistent storage method with user-GBP mapping
+    return this.persistentStorage.getSubscriptionByUserId(userId);
   }
 
   getSubscriptionById(subscriptionId) {
@@ -146,13 +145,19 @@ class SubscriptionService {
     
     if (subscription.status === 'trial') {
       const trialEndDate = new Date(subscription.trialEndDate);
-      // PRODUCTION MODE: Calculate days remaining
-      const daysRemaining = Math.ceil((trialEndDate - now) / (1000 * 60 * 60 * 24)); // Days
+      // PRODUCTION MODE: Calculate days remaining more accurately
+      const timeDiff = trialEndDate - now;
+      const exactDaysRemaining = timeDiff / (1000 * 60 * 60 * 24);
+
+      // Use Math.floor for more accurate day counting (don't round up partial days)
+      // But show at least 0 if there's still time left (even if less than a day)
+      const daysRemaining = timeDiff > 0 ? Math.max(1, Math.floor(exactDaysRemaining)) : 0;
+
       // TEST MODE: Uncomment below to treat minutes as "days" for testing
       // const minutesRemaining = Math.ceil((trialEndDate - now) / (1000 * 60));
       // const daysRemaining = minutesRemaining;
-      
-      if (daysRemaining > 0) {
+
+      if (timeDiff > 0) {
         return { 
           isValid: true, 
           status: 'trial', 
@@ -225,6 +230,112 @@ class SubscriptionService {
     // For any other status (expired, cancelled, etc.)
     return { 
       isValid: false, 
+      status: subscription.status,
+      subscription,
+      canUsePlatform: false,
+      requiresPayment: true,
+      billingOnly: true,
+      message: 'Please upgrade to continue using the platform'
+    };
+  }
+
+  // Check subscription status by subscription object (used for user ID lookups)
+  checkSubscriptionStatusBySubscription(subscription) {
+    if (!subscription) {
+      return {
+        isValid: false,
+        status: 'none',
+        subscription: null,
+        canUsePlatform: true,
+        requiresPayment: false,
+        billingOnly: false
+      };
+    }
+
+    const now = new Date();
+
+    if (subscription.status === 'trial') {
+      const trialEndDate = new Date(subscription.trialEndDate);
+      const timeDiff = trialEndDate - now;
+      const exactDaysRemaining = timeDiff / (1000 * 60 * 60 * 24);
+
+      // Use Math.floor for more accurate day counting (don't round up partial days)
+      // But show at least 0 if there's still time left (even if less than a day)
+      const daysRemaining = timeDiff > 0 ? Math.max(1, Math.floor(exactDaysRemaining)) : 0;
+
+      if (timeDiff > 0) {
+        return {
+          isValid: true,
+          status: 'trial',
+          daysRemaining,
+          subscription,
+          canUsePlatform: true,
+          requiresPayment: false,
+          billingOnly: false,
+          message: `Trial active: ${daysRemaining} days remaining`
+        };
+      } else {
+        // Trial expired
+        this.persistentStorage.updateSubscription(subscription.gbpAccountId, { status: 'expired' });
+        return {
+          isValid: false,
+          status: 'expired',
+          daysRemaining: 0,
+          subscription: { ...subscription, status: 'expired' },
+          canUsePlatform: false,
+          requiresPayment: true,
+          billingOnly: true,
+          message: 'Your 15-day trial has expired. Please upgrade to continue.'
+        };
+      }
+    }
+
+    if (subscription.status === 'active' || subscription.status === 'paid') {
+      if (subscription.subscriptionEndDate) {
+        const endDate = new Date(subscription.subscriptionEndDate);
+        const daysRemaining = Math.ceil((endDate - now) / (1000 * 60 * 60 * 24));
+
+        if (daysRemaining > 0) {
+          return {
+            isValid: true,
+            status: 'active',
+            daysRemaining,
+            subscription,
+            canUsePlatform: true,
+            requiresPayment: false,
+            billingOnly: false,
+            message: 'Subscription active'
+          };
+        } else {
+          // Subscription expired
+          this.updateSubscription(subscription.id, { status: 'expired' });
+          return {
+            isValid: false,
+            status: 'expired',
+            daysRemaining: 0,
+            subscription: { ...subscription, status: 'expired' },
+            canUsePlatform: false,
+            requiresPayment: true,
+            billingOnly: true,
+            message: 'Subscription expired. Please renew to continue.'
+          };
+        }
+      }
+
+      return {
+        isValid: true,
+        status: 'active',
+        subscription,
+        canUsePlatform: true,
+        requiresPayment: false,
+        billingOnly: false,
+        message: 'Subscription active'
+      };
+    }
+
+    // For any other status (expired, cancelled, etc.)
+    return {
+      isValid: false,
       status: subscription.status,
       subscription,
       canUsePlatform: false,
