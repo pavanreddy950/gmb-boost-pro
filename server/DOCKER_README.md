@@ -1,6 +1,6 @@
-# 🐳 Docker Setup for GMB Boost Pro Backend
+# 🐳 Docker Setup for LOBAISEO Backend
 
-This guide explains how to build, run, and manage the GMB Boost Pro Backend server using Docker.
+This guide explains how to build, run, and manage the LOBAISEO Backend server using Docker.
 
 ## 📋 Prerequisites
 

@@ -63,7 +63,7 @@ const Sidebar = ({ isOpen = false, onClose }: SidebarProps) => {
         <div className="flex items-center gap-2 lg:mx-0 mx-auto">
           <Building2 className="h-6 w-6 text-primary" />
           <span className="font-bold text-lg bg-gradient-primary bg-clip-text text-transparent">
-            GMB BOOST PRO
+            LOBAISEO
           </span>
         </div>
         

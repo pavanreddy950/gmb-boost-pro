@@ -1,6 +1,6 @@
 # Google Business Profile Integration Setup Guide
 
-This guide will help you set up the Google Business Profile integration for your GMP Boost Pro application, just like Pabbly Connect.
+This guide will help you set up the Google Business Profile integration for your LOBAISEO application, just like Pabbly Connect.
 
 ## 🎯 What We've Built
 
@@ -50,7 +50,7 @@ This guide will help you set up the Google Business Profile integration for your
 1. Go to **APIs & Services > OAuth consent screen**
 2. Choose **External** user type
 3. Fill in required fields:
-   - App name: "GMP Boost Pro"
+   - App name: "LOBAISEO"
    - User support email: your-email@domain.com
    - Developer contact: your-email@domain.com
 4. Add scopes:

@@ -139,7 +139,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
         key: razorpayKeyId,
         amount: order.amount,
         currency: order.currency,
-        name: 'GMP Boost Pro',
+        name: 'LOBAISEO',
         description: selectedPlan.name,
         order_id: order.id,
         handler: async (response) => {

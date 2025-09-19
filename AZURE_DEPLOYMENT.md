@@ -1,4 +1,4 @@
-# Azure Production Deployment Guide for GMB Boost Pro
+# Azure Production Deployment Guide for LOBAISEO
 
 ## 🎯 Latest Updates (September 2025)
 

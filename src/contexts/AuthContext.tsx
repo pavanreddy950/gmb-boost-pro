@@ -58,7 +58,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
       toast({
         title: "Account created successfully!",
-        description: "Welcome to GMP Boost Pro!",
+        description: "Welcome to LOBAISEO!",
       });
     } catch (error: any) {
       console.error('Signup error:', error);

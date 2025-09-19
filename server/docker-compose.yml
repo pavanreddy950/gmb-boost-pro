@@ -5,7 +5,7 @@ services:
     build: 
       context: .
       dockerfile: Dockerfile
-    container_name: gmb-boost-pro-backend-new
+    container_name: lobaiseo-backend-new
     ports:
       - "5000:5000"
     environment:
@@ -23,7 +23,7 @@ services:
       retries: 5
       start_period: 30s
     networks:
-      - gmb-network
+      - lobaiseo-network
     # Remove volume mounts for production container
     logging:
       driver: "json-file"
@@ -32,6 +32,6 @@ services:
         max-file: "3"
 
 networks:
-  gmb-network:
+  lobaiseo-network:
     driver: bridge
-    name: gmb-boost-pro-network
+    name: lobaiseo-network

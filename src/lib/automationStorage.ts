@@ -35,8 +35,8 @@ export interface AutoPostingStats {
 }
 
 class AutomationStorage {
-  private readonly STORAGE_KEY = 'gmp_auto_posting_configs';
-  private readonly GLOBAL_STATS_KEY = 'gmp_auto_posting_global_stats';
+  private readonly STORAGE_KEY = 'lobaiseo_auto_posting_configs';
+  private readonly GLOBAL_STATS_KEY = 'lobaiseo_auto_posting_global_stats';
 
   // Get all configurations
   getAllConfigurations(): AutoPostingConfig[] {

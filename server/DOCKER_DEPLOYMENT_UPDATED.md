@@ -2,7 +2,7 @@
 
 ## 🎯 Latest Docker Image Pushed Successfully
 
-Your GMB Boost Pro backend has been updated and pushed to Docker Hub with all the latest changes including:
+Your LOBAISEO backend has been updated and pushed to Docker Hub with all the latest changes including:
 
 ### ✅ What's Included in the Latest Image:
 - **Azure OpenAI Integration**: Full AI reviews, auto-posting, and auto-reply functionality

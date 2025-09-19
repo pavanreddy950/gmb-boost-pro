@@ -1,74 +1,68 @@
-# Welcome to your Lovable project
+# LOBAISEO
 
-## Project info
+LOBAISEO is a professional Google Business Profile management platform that helps you schedule posts, manage reviews, and boost your online presence.
 
-**URL**: https://lovable.dev/projects/29f1385b-8e3a-49fb-a595-367f66909f03
+## Features
 
-## How can I edit this code?
+- Google Business Profile connection and management
+- Post scheduling and publishing
+- Review management and response automation
+- Business profile analytics
+- QR code generation for customer reviews
 
-There are several ways of editing your application.
+## Development Setup
 
-**Use Lovable**
+### Prerequisites
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/29f1385b-8e3a-49fb-a595-367f66909f03) and start prompting.
+- Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
 
-Changes made via Lovable will be committed automatically to this repo.
-
-**Use your preferred IDE**
-
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
-
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
-
-Follow these steps:
+### Installation
 
 ```sh
-# Step 1: Clone the repository using the project's Git URL.
+# Clone the repository
 git clone <YOUR_GIT_URL>
 
-# Step 2: Navigate to the project directory.
+# Navigate to the project directory
 cd <YOUR_PROJECT_NAME>
 
-# Step 3: Install the necessary dependencies.
-npm i
+# Install frontend dependencies
+npm install
 
-# Step 4: Start the development server with auto-reloading and an instant preview.
-npm run dev
+# Install backend dependencies
+cd server
+npm install
+cd ..
+
+# Start the development servers
+npm run dev        # Frontend (port 3000)
+cd server && npm run dev  # Backend (port 5000)
 ```
 
-**Edit a file directly in GitHub**
+## Technologies Used
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+- **Frontend**: React, TypeScript, Vite, Tailwind CSS, shadcn/ui
+- **Backend**: Node.js, Express
+- **Authentication**: Firebase Auth
+- **APIs**: Google Business Profile API, Google My Business API
 
-**Use GitHub Codespaces**
+## Project Structure
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+```
+├── src/                    # Frontend source code
+│   ├── components/         # React components
+│   ├── contexts/          # React contexts
+│   ├── hooks/             # Custom hooks
+│   ├── lib/               # Utility libraries
+│   └── pages/             # Page components
+├── server/                # Backend source code
+├── public/                # Static assets
+└── docs/                  # Documentation
+```
 
-## What technologies are used for this project?
+## Configuration
 
-This project is built with:
+1. Set up Firebase authentication
+2. Configure Google Business Profile API credentials
+3. Update environment variables in `.env.local` and `server/.env`
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
-
-## How can I deploy this project?
-
-Simply open [Lovable](https://lovable.dev/projects/29f1385b-8e3a-49fb-a595-367f66909f03) and click on Share -> Publish.
-
-## Can I connect a custom domain to my Lovable project?
-
-Yes, you can!
-
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
-
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/tips-tricks/custom-domain#step-by-step-guide)
-# Deploy trigger Wed, Sep 10, 2025  3:36:14 PM
+For detailed setup instructions, see the CLAUDE.md file.

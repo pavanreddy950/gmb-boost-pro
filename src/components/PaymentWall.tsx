@@ -117,8 +117,8 @@ export const PaymentWall: React.FC<PaymentWallProps> = ({
           {/* Contact Support */}
           <div className="text-center text-sm text-muted-foreground pt-2 border-t">
             Need help? Contact support at{' '}
-            <a href="mailto:support@gmpboostpro.com" className="text-primary hover:underline">
-              support@gmpboostpro.com
+            <a href="mailto:support@lobaiseo.com" className="text-primary hover:underline">
+              support@lobaiseo.com
             </a>
           </div>
         </CardContent>

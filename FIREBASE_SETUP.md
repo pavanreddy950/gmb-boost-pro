@@ -1,6 +1,6 @@
 # Firebase Authentication Setup Guide
 
-This guide will help you set up Firebase Authentication for your GMP Boost Pro application.
+This guide will help you set up Firebase Authentication for your LOBAISEO application.
 
 ## Prerequisites
 
@@ -11,7 +11,7 @@ This guide will help you set up Firebase Authentication for your GMP Boost Pro a
 
 1. Go to the [Firebase Console](https://console.firebase.google.com/)
 2. Click "Add project" or "Create a project"
-3. Enter your project name (e.g., "gmp-boost-pro")
+3. Enter your project name (e.g., "lobaiseo")
 4. Choose whether to enable Google Analytics (optional)
 5. Click "Create project"
 
@@ -30,7 +30,7 @@ This guide will help you set up Firebase Authentication for your GMP Boost Pro a
 2. Select "Project settings"
 3. Scroll down to the "Your apps" section
 4. Click on the web icon (`</>`) to add a web app
-5. Register your app with a nickname (e.g., "GMP Boost Pro Web")
+5. Register your app with a nickname (e.g., "LOBAISEO Web")
 6. Copy the Firebase configuration object
 
 ## Step 4: Configure Your Application

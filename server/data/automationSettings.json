@@ -10,20 +10,13 @@
         "userId": "OBm8qZc0jOWcY53x6rQuX4gKKnQ2",
         "accountId": "106433552101751461082"
       },
-      "updatedAt": "2025-09-19T16:39:29.034Z",
+      "updatedAt": "2025-09-19T19:15:44.684Z",
       "autoPosting": {
         "enabled": true,
         "schedule": "09:00",
-        "frequency": "weekly",
+        "frequency": "alternative",
         "businessName": "Scale Point Strategy & Business Growth Solutions",
         "category": "Internet marketing service",
-        "categories": [
-          "Internet marketing service",
-          "Branding agency",
-          "Marketing agency",
-          "Web Designer",
-          "Business development service"
-        ],
         "keywords": "Scale Point Strategy & Business Growth Solutions, scale, point, strategy, growth, Jalandhar, Scale Point Strategy & Business Growth Solutions Jalandhar",
         "websiteUrl": "https://www.scalepointstrategy.com/",
         "timezone": "Asia/Calcutta",

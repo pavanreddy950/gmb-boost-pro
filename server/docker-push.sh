@@ -1,15 +1,15 @@
 #!/bin/bash
 
-# Docker Hub push script for GMB Boost Pro Backend
+# Docker Hub push script for LOBAISEO Backend
 # Usage: ./docker-push.sh [DOCKER_HUB_USERNAME]
 
 # Set default Docker Hub username (update this with your actual username)
 DEFAULT_USERNAME="scale112"
 DOCKERHUB_USERNAME="${1:-$DEFAULT_USERNAME}"
-IMAGE_NAME="gmb-boost-pro-backend"
+IMAGE_NAME="lobaiseo-backend"
 TAG="latest"
 
-echo "🐳 Pushing GMB Boost Pro Backend to Docker Hub..."
+echo "🐳 Pushing LOBAISEO Backend to Docker Hub..."
 echo "📦 Username: $DOCKERHUB_USERNAME"
 echo "🏷️  Image: $IMAGE_NAME:$TAG"
 

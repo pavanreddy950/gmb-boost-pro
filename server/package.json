@@ -1,5 +1,5 @@
 {
-  "name": "gmp-profile-pulse-backend",
+  "name": "lobaiseo-backend",
   "version": "1.0.0",
   "description": "Backend server for Google Business Profile integration",
   "main": "server.js",
@@ -12,7 +12,7 @@
     "start:local": "set RUN_MODE=LOCAL && node server.js",
     "start:azure": "set RUN_MODE=AZURE && node server.js",
     "start:production": "node start-production.js",
-    "docker:build": "docker build -t gmb-boost-pro-backend:latest .",
+    "docker:build": "docker build -t lobaiseo-backend:latest .",
     "docker:run": "docker-compose up -d",
     "docker:run:prod": "docker-compose -f docker-compose.production.yml up -d --build",
     "docker:stop": "docker-compose down",
@@ -20,8 +20,8 @@
     "docker:logs": "docker-compose logs -f backend",
     "docker:logs:prod": "docker-compose -f docker-compose.production.yml logs -f backend",
     "docker:push": "./docker-push.sh scale112",
-    "docker:tag": "docker tag gmb-boost-pro-backend:latest scale112/gmb-boost-pro-backend:latest",
-    "docker:pull": "docker pull scale112/gmb-boost-pro-backend:v6",
+    "docker:tag": "docker tag lobaiseo-backend:latest scale112/lobaiseo-backend:latest",
+    "docker:pull": "docker pull scale112/lobaiseo-backend:v6",
     "docker:run:hub": "docker-compose -f docker-compose.hub.yml up -d",
     "docker:stop:hub": "docker-compose -f docker-compose.hub.yml down"
   },
