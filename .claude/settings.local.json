@@ -53,7 +53,9 @@
       "Bash(del \"C:\\Users\\meena\\OneDrive\\Desktop\\gmb boost pro\\gmp-profile-pulse-main\\gmp-profile-pulse-main\\.env.production\")",
       "Bash(dir:*)",
       "Bash(npm run:*)",
-      "Bash(./docker-push-pavan-client.sh:*)"
+      "Bash(./docker-push-pavan-client.sh:*)",
+      "Bash(set RUN_MODE=AZURE)",
+      "Bash(set NODE_ENV=production)"
     ],
     "deny": [],
     "ask": []
