@@ -1,0 +1,63 @@
+version: '3.8'
+
+services:
+  backend:
+    image: scale112/pavan-client-backend:latest  # Pull from Docker Hub
+    container_name: pavan-client
+    ports:
+      - "5000:5000"  # Using port 5000
+    environment:
+      - NODE_ENV=production
+      - PORT=5000
+      - RUN_MODE=AZURE
+      # Google OAuth Configuration
+      - GOOGLE_CLIENT_ID=52772597205-9ogv54i6sfvucse3jrqj1nl1hlkspcv1.apps.googleusercontent.com
+      - GOOGLE_CLIENT_SECRET=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
+      - FRONTEND_URL=https://delightful-sea-062191a0f.2.azurestaticapps.net
+      - BACKEND_URL=http://localhost:5000
+      - GOOGLE_REDIRECT_URI=https://delightful-sea-062191a0f.2.azurestaticapps.net/auth/google/callback
+      - HARDCODED_ACCOUNT_ID=106433552101751461082
+      # Razorpay Configuration
+      - RAZORPAY_KEY_ID=rzp_live_RFSzT9EvJ2cwJI
+      - RAZORPAY_KEY_SECRET=7i0iikfS6eO7w4DSLXldCBX5
+      - RAZORPAY_WEBHOOK_SECRET=gmb_boost_pro_webhook_secret_2024
+      # Azure OpenAI Configuration (if needed)
+      - AZURE_OPENAI_ENDPOINT=https://your-openai-resource.openai.azure.com/
+      - AZURE_OPENAI_API_KEY=your-azure-openai-api-key
+      - AZURE_OPENAI_DEPLOYMENT=gpt-4
+      - AZURE_OPENAI_API_VERSION=2024-02-15-preview
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:5000/health', (res) => { if (res.statusCode === 200) { process.exit(0) } else { process.exit(1) } })"]
+      interval: 30s
+      timeout: 15s
+      retries: 5
+      start_period: 60s
+    networks:
+      - pavan-client-network
+    volumes:
+      # Optional: Mount logs directory for debugging
+      - ./logs:/app/logs
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "20m"
+        max-file: "5"
+    # Resource limits for better performance
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+
+networks:
+  pavan-client-network:
+    driver: bridge
+    name: pavan-client-network
+
+volumes:
+  pavan-client-data:
+    name: pavan-client-data

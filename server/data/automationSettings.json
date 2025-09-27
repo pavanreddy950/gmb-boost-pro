@@ -1,0 +1,84 @@
+{
+  "automations": {
+    "14977377147025961194": {
+      "autoReply": {
+        "enabled": true,
+        "businessName": "Scale Point Strategy & Business Growth Solutions",
+        "category": "Internet marketing service",
+        "keywords": "Scale Point Strategy & Business Growth Solutions, scale, point, strategy, growth, Jalandhar, Scale Point Strategy & Business Growth Solutions Jalandhar",
+        "replyToAll": true,
+        "userId": "OBm8qZc0jOWcY53x6rQuX4gKKnQ2",
+        "accountId": "106433552101751461082"
+      },
+      "updatedAt": "2025-09-21T07:05:58.540Z",
+      "autoPosting": {
+        "enabled": true,
+        "schedule": "09:00",
+        "frequency": "alternative",
+        "businessName": "Scale Point Strategy & Business Growth Solutions",
+        "category": "Internet marketing service",
+        "categories": [
+          "Internet marketing service",
+          "Branding agency",
+          "Marketing agency",
+          "Web Designer",
+          "Business development service"
+        ],
+        "keywords": "Scale Point Strategy & Business Growth Solutions, scale, point, strategy, growth, Jalandhar, Scale Point Strategy & Business Growth Solutions Jalandhar",
+        "websiteUrl": "https://www.scalepointstrategy.com/",
+        "timezone": "Asia/Calcutta",
+        "fullAddress": "3204 First Floor Above abhi electrical point near Shehnai palace, Tej Mohan , Nagar, Ashok Nagar",
+        "city": "Jalandhar",
+        "region": "Punjab",
+        "country": "IN",
+        "postalCode": "144001",
+        "userId": "OBm8qZc0jOWcY53x6rQuX4gKKnQ2"
+      },
+      "userId": "OBm8qZc0jOWcY53x6rQuX4gKKnQ2"
+    },
+    "9152028977863765725": {
+      "autoPosting": {
+        "enabled": true,
+        "schedule": "09:00",
+        "frequency": "alternative",
+        "businessName": "Tree House Retreat Mohani",
+        "category": "Resort hotel",
+        "keywords": "Tree House Retreat Mohani, tree, house, retreat, mohani, Kullu, Tree House Retreat Mohani Kullu",
+        "timezone": "Asia/Calcutta",
+        "userId": "default"
+      },
+      "updatedAt": "2025-09-10T08:10:31.709Z"
+    },
+    "17697790081864925086": {
+      "autoPosting": {
+        "enabled": true,
+        "schedule": "09:00",
+        "frequency": "alternative",
+        "businessName": "SITARAM GUEST HOUSE",
+        "category": "Hotel",
+        "categories": [
+          "Hotel"
+        ],
+        "keywords": "SITARAM GUEST HOUSE, sitaram, guest, house, Varanasi, SITARAM GUEST HOUSE Varanasi",
+        "timezone": "Asia/Calcutta",
+        "fullAddress": "K58/66, Daranagar maidagin, Near maidagin filling station",
+        "city": "Varanasi",
+        "region": "Uttar Pradesh",
+        "country": "IN",
+        "postalCode": "221001",
+        "userId": "OBm8qZc0jOWcY53x6rQuX4gKKnQ2"
+      },
+      "autoReply": {
+        "enabled": true,
+        "businessName": "SITARAM GUEST HOUSE",
+        "category": "Hotel",
+        "keywords": "SITARAM GUEST HOUSE, sitaram, guest, house, Varanasi, SITARAM GUEST HOUSE Varanasi",
+        "replyToAll": true,
+        "userId": "OBm8qZc0jOWcY53x6rQuX4gKKnQ2",
+        "accountId": "106433552101751461082"
+      },
+      "updatedAt": "2025-09-22T18:23:01.638Z",
+      "userId": "OBm8qZc0jOWcY53x6rQuX4gKKnQ2"
+    }
+  }
+}
