@@ -9,7 +9,7 @@
       "trialStartDate": "2025-09-10T07:15:15.788Z",
       "trialEndDate": "2025-09-10T07:17:15.788Z",
       "createdAt": "2025-09-10T07:15:15.788Z",
-      "updatedAt": "2025-09-11T13:55:21.986Z",
+      "updatedAt": "2025-09-29T15:53:45.367Z",
       "paymentHistory": [
         {
           "id": "pay_1757488704953_lmo5xxwf5",
@@ -82,29 +82,65 @@
           "description": "Pro Plan",
           "paidAt": "2025-09-11T13:55:21.984Z",
           "createdAt": "2025-09-11T13:55:21.984Z"
+        },
+        {
+          "id": "pay_1759161225352_xhyfjyvkl",
+          "amount": 1,
+          "currency": "USD",
+          "status": "success",
+          "razorpayPaymentId": "pay_RNTQTxvLhg8XK0",
+          "razorpayOrderId": "order_RNTPRbJKgeXuPG",
+          "razorpaySignature": "f3e54c396e289a0e38fd4f0b1db393a07d2b2f3a39ca5c6783799086493d5d12",
+          "description": "Pro Plan",
+          "paidAt": "2025-09-29T15:53:45.352Z",
+          "createdAt": "2025-09-29T15:53:45.352Z"
         }
       ],
-      "planId": "yearly_pro",
-      "lastPaymentDate": "2025-09-11T13:55:21.986Z",
-      "subscriptionEndDate": "2026-09-11T13:55:21.986Z",
-      "razorpayPaymentId": "pay_RGJnbbH6KhFcIs",
-      "razorpayOrderId": "order_RGJnPufslYdrA6",
+      "planId": "per_profile_yearly",
+      "lastPaymentDate": "2025-09-29T15:53:45.355Z",
+      "subscriptionEndDate": "2026-09-29T15:53:45.355Z",
+      "razorpayPaymentId": "pay_RNTQTxvLhg8XK0",
+      "razorpayOrderId": "order_RNTPRbJKgeXuPG",
       "amount": 1,
-      "currency": "INR",
-      "subscriptionStartDate": "2025-09-11T13:55:21.986Z",
-      "paidAt": "2025-09-11T13:55:21.986Z"
+      "currency": "USD",
+      "subscriptionStartDate": "2025-09-29T15:53:45.355Z",
+      "paidAt": "2025-09-29T15:53:45.355Z",
+      "profileCount": 17
     },
     "17339526077864926205": {
       "id": "sub_1757488628836_bm9lkdsnt",
       "userId": "jzssBuuuFZUknI20kZuyLXCc6ne2",
       "gbpAccountId": "17339526077864926205",
       "email": "jobspring.help@gmail.com",
-      "status": "trial",
+      "status": "active",
       "trialStartDate": "2025-09-10T07:17:08.836Z",
       "trialEndDate": "2025-09-25T07:17:08.836Z",
       "createdAt": "2025-09-10T07:17:08.836Z",
-      "updatedAt": "2025-09-10T07:17:08.836Z",
-      "paymentHistory": []
+      "updatedAt": "2025-09-30T07:03:39.816Z",
+      "paymentHistory": [
+        {
+          "id": "pay_1759215819813_xsar52509",
+          "amount": 1,
+          "currency": "INR",
+          "status": "success",
+          "razorpayPaymentId": "pay_RNivyKGs1nRY4F",
+          "razorpayOrderId": "order_RNivPBMo5YRyo2",
+          "razorpaySignature": "4361e6e717eee48f4616fbdc321741a6db97e53f79696db2af07ed1a80d20dba",
+          "description": "Pro Plan",
+          "paidAt": "2025-09-30T07:03:39.813Z",
+          "createdAt": "2025-09-30T07:03:39.813Z"
+        }
+      ],
+      "planId": "per_profile_yearly",
+      "profileCount": 1,
+      "lastPaymentDate": "2025-09-30T07:03:39.815Z",
+      "subscriptionEndDate": "2026-09-30T07:03:39.815Z",
+      "razorpayPaymentId": "pay_RNivyKGs1nRY4F",
+      "razorpayOrderId": "order_RNivPBMo5YRyo2",
+      "amount": 1,
+      "currency": "INR",
+      "subscriptionStartDate": "2025-09-30T07:03:39.816Z",
+      "paidAt": "2025-09-30T07:03:39.816Z"
     }
   }
 }

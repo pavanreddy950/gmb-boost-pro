@@ -2,11 +2,15 @@ import express from 'express';
 import PaymentService from '../services/paymentService.js';
 import SubscriptionService from '../services/subscriptionService.js';
 import CouponService from '../services/couponService.js';
+import CurrencyService from '../services/currencyService.js';
+import GeolocationService from '../utils/geolocation.js';
 
 const router = express.Router();
 const paymentService = new PaymentService();
 const subscriptionService = new SubscriptionService();
 const couponService = new CouponService();
+const currencyService = new CurrencyService();
+const geolocationService = new GeolocationService();
 
 // Health check for payment service
 router.get('/health', async (req, res) => {
@@ -67,6 +71,66 @@ router.get('/test', async (req, res) => {
       },
       timestamp: new Date().toISOString()
     });
+  }
+});
+
+// Detect user's currency based on location
+router.get('/detect-currency', async (req, res) => {
+  try {
+    const clientIP = geolocationService.getClientIP(req);
+    console.log('[Currency Detection] Client IP:', clientIP);
+
+    const location = await geolocationService.getLocationByIP(clientIP);
+    const rates = await currencyService.getExchangeRates();
+
+    res.json({
+      detectedCurrency: location.currency,
+      countryCode: location.countryCode,
+      country: location.country,
+      exchangeRate: rates[location.currency],
+      currencySymbol: currencyService.getCurrencySymbol(location.currency),
+      isSupported: currencyService.isCurrencySupported(location.currency),
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    console.error('[Currency Detection] Error:', error);
+    res.status(500).json({ error: 'Failed to detect currency' });
+  }
+});
+
+// Get live exchange rates
+router.get('/exchange-rates', async (req, res) => {
+  try {
+    console.log('[Currency] Fetching exchange rates...');
+    const rates = await currencyService.getExchangeRates();
+    const supportedCurrencies = currencyService.getRazorpaySupportedCurrencies();
+
+    res.json({
+      baseCurrency: 'USD',
+      rates,
+      supportedCurrencies,
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    console.error('[Currency] Error fetching exchange rates:', error);
+    res.status(500).json({ error: 'Failed to fetch exchange rates' });
+  }
+});
+
+// Convert currency
+router.post('/convert-currency', async (req, res) => {
+  try {
+    const { amount, targetCurrency } = req.body;
+
+    if (!amount || !targetCurrency) {
+      return res.status(400).json({ error: 'amount and targetCurrency are required' });
+    }
+
+    const conversion = await currencyService.convertFromUSD(amount, targetCurrency);
+    res.json(conversion);
+  } catch (error) {
+    console.error('[Currency] Conversion error:', error);
+    res.status(500).json({ error: 'Failed to convert currency' });
   }
 });
 
@@ -181,49 +245,88 @@ router.get('/coupons', async (req, res) => {
   }
 });
 
-// Create Razorpay order
+// Create Razorpay order with dynamic currency conversion
 router.post('/order', async (req, res) => {
   try {
     console.log('[Payment Route] Creating order with body:', req.body);
-    
-    const { amount, currency = 'INR', notes = {}, couponCode } = req.body;
-    
+
+    const {
+      amount,
+      currency = 'INR',
+      notes = {},
+      couponCode,
+      usdAmount // Original USD amount before conversion
+    } = req.body;
+
     if (!amount) {
       console.log('[Payment Route] Error: Amount is required');
       return res.status(400).json({ error: 'Amount is required' });
     }
-    
-    console.log('[Payment Route] Processing order - Amount:', amount, 'Currency:', currency, 'Coupon:', couponCode);
-    
+
+    // Verify currency is supported by Razorpay
+    if (!currencyService.isCurrencySupported(currency)) {
+      return res.status(400).json({
+        error: `Currency ${currency} is not supported. Supported currencies: ${currencyService.getRazorpaySupportedCurrencies().join(', ')}`
+      });
+    }
+
+    console.log('[Payment Route] Processing order - Amount:', amount, 'Currency:', currency, 'USD Amount:', usdAmount, 'Coupon:', couponCode);
+
     let finalAmount = amount;
     let couponDetails = null;
-    
+    let conversionDetails = null;
+
+    // If USD amount is provided, get live conversion rate and add to notes
+    if (usdAmount && currency !== 'USD') {
+      try {
+        const conversion = await currencyService.convertFromUSD(usdAmount, currency);
+        conversionDetails = conversion;
+
+        // Use the live converted amount
+        finalAmount = Math.round(conversion.convertedAmount);
+
+        console.log(`[Payment Route] 💱 Live conversion: $${usdAmount} USD → ${finalAmount} ${currency} (rate: ${conversion.exchangeRate})`);
+
+        // Add conversion details to notes
+        notes.originalUsdAmount = usdAmount;
+        notes.exchangeRate = conversion.exchangeRate;
+        notes.conversionTimestamp = conversion.timestamp;
+      } catch (conversionError) {
+        console.error('[Payment Route] Currency conversion failed:', conversionError.message);
+        // Continue with the provided amount if conversion fails
+      }
+    }
+
     // Apply coupon if provided
     if (couponCode) {
       console.log('[Payment Route] Applying coupon:', couponCode);
-      const couponResult = couponService.applyCoupon(couponCode, amount);
+      const couponResult = couponService.applyCoupon(couponCode, finalAmount);
       if (couponResult.success) {
+        const beforeCoupon = finalAmount;
         finalAmount = couponResult.finalAmount;
         couponDetails = couponResult;
         notes.couponCode = couponCode;
-        notes.originalAmount = amount;
+        notes.amountBeforeCoupon = beforeCoupon;
         notes.discountAmount = couponResult.discountAmount;
-        console.log(`[Payment Route] Coupon ${couponCode} applied: Rs. ${amount} -> Rs. ${finalAmount}`);
+        console.log(`[Payment Route] Coupon ${couponCode} applied: ${currencyService.formatAmount(beforeCoupon, currency)} → ${currencyService.formatAmount(finalAmount, currency)}`);
       } else {
         console.log('[Payment Route] Coupon application failed:', couponResult.error);
         return res.status(400).json({ error: couponResult.error });
       }
     }
-    
-    console.log('[Payment Route] Creating Razorpay order with amount:', finalAmount);
+
+    console.log('[Payment Route] Creating Razorpay order with amount:', finalAmount, currency);
     const order = await paymentService.createOrder(finalAmount, currency, notes);
     console.log('[Payment Route] Order created successfully:', order.id);
-    
-    res.json({ 
+
+    res.json({
       order,
       couponDetails,
+      conversionDetails,
       originalAmount: amount,
-      finalAmount
+      finalAmount,
+      currency,
+      formatted: currencyService.formatAmount(finalAmount, currency)
     });
   } catch (error) {
     console.error('[Payment Route] Error creating order:', error);
@@ -497,5 +600,6 @@ router.post('/webhook', async (req, res) => {
     res.status(500).json({ error: 'Webhook processing failed' });
   }
 });
+
 
 export default router;

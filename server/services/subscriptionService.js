@@ -350,31 +350,46 @@ class SubscriptionService {
     if (!subscription) {
       throw new Error('No subscription found for this GBP account');
     }
-    
+
     const now = new Date();
-    const endDate = new Date();
-    
-    // Determine subscription duration based on plan
-    if (paymentDetails.planId) {
-      const plan = this.plans.get(paymentDetails.planId);
-      if (plan) {
-        if (plan.interval === 'monthly') {
-          endDate.setMonth(endDate.getMonth() + 1);
-        } else if (plan.interval === 'yearly') {
-          endDate.setFullYear(endDate.getFullYear() + 1);
-        }
-      }
+    let endDate;
+
+    // Use provided subscriptionEndDate or calculate based on plan
+    if (paymentDetails.subscriptionEndDate) {
+      // Use the provided end date (already calculated in payment route)
+      endDate = paymentDetails.subscriptionEndDate;
     } else {
-      // Default to 1 month if no plan specified
-      endDate.setMonth(endDate.getMonth() + 1);
+      // Calculate end date based on plan
+      endDate = new Date();
+      if (paymentDetails.planId) {
+        const plan = this.plans.get(paymentDetails.planId);
+        if (plan) {
+          if (plan.interval === 'monthly') {
+            endDate.setMonth(endDate.getMonth() + 1);
+          } else if (plan.interval === 'yearly') {
+            endDate.setFullYear(endDate.getFullYear() + 1);
+          }
+        } else {
+          // Handle per_profile_yearly and other yearly plans
+          if (paymentDetails.planId.includes('yearly') || paymentDetails.planId === 'per_profile_yearly') {
+            endDate.setFullYear(endDate.getFullYear() + 1);
+          } else {
+            endDate.setMonth(endDate.getMonth() + 1);
+          }
+        }
+      } else {
+        // Default to 1 month if no plan specified
+        endDate.setMonth(endDate.getMonth() + 1);
+      }
+      endDate = endDate.toISOString();
     }
-    
+
     // Update subscription to paid/active status with proper end date
     return this.persistentStorage.updateSubscription(gbpAccountId, {
       status: 'active',
       ...paymentDetails,
       subscriptionStartDate: now.toISOString(),
-      subscriptionEndDate: endDate.toISOString(),
+      subscriptionEndDate: endDate,
       paidAt: now.toISOString()
     });
   }

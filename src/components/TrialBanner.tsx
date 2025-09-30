@@ -54,7 +54,7 @@ export const TrialBanner: React.FC = () => {
   const style = getBannerStyle();
 
   return (
-    <div className={`relative border-b ${style.bgColor} p-4 z-10`}>
+    <div className={`relative border-b ${style.bgColor} p-4 z-[70]`}>
       <div className="max-w-7xl mx-auto">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-4 flex-1">

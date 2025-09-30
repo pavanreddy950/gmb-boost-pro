@@ -131,38 +131,112 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
       return;
     }
 
+    if (!Razorpay) {
+      toast({
+        title: "Error",
+        description: "Payment system is not loaded. Please refresh the page and try again.",
+        variant: "destructive"
+      });
+      return;
+    }
+
     setIsProcessing(true);
 
     try {
-      // Create order in backend
-      const orderResponse = await fetch(`${backendUrl}/api/payment/order`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          amount: selectedPlanId === 'per_profile_yearly'
-            ? SubscriptionService.calculateTotalPrice(profileCount)
-            : selectedPlan.amount,
-          currency: selectedPlan.currency,
-          couponCode: couponDetails?.success ? couponCode : undefined,
-          notes: {
-            planId: selectedPlan.id,
-            profileCount: selectedPlanId === 'per_profile_yearly' ? profileCount : undefined,
-            userId: currentUser.uid,
-            email: currentUser.email,
-            gbpAccountId: subscription?.gbpAccountId
-          }
-        })
+      // Show loading toast
+      toast({
+        title: "Initializing Payment",
+        description: "Please wait while we set up your payment...",
       });
 
+      // Calculate USD amount
+      const usdAmount = selectedPlanId === 'per_profile_yearly'
+        ? SubscriptionService.calculateTotalPrice(profileCount)
+        : selectedPlan.amount;
+
+      // Auto-detect user's currency based on location
+      console.log('[Payment] 🌍 Detecting user currency...');
+      const currencyDetectionResponse = await fetch(`${backendUrl}/api/payment/detect-currency`);
+
+      let exchangeRate = 88.78; // Fallback rate
+      let targetCurrency = 'INR'; // Default fallback
+      let currencySymbol = '₹';
+
+      if (currencyDetectionResponse.ok) {
+        const currencyData = await currencyDetectionResponse.json();
+        targetCurrency = currencyData.detectedCurrency;
+        exchangeRate = currencyData.exchangeRate || 88.78;
+        currencySymbol = currencyData.currencySymbol;
+        console.log(`[Payment] ✅ Detected: ${currencyData.country} → ${targetCurrency} (${currencySymbol})`);
+        console.log(`[Payment] ✅ Live exchange rate: 1 USD = ${exchangeRate} ${targetCurrency}`);
+      } else {
+        console.warn('[Payment] ⚠️ Currency detection failed, using fallback: INR');
+      }
+
+      // Convert USD to target currency using live rate
+      const usdInDollars = usdAmount / 100;
+      const convertedAmount = Math.round(usdInDollars * exchangeRate * 100); // Convert to paise/cents
+
+      console.log(`[Payment] 💱 Converting: $${usdInDollars} USD → ${convertedAmount/100} ${targetCurrency} (rate: ${exchangeRate})`);
+
+      // Create order in backend with retry logic
+      let orderResponse;
+      let retryCount = 0;
+      const maxRetries = 3;
+
+      while (retryCount < maxRetries) {
+        try {
+          orderResponse = await fetch(`${backendUrl}/api/payment/order`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              amount: convertedAmount,
+              currency: targetCurrency,
+              usdAmount: usdInDollars, // Backend will fetch live rate and convert
+              couponCode: couponDetails?.success ? couponCode : undefined,
+              notes: {
+                planId: selectedPlan.id,
+                profileCount: selectedPlanId === 'per_profile_yearly' ? profileCount : undefined,
+                userId: currentUser.uid,
+                email: currentUser.email,
+                gbpAccountId: subscription?.gbpAccountId
+              }
+            })
+          });
+
+          if (orderResponse.ok) {
+            break;
+          } else {
+            throw new Error(`HTTP ${orderResponse.status}: ${orderResponse.statusText}`);
+          }
+        } catch (error) {
+          retryCount++;
+          console.warn(`Order creation attempt ${retryCount} failed:`, error);
+
+          if (retryCount >= maxRetries) {
+            throw new Error(`Failed to create order after ${maxRetries} attempts: ${error.message}`);
+          }
+
+          // Wait before retry (exponential backoff)
+          await new Promise(resolve => setTimeout(resolve, 1000 * retryCount));
+        }
+      }
+
       if (!orderResponse.ok) {
-        throw new Error('Failed to create order');
+        const errorData = await orderResponse.text();
+        throw new Error(`Failed to create order: ${errorData}`);
       }
 
       const { order, finalAmount } = await orderResponse.json();
 
-      // Razorpay checkout options
+      // Validate order data
+      if (!order || !order.id || !order.amount) {
+        throw new Error('Invalid order data received from server');
+      }
+
+      // Razorpay checkout options with enhanced payment methods
       const options: RazorpayOrderOptions = {
         key: razorpayKeyId,
         amount: order.amount,
@@ -170,34 +244,59 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
         name: 'LOBAISEO',
         description: selectedPlan.name,
         order_id: order.id,
+        timeout: 300, // 5 minutes timeout
+        retry: {
+          enabled: true,
+          max_count: 3
+        },
         handler: async (response) => {
-          // Verify payment on backend
-          const verifyResponse = await fetch(`${backendUrl}/api/payment/verify`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-              razorpay_order_id: response.razorpay_order_id,
-              razorpay_payment_id: response.razorpay_payment_id,
-              razorpay_signature: response.razorpay_signature,
-              subscriptionId: subscription?.id,
-              gbpAccountId: subscription?.gbpAccountId,
-              planId: selectedPlan.id
-            })
-          });
+          try {
+            // Verify payment on backend
+            const verifyResponse = await fetch(`${backendUrl}/api/payment/verify`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json'
+              },
+              body: JSON.stringify({
+                razorpay_order_id: response.razorpay_order_id,
+                razorpay_payment_id: response.razorpay_payment_id,
+                razorpay_signature: response.razorpay_signature,
+                subscriptionId: subscription?.id,
+                gbpAccountId: subscription?.gbpAccountId,
+                planId: selectedPlan.id
+              })
+            });
 
-          if (verifyResponse.ok) {
-            // Close modal first
-            onClose();
-            
-            // Refresh subscription status
-            await checkSubscriptionStatus();
-            
-            // Navigate to payment success page
-            navigate('/payment-success');
-          } else {
-            throw new Error('Payment verification failed');
+            if (verifyResponse.ok) {
+              // Close modal first
+              onClose();
+
+              // Force subscription status refresh with delay to ensure backend is updated
+              setTimeout(async () => {
+                try {
+                  await checkSubscriptionStatus();
+                  // Force complete page reload to clear any cached states
+                  window.location.reload();
+                } catch (error) {
+                  console.error('Failed to refresh subscription status:', error);
+                  // Still reload to clear cache
+                  window.location.reload();
+                }
+              }, 2000);
+
+              // Navigate to payment success page
+              navigate('/payment-success');
+            } else {
+              throw new Error('Payment verification failed');
+            }
+          } catch (error) {
+            console.error('Payment handler error:', error);
+            toast({
+              title: "Payment Error",
+              description: "There was an issue processing your payment. Please try again.",
+              variant: "destructive"
+            });
+            setIsProcessing(false);
           }
         },
         prefill: {
@@ -205,8 +304,84 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
           email: currentUser.email || '',
           contact: ''
         },
+        notes: {
+          address: 'LOBAISEO Corporate Office'
+        },
         theme: {
-          color: '#1E2DCD'
+          color: '#1E2DCD',
+          backdrop_color: 'rgba(0, 0, 0, 0.5)'
+        },
+        config: {
+          display: {
+            blocks: {
+              card: {
+                name: 'Credit/Debit Cards',
+                instruments: [
+                  {
+                    method: 'card',
+                    types: ['credit', 'debit'],
+                    issuers: ['VISA', 'MC', 'AMEX', 'RUPAY', 'MAES', 'BAJAJ'],
+                    flows: ['3ds', 'ivr', 'otp', 'pin']
+                  }
+                ]
+              },
+              paypal: {
+                name: 'PayPal',
+                instruments: [
+                  {
+                    method: 'paypal'
+                  }
+                ]
+              },
+              intl_bank_transfer: {
+                name: 'International Bank Transfer',
+                instruments: [
+                  {
+                    method: 'bank_transfer'
+                  }
+                ]
+              },
+              utib: {
+                name: 'UPI (India)',
+                instruments: [
+                  {
+                    method: 'upi'
+                  }
+                ]
+              },
+              banks: {
+                name: 'Net Banking (India)',
+                instruments: [
+                  {
+                    method: 'netbanking',
+                    banks: ['HDFC', 'ICIC', 'SBIN', 'AXIS', 'YESB', 'KKBK', 'PUNB_R']
+                  }
+                ]
+              },
+              wallet: {
+                name: 'Digital Wallets',
+                instruments: [
+                  {
+                    method: 'wallet',
+                    wallets: ['paytm', 'mobikwik', 'phonepe', 'amazonpay', 'freecharge', 'jiomoney', 'paypal', 'airtelmoney', 'jiomoney']
+                  }
+                ]
+              },
+              international: {
+                name: 'International Methods',
+                instruments: [
+                  {
+                    method: 'app',
+                    apps: ['gpay_int', 'paypal', 'phonepe_switch']
+                  }
+                ]
+              }
+            },
+            sequence: ['block.card', 'block.paypal', 'block.international', 'block.intl_bank_transfer', 'block.utib', 'block.banks', 'block.wallet'],
+            preferences: {
+              show_default_blocks: true
+            }
+          }
         },
         modal: {
           ondismiss: () => {
@@ -216,18 +391,61 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
               description: "Your payment was cancelled.",
               variant: "default"
             });
-          }
+          },
+          escape: true,
+          backdropclose: false,
+          handleback: true,
+          confirm_close: true,
+          animation: true
         }
       };
 
-      const razorpayInstance = new Razorpay(options);
-      razorpayInstance.open();
-      
+      // Create Razorpay instance with error handling
+      try {
+        const razorpayInstance = new Razorpay(options);
+
+        // Listen for payment failure
+        razorpayInstance.on('payment.failed', function (response) {
+          console.error('Payment failed:', response.error);
+          setIsProcessing(false);
+          toast({
+            title: "Payment Failed",
+            description: response.error.description || "Your payment could not be processed. Please try again.",
+            variant: "destructive"
+          });
+        });
+
+        // Open Razorpay modal
+        razorpayInstance.open();
+
+        // Show success toast for modal opening
+        toast({
+          title: "Payment Gateway Loaded",
+          description: "Choose your preferred payment method to continue.",
+        });
+
+      } catch (razorpayError) {
+        console.error('Failed to initialize Razorpay:', razorpayError);
+        throw new Error('Failed to initialize payment gateway. Please refresh and try again.');
+      }
+
     } catch (error) {
       console.error('Payment error:', error);
+
+      let errorMessage = "There was an error processing your payment. Please try again.";
+
+      // Provide more specific error messages
+      if (error.message.includes('network') || error.message.includes('fetch')) {
+        errorMessage = "Network error. Please check your internet connection and try again.";
+      } else if (error.message.includes('order')) {
+        errorMessage = "Failed to create payment order. Please try again.";
+      } else if (error.message.includes('Razorpay')) {
+        errorMessage = "Payment gateway error. Please refresh the page and try again.";
+      }
+
       toast({
         title: "Payment Failed",
-        description: "There was an error processing your payment. Please try again.",
+        description: errorMessage,
         variant: "destructive"
       });
     } finally {
@@ -278,8 +496,8 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
                         <CardTitle className="text-lg">{plan.name}</CardTitle>
                         <CardDescription className="mt-1">
                           {plan.id === 'per_profile_yearly'
-                            ? `$${(SubscriptionService.calculateTotalPrice(profileCount) / 100).toFixed(0)}/year`
-                            : `${(plan.amount / 100).toFixed(0)}/${plan.interval === 'monthly' ? 'month' : 'year'}`
+                            ? `$${(SubscriptionService.calculateTotalPrice(profileCount) / 100).toFixed(0)}/year (₹${Math.round((SubscriptionService.calculateTotalPrice(profileCount) / 100) * 83)}/year)`
+                            : `$${(plan.amount / 100).toFixed(0)}/${plan.interval === 'monthly' ? 'month' : 'year'} (₹${Math.round((plan.amount / 100) * 83)}/${plan.interval === 'monthly' ? 'month' : 'year'})`
                           }
                         </CardDescription>
                       </div>
@@ -329,6 +547,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
                   <div className="text-sm text-gray-600">
                     × $99/year = <span className="font-semibold text-green-600">
                       ${(SubscriptionService.calculateTotalPrice(profileCount) / 100).toFixed(0)}/year
+                      (₹{Math.round((SubscriptionService.calculateTotalPrice(profileCount) / 100) * 83)}/year)
                     </span>
                   </div>
                 </div>
@@ -376,15 +595,37 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
               </div>
             </div>
 
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+            {/* Payment Methods Information */}
+            <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg p-4">
               <div className="flex items-start space-x-3">
                 <Shield className="h-5 w-5 text-blue-600 mt-0.5" />
-                <div>
-                  <p className="text-sm font-medium text-blue-900">
-                    Secure Payment
+                <div className="flex-1">
+                  <p className="text-sm font-medium text-blue-900 mb-2">
+                    💳 Multiple Payment Options Available
                   </p>
-                  <p className="text-sm text-blue-700 mt-1">
-                    Your payment information is encrypted and secure. We use Razorpay for processing payments.
+                  <div className="grid grid-cols-2 gap-3 text-xs text-blue-700">
+                    <div className="flex items-center space-x-1">
+                      <span>🏦</span>
+                      <span>Net Banking</span>
+                    </div>
+                    <div className="flex items-center space-x-1">
+                      <span>📱</span>
+                      <span>UPI (GPay, PhonePe, Paytm)</span>
+                    </div>
+                    <div className="flex items-center space-x-1">
+                      <span>💳</span>
+                      <span>Credit/Debit Cards</span>
+                    </div>
+                    <div className="flex items-center space-x-1">
+                      <span>👝</span>
+                      <span>Digital Wallets</span>
+                    </div>
+                  </div>
+                  <p className="text-sm text-blue-700 mt-2">
+                    Your payment information is encrypted and secure. We support Cards, PayPal, and international payment methods via Razorpay.
+                  </p>
+                  <p className="text-xs text-blue-600 mt-1">
+                    💡 Payment is processed in INR (Indian Rupees) at current exchange rate: 1 USD = ₹83
                   </p>
                 </div>
               </div>
@@ -421,6 +662,9 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
                       /{selectedPlan?.interval === 'monthly' ? 'month' : 'year'}
                     </span>
                   </p>
+                  <p className="text-sm text-gray-600">
+                    ₹{Math.round((getFinalAmount() / 100) * 83)}/{selectedPlan?.interval === 'monthly' ? 'month' : 'year'}
+                  </p>
                 </div>
               ) : (
                 <div>
@@ -429,6 +673,9 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
                     <span className="text-sm font-normal text-gray-500 ml-1">
                       /{selectedPlan?.interval === 'monthly' ? 'month' : 'year'}
                     </span>
+                  </p>
+                  <p className="text-sm text-gray-600">
+                    ₹{Math.round((getFinalAmount() / 100) * 83)}/{selectedPlan?.interval === 'monthly' ? 'month' : 'year'}
                   </p>
                   {selectedPlanId === 'per_profile_yearly' && (
                     <p className="text-sm text-gray-600">

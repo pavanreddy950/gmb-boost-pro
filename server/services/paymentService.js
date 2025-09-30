@@ -56,7 +56,7 @@ export class PaymentService {
     try {
       this._checkConfiguration();
       console.log('[PaymentService] 💳 Creating order with amount:', amount, 'currency:', currency);
-      
+
       // Enhanced validation
       if (!amount || isNaN(amount) || amount <= 0) {
         const error = new Error(`Invalid amount provided: ${amount}. Amount must be a positive number.`);
@@ -69,6 +69,10 @@ export class PaymentService {
         error.code = 'INVALID_CURRENCY';
         throw error;
       }
+
+      // DEVELOPMENT MODE RESTRICTION REMOVED
+      // Full payment amounts are now allowed in development with live keys
+      // Previous restriction capped to ₹1 for testing - now removed for production use
       
       // Generate a shorter receipt ID (max 40 chars)
       const timestamp = Date.now().toString(36);
