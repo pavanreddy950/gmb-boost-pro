@@ -2359,92 +2359,350 @@ app.get('/api/locations/:locationId/audit/performance', async (req, res) => {
     let performanceData = null;
     let apiUsed = '';
 
-    // Try Google My Business Insights API
+    // Try Business Profile Performance API (v1) - using NEW fetchMultiDailyMetricsTimeSeries endpoint
     try {
-      console.log(`🌐 Fetching performance metrics from Google My Business Insights API`);
+      console.log(`🌐 Fetching performance metrics from Business Profile Performance API v1 (fetchMultiDailyMetricsTimeSeries)`);
 
-      const insightsUrl = `https://mybusiness.googleapis.com/v4/accounts/${HARDCODED_ACCOUNT_ID}/locations/${locationId}/reportInsights`;
+      // Format: locations/{location_id}
+      const locationName = locationId.startsWith('locations/') ? locationId : `locations/${locationId}`;
 
-      const insightsRequest = {
-        locationNames: [`accounts/${HARDCODED_ACCOUNT_ID}/locations/${locationId}`],
-        basicRequest: {
-          metricRequests: [
-            { metric: 'ALL' }
-          ],
-          timeRange: {
-            startTime: `${startDate || defaultStartDate}T00:00:00Z`,
-            endTime: `${endDate || defaultEndDate}T23:59:59Z`
-          }
-        }
-      };
+      console.log(`📍 Requesting metrics for: ${locationName}`);
+      console.log(`📅 Date range: ${startDate || defaultStartDate} to ${endDate || defaultEndDate}`);
 
-      const response = await fetch(insightsUrl, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${accessToken}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(insightsRequest)
+      // Parse dates for query parameters
+      const startDateParts = (startDate || defaultStartDate).split('-');
+      const endDateParts = (endDate || defaultEndDate).split('-');
+
+      // All metrics we want to fetch
+      const metrics = [
+        'BUSINESS_IMPRESSIONS_DESKTOP_MAPS',
+        'BUSINESS_IMPRESSIONS_DESKTOP_SEARCH',
+        'BUSINESS_IMPRESSIONS_MOBILE_MAPS',
+        'BUSINESS_IMPRESSIONS_MOBILE_SEARCH',
+        'BUSINESS_CONVERSATIONS',
+        'BUSINESS_DIRECTION_REQUESTS',
+        'CALL_CLICKS',
+        'WEBSITE_CLICKS'
+      ];
+
+      // Build query parameters for fetchMultiDailyMetricsTimeSeries (fetches all metrics in ONE call!)
+      const params = new URLSearchParams({
+        'dailyRange.start_date.year': startDateParts[0],
+        'dailyRange.start_date.month': startDateParts[1],
+        'dailyRange.start_date.day': startDateParts[2],
+        'dailyRange.end_date.year': endDateParts[0],
+        'dailyRange.end_date.month': endDateParts[1],
+        'dailyRange.end_date.day': endDateParts[2]
       });
 
-      console.log(`📡 Google My Business Insights Response Status:`, response.status);
+      // Add each metric as a separate parameter (dailyMetrics can be repeated)
+      metrics.forEach(metric => {
+        params.append('dailyMetrics', metric);
+      });
+
+      const dailyMetricsUrl = `https://businessprofileperformance.googleapis.com/v1/${locationName}:fetchMultiDailyMetricsTimeSeries?${params.toString()}`;
+
+      console.log(`📊 Fetching ${metrics.length} metrics in a single API call`);
+
+      const response = await fetch(dailyMetricsUrl, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`
+        }
+      });
+
+      console.log(`📡 Business Profile Performance API Response Status:`, response.status);
 
       if (response.ok) {
         const data = await response.json();
-        performanceData = data;
-        apiUsed = 'Google My Business Insights API';
-        console.log(`✅ Success with Google My Business Insights API`);
+        console.log(`✅ Successfully fetched data from fetchMultiDailyMetricsTimeSeries`);
+        console.log(`🔍 RAW API RESPONSE KEYS:`, Object.keys(data));
+        console.log(`🔍 RAW API RESPONSE (truncated):`, JSON.stringify(data).substring(0, 500) + '...');
+
+        // Process the multiTimeSeries response (all metrics in one response!)
+        const dailyMetricsMap = new Map();
+
+        // Google returns: multiDailyMetricTimeSeries[].dailyMetricTimeSeries[]
+        if (data.multiDailyMetricTimeSeries && Array.isArray(data.multiDailyMetricTimeSeries)) {
+          console.log(`📊 Found ${data.multiDailyMetricTimeSeries.length} top-level metric groups`);
+          
+          // Flatten the nested structure
+          const allMetrics = [];
+          data.multiDailyMetricTimeSeries.forEach((group) => {
+            if (group.dailyMetricTimeSeries && Array.isArray(group.dailyMetricTimeSeries)) {
+              allMetrics.push(...group.dailyMetricTimeSeries);
+            }
+          });
+          
+          console.log(`📊 Processing ${allMetrics.length} individual metrics`);
+          
+          // Log each metric series details
+          allMetrics.forEach((metricData, index) => {
+            console.log(`  📈 Metric ${index + 1}:`, metricData.dailyMetric);
+            console.log(`     - Has timeSeries:`, !!metricData.timeSeries);
+            console.log(`     - Has datedValues:`, !!metricData.timeSeries?.datedValues);
+            console.log(`     - datedValues count:`, metricData.timeSeries?.datedValues?.length || 0);
+            if (metricData.timeSeries?.datedValues && metricData.timeSeries.datedValues.length > 0) {
+              const sampleWithValue = metricData.timeSeries.datedValues.find(dv => dv.value);
+              if (sampleWithValue) {
+                console.log(`     - Sample with value:`, JSON.stringify(sampleWithValue));
+              }
+            }
+          });
+
+          allMetrics.forEach((metricData) => {
+            const metricName = metricData.dailyMetric;
+
+            if (metricData.timeSeries && metricData.timeSeries.datedValues) {
+              metricData.timeSeries.datedValues.forEach(dv => {
+                const dateKey = `${dv.date.year}-${String(dv.date.month).padStart(2, '0')}-${String(dv.date.day).padStart(2, '0')}`;
+
+                if (!dailyMetricsMap.has(dateKey)) {
+                  dailyMetricsMap.set(dateKey, {
+                    date: dateKey,
+                    views: 0,
+                    impressions: 0,
+                    calls: 0,
+                    websiteClicks: 0,
+                    directionRequests: 0
+                  });
+                }
+
+                const dayMetrics = dailyMetricsMap.get(dateKey);
+                const value = parseInt(dv.value) || 0;
+
+                // Map metrics to our data structure
+                if (metricName.includes('IMPRESSIONS')) {
+                  dayMetrics.impressions += value;
+                  dayMetrics.views += value;
+                } else if (metricName === 'CALL_CLICKS') {
+                  dayMetrics.calls += value;
+                } else if (metricName === 'WEBSITE_CLICKS') {
+                  dayMetrics.websiteClicks += value;
+                } else if (metricName === 'BUSINESS_DIRECTION_REQUESTS') {
+                  dayMetrics.directionRequests += value;
+                }
+              });
+            }
+          });
+        } else {
+          console.log(`⚠️ WARNING: Response does not contain multiDailyMetricTimeSeries array`);
+          console.log(`   Response keys:`, Object.keys(data));
+        }
+
+        // Convert to array and sort by date
+        const dailyMetrics = Array.from(dailyMetricsMap.values()).sort((a, b) =>
+          a.date.localeCompare(b.date)
+        );
+
+        console.log(`📊 Daily metrics map size:`, dailyMetricsMap.size);
+        console.log(`📊 Converted to ${dailyMetrics.length} days of metrics`);
+        
+        if (dailyMetrics.length > 0) {
+          console.log(`📊 Sample metrics (first day):`, JSON.stringify(dailyMetrics[0]));
+        }
+
+        performanceData = {
+          locationMetrics: [{
+            locationName: locationName,
+            timeZone: 'UTC',
+            dailyMetrics: dailyMetrics
+          }]
+        };
+
+        apiUsed = 'Business Profile Performance API v1 (fetchMultiDailyMetricsTimeSeries)';
+        console.log(`✅ Success with Business Profile Performance API v1`);
+        console.log(`📊 Retrieved ${dailyMetrics.length} days of metrics`);
       } else {
         const errorText = await response.text();
-        console.log(`❌ Google My Business Insights API failed:`, errorText.substring(0, 300));
+        console.log(`❌ Business Profile Performance API failed with status ${response.status}`);
+        console.log(`❌ Error response:`, errorText);
+        console.log(`❌ Response headers:`, JSON.stringify([...response.headers]));
 
-        // Try alternative approach with direct metrics
-        console.log(`🔄 Trying alternative metrics approach...`);
-
-        const metricsUrl = `https://mybusiness.googleapis.com/v4/accounts/${HARDCODED_ACCOUNT_ID}/locations/${locationId}:reportInsights`;
-
-        const metricsResponse = await fetch(metricsUrl, {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${accessToken}`,
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            metricRequests: [
-              { metric: 'QUERIES_DIRECT' },
-              { metric: 'QUERIES_INDIRECT' },
-              { metric: 'VIEWS_MAPS' },
-              { metric: 'VIEWS_SEARCH' },
-              { metric: 'ACTIONS_WEBSITE' },
-              { metric: 'ACTIONS_PHONE' },
-              { metric: 'ACTIONS_DRIVING_DIRECTIONS' }
-            ],
-            timeRange: {
-              startTime: `${startDate || defaultStartDate}T00:00:00Z`,
-              endTime: `${endDate || defaultEndDate}T23:59:59Z`
-            }
-          })
-        });
-
-        if (metricsResponse.ok) {
-          performanceData = await metricsResponse.json();
-          apiUsed = 'Google My Business Metrics API';
-          console.log(`✅ Success with alternative metrics API`);
-        } else {
-          const altErrorText = await metricsResponse.text();
-          console.log(`❌ Alternative metrics API also failed:`, altErrorText.substring(0, 300));
+        // Try to parse error details
+        try {
+          const errorJson = JSON.parse(errorText);
+          console.log(`❌ Parsed error:`, JSON.stringify(errorJson, null, 2));
+        } catch (e) {
+          console.log(`❌ Could not parse error as JSON`);
         }
       }
     } catch (error) {
       console.log(`❌ Error fetching performance data:`, error.message);
+      console.log(`❌ Stack:`, error.stack);
+    }
+
+    // Try alternative API: My Business API v4 Report Insights
+    if (!performanceData) {
+      try {
+        console.log(`🌐 Trying My Business API v4 Report Insights as fallback...`);
+
+        // Get account ID from location
+        const accountsResponse = await fetch('https://mybusinessaccountmanagement.googleapis.com/v1/accounts', {
+          headers: { 'Authorization': `Bearer ${accessToken}` }
+        });
+
+        if (accountsResponse.ok) {
+          const accountsData = await accountsResponse.json();
+          const account = accountsData.accounts?.[0];
+
+          if (account) {
+            const accountId = account.name.split('/')[1];
+            console.log(`📍 Using account ID: ${accountId}`);
+
+            const reportRequest = {
+              locationNames: [`locations/${locationId}`],
+              basicRequest: {
+                metricRequests: [
+                  { metric: 'QUERIES_DIRECT' },
+                  { metric: 'QUERIES_INDIRECT' },
+                  { metric: 'VIEWS_MAPS' },
+                  { metric: 'VIEWS_SEARCH' },
+                  { metric: 'ACTIONS_WEBSITE' },
+                  { metric: 'ACTIONS_PHONE' },
+                  { metric: 'ACTIONS_DRIVING_DIRECTIONS' }
+                ],
+                timeRange: {
+                  startTime: `${startDate || defaultStartDate}T00:00:00Z`,
+                  endTime: `${endDate || defaultEndDate}T23:59:59Z`
+                }
+              }
+            };
+
+            const insightsResponse = await fetch(
+              `https://mybusiness.googleapis.com/v4/accounts/${accountId}/locations:reportInsights`,
+              {
+                method: 'POST',
+                headers: {
+                  'Authorization': `Bearer ${accessToken}`,
+                  'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(reportRequest)
+              }
+            );
+
+            console.log(`📡 My Business API v4 Response Status:`, insightsResponse.status);
+
+            if (insightsResponse.ok) {
+              const insightsData = await insightsResponse.json();
+              console.log(`✅ Got insights data from My Business API v4`);
+
+              // Convert insights data to performance metrics format
+              const dailyMetricsMap = new Map();
+
+              if (insightsData.locationMetrics && insightsData.locationMetrics[0]) {
+                const metrics = insightsData.locationMetrics[0].metricValues || [];
+
+                metrics.forEach(metricValue => {
+                  if (metricValue.dimensionalValues) {
+                    metricValue.dimensionalValues.forEach(dv => {
+                      const dateKey = dv.time || dv.timeDimension?.timeRange?.startTime?.split('T')[0];
+                      if (!dateKey) return;
+
+                      if (!dailyMetricsMap.has(dateKey)) {
+                        dailyMetricsMap.set(dateKey, {
+                          date: dateKey,
+                          views: 0,
+                          impressions: 0,
+                          calls: 0,
+                          websiteClicks: 0,
+                          directionRequests: 0
+                        });
+                      }
+
+                      const dayMetrics = dailyMetricsMap.get(dateKey);
+                      const value = parseInt(dv.value) || 0;
+
+                      if (metricValue.metric === 'VIEWS_MAPS' || metricValue.metric === 'VIEWS_SEARCH') {
+                        dayMetrics.views += value;
+                        dayMetrics.impressions += value;
+                      } else if (metricValue.metric === 'QUERIES_DIRECT' || metricValue.metric === 'QUERIES_INDIRECT') {
+                        dayMetrics.impressions += value;
+                      } else if (metricValue.metric === 'ACTIONS_PHONE') {
+                        dayMetrics.calls += value;
+                      } else if (metricValue.metric === 'ACTIONS_WEBSITE') {
+                        dayMetrics.websiteClicks += value;
+                      } else if (metricValue.metric === 'ACTIONS_DRIVING_DIRECTIONS') {
+                        dayMetrics.directionRequests += value;
+                      }
+                    });
+                  } else if (metricValue.totalValue) {
+                    // Handle aggregate data
+                    const value = parseInt(metricValue.totalValue.value) || 0;
+                    const avgPerDay = Math.floor(value / 30); // Distribute over 30 days
+
+                    for (let i = 0; i < 30; i++) {
+                      const date = new Date(Date.now() - i * 24 * 60 * 60 * 1000);
+                      const dateKey = date.toISOString().split('T')[0];
+
+                      if (!dailyMetricsMap.has(dateKey)) {
+                        dailyMetricsMap.set(dateKey, {
+                          date: dateKey,
+                          views: 0,
+                          impressions: 0,
+                          calls: 0,
+                          websiteClicks: 0,
+                          directionRequests: 0
+                        });
+                      }
+
+                      const dayMetrics = dailyMetricsMap.get(dateKey);
+
+                      if (metricValue.metric === 'VIEWS_MAPS' || metricValue.metric === 'VIEWS_SEARCH') {
+                        dayMetrics.views += avgPerDay;
+                        dayMetrics.impressions += avgPerDay;
+                      } else if (metricValue.metric === 'QUERIES_DIRECT' || metricValue.metric === 'QUERIES_INDIRECT') {
+                        dayMetrics.impressions += avgPerDay;
+                      } else if (metricValue.metric === 'ACTIONS_PHONE') {
+                        dayMetrics.calls += avgPerDay;
+                      } else if (metricValue.metric === 'ACTIONS_WEBSITE') {
+                        dayMetrics.websiteClicks += avgPerDay;
+                      } else if (metricValue.metric === 'ACTIONS_DRIVING_DIRECTIONS') {
+                        dayMetrics.directionRequests += avgPerDay;
+                      }
+                    }
+                  }
+                });
+              }
+
+              const dailyMetrics = Array.from(dailyMetricsMap.values()).sort((a, b) =>
+                a.date.localeCompare(b.date)
+              );
+
+              if (dailyMetrics.length > 0) {
+                performanceData = {
+                  locationMetrics: [{
+                    locationName: `locations/${locationId}`,
+                    timeZone: 'UTC',
+                    dailyMetrics: dailyMetrics
+                  }]
+                };
+                apiUsed = 'My Business API v4 Report Insights';
+                console.log(`✅ Successfully converted ${dailyMetrics.length} days of insights data to performance metrics`);
+              }
+            } else {
+              const errorText = await insightsResponse.text();
+              console.log(`❌ My Business API v4 failed:`, errorText.substring(0, 200));
+            }
+          }
+        }
+      } catch (v4Error) {
+        console.log(`❌ My Business API v4 fallback failed:`, v4Error.message);
+      }
     }
 
     if (!performanceData) {
-      console.error('❌ Failed to fetch real-time performance data from Google Business Profile API');
+      console.error('❌ Failed to fetch real-time performance data from all available Google APIs');
       return res.status(503).json({
         error: 'Performance data unavailable',
-        message: 'Unable to fetch real-time performance metrics from Google Business Profile API. Please ensure proper API access and permissions are configured.',
-        requiresApiAccess: true
+        message: 'Unable to fetch real-time performance metrics from Google Business Profile API. The Business Profile Performance API and My Business API v4 are not accessible for this location. This may be because: 1) The location is not verified, 2) The location doesn\'t have enough historical data, or 3) Additional API permissions are required in Google Cloud Console.',
+        requiresApiAccess: true,
+        suggestions: [
+          'Verify your business location in Google Business Profile',
+          'Ensure your location has been active for at least 7 days',
+          'Check that "My Business API" is enabled in Google Cloud Console',
+          'Verify OAuth scopes include business profile performance access'
+        ]
       });
     }
 
@@ -3147,7 +3405,7 @@ app.get('*', (req, res) => {
   });
 });
 
-// Start the server  
+// Start the server
 app.listen(PORT, () => {
   const summary = config.getSummary();
   console.log(`🚀 Backend server running on ${config.backendUrl}`);
@@ -3178,6 +3436,22 @@ app.listen(PORT, () => {
   console.log(`   POST /api/locations/:locationId/photos/upload-bytes`);
   console.log(`   POST /api/locations/:locationId/photos/create-media`);
   console.log(`   GET  /api/locations/:locationId/insights`);
+
+  // 🚀 CRITICAL: Force restart all automations after server startup
+  console.log('🤖 [AUTOMATION] Restarting all automations after server startup...');
+  setTimeout(() => {
+    try {
+      // Stop any existing automations first
+      automationScheduler.stopAllAutomations();
+
+      // Reinitialize all automations from saved settings
+      automationScheduler.initializeAutomations();
+
+      console.log('✅ [AUTOMATION] All automations restarted successfully! Auto-posting and auto-reply will now work 24/7.');
+    } catch (error) {
+      console.error('❌ [AUTOMATION] Failed to restart automations:', error);
+    }
+  }, 5000); // Wait 5 seconds after server start to ensure all services are ready
 });
 
 

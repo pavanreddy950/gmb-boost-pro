@@ -44,6 +44,7 @@ import {
 import { useGoogleBusinessProfileContext } from "@/contexts/GoogleBusinessProfileContext";
 import { useSubscription } from "@/contexts/SubscriptionContext";
 import { toast } from "@/hooks/use-toast";
+import { generateAIResponse } from "@/lib/openaiService";
 
 interface PerformanceMetrics {
   views: number;
@@ -101,6 +102,10 @@ const AuditTool = () => {
   const [autoRefresh, setAutoRefresh] = useState(true);
   const [refreshInterval, setRefreshInterval] = useState(5 * 60 * 1000); // 5 minutes
   const [chartType, setChartType] = useState<'area' | 'line'>('area');
+  const [apiDiagnostics, setApiDiagnostics] = useState<any>(null);
+  const [showDiagnostics, setShowDiagnostics] = useState(false);
+  const [aiInsights, setAiInsights] = useState<string | null>(null);
+  const [loadingAiInsights, setLoadingAiInsights] = useState(false);
 
   // Get all locations from business accounts with safety check
   const allLocations = (businessAccounts || []).flatMap(account =>
@@ -183,18 +188,29 @@ const AuditTool = () => {
 
     setLoadingMetrics(true);
     try {
-      const { isConnected, googleBusinessProfileService } = (businessAccounts && businessAccounts.length > 0) ?
-        { isConnected: true, googleBusinessProfileService: { getAccessToken: () => localStorage.getItem('google_business_tokens') ? JSON.parse(localStorage.getItem('google_business_tokens')).access_token : null } } :
-        { isConnected: false, googleBusinessProfileService: null };
+      // Get Google OAuth access token from localStorage (same as other pages)
+      const storedTokens = localStorage.getItem('google_business_tokens');
+      const isConnectedFlag = localStorage.getItem('google_business_connected');
 
-      if (!isConnected) {
-        throw new Error('Google Business Profile not connected');
+      if (!storedTokens || isConnectedFlag !== 'true') {
+        throw new Error('No Google Business Profile connection found. Please connect your Google Business Profile in Settings > Connections.');
       }
 
-      const accessToken = googleBusinessProfileService?.getAccessToken();
-      if (!accessToken) {
-        throw new Error('No access token available');
+      const tokens = JSON.parse(storedTokens);
+
+      if (!tokens.access_token) {
+        throw new Error('Invalid token data. Please reconnect your Google Business Profile in Settings.');
       }
+
+      // Check if token is expired
+      const now = Date.now();
+      const expires = tokens.expires_at || (tokens.stored_at + (tokens.expires_in * 1000));
+
+      if (expires && now >= expires) {
+        throw new Error('Google Business Profile token expired. Please reconnect in Settings > Connections.');
+      }
+
+      const accessToken = tokens.access_token;
 
       // Prepare date range for the last 30 days
       const endDate = new Date().toISOString().split('T')[0];
@@ -202,7 +218,7 @@ const AuditTool = () => {
 
       // Only fetch performance data (no profile completeness)
       const [performanceResponse] = await Promise.allSettled([
-        fetch(`${import.meta.env.VITE_BACKEND_URL || 'https://pavan-client-backend-bxgdaqhvarfdeuhe.canadacentral-01.azurewebsites.net'}/api/locations/${locationId}/audit/performance?startDate=${startDate}&endDate=${endDate}`, {
+        fetch(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000'}/api/locations/${locationId}/audit/performance?startDate=${startDate}&endDate=${endDate}`, {
           headers: {
             'Authorization': `Bearer ${accessToken}`,
             'Content-Type': 'application/json'
@@ -215,9 +231,24 @@ const AuditTool = () => {
       // Process performance data
       if (performanceResponse.status === 'fulfilled' && performanceResponse.value.ok) {
         const data = await performanceResponse.value.json();
+        console.log('📊 Audit Tool - Received performance data:', data);
+        
+        // Capture diagnostics
+        setApiDiagnostics({
+          status: 'success',
+          statusCode: performanceResponse.value.status,
+          apiUsed: data.apiUsed || 'Unknown',
+          dateRange: data.dateRange,
+          metricsCount: data.performance?.locationMetrics?.[0]?.dailyMetrics?.length || 0,
+          sampleData: data.performance?.locationMetrics?.[0]?.dailyMetrics?.slice(0, 2),
+          timestamp: new Date().toISOString()
+        });
+        
         if (data.performance?.locationMetrics?.[0]?.dailyMetrics) {
           // Convert backend format to frontend format
           const dailyMetrics = data.performance.locationMetrics[0].dailyMetrics;
+          console.log('📈 Audit Tool - Daily metrics count:', dailyMetrics.length);
+          
           const convertedMetrics = dailyMetrics.map((day: any) => ({
             views: day.views || 0,
             impressions: day.impressions || 0,
@@ -226,12 +257,63 @@ const AuditTool = () => {
             directionRequests: day.directionRequests || 0,
             date: day.date
           }));
+          
+          console.log('✅ Audit Tool - Converted metrics:', convertedMetrics.slice(0, 3)); // Log first 3 entries
           setMetrics(convertedMetrics);
           performanceData = convertedMetrics;
+        } else {
+          console.warn('⚠️ Audit Tool - No daily metrics in response:', data);
+          setApiDiagnostics({
+            status: 'no_data',
+            statusCode: performanceResponse.value.status,
+            apiUsed: data.apiUsed || 'Unknown',
+            message: 'Google Business Profile Performance API returned 0 metrics',
+            dateRange: data.dateRange,
+            responseStructure: Object.keys(data),
+            fullResponse: data,
+            explanation: 'This location may not have enough historical data or may not be eligible for Performance API metrics. Google requires 18+ months of activity for most performance metrics.',
+            timestamp: new Date().toISOString()
+          });
         }
       } else if (performanceResponse.status === 'fulfilled' && performanceResponse.value.status === 503) {
         const errorData = await performanceResponse.value.json();
         console.warn('Performance API access required:', errorData.message);
+        setApiDiagnostics({
+          status: 'api_unavailable',
+          statusCode: 503,
+          message: errorData.message,
+          suggestions: errorData.suggestions,
+          timestamp: new Date().toISOString()
+        });
+      } else if (performanceResponse.status === 'fulfilled') {
+        console.error('❌ Audit Tool - API error:', performanceResponse.value.status, performanceResponse.value.statusText);
+        try {
+          const errorData = await performanceResponse.value.json();
+          console.error('❌ Audit Tool - Error details:', errorData);
+          setApiDiagnostics({
+            status: 'error',
+            statusCode: performanceResponse.value.status,
+            statusText: performanceResponse.value.statusText,
+            errorDetails: errorData,
+            timestamp: new Date().toISOString()
+          });
+        } catch (e) {
+          console.error('❌ Audit Tool - Could not parse error response');
+          setApiDiagnostics({
+            status: 'error',
+            statusCode: performanceResponse.value.status,
+            statusText: performanceResponse.value.statusText,
+            message: 'Could not parse error response',
+            timestamp: new Date().toISOString()
+          });
+        }
+      } else {
+        console.error('❌ Audit Tool - Promise rejected:', performanceResponse.reason);
+        setApiDiagnostics({
+          status: 'rejected',
+          reason: performanceResponse.reason?.message || String(performanceResponse.reason),
+          timestamp: new Date().toISOString()
+        });
       }
 
       // Check if we have real performance data
@@ -257,10 +339,15 @@ const AuditTool = () => {
       setAuditScore(null);
       setLastUpdated(null);
 
+      // Show detailed error message to user
+      console.error('🚨 AUDIT TOOL ERROR:', error.message);
+      console.error('🔍 Error details:', error);
+      
       toast({
-        title: "Real-time Data Unavailable",
-        description: error.message || "Google Business Profile Performance API access is required. Please configure proper API permissions.",
-        variant: "destructive",
+        title: "Performance Data Unavailable",
+        description: "Unable to retrieve metrics for this profile. Please verify your profile at business.google.com",
+        variant: "default",
+        duration: 5000,
       });
     } finally {
       setLoadingMetrics(false);
@@ -270,23 +357,46 @@ const AuditTool = () => {
 
   // Calculate audit score based on real-time performance metrics only
   const calculateAuditScore = (metricsData: PerformanceMetrics[]): AuditScore => {
+    // Safety check: ensure we have data
+    if (!metricsData || metricsData.length === 0) {
+      return {
+        overall: 0,
+        performance: 0,
+        engagement: 0
+      };
+    }
+
     // Performance score based on recent metrics
     const recentMetrics = metricsData.slice(-7); // Last 7 days
-    const avgViews = recentMetrics.reduce((sum, m) => sum + m.views, 0) / recentMetrics.length;
+    
+    // Safety check for empty recent metrics
+    if (recentMetrics.length === 0) {
+      return {
+        overall: 0,
+        performance: 0,
+        engagement: 0
+      };
+    }
+
+    const totalViews = recentMetrics.reduce((sum, m) => sum + (m.views || 0), 0);
+    const avgViews = totalViews / recentMetrics.length;
     const performanceScore = Math.min(100, (avgViews / 100) * 100); // Scale based on views
 
     // Engagement score based on action ratios
-    const totalImpressions = recentMetrics.reduce((sum, m) => sum + m.impressions, 0);
-    const totalActions = recentMetrics.reduce((sum, m) => sum + m.calls + m.websiteClicks + m.directionRequests, 0);
+    const totalImpressions = recentMetrics.reduce((sum, m) => sum + (m.impressions || 0), 0);
+    const totalActions = recentMetrics.reduce((sum, m) => sum + (m.calls || 0) + (m.websiteClicks || 0) + (m.directionRequests || 0), 0);
     const engagementRate = totalImpressions > 0 ? (totalActions / totalImpressions) * 100 : 0;
     const engagementScore = Math.min(100, engagementRate * 20); // Scale engagement rate
 
-    const overall = Math.round((performanceScore + engagementScore) / 2);
+    // Ensure no NaN values
+    const overall = Math.round(isNaN(performanceScore) || isNaN(engagementScore) ? 0 : (performanceScore + engagementScore) / 2);
+    const performance = Math.round(isNaN(performanceScore) ? 0 : performanceScore);
+    const engagement = Math.round(isNaN(engagementScore) ? 0 : engagementScore);
 
     return {
       overall,
-      performance: Math.round(performanceScore),
-      engagement: Math.round(engagementScore)
+      performance,
+      engagement
     };
   };
 
@@ -296,6 +406,87 @@ const AuditTool = () => {
     if (score >= 80) return 'text-green-600';
     if (score >= 60) return 'text-yellow-600';
     return 'text-red-600';
+  };
+
+  // Generate AI insights based on metrics data
+  const generateAIInsights = async () => {
+    if (!metrics || metrics.length === 0 || !auditScore) {
+      toast({
+        title: "No Data Available",
+        description: "Please fetch performance data first before generating AI insights.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setLoadingAiInsights(true);
+    try {
+      // Prepare data summary for AI
+      const recentMetrics = metrics.slice(-7);
+      const totalViews = recentMetrics.reduce((sum, m) => sum + m.views, 0);
+      const totalImpressions = recentMetrics.reduce((sum, m) => sum + m.impressions, 0);
+      const totalCalls = recentMetrics.reduce((sum, m) => sum + m.calls, 0);
+      const totalWebsiteClicks = recentMetrics.reduce((sum, m) => sum + m.websiteClicks, 0);
+      const totalDirections = recentMetrics.reduce((sum, m) => sum + m.directionRequests, 0);
+      
+      const avgDailyViews = (totalViews / 7).toFixed(1);
+      const avgDailyImpressions = (totalImpressions / 7).toFixed(1);
+      const conversionRate = totalImpressions > 0 ? ((totalCalls + totalWebsiteClicks + totalDirections) / totalImpressions * 100).toFixed(2) : '0';
+      
+      // Calculate trends
+      const previousWeek = metrics.slice(-14, -7);
+      const previousViews = previousWeek.reduce((sum, m) => sum + m.views, 0);
+      const viewsTrend = previousViews > 0 ? (((totalViews - previousViews) / previousViews) * 100).toFixed(1) : 'N/A';
+
+      const prompt = `You are an expert Google Business Profile consultant. Analyze this business profile performance data and provide detailed, actionable insights to help improve their profile.
+
+**Business Profile**: ${selectedLocation?.name}
+
+**Performance Scores**:
+- Overall Score: ${auditScore.overall}%
+- Performance Score: ${auditScore.performance}%
+- Engagement Score: ${auditScore.engagement}%
+
+**Last 7 Days Metrics**:
+- Total Views: ${totalViews}
+- Total Impressions: ${totalImpressions}
+- Total Calls: ${totalCalls}
+- Total Website Clicks: ${totalWebsiteClicks}
+- Total Direction Requests: ${totalDirections}
+- Average Daily Views: ${avgDailyViews}
+- Average Daily Impressions: ${avgDailyImpressions}
+- Conversion Rate: ${conversionRate}%
+- Views Trend vs Previous Week: ${viewsTrend}%
+
+**30 Days Data Points**: ${metrics.length} days
+
+Please provide:
+1. **Performance Analysis**: Detailed analysis of the current performance metrics
+2. **Strengths**: What is working well (be specific with data)
+3. **Weaknesses**: What needs improvement (be specific with data)
+4. **Actionable Recommendations**: 5-7 specific, prioritized actions they should take to improve their profile
+5. **Growth Opportunities**: Untapped areas they should focus on
+6. **Competitive Edge**: How to stand out in local search
+
+Be generous with insights, specific with numbers, and practical with recommendations. Format the response in a clear, professional manner with emojis for visual appeal.`;
+
+      const response = await generateAIResponse(prompt, 'gpt-4o');
+      setAiInsights(response);
+      
+      toast({
+        title: "AI Insights Generated",
+        description: "Detailed analysis and recommendations are ready.",
+      });
+    } catch (error) {
+      console.error('Error generating AI insights:', error);
+      toast({
+        title: "Error Generating Insights",
+        description: "Unable to generate AI insights. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setLoadingAiInsights(false);
+    }
   };
 
 
@@ -361,6 +552,13 @@ const AuditTool = () => {
           )}
           <div className="flex items-center gap-2">
             <Button
+              onClick={() => setShowDiagnostics(!showDiagnostics)}
+              variant={showDiagnostics ? "default" : "outline"}
+              size="sm"
+            >
+              🔍 Debug Info
+            </Button>
+            <Button
               onClick={() => setAutoRefresh(!autoRefresh)}
               variant={autoRefresh ? "default" : "outline"}
               size="sm"
@@ -382,6 +580,93 @@ const AuditTool = () => {
           </div>
         </div>
       </div>
+
+      {/* API Diagnostics Panel */}
+      {showDiagnostics && apiDiagnostics && (
+        <Card className="border-2 border-blue-500 bg-blue-50">
+          <CardHeader>
+            <CardTitle className="text-lg flex items-center gap-2">
+              🔍 API Diagnostics
+              <Badge variant={
+                apiDiagnostics.status === 'success' ? 'default' :
+                apiDiagnostics.status === 'no_data' ? 'secondary' : 'destructive'
+              }>
+                {apiDiagnostics.status}
+              </Badge>
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3 text-sm font-mono">
+              <div className="grid grid-cols-2 gap-2">
+                <div><strong>Status Code:</strong> {apiDiagnostics.statusCode}</div>
+                <div><strong>Timestamp:</strong> {new Date(apiDiagnostics.timestamp).toLocaleTimeString()}</div>
+              </div>
+              
+              {apiDiagnostics.apiUsed && (
+                <div><strong>API Used:</strong> {apiDiagnostics.apiUsed}</div>
+              )}
+              
+              {apiDiagnostics.metricsCount !== undefined && (
+                <div><strong>Metrics Count:</strong> {apiDiagnostics.metricsCount} days</div>
+              )}
+              
+              {apiDiagnostics.dateRange && (
+                <div><strong>Date Range:</strong> {apiDiagnostics.dateRange.startDate} to {apiDiagnostics.dateRange.endDate}</div>
+              )}
+              
+              {apiDiagnostics.message && (
+                <div className="text-orange-700"><strong>Message:</strong> {apiDiagnostics.message}</div>
+              )}
+              
+              {apiDiagnostics.explanation && (
+                <div className="text-blue-700 bg-blue-100 p-3 rounded"><strong>⚠️ Why:</strong> {apiDiagnostics.explanation}</div>
+              )}
+              
+              {apiDiagnostics.reason && (
+                <div className="text-red-700"><strong>Reason:</strong> {apiDiagnostics.reason}</div>
+              )}
+              
+              {apiDiagnostics.sampleData && (
+                <div>
+                  <strong>Sample Data:</strong>
+                  <pre className="mt-2 p-2 bg-white rounded text-xs overflow-auto max-h-40">
+                    {JSON.stringify(apiDiagnostics.sampleData, null, 2)}
+                  </pre>
+                </div>
+              )}
+              
+              {apiDiagnostics.suggestions && (
+                <div>
+                  <strong>Suggestions:</strong>
+                  <ul className="list-disc list-inside mt-1 space-y-1 text-blue-800">
+                    {apiDiagnostics.suggestions.map((s: string, i: number) => (
+                      <li key={i}>{s}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              
+              {apiDiagnostics.fullResponse && (
+                <div>
+                  <strong>Full API Response:</strong>
+                  <pre className="mt-2 p-2 bg-white rounded text-xs overflow-auto max-h-60">
+                    {JSON.stringify(apiDiagnostics.fullResponse, null, 2)}
+                  </pre>
+                </div>
+              )}
+              
+              {apiDiagnostics.errorDetails && (
+                <div>
+                  <strong>Error Details:</strong>
+                  <pre className="mt-2 p-2 bg-white rounded text-xs overflow-auto max-h-40 text-red-700">
+                    {JSON.stringify(apiDiagnostics.errorDetails, null, 2)}
+                  </pre>
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Currently Viewing Banner - Enhanced */}
       {selectedLocation && (
@@ -589,32 +874,44 @@ const AuditTool = () => {
       {!auditScore && selectedLocationId && !loadingMetrics && (
         <Card className="max-w-2xl mx-auto">
           <CardHeader className="text-center">
-            <div className="mx-auto mb-4 h-16 w-16 rounded-full bg-yellow-100 flex items-center justify-center">
-              <AlertCircle className="h-8 w-8 text-yellow-600" />
+            <div className="mx-auto mb-4 h-16 w-16 rounded-full bg-blue-100 flex items-center justify-center">
+              <AlertCircle className="h-8 w-8 text-blue-600" />
             </div>
-            <CardTitle className="text-xl">Real-time Data Unavailable</CardTitle>
+            <CardTitle className="text-xl">Performance Data Unavailable</CardTitle>
           </CardHeader>
           <CardContent className="text-center space-y-4">
             <p className="text-muted-foreground">
-              Unable to fetch real-time performance metrics from Google Business Profile API.
+              Unable to retrieve performance metrics for this business profile.
             </p>
+            
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 text-left">
-              <h4 className="font-semibold text-blue-900 mb-2">To enable real-time audit data:</h4>
-              <ul className="text-sm text-blue-800 space-y-1">
-                <li>• Enable Google My Business API in Google Cloud Console</li>
-                <li>• Configure Business Profile Performance API access</li>
-                <li>• Ensure proper OAuth2 scopes are granted</li>
-                <li>• Verify API quotas and billing are set up</li>
+              <h4 className="font-semibold text-blue-900 mb-2">Common Reasons:</h4>
+              <ul className="text-sm text-blue-800 space-y-2">
+                <li>• Profile needs to be verified in Google Business Profile</li>
+                <li>• Insufficient historical data (requires 18+ months of activity)</li>
+                <li>• Profile doesn't meet eligibility requirements for Performance API</li>
+                <li>• Recent changes may take 24-48 hours to reflect</li>
               </ul>
             </div>
-            <Button
-              onClick={() => fetchMetrics(selectedLocationId)}
-              disabled={loadingMetrics}
-              className="w-full"
-            >
-              <RefreshCw className={`h-4 w-4 mr-2 ${loadingMetrics ? 'animate-spin' : ''}`} />
-              Retry Data Fetch
-            </Button>
+
+            <div className="flex gap-3">
+              <Button
+                onClick={() => window.open('https://business.google.com', '_blank')}
+                className="flex-1"
+              >
+                <CheckCircle className="h-4 w-4 mr-2" />
+                Manage Profile
+              </Button>
+              <Button
+                onClick={() => fetchMetrics(selectedLocationId)}
+                disabled={loadingMetrics}
+                variant="outline"
+                className="flex-1"
+              >
+                <RefreshCw className={`h-4 w-4 mr-2 ${loadingMetrics ? 'animate-spin' : ''}`} />
+                Retry
+              </Button>
+            </div>
           </CardContent>
         </Card>
       )}
@@ -1034,10 +1331,74 @@ const AuditTool = () => {
                   </p>
                 </div>
               </div>
-              <Badge variant="secondary" className="px-3 py-1">
-                {selectedLocation?.accountName}
-              </Badge>
+              <div className="flex items-center gap-3">
+                <Button
+                  onClick={generateAIInsights}
+                  disabled={loadingAiInsights || !metrics || metrics.length === 0}
+                  size="sm"
+                  className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
+                >
+                  {loadingAiInsights ? (
+                    <>
+                      <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                      Analyzing...
+                    </>
+                  ) : (
+                    <>
+                      <Target className="h-4 w-4 mr-2" />
+                      Generate AI Insights
+                    </>
+                  )}
+                </Button>
+                <Badge variant="secondary" className="px-3 py-1">
+                  {selectedLocation?.accountName}
+                </Badge>
+              </div>
             </div>
+
+            {/* AI-Generated Insights Card */}
+            {aiInsights && (
+              <Card className="border-2 border-purple-200 bg-gradient-to-br from-purple-50 to-blue-50">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 text-purple-900">
+                    <Target className="h-5 w-5" />
+                    AI-Powered Professional Analysis
+                    <Badge className="bg-purple-600">Powered by GPT-4</Badge>
+                  </CardTitle>
+                  <p className="text-sm text-purple-700">
+                    Expert analysis and recommendations tailored for {selectedLocation?.name}
+                  </p>
+                </CardHeader>
+                <CardContent>
+                  <div className="prose prose-sm max-w-none prose-headings:text-purple-900 prose-p:text-gray-700 prose-strong:text-purple-800 prose-li:text-gray-700">
+                    <div className="whitespace-pre-wrap">{aiInsights}</div>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Placeholder when no AI insights */}
+            {!aiInsights && !loadingAiInsights && (
+              <Card className="border-2 border-dashed border-purple-200">
+                <CardContent className="py-12 text-center">
+                  <div className="mx-auto mb-4 h-16 w-16 rounded-full bg-purple-100 flex items-center justify-center">
+                    <Target className="h-8 w-8 text-purple-600" />
+                  </div>
+                  <h3 className="text-lg font-semibold text-gray-900 mb-2">AI Insights Not Generated Yet</h3>
+                  <p className="text-muted-foreground mb-4 max-w-md mx-auto">
+                    Click "Generate AI Insights" to get a comprehensive analysis of your business profile performance with actionable recommendations from our AI consultant.
+                  </p>
+                  <Button
+                    onClick={generateAIInsights}
+                    disabled={!metrics || metrics.length === 0}
+                    className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
+                  >
+                    <Target className="h-4 w-4 mr-2" />
+                    Generate AI Insights Now
+                  </Button>
+                </CardContent>
+              </Card>
+            )}
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               {/* Real-time Status Card */}
@@ -1172,12 +1533,12 @@ const AuditTool = () => {
                   <div className="border-l-4 border-orange-500 pl-4">
                     <h4 className="font-medium">Optimization Opportunity</h4>
                     <p className="text-sm text-muted-foreground">
-                      {auditScore.profileCompleteness < 80
-                        ? 'Complete your business profile to improve search visibility. 🎯'
-                        : 'Your profile is well-optimized. Focus on regular content updates. ✅'}
+                      {auditScore.overall < 80
+                        ? 'Improve your business profile performance to increase visibility. 🎯'
+                        : 'Your profile is performing well. Keep up the great work! ✅'}
                     </p>
                     <p className="text-xs text-muted-foreground mt-1">
-                      Profile completeness: {auditScore.profileCompleteness}%
+                      Overall score: {auditScore.overall}%
                     </p>
                   </div>
 
