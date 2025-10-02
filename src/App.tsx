@@ -22,13 +22,26 @@ import { AuthProvider } from "./contexts/AuthContext";
 import { NotificationProvider } from "./contexts/NotificationContext";
 import { SubscriptionProvider } from "./contexts/SubscriptionContext";
 import { GoogleBusinessProfileProvider } from "./contexts/GoogleBusinessProfileContext";
+import { AdminProvider } from "./contexts/AdminContext";
 
 import ProtectedRoute from "./components/ProtectedRoute";
 import AuthRedirect from "./components/AuthRedirect";
+import AdminRoute from "./components/AdminRoute";
 import GoogleOAuthCallback from "./pages/GoogleOAuthCallback";
 import { PaymentSuccess } from "./components/PaymentSuccess";
 import { TrialManager } from "./components/TrialManager";
 import EnvironmentIndicator from "./components/EnvironmentIndicator";
+
+// Admin Pages
+import AdminLayout from "./components/Layout/AdminLayout";
+import AdminDashboard from "./pages/Admin/AdminDashboard";
+import AdminUsers from "./pages/Admin/AdminUsers";
+import AdminSubscriptions from "./pages/Admin/AdminSubscriptions";
+import AdminPayments from "./pages/Admin/AdminPayments";
+import AdminCoupons from "./pages/Admin/AdminCoupons";
+import AdminAnalytics from "./pages/Admin/AdminAnalytics";
+import AdminAudits from "./pages/Admin/AdminAudits";
+import AdminUserAudits from "./pages/Admin/AdminUserAudits";
 // SubscriptionGuard is now handled inside DashboardLayout
 
 const queryClient = new QueryClient();
@@ -40,10 +53,11 @@ const App = () => (
       <Sonner />
       <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
         <AuthProvider>
-          <GoogleBusinessProfileProvider>
-            <NotificationProvider>
-              <SubscriptionProvider>
-                <Routes>
+          <AdminProvider>
+            <GoogleBusinessProfileProvider>
+              <NotificationProvider>
+                <SubscriptionProvider>
+                  <Routes>
             <Route path="/" element={<Navigate to="/login" replace />} />
             <Route path="/login" element={
               <AuthRedirect>
@@ -93,16 +107,36 @@ const App = () => (
                 <PaymentSuccess />
               </ProtectedRoute>
             } />
-            
+
+            {/* Admin Routes - Protected by AdminRoute */}
+            <Route path="/admin" element={
+              <ProtectedRoute>
+                <AdminRoute>
+                  <AdminLayout />
+                </AdminRoute>
+              </ProtectedRoute>
+            }>
+              <Route index element={<Navigate to="/admin/dashboard" replace />} />
+              <Route path="dashboard" element={<AdminDashboard />} />
+              <Route path="users" element={<AdminUsers />} />
+              <Route path="subscriptions" element={<AdminSubscriptions />} />
+              <Route path="payments" element={<AdminPayments />} />
+              <Route path="coupons" element={<AdminCoupons />} />
+              <Route path="analytics" element={<AdminAnalytics />} />
+              <Route path="audits" element={<AdminAudits />} />
+              <Route path="user-audits" element={<AdminUserAudits />} />
+            </Route>
+
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
                 </Routes>
 
                 {/* Global Trial Setup Modal */}
                 <TrialManager />
-              </SubscriptionProvider>
-            </NotificationProvider>
-          </GoogleBusinessProfileProvider>
+                </SubscriptionProvider>
+              </NotificationProvider>
+            </GoogleBusinessProfileProvider>
+          </AdminProvider>
         </AuthProvider>
         {/* Environment indicator - only shows in development */}
         <EnvironmentIndicator />

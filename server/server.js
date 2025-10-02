@@ -4,6 +4,8 @@ import { google } from 'googleapis';
 import fetch from 'node-fetch';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import admin from 'firebase-admin';
+import { readFileSync } from 'fs';
 import config from './config.js';
 import paymentRoutes from './routes/payment.js';
 import aiReviewsRoutes from './routes/aiReviews.js';
@@ -11,6 +13,7 @@ import reviewLinkRoutes from './routes/reviewLink.js';
 import googleReviewLinkRoutes from './routes/googleReviewLink.js';
 import automationRoutes from './routes/automation.js';
 import qrCodesRoutes from './routes/qrCodes.js';
+import adminRoutes from './routes/admin.js';
 import { checkSubscription, trackTrialStart, addTrialHeaders } from './middleware/subscriptionCheck.js';
 import SubscriptionService from './services/subscriptionService.js';
 import automationScheduler from './services/automationScheduler.js';
@@ -27,6 +30,26 @@ import CSVProcessingService from './services/csvProcessingService.js';
 
 // Hardcoded account ID for Google Business Profile API
 const HARDCODED_ACCOUNT_ID = process.env.HARDCODED_ACCOUNT_ID || '106433552101751461082';
+
+// Get __dirname equivalent in ES modules
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+// Initialize Firebase Admin SDK
+try {
+  const serviceAccountPath = path.join(__dirname, 'serviceAccountKey.json');
+  const serviceAccount = JSON.parse(readFileSync(serviceAccountPath, 'utf8'));
+
+  if (!admin.apps.length) {
+    admin.initializeApp({
+      credential: admin.credential.cert(serviceAccount)
+    });
+    console.log('✅ Firebase Admin SDK initialized successfully');
+  }
+} catch (error) {
+  console.error('❌ Error initializing Firebase Admin SDK:', error.message);
+  console.error('   Make sure serviceAccountKey.json exists in the server directory');
+}
 
 const app = express();
 const PORT = config.port;
@@ -120,10 +143,6 @@ app.options('*', (req, res) => {
   }
 });
 
-// Get __dirname equivalent for ES modules
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
 // Serve static files from React build (for production)
 // NOTE: Frontend is hosted separately on Azure Static Web Apps, so we don't serve static files
 // if (process.env.NODE_ENV === 'production') {
@@ -204,6 +223,9 @@ app.use('/api/review-link', reviewLinkRoutes);
 app.use('/api/google-review', googleReviewLinkRoutes);
 app.use('/api/automation', automationRoutes);
 app.use('/api/qr-codes', qrCodesRoutes);
+
+// Admin routes (protected by admin auth middleware)
+app.use('/api/admin', adminRoutes);
 
 // Client Configuration API Endpoints
 app.post('/api/client/config/email', checkSubscription, async (req, res) => {

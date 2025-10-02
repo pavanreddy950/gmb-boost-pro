@@ -43,36 +43,6 @@ interface CsvAnalysis {
 }
 
 const RequestForReviews = () => {
-  // Coming Soon Barrier - Remove this section when ready to deploy
-  const SHOW_COMING_SOON = true;
-
-  if (SHOW_COMING_SOON) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-green-50 to-blue-100">
-        <Card className="max-w-md w-full mx-4 shadow-xl border-0">
-          <CardContent className="text-center p-8">
-            <div className="mb-6">
-              <div className="w-20 h-20 mx-auto bg-gradient-to-br from-green-500 to-blue-600 rounded-full flex items-center justify-center">
-                <Send className="w-10 h-10 text-white" />
-              </div>
-            </div>
-            <h1 className="text-2xl font-bold text-gray-900 mb-2">Request for Reviews</h1>
-            <h2 className="text-lg font-semibold text-green-600 mb-4">Coming Soon!</h2>
-            <p className="text-gray-600 mb-6">
-              We're building an advanced customer outreach system to help you request reviews from your customers via email, SMS, and WhatsApp with automated follow-ups.
-            </p>
-            <div className="space-y-2 text-sm text-gray-500">
-              <p>📧 Email Campaigns</p>
-              <p>📱 SMS & WhatsApp Integration</p>
-              <p>📊 Customer Analysis & Tracking</p>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
-  // End Coming Soon Barrier
-
   const { accounts: businessAccounts, isConnected } = useGoogleBusinessProfileContext();
   const [selectedLocationId, setSelectedLocationId] = useState<string>('');
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);

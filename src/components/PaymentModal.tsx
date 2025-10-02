@@ -78,7 +78,8 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           code: couponCode,
-          amount: selectedPlan.amount
+          amount: selectedPlan.amount,
+          userId: currentUser?.uid // Pass userId for one-time per user validation
         })
       });
       

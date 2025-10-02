@@ -1,0 +1,74 @@
+[
+  {
+    "id": "audit_1759387800469_puwkuio8l",
+    "timestamp": "2025-10-02T06:50:00.469Z",
+    "action": "coupon.create",
+    "adminId": "unknown",
+    "adminEmail": "unknown",
+    "description": "Created coupon GANESH123 with 99% discount",
+    "targetType": "coupon",
+    "targetId": "GANESH123",
+    "metadata": {
+      "couponData": {
+        "code": "GANESH123",
+        "type": "percentage",
+        "discount": 99,
+        "maxUses": null,
+        "validUntil": "2025-12-31T00:00:00.000Z",
+        "description": "",
+        "oneTimePerUser": false,
+        "singleUse": true,
+        "usedBy": []
+      }
+    },
+    "ipAddress": "::1"
+  },
+  {
+    "id": "audit_1759354608372_z8ccrlbis",
+    "timestamp": "2025-10-01T21:36:48.372Z",
+    "action": "coupon.deactivate",
+    "adminId": "unknown",
+    "adminEmail": "unknown",
+    "description": "Deactivated coupon INSTA",
+    "targetType": "coupon",
+    "targetId": "INSTA",
+    "metadata": {},
+    "ipAddress": "::1"
+  },
+  {
+    "id": "audit_1759354599683_4auqcivwj",
+    "timestamp": "2025-10-01T21:36:39.683Z",
+    "action": "coupon.deactivate",
+    "adminId": "unknown",
+    "adminEmail": "unknown",
+    "description": "Deactivated coupon PAVANREDDY",
+    "targetType": "coupon",
+    "targetId": "PAVANREDDY",
+    "metadata": {},
+    "ipAddress": "::1"
+  },
+  {
+    "id": "audit_1759354595967_v914zzfj3",
+    "timestamp": "2025-10-01T21:36:35.967Z",
+    "action": "coupon.create",
+    "adminId": "unknown",
+    "adminEmail": "unknown",
+    "description": "Created coupon INSTA with 99% discount",
+    "targetType": "coupon",
+    "targetId": "INSTA",
+    "metadata": {
+      "couponData": {
+        "code": "INSTA",
+        "type": "percentage",
+        "discount": 99,
+        "maxUses": null,
+        "validUntil": "2025-12-31T00:00:00.000Z",
+        "description": "",
+        "oneTimePerUser": false,
+        "singleUse": true,
+        "usedBy": []
+      }
+    },
+    "ipAddress": "::1"
+  }
+]

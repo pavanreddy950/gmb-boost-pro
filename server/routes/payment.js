@@ -220,13 +220,14 @@ router.post('/subscription/trial', async (req, res) => {
 // Validate coupon
 router.post('/coupon/validate', async (req, res) => {
   try {
-    const { code, amount } = req.body;
+    const { code, amount, userId } = req.body;
     
     if (!code) {
       return res.status(400).json({ error: 'Coupon code is required' });
     }
     
-    const result = couponService.applyCoupon(code, amount);
+    // Pass userId to check one-time per user coupons
+    const result = couponService.applyCoupon(code, amount, userId);
     res.json(result);
   } catch (error) {
     console.error('Error validating coupon:', error);
@@ -300,7 +301,9 @@ router.post('/order', async (req, res) => {
     // Apply coupon if provided
     if (couponCode) {
       console.log('[Payment Route] Applying coupon:', couponCode);
-      const couponResult = couponService.applyCoupon(couponCode, finalAmount);
+      // Get userId from notes if available for one-time per user validation
+      const userId = notes.userId || notes.firebaseUid || null;
+      const couponResult = couponService.applyCoupon(couponCode, finalAmount, userId);
       if (couponResult.success) {
         const beforeCoupon = finalAmount;
         finalAmount = couponResult.finalAmount;
