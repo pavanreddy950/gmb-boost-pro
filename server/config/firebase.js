@@ -17,7 +17,10 @@ class FirebaseConfig {
       console.log('[Firebase] Initializing Firebase Admin SDK...');
 
       // Check if Firebase is already initialized
-      if (admin.apps.length === 0) {
+      if (admin.apps.length > 0) {
+        this.app = admin.apps[0];
+        console.log('[Firebase] ✅ Using existing Firebase app instance');
+      } else {
         // Initialize with environment variables or service account
         if (process.env.FIREBASE_SERVICE_ACCOUNT_KEY) {
           // Use service account key from environment
@@ -34,9 +37,24 @@ class FirebaseConfig {
           }
         } else if (process.env.GOOGLE_APPLICATION_CREDENTIALS) {
           // Use service account file path
-          this.app = admin.initializeApp({
-            projectId: process.env.FIREBASE_PROJECT_ID
-          });
+          const fs = await import('fs');
+          const path = await import('path');
+          const { fileURLToPath } = await import('url');
+
+          try {
+            const __dirname = path.dirname(fileURLToPath(import.meta.url));
+            const credPath = path.resolve(path.dirname(__dirname), process.env.GOOGLE_APPLICATION_CREDENTIALS);
+            const serviceAccount = JSON.parse(fs.readFileSync(credPath, 'utf8'));
+
+            this.app = admin.initializeApp({
+              credential: admin.credential.cert(serviceAccount),
+              projectId: process.env.FIREBASE_PROJECT_ID || serviceAccount.project_id
+            });
+            console.log('[Firebase] ✅ Using service account from file:', credPath);
+          } catch (fileError) {
+            console.error('[Firebase] Failed to load service account file:', fileError.message);
+            throw new Error(`Cannot load service account from ${process.env.GOOGLE_APPLICATION_CREDENTIALS}`);
+          }
         } else {
           // For development - create a fallback that doesn't crash the app
           console.warn('[Firebase] ⚠️ No Firebase service account configured');
@@ -47,11 +65,9 @@ class FirebaseConfig {
           this.app = null;
           this.db = null;
           this.initialized = false;
-          
+
           return { app: null, db: null };
         }
-      } else {
-        this.app = admin.apps[0];
       }
 
       // Initialize Firestore

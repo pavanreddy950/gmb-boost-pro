@@ -4,6 +4,7 @@ import { useAdmin } from '@/contexts/AdminContext';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
+import { Card, CardContent } from '@/components/ui/card';
 import {
   LayoutDashboard,
   Users,
@@ -21,6 +22,9 @@ import {
 import { useState } from 'react';
 
 const AdminLayout = () => {
+  // Coming Soon Barrier - Set to false when ready to enable admin panel
+  const SHOW_COMING_SOON = true;
+
   const { currentUser, logout } = useAuth();
   const { adminLevel } = useAdmin();
   const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -28,6 +32,80 @@ const AdminLayout = () => {
   const handleLogout = async () => {
     await logout();
   };
+
+  // Coming Soon Barrier Screen
+  if (SHOW_COMING_SOON) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-50 to-blue-50">
+        <Card className="max-w-2xl w-full mx-4 shadow-xl border-0">
+          <CardContent className="text-center p-12">
+            <div className="mb-6">
+              <div className="w-24 h-24 mx-auto bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center shadow-lg">
+                <Shield className="w-12 h-12 text-white" />
+              </div>
+            </div>
+            <h1 className="text-3xl font-bold text-gray-900 mb-2">Admin Panel</h1>
+            <h2 className="text-xl font-semibold text-blue-600 mb-4">Coming Soon!</h2>
+            <p className="text-gray-600 mb-8 text-lg">
+              The admin panel is currently under development and will be available after payment confirmation.
+            </p>
+
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-6 mb-8">
+              <h3 className="font-semibold text-blue-900 mb-4">Admin Features:</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm text-blue-800">
+                <div className="flex items-center gap-2">
+                  <Users className="h-4 w-4" />
+                  <span>User Management</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <CreditCard className="h-4 w-4" />
+                  <span>Payment Tracking</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <BarChart3 className="h-4 w-4" />
+                  <span>Analytics Dashboard</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Ticket className="h-4 w-4" />
+                  <span>Coupon Management</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <TrendingUp className="h-4 w-4" />
+                  <span>Subscription Control</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <FileText className="h-4 w-4" />
+                  <span>Audit Logs</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex gap-4 justify-center">
+              <Button
+                onClick={handleLogout}
+                variant="outline"
+                className="flex items-center gap-2"
+              >
+                <LogOut className="h-4 w-4" />
+                Logout
+              </Button>
+              <Button
+                onClick={() => window.location.href = '/dashboard'}
+                className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
+              >
+                Go to Dashboard
+              </Button>
+            </div>
+
+            <p className="text-xs text-gray-500 mt-6">
+              Logged in as: {currentUser?.email}
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+  // End Coming Soon Barrier
 
   const navigation = [
     { name: 'Dashboard', href: '/admin/dashboard', icon: LayoutDashboard },

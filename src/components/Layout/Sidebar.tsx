@@ -63,10 +63,11 @@ const Sidebar = ({ isOpen = false, onClose }: SidebarProps) => {
           </Button>
         </div>
         <div className="flex items-center gap-2 lg:mx-0 mx-auto">
-          <Building2 className="h-6 w-6 text-primary" />
-          <span className="font-bold text-lg bg-gradient-primary bg-clip-text text-transparent">
-            LOBAISEO
-          </span>
+          <img 
+            src="/Frame 24.svg" 
+            alt="LOBAISEO Logo" 
+            className="h-8 w-auto"
+          />
         </div>
         
         {/* Spacer for mobile to center the logo */}

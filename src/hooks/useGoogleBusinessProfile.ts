@@ -302,20 +302,21 @@ export const useGoogleBusinessProfile = (): UseGoogleBusinessProfileReturn => {
   }, [loadBusinessAccounts, toast, currentUser, navigate]);
 
 
-  // Disconnect from Google Business Profile
+  // Permanently disconnect from Google Business Profile (delete tokens everywhere)
   const disconnectGoogleBusiness = useCallback(async () => {
     try {
       setIsLoading(true);
-      await googleBusinessProfileService.disconnect();
+      // Use permanentDisconnect when user explicitly clicks Disconnect in Settings
+      await googleBusinessProfileService.permanentDisconnect();
       setIsConnected(false);
       setAccounts([]);
       setSelectedAccount(null);
       setSelectedLocation(null);
       setError(null);
-      
+
       toast({
         title: "Disconnected",
-        description: "Your Google Business Profile has been disconnected.",
+        description: "Your Google Business Profile has been permanently disconnected.",
       });
     } catch (error) {
       console.error('Error disconnecting Google Business Profile:', error);

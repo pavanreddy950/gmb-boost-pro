@@ -1507,7 +1507,63 @@ class GoogleBusinessProfileService {
     }
   }
 
-  // Disconnect Google Business Profile - Optimized for speed
+  // Permanently disconnect Google Business Profile - Deletes all tokens everywhere
+  async permanentDisconnect(): Promise<void> {
+    try {
+      const operations: Promise<any>[] = [];
+      const currentToken = this.accessToken;
+
+      // Clear localStorage immediately
+      localStorage.removeItem('google_business_tokens');
+      localStorage.removeItem('google_business_connected');
+      localStorage.removeItem('google_business_connection_time');
+      localStorage.removeItem('last_token_validation');
+
+      // Reset access token
+      this.accessToken = null;
+
+      // Stop connection monitoring
+      this.stopConnectionMonitoring();
+
+      // Clear caches
+      this.cache.clear();
+      gbpCache.clear();
+
+      // Revoke token at Google
+      if (currentToken) {
+        operations.push(
+          fetch(`https://oauth2.googleapis.com/revoke?token=${currentToken}`, {
+            method: 'POST',
+          }).catch(error => {
+            console.debug('Token revocation failed (non-critical):', error);
+          })
+        );
+      }
+
+      // Delete from Firebase Storage permanently
+      if (this.currentUserId) {
+        operations.push(
+          tokenStorageService.deleteTokens(this.currentUserId)
+            .then(() => console.log('✅ Tokens permanently deleted from Firebase Storage'))
+            .catch(error => console.debug('Firebase deletion failed (non-critical):', error))
+        );
+      }
+
+      // Wait for operations
+      if (operations.length > 0) {
+        await Promise.race([
+          Promise.allSettled(operations),
+          new Promise(resolve => setTimeout(resolve, 2000))
+        ]);
+      }
+
+      console.log('✅ Permanent disconnect completed - all tokens deleted everywhere');
+    } catch (error) {
+      console.error('Error during permanent disconnect:', error);
+    }
+  }
+
+  // Disconnect Google Business Profile - Preserves tokens in Firebase for persistence
   async disconnect(): Promise<void> {
     try {
       // Start all operations concurrently for faster performance
@@ -1515,6 +1571,25 @@ class GoogleBusinessProfileService {
 
       // Store current token for revocation before clearing
       const currentToken = this.accessToken;
+
+      // IMPORTANT: Save tokens to Firebase Storage BEFORE clearing localStorage
+      // This ensures tokens persist across logout/login for auto-posting and auto-review features
+      if (this.currentUserId && currentToken) {
+        const storedTokens = localStorage.getItem('google_business_tokens');
+        if (storedTokens) {
+          try {
+            const tokens = JSON.parse(storedTokens);
+            console.log('💾 Saving tokens to Firebase before disconnect...');
+            operations.push(
+              tokenStorageService.saveTokens(this.currentUserId, tokens)
+                .then(() => console.log('✅ Tokens preserved in Firebase Storage'))
+                .catch(error => console.warn('⚠️ Failed to preserve tokens in Firebase:', error))
+            );
+          } catch (e) {
+            console.warn('Failed to parse tokens for Firebase backup:', e);
+          }
+        }
+      }
 
       // Clear localStorage immediately (synchronous - fastest)
       localStorage.removeItem('google_business_tokens');
@@ -1535,41 +1610,34 @@ class GoogleBusinessProfileService {
       gbpCache.clear();
 
       // Optional: Revoke token with timeout (non-blocking background operation)
-      if (currentToken) {
-        operations.push(
-          fetch(`https://oauth2.googleapis.com/revoke?token=${currentToken}`, {
-            method: 'POST',
-          }).catch(error => {
-            console.debug('Token revocation failed (non-critical):', error);
-          })
-        );
-      }
+      // DISABLED: We want to keep tokens valid for auto-posting
+      // if (currentToken) {
+      //   operations.push(
+      //     fetch(`https://oauth2.googleapis.com/revoke?token=${currentToken}`, {
+      //       method: 'POST',
+      //     }).catch(error => {
+      //       console.debug('Token revocation failed (non-critical):', error);
+      //     })
+      //   );
+      // }
 
-      // Clear from Firestore with fast timeout (concurrent operation)
-      if (this.currentUserId) {
-        operations.push(
-          tokenStorageService.deleteTokens(this.currentUserId)
-            .then(() => console.log('✅ Tokens cleared from Firestore'))
-            .catch(error => console.debug('Firestore cleanup failed (non-critical):', error))
-        );
-
-        // Reset user ID after starting Firestore operation
-        this.currentUserId = null;
-      }
+      // NOTE: We do NOT delete tokens from Firebase Storage
+      // This allows the connection to persist across logout/login
+      // Tokens will only be deleted if user explicitly disconnects from Settings
 
       // Wait for all background operations to complete (with fast timeout)
       if (operations.length > 0) {
         try {
           await Promise.race([
             Promise.allSettled(operations),
-            new Promise(resolve => setTimeout(resolve, 1000)) // Max 1 second wait
+            new Promise(resolve => setTimeout(resolve, 2000)) // Max 2 seconds wait for Firebase save
           ]);
         } catch (error) {
           console.debug('Some disconnect operations failed (non-critical):', error);
         }
       }
 
-      console.log('✅ Disconnect completed successfully - all caches cleared');
+      console.log('✅ Disconnect completed successfully - tokens preserved in Firebase');
     } catch (error) {
       console.error('Error disconnecting Google Business Profile:', error);
       // Don't throw error - disconnection should always succeed locally

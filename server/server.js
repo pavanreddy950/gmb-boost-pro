@@ -3130,6 +3130,50 @@ app.get('/api/locations/:locationId/insights', async (req, res) => {
   }
 });
 
+// ============= AUDIT RESULTS =============
+// Save audit result (user endpoint)
+app.post('/api/audit-results', async (req, res) => {
+  try {
+    const auditResultsService = (await import('./services/auditResultsService.js')).default;
+
+    const auditData = {
+      userId: req.body.userId,
+      userEmail: req.body.userEmail,
+      locationId: req.body.locationId,
+      locationName: req.body.locationName,
+      performance: req.body.performance,
+      recommendations: req.body.recommendations,
+      score: req.body.score,
+      dateRange: req.body.dateRange,
+      metadata: req.body.metadata
+    };
+
+    const result = await auditResultsService.saveAuditResult(auditData);
+    res.json({ success: true, data: result });
+  } catch (error) {
+    console.error('Error saving audit result:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// Get user's own audit results
+app.get('/api/audit-results', async (req, res) => {
+  try {
+    const auditResultsService = (await import('./services/auditResultsService.js')).default;
+    const { userId } = req.query;
+
+    if (!userId) {
+      return res.status(400).json({ success: false, error: 'userId is required' });
+    }
+
+    const result = await auditResultsService.getAuditResults({ userId });
+    res.json({ success: true, data: result });
+  } catch (error) {
+    console.error('Error getting audit results:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
 // Error handling middleware
 app.use((error, req, res, next) => {
   console.error('Server error:', error);

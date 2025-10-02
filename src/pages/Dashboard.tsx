@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Building2, MapPin, Star, Calendar, ArrowRight, Settings, AlertCircle, CreditCard } from "lucide-react";
+import { Plus, Building2, MapPin, Star, Calendar, ArrowRight, Settings, AlertCircle, CreditCard, Users } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useGoogleBusinessProfile } from "@/hooks/useGoogleBusinessProfile";
 import { useProfileLimitations } from "@/hooks/useProfileLimitations";
@@ -31,36 +31,12 @@ const Dashboard = () => {
   if (isLoading) {
     return (
       <div className="space-y-6">
-        <div className="flex items-center justify-center relative px-4">
+        <div className="flex items-center justify-center px-4">
           <img 
-            src="/Upgrade plan banner.svg" 
+            src="/Upgrade plan banner - Copy.svg" 
             alt="Upgrade Plan Banner" 
             className="w-full max-w-4xl h-auto"
           />
-          {/* Interactive button overlay - attached to banner with responsive positioning */}
-          <div className="absolute inset-0 flex items-center max-w-4xl mx-auto">
-            <Link 
-              to="/dashboard/settings" 
-              className="absolute"
-              style={{
-                left: 'clamp(15%, 15.5vw, 19.5%)',
-                top: 'clamp(55%, 60vh, 62%)',
-                transform: 'translateY(-50%)'
-              }}
-            >
-              <Button 
-                className="bg-white hover:bg-gray-100 font-medium rounded-lg border-0 shadow-lg transition-all duration-200 whitespace-nowrap"
-                style={{
-                  color: '#1B29CB',
-                  fontSize: 'clamp(10px, 2.5vw, 14px)',
-                  padding: 'clamp(6px, 1.5vw, 12px) clamp(12px, 3vw, 24px)'
-                }}
-              >
-                <span className="hidden sm:inline">Connect Your GBP</span>
-                <span className="sm:hidden">Connect GBP</span>
-              </Button>
-            </Link>
-          </div>
         </div>
         
         <div className="flex flex-col items-center justify-center py-16 space-y-4">
@@ -92,36 +68,12 @@ const Dashboard = () => {
   if (!isConnected) {
     return (
       <div className="space-y-6">
-        <div className="flex items-center justify-center relative px-4">
+        <div className="flex items-center justify-center px-4">
           <img 
-            src="/Upgrade plan banner.svg" 
+            src="/Upgrade plan banner - Copy.svg" 
             alt="Upgrade Plan Banner" 
             className="w-full max-w-4xl h-auto"
           />
-          {/* Interactive button overlay - attached to banner with responsive positioning */}
-          <div className="absolute inset-0 flex items-center max-w-4xl mx-auto">
-            <Link 
-              to="/dashboard/settings" 
-              className="absolute"
-              style={{
-                left: 'clamp(15%, 15.5vw, 19.5%)',
-                top: 'clamp(55%, 60vh, 62%)',
-                transform: 'translateY(-50%)'
-              }}
-            >
-              <Button 
-                className="bg-white hover:bg-gray-100 font-medium rounded-lg border-0 shadow-lg transition-all duration-200 whitespace-nowrap"
-                style={{
-                  color: '#1B29CB',
-                  fontSize: 'clamp(10px, 2.5vw, 14px)',
-                  padding: 'clamp(6px, 1.5vw, 12px) clamp(12px, 3vw, 24px)'
-                }}
-              >
-                <span className="hidden sm:inline">Connect Your GBP</span>
-                <span className="sm:hidden">Connect GBP</span>
-              </Button>
-            </Link>
-          </div>
         </div>
         
         <div className="flex flex-col items-center justify-center min-h-[400px] text-center">
@@ -206,7 +158,7 @@ const Dashboard = () => {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Total Profiles</CardTitle>
-            <Building2 className="h-4 w-4 text-muted-foreground" />
+            <Users className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{totalProfiles}</div>

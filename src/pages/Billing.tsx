@@ -308,10 +308,19 @@ const Billing = () => {
                       <Badge className="bg-green-100 text-green-800">Save 17%</Badge>
                     )}
                   </div>
-                  <CardDescription>
-                    {plan.id === 'per_profile_yearly' ? '$99 per profile/year' :
-                     `$${(plan.amount / 100).toFixed(0)}/${plan.interval}`}
-                  </CardDescription>
+                  {plan.id === 'per_profile_yearly' ? (
+                    <div className="mt-2">
+                      <div className="flex items-baseline gap-2">
+                        <span className="text-3xl font-bold text-foreground">$99</span>
+                        <span className="text-xl text-muted-foreground line-through">$119</span>
+                      </div>
+                      <CardDescription className="mt-1">per Google Business Profile/year</CardDescription>
+                    </div>
+                  ) : (
+                    <CardDescription className="text-2xl font-bold text-foreground mt-2">
+                      ${(plan.amount / 100).toFixed(0)}/{plan.interval}
+                    </CardDescription>
+                  )}
                 </CardHeader>
                 <CardContent>
                   <ul className="space-y-2">

@@ -14,8 +14,11 @@ import {
   Unlink,
   Lock,
   Crown,
-  Mail
+  Mail,
+  Store,
+  Briefcase
 } from 'lucide-react';
+import { FaGoogle } from 'react-icons/fa';
 import { useGoogleBusinessProfile } from '@/hooks/useGoogleBusinessProfile';
 import { useProfileLimitations } from '@/hooks/useProfileLimitations';
 import { BusinessAccount, BusinessLocation } from '@/lib/googleBusinessProfile';
@@ -41,7 +44,7 @@ const ConnectionSetup: React.FC = () => {
     isLocationAccessible,
     getAccountLockMessage,
     getLocationLockMessage,
-    handleContactEnterprise
+    handleContactSupport
   } = useProfileLimitations();
 
   if (isLoading) {
@@ -60,7 +63,7 @@ const ConnectionSetup: React.FC = () => {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Building2 className="h-5 w-5" />
+            <FaGoogle className="h-5 w-5 text-[#4285F4]" />
             Connect Google Business Profile
           </CardTitle>
           <CardDescription>
@@ -96,7 +99,7 @@ const ConnectionSetup: React.FC = () => {
             className="w-full"
             size="lg"
           >
-            <Building2 className="mr-2 h-4 w-4" />
+            <FaGoogle className="mr-2 h-4 w-4" />
             Connect Google Business Profile
           </Button>
         </CardContent>
@@ -111,7 +114,7 @@ const ConnectionSetup: React.FC = () => {
         <CardHeader>
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <Building2 className="h-5 w-5" />
+              <FaGoogle className="h-5 w-5 text-[#4285F4]" />
               <CardTitle>Google Business Profile</CardTitle>
               <Badge variant="secondary" className="bg-green-100 text-green-800">
                 <CheckCircle className="h-3 w-3 mr-1" />
@@ -213,7 +216,7 @@ const ConnectionSetup: React.FC = () => {
                       <div className={`h-10 w-10 rounded-lg flex items-center justify-center ${
                         isDisabled ? 'bg-gray-100' : 'bg-primary/10'
                       }`}>
-                        <Building2 className={`h-5 w-5 ${isDisabled ? 'text-gray-400' : 'text-primary'}`} />
+                        <Store className={`h-5 w-5 ${isDisabled ? 'text-gray-400' : 'text-primary'}`} />
                       </div>
                       <div>
                         <h4 className={`font-medium ${isDisabled ? 'text-gray-500' : ''}`}>
@@ -257,7 +260,7 @@ const ConnectionSetup: React.FC = () => {
                       <Button
                         size="sm"
                         variant="outline"
-                        onClick={() => handleContactEnterprise('Multiple Business Accounts')}
+                        onClick={() => handleContactSupport('Multiple Business Accounts')}
                         className="border-orange-300 text-orange-700 hover:bg-orange-100"
                       >
                         <Mail className="h-4 w-4 mr-2" />
@@ -393,7 +396,7 @@ const ConnectionSetup: React.FC = () => {
                       <Button
                         size="sm"
                         variant="outline"
-                        onClick={() => handleContactEnterprise('Multiple Business Locations')}
+                        onClick={() => handleContactSupport('Multiple Business Locations')}
                         className="border-orange-300 text-orange-700 hover:bg-orange-100"
                       >
                         <Mail className="h-4 w-4 mr-2" />

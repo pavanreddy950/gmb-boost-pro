@@ -20,7 +20,22 @@
       "Bash(timeout:*)",
       "Bash(git remote add:*)",
       "Bash(git add:*)",
-      "Bash(rm:*)"
+      "Bash(rm:*)",
+      "Bash(git log:*)",
+      "Bash(cat:*)",
+      "Bash(node:*)",
+      "Bash(docker build:*)",
+      "Bash(docker push:*)",
+      "Bash(docker login:*)",
+      "Read(//c/Users/meena/.docker/**)",
+      "Bash(docker stop:*)",
+      "Bash(docker rm:*)",
+      "Bash(docker run:*)",
+      "Bash(docker-compose:*)",
+      "Bash(docker pull:*)",
+      "Bash(docker logs:*)",
+      "Bash(del nul)",
+      "Bash(git commit:*)"
     ],
     "deny": [],
     "ask": []

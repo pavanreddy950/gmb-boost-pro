@@ -25,7 +25,7 @@ import { useToast } from '@/hooks/use-toast';
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000';
 
-const AdminUserAudits = () => {
+const AdminUserAuditsHybrid = () => {
   const { users, fetchUsers } = useAdmin();
   const { currentUser } = useAuth();
   const { toast } = useToast();
@@ -577,4 +577,4 @@ const AdminUserAudits = () => {
   );
 };
 
-export default AdminUserAudits;
+export default AdminUserAuditsHybrid;

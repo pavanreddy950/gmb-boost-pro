@@ -12,7 +12,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
-import { Check, CreditCard, Shield, Zap, Tag } from 'lucide-react';
+import { Check, CreditCard, Shield, Zap, Tag, Users } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useSubscription } from '@/contexts/SubscriptionContext';
 import { useGoogleBusinessProfileContext } from '@/contexts/GoogleBusinessProfileContext';
@@ -456,15 +456,17 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader className="sticky top-0 bg-background z-10 pb-4">
+      <DialogContent className="max-w-3xl h-[90vh] p-0 flex flex-col">
+        {/* Fixed Header */}
+        <DialogHeader className="flex-shrink-0 bg-background z-20 px-6 pt-6 pb-4 border-b">
           <DialogTitle>Upgrade Your Profile Access</DialogTitle>
           <DialogDescription>
             Choose how many Google Business Profiles you want to manage. Pay only for what you need at $99 per profile per year.
           </DialogDescription>
         </DialogHeader>
 
-        <div className="mt-2">
+        {/* Scrollable Content */}
+        <div className="flex-1 overflow-y-auto px-6 py-4" style={{ minHeight: 0 }}>
           <RadioGroup
             value={selectedPlanId}
             onValueChange={setSelectedPlanId}
@@ -526,10 +528,10 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
 
           {/* Profile Count Selector for Per-Profile Plan */}
           {selectedPlanId === 'per_profile_yearly' && (
-            <div className="mt-6 bg-gray-50 border border-gray-200 rounded-lg p-4">
+            <div className="mt-6 bg-blue-50 border border-blue-200 rounded-lg p-4">
               <div className="space-y-3">
                 <div className="flex items-center space-x-2">
-                  <CreditCard className="h-5 w-5 text-blue-600" />
+                  <Users className="h-5 w-5 text-blue-600" />
                   <p className="text-sm font-medium text-gray-900">How many profiles do you want to manage?</p>
                 </div>
                 <div className="flex items-center space-x-4">
@@ -646,8 +648,11 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
               </div>
             </div>
           </div>
+        </div>
 
-          <div className="sticky bottom-0 bg-background flex items-center justify-between mt-6 pt-6 border-t">
+        {/* Fixed Footer */}
+        <div className="flex-shrink-0 bg-background border-t px-6 py-4">
+          <div className="flex items-center justify-between gap-4">
             <div>
               {couponDetails && couponDetails.success ? (
                 <div>
@@ -689,18 +694,19 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
                 Plus applicable taxes
               </p>
             </div>
-            <div className="flex space-x-3">
+            <div className="flex gap-3 flex-shrink-0">
               <Button
                 variant="outline"
                 onClick={onClose}
                 disabled={isProcessing}
+                className="min-w-[100px]"
               >
                 Cancel
               </Button>
               <Button
                 onClick={handlePayment}
                 disabled={isProcessing}
-                className="min-w-[140px] bg-primary hover:bg-primary/90"
+                className="min-w-[160px] bg-primary hover:bg-primary/90"
               >
                 {isProcessing ? (
                   <>Processing...</>

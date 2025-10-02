@@ -1,4 +1,21 @@
 {
+  "1234": {
+    "code": "1234",
+    "discount": 100,
+    "type": "percentage",
+    "active": false,
+    "isActive": false,
+    "maxUses": 100,
+    "usedCount": 1,
+    "currentUses": 1,
+    "description": "",
+    "validUntil": "2025-12-31T00:00:00.000Z",
+    "expiresAt": "2025-12-31T00:00:00.000Z",
+    "oneTimePerUser": false,
+    "singleUse": true,
+    "usedBy": [],
+    "createdAt": "2025-10-02T14:27:49.380Z"
+  },
   "RAJATEST": {
     "code": "RAJATEST",
     "discount": 100,
@@ -6,8 +23,8 @@
     "active": true,
     "isActive": true,
     "maxUses": 10000,
-    "usedCount": 0,
-    "currentUses": 0,
+    "usedCount": 5,
+    "currentUses": 5,
     "description": "Internal testing - Pay only ₹1",
     "validUntil": "2030-12-31T00:00:00.000Z",
     "expiresAt": "2030-12-31T00:00:00.000Z",
@@ -81,5 +98,39 @@
     "singleUse": true,
     "usedBy": [],
     "createdAt": "2025-10-02T06:50:00.467Z"
+  },
+  "POST": {
+    "code": "POST",
+    "discount": 99,
+    "type": "percentage",
+    "active": false,
+    "isActive": false,
+    "maxUses": 100,
+    "usedCount": 1,
+    "currentUses": 1,
+    "description": "",
+    "validUntil": "2025-12-31T00:00:00.000Z",
+    "expiresAt": "2025-12-31T00:00:00.000Z",
+    "oneTimePerUser": false,
+    "singleUse": true,
+    "usedBy": [],
+    "createdAt": "2025-10-02T14:16:27.649Z"
+  },
+  "KP123": {
+    "code": "KP123",
+    "discount": 99,
+    "type": "percentage",
+    "active": false,
+    "isActive": false,
+    "maxUses": 100,
+    "usedCount": 2,
+    "currentUses": 2,
+    "description": "",
+    "validUntil": "2025-12-31T00:00:00.000Z",
+    "expiresAt": "2025-12-31T00:00:00.000Z",
+    "oneTimePerUser": false,
+    "singleUse": false,
+    "usedBy": [],
+    "createdAt": "2025-10-02T14:26:56.272Z"
   }
 }

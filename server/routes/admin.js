@@ -601,4 +601,49 @@ router.post('/audit-logs', async (req, res) => {
   }
 });
 
+// ============= USER AUDIT RESULTS =============
+router.get('/audit-results', async (req, res) => {
+  try {
+    const auditResultsService = (await import('../services/auditResultsService.js')).default;
+    const result = await auditResultsService.getAuditResults(req.query);
+    res.json({ success: true, data: result });
+  } catch (error) {
+    console.error('Error getting audit results:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+router.get('/audit-results/stats', async (req, res) => {
+  try {
+    const auditResultsService = (await import('../services/auditResultsService.js')).default;
+    const stats = await auditResultsService.getStats();
+    res.json({ success: true, data: stats });
+  } catch (error) {
+    console.error('Error getting audit stats:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+router.get('/audit-results/by-user', async (req, res) => {
+  try {
+    const auditResultsService = (await import('../services/auditResultsService.js')).default;
+    const grouped = await auditResultsService.getAllAuditsByUser();
+    res.json({ success: true, data: grouped });
+  } catch (error) {
+    console.error('Error getting audits by user:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+router.get('/audit-results/user/:userId', async (req, res) => {
+  try {
+    const auditResultsService = (await import('../services/auditResultsService.js')).default;
+    const result = await auditResultsService.getAuditResults({ userId: req.params.userId });
+    res.json({ success: true, data: result });
+  } catch (error) {
+    console.error('Error getting user audit results:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
 export default router;

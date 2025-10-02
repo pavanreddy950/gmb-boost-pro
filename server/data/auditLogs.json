@@ -1,5 +1,89 @@
 [
   {
+    "id": "audit_1759415269383_hai8d8lri",
+    "timestamp": "2025-10-02T14:27:49.383Z",
+    "action": "coupon.create",
+    "adminId": "unknown",
+    "adminEmail": "unknown",
+    "description": "Created coupon 1234 with 100% discount",
+    "targetType": "coupon",
+    "targetId": "1234",
+    "metadata": {
+      "couponData": {
+        "code": "1234",
+        "type": "percentage",
+        "discount": 100,
+        "maxUses": null,
+        "validUntil": "2025-12-31T00:00:00.000Z",
+        "description": "",
+        "oneTimePerUser": false,
+        "singleUse": true,
+        "usedBy": []
+      }
+    },
+    "ipAddress": "::1"
+  },
+  {
+    "id": "audit_1759415254749_83nsdh8w4",
+    "timestamp": "2025-10-02T14:27:34.749Z",
+    "action": "coupon.deactivate",
+    "adminId": "unknown",
+    "adminEmail": "unknown",
+    "description": "Deactivated coupon KP123",
+    "targetType": "coupon",
+    "targetId": "KP123",
+    "metadata": {},
+    "ipAddress": "::1"
+  },
+  {
+    "id": "audit_1759415216274_kithax696",
+    "timestamp": "2025-10-02T14:26:56.274Z",
+    "action": "coupon.create",
+    "adminId": "unknown",
+    "adminEmail": "unknown",
+    "description": "Created coupon KP123 with 99% discount",
+    "targetType": "coupon",
+    "targetId": "KP123",
+    "metadata": {
+      "couponData": {
+        "code": "KP123",
+        "type": "percentage",
+        "discount": 99,
+        "maxUses": null,
+        "validUntil": "2025-12-31T00:00:00.000Z",
+        "description": "",
+        "oneTimePerUser": false,
+        "singleUse": false,
+        "usedBy": []
+      }
+    },
+    "ipAddress": "::1"
+  },
+  {
+    "id": "audit_1759414587651_5z6cx545n",
+    "timestamp": "2025-10-02T14:16:27.651Z",
+    "action": "coupon.create",
+    "adminId": "unknown",
+    "adminEmail": "unknown",
+    "description": "Created coupon POST with 99% discount",
+    "targetType": "coupon",
+    "targetId": "POST",
+    "metadata": {
+      "couponData": {
+        "code": "POST",
+        "type": "percentage",
+        "discount": 99,
+        "maxUses": null,
+        "validUntil": "2025-12-31T00:00:00.000Z",
+        "description": "",
+        "oneTimePerUser": false,
+        "singleUse": true,
+        "usedBy": []
+      }
+    },
+    "ipAddress": "::1"
+  },
+  {
     "id": "audit_1759387800469_puwkuio8l",
     "timestamp": "2025-10-02T06:50:00.469Z",
     "action": "coupon.create",

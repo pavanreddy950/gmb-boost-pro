@@ -45,6 +45,7 @@ import { useGoogleBusinessProfileContext } from "@/contexts/GoogleBusinessProfil
 import { useSubscription } from "@/contexts/SubscriptionContext";
 import { toast } from "@/hooks/use-toast";
 import { generateAIResponse } from "@/lib/openaiService";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface PerformanceMetrics {
   views: number;
@@ -94,6 +95,7 @@ const AuditTool = () => {
   // End Coming Soon Barrier
   const { accounts: businessAccounts, isConnected, isLoading: loading } = useGoogleBusinessProfileContext();
   const { subscription, status: subscriptionStatus } = useSubscription();
+  const { currentUser } = useAuth();
   const [selectedLocationId, setSelectedLocationId] = useState<string>('');
   const [metrics, setMetrics] = useState<PerformanceMetrics[]>([]);
   const [auditScore, setAuditScore] = useState<AuditScore | null>(null);
@@ -135,6 +137,57 @@ const AuditTool = () => {
       setSelectedLocationId(availableLocations[0].id);
     }
   }, [availableLocations, selectedLocationId]);
+
+  // Save audit result to backend
+  const saveAuditResult = async (locationId: string, performanceData: any, auditScore: any, recommendations: any = null) => {
+    try {
+      if (!currentUser) {
+        console.warn('No current user, skipping audit save');
+        return;
+      }
+
+      const selectedLocation = allLocations.find(loc => loc.id === locationId);
+      if (!selectedLocation) {
+        console.warn('Location not found, skipping audit save');
+        return;
+      }
+
+      const auditData = {
+        userId: currentUser.uid,
+        userEmail: currentUser.email || 'unknown',
+        locationId: selectedLocation.fullName || locationId,
+        locationName: selectedLocation.name,
+        performance: { timeSeriesData: performanceData },
+        score: auditScore,
+        recommendations: recommendations || { recommendations: [] },
+        dateRange: {
+          startDate: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+          endDate: new Date().toISOString().split('T')[0]
+        },
+        metadata: {
+          source: 'audit_tool',
+          timestamp: new Date().toISOString()
+        }
+      };
+
+      const response = await fetch(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000'}/api/audit-results`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(auditData)
+      });
+
+      if (response.ok) {
+        console.log('✅ Audit result saved successfully');
+      } else {
+        console.error('Failed to save audit result:', await response.text());
+      }
+    } catch (error) {
+      console.error('Error saving audit result:', error);
+      // Don't show error to user, this is a background save
+    }
+  };
 
   // Real-time auto-refresh effect
   useEffect(() => {
@@ -327,6 +380,9 @@ const AuditTool = () => {
       setAuditScore(calculatedScore);
       setLastUpdated(new Date());
 
+      // Save audit result to backend for admin viewing
+      await saveAuditResult(locationId, performanceData, calculatedScore);
+
       toast({
         title: "Audit Complete",
         description: "Real-time performance metrics updated.",
@@ -438,37 +494,35 @@ const AuditTool = () => {
       const previousViews = previousWeek.reduce((sum, m) => sum + m.views, 0);
       const viewsTrend = previousViews > 0 ? (((totalViews - previousViews) / previousViews) * 100).toFixed(1) : 'N/A';
 
-      const prompt = `You are an expert Google Business Profile consultant. Analyze this business profile performance data and provide detailed, actionable insights to help improve their profile.
+      const prompt = `You are an expert Google Business Profile consultant. Analyze this data and provide concise, actionable insights.
 
-**Business Profile**: ${selectedLocation?.name}
+Business: ${selectedLocation?.name}
+Overall Score: ${auditScore.overall}% | Performance: ${auditScore.performance}% | Engagement: ${auditScore.engagement}%
 
-**Performance Scores**:
-- Overall Score: ${auditScore.overall}%
-- Performance Score: ${auditScore.performance}%
-- Engagement Score: ${auditScore.engagement}%
+Last 7 Days: ${totalViews} views, ${totalImpressions} impressions, ${totalCalls} calls, ${totalWebsiteClicks} clicks, ${totalDirections} directions
+Conversion Rate: ${conversionRate}% | Trend: ${viewsTrend}%
 
-**Last 7 Days Metrics**:
-- Total Views: ${totalViews}
-- Total Impressions: ${totalImpressions}
-- Total Calls: ${totalCalls}
-- Total Website Clicks: ${totalWebsiteClicks}
-- Total Direction Requests: ${totalDirections}
-- Average Daily Views: ${avgDailyViews}
-- Average Daily Impressions: ${avgDailyImpressions}
-- Conversion Rate: ${conversionRate}%
-- Views Trend vs Previous Week: ${viewsTrend}%
+Provide a brief, scannable analysis in this exact format (NO hashtags, NO emojis, short sentences):
 
-**30 Days Data Points**: ${metrics.length} days
+PERFORMANCE SUMMARY
+[2-3 sentences about current performance]
 
-Please provide:
-1. **Performance Analysis**: Detailed analysis of the current performance metrics
-2. **Strengths**: What is working well (be specific with data)
-3. **Weaknesses**: What needs improvement (be specific with data)
-4. **Actionable Recommendations**: 5-7 specific, prioritized actions they should take to improve their profile
-5. **Growth Opportunities**: Untapped areas they should focus on
-6. **Competitive Edge**: How to stand out in local search
+KEY STRENGTHS
+• [strength 1]
+• [strength 2]
+• [strength 3]
 
-Be generous with insights, specific with numbers, and practical with recommendations. Format the response in a clear, professional manner with emojis for visual appeal.`;
+AREAS TO IMPROVE
+• [area 1]
+• [area 2]
+• [area 3]
+
+TOP 3 ACTIONS
+1. [specific action with expected impact]
+2. [specific action with expected impact]
+3. [specific action with expected impact]
+
+Keep it professional, specific with numbers, and under 200 words total.`;
 
       const response = await generateAIResponse(prompt, 'gpt-4o');
       setAiInsights(response);
@@ -1358,20 +1412,41 @@ Be generous with insights, specific with numbers, and practical with recommendat
 
             {/* AI-Generated Insights Card */}
             {aiInsights && (
-              <Card className="border-2 border-purple-200 bg-gradient-to-br from-purple-50 to-blue-50">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2 text-purple-900">
-                    <Target className="h-5 w-5" />
-                    AI-Powered Professional Analysis
-                    <Badge className="bg-purple-600">Powered by GPT-4</Badge>
+              <Card className="border-2 border-blue-200 bg-white shadow-lg">
+                <CardHeader className="bg-gradient-to-r from-blue-50 to-purple-50 border-b">
+                  <CardTitle className="flex items-center gap-2 text-gray-900">
+                    <Target className="h-5 w-5 text-blue-600" />
+                    AI-Powered Insights
+                    <Badge className="bg-blue-600 text-white">GPT-4</Badge>
                   </CardTitle>
-                  <p className="text-sm text-purple-700">
-                    Expert analysis and recommendations tailored for {selectedLocation?.name}
+                  <p className="text-sm text-gray-600">
+                    Expert recommendations for {selectedLocation?.name}
                   </p>
                 </CardHeader>
-                <CardContent>
-                  <div className="prose prose-sm max-w-none prose-headings:text-purple-900 prose-p:text-gray-700 prose-strong:text-purple-800 prose-li:text-gray-700">
-                    <div className="whitespace-pre-wrap">{aiInsights}</div>
+                <CardContent className="pt-6">
+                  <div className="space-y-6">
+                    {aiInsights.split('\n\n').map((section, index) => {
+                      const lines = section.split('\n');
+                      const title = lines[0]?.trim();
+                      const content = lines.slice(1);
+
+                      if (!title) return null;
+
+                      return (
+                        <div key={index} className="space-y-2">
+                          <h3 className="font-semibold text-sm text-blue-900 uppercase tracking-wide">
+                            {title}
+                          </h3>
+                          <div className="text-sm text-gray-700 space-y-1 pl-1">
+                            {content.map((line, idx) => (
+                              <div key={idx} className={line.trim().startsWith('•') || line.trim().match(/^\d\./) ? 'ml-2' : ''}>
+                                {line}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
                 </CardContent>
               </Card>
@@ -1379,22 +1454,22 @@ Be generous with insights, specific with numbers, and practical with recommendat
 
             {/* Placeholder when no AI insights */}
             {!aiInsights && !loadingAiInsights && (
-              <Card className="border-2 border-dashed border-purple-200">
+              <Card className="border-2 border-dashed border-blue-200">
                 <CardContent className="py-12 text-center">
-                  <div className="mx-auto mb-4 h-16 w-16 rounded-full bg-purple-100 flex items-center justify-center">
-                    <Target className="h-8 w-8 text-purple-600" />
+                  <div className="mx-auto mb-4 h-16 w-16 rounded-full bg-blue-100 flex items-center justify-center">
+                    <Target className="h-8 w-8 text-blue-600" />
                   </div>
-                  <h3 className="text-lg font-semibold text-gray-900 mb-2">AI Insights Not Generated Yet</h3>
+                  <h3 className="text-lg font-semibold text-gray-900 mb-2">Get AI-Powered Insights</h3>
                   <p className="text-muted-foreground mb-4 max-w-md mx-auto">
-                    Click "Generate AI Insights" to get a comprehensive analysis of your business profile performance with actionable recommendations from our AI consultant.
+                    Get a concise analysis with key strengths, areas to improve, and top 3 actions to boost your profile performance.
                   </p>
                   <Button
                     onClick={generateAIInsights}
                     disabled={!metrics || metrics.length === 0}
-                    className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
+                    className="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800"
                   >
                     <Target className="h-4 w-4 mr-2" />
-                    Generate AI Insights Now
+                    Generate Insights
                   </Button>
                 </CardContent>
               </Card>
