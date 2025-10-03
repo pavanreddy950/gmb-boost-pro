@@ -18,6 +18,7 @@ import { checkSubscription, trackTrialStart, addTrialHeaders } from './middlewar
 import SubscriptionService from './services/subscriptionService.js';
 import automationScheduler from './services/automationScheduler.js';
 import firestoreTokenStorage from './services/firestoreTokenStorage.js';
+import tokenManager from './services/tokenManager.js';
 import ClientConfigService from './services/clientConfigService.js';
 import EmailService from './services/emailService.js';
 import SMSService from './services/smsService.js';
@@ -149,8 +150,9 @@ app.options('*', (req, res) => {
 //   app.use(express.static(path.join(__dirname, '../dist')));
 // }
 
-// In-memory token storage (use a database in production)
-const tokenStore = new Map();
+// DEPRECATED: Tokens are now stored persistently in Firestore via tokenManager
+// In-memory fallback is handled internally by tokenManager service
+// const tokenStore = new Map();
 
 // Initialize subscription service
 const subscriptionService = new SubscriptionService();
@@ -549,26 +551,16 @@ app.post('/api/automation/test-post-now/:locationId', async (req, res) => {
     
     // If no token provided, try to get from existing tokenStore (migration support)
     if (!token) {
-      console.log(`[TEMP FIX] No token provided, checking in-memory tokenStore...`);
-      for (const [userId, userData] of tokenStore.entries()) {
-        if (userData.tokens && userData.tokens.access_token) {
-          token = userData.tokens.access_token;
-          console.log(`[TEMP FIX] Found existing token for user ${userId}, using it for test`);
-          // Migrate this token to Firestore for future use
-          try {
-            await firestoreTokenStorage.saveUserToken('default', {
-              access_token: userData.tokens.access_token,
-              refresh_token: userData.tokens.refresh_token,
-              expires_at: new Date(userData.tokens.expiry_date || Date.now() + 3600000).toISOString(),
-              scope: userData.tokens.scope || 'https://www.googleapis.com/auth/business.manage',
-              token_type: 'Bearer'
-            });
-            console.log(`[TEMP FIX] ✅ Migrated token to Firestore for user default`);
-          } catch (migrateError) {
-            console.log(`[TEMP FIX] ⚠️ Failed to migrate token to Firestore:`, migrateError.message);
-          }
-          break;
+      console.log(`[TEMP FIX] No token provided, checking token manager...`);
+      // Try to get tokens for default user
+      try {
+        const defaultTokens = await tokenManager.getValidTokens('default');
+        if (defaultTokens && defaultTokens.access_token) {
+          token = defaultTokens.access_token;
+          console.log(`[TEMP FIX] Found existing token for user default, using it for test`);
         }
+      } catch (error) {
+        console.log(`[TEMP FIX] No tokens found in token manager:`, error.message);
       }
     }
     
@@ -922,21 +914,16 @@ app.post('/auth/google/callback', async (req, res) => {
     const userId = userInfo.data.id;
     console.log('User authenticated:', userInfo.data.email);
 
-    // Store tokens (use a proper database in production)
-    tokenStore.set(userId, {
-      tokens,
-      userInfo: userInfo.data,
-      timestamp: Date.now()
-    });
-    
-    // Save tokens for automation service
+    // Save tokens to Firestore (persistent storage)
     const expiresIn = Math.floor((tokens.expiry_date - Date.now()) / 1000);
-    await firestoreTokenStorage.saveUserToken(userId, {
+    await tokenManager.saveTokens(userId, {
       access_token: tokens.access_token,
       refresh_token: tokens.refresh_token,
-      expires_in: expiresIn > 0 ? expiresIn : 3600, // Default to 1 hour if invalid
+      expires_in: expiresIn > 0 ? expiresIn : 3600,
       scope: tokens.scope || '',
-      token_type: tokens.token_type || 'Bearer'
+      token_type: tokens.token_type || 'Bearer',
+      expiry_date: tokens.expiry_date,
+      userInfo: userInfo.data
     });
 
     // Check if user has a Google Business Profile account
@@ -1020,16 +1007,15 @@ app.post('/auth/google/refresh', async (req, res) => {
 
     // Update stored tokens if userId is provided
     if (userId) {
-      // Update in-memory token store
-      for (const [storedUserId, userData] of tokenStore.entries()) {
-        if (storedUserId === userId) {
-          userData.tokens = {
-            ...userData.tokens,
-            access_token: credentials.access_token,
-            expiry_date: credentials.expiry_date
-          };
-          break;
-        }
+      // Update token manager with refreshed tokens
+      try {
+        await tokenManager.saveTokens(userId, {
+          access_token: credentials.access_token,
+          refresh_token: refresh_token,
+          expiry_date: credentials.expiry_date
+        });
+      } catch (error) {
+        console.error(`Failed to update tokens for user ${userId}:`, error);
       }
 
       // Update Firestore token storage
@@ -1076,29 +1062,19 @@ app.get('/auth/google/token-status/:userId', async (req, res) => {
 
     console.log('Checking token status for user:', userId);
 
-    // Check in-memory token store first
-    let refreshToken = null;
-    let userData = tokenStore.get(userId);
+    // Get tokens from persistent storage (with automatic refresh)
+    const tokens = await tokenManager.getValidTokens(userId);
+    const refreshToken = tokens?.refresh_token || null;
 
-    if (userData?.tokens?.refresh_token) {
-      refreshToken = userData.tokens.refresh_token;
-      console.log('Found refresh token in memory store for user:', userId);
+    if (refreshToken) {
+      console.log('Found refresh token for user:', userId);
     } else {
-      // Check Firestore as fallback
-      try {
-        const firestoreTokens = await firestoreTokenStorage.getUserToken(userId);
-        if (firestoreTokens?.refresh_token) {
-          refreshToken = firestoreTokens.refresh_token;
-          console.log('Found refresh token in Firestore for user:', userId);
-        }
-      } catch (firestoreError) {
-        console.warn('Failed to check Firestore tokens (non-critical):', firestoreError);
-      }
+      console.log('No refresh token found for user:', userId);
     }
 
     res.json({
       hasRefreshToken: !!refreshToken,
-      refresh_token: refreshToken, // Include for frontend fallback
+      refresh_token: refreshToken,
       userId: userId
     });
 
@@ -1120,28 +1096,23 @@ app.get('/api/accounts', async (req, res) => {
     }
 
     let accessToken = authHeader.split(' ')[1];
-    
-    // Try to find refresh token from stored tokens
-    let refreshToken = null;
-    for (const [userId, userData] of tokenStore.entries()) {
-      if (userData.tokens.access_token === accessToken) {
-        refreshToken = userData.tokens.refresh_token;
-        break;
-      }
-    }
-    
-    // Ensure token is valid and refresh if needed
-    try {
-      const validTokens = await ensureValidToken(accessToken, refreshToken);
-      accessToken = validTokens.access_token;
-      oauth2Client.setCredentials({ access_token: accessToken });
-    } catch (tokenError) {
-      console.error('Token validation/refresh failed:', tokenError);
-      return res.status(401).json({ 
-        error: 'Token expired and refresh failed',
-        message: 'Please re-authenticate' 
+
+    // Find user by access token and get valid tokens
+    const tokenData = await tokenManager.getTokensByAccessToken(accessToken);
+    if (!tokenData || !tokenData.tokens) {
+      return res.status(401).json({
+        error: 'Invalid access token',
+        message: 'Please re-authenticate'
       });
     }
+
+    // Use the valid tokens (automatically refreshed if needed)
+    const validTokens = tokenData.tokens;
+    accessToken = validTokens.access_token;
+    oauth2Client.setCredentials({
+      access_token: accessToken,
+      refresh_token: validTokens.refresh_token
+    });
 
     // Initialize Google My Business API
     const mybusiness = google.mybusinessaccountmanagement({ 
@@ -1526,16 +1497,11 @@ app.get('/api/locations/:locationId/reviews', async (req, res) => {
     }
 
     let accessToken = authHeader.split(' ')[1];
-    
+
     // Try to find refresh token from stored tokens
-    let refreshToken = null;
-    for (const [userId, userData] of tokenStore.entries()) {
-      if (userData.tokens.access_token === accessToken) {
-        refreshToken = userData.tokens.refresh_token;
-        break;
-      }
-    }
-    
+    const tokenData = await tokenManager.getTokensByAccessToken(accessToken);
+    const refreshToken = tokenData?.tokens?.refresh_token || null;
+
     // Ensure token is valid and refresh if needed
     try {
       const validTokens = await ensureValidToken(accessToken, refreshToken);
@@ -2012,16 +1978,11 @@ app.get('/api/locations/:locationId/photos', async (req, res) => {
     }
 
     let accessToken = authHeader.split(' ')[1];
-    
+
     // Try to find refresh token from stored tokens
-    let refreshToken = null;
-    for (const [userId, userData] of tokenStore.entries()) {
-      if (userData.tokens.access_token === accessToken) {
-        refreshToken = userData.tokens.refresh_token;
-        break;
-      }
-    }
-    
+    const tokenData = await tokenManager.getTokensByAccessToken(accessToken);
+    const refreshToken = tokenData?.tokens?.refresh_token || null;
+
     // Ensure token is valid and refresh if needed
     try {
       const validTokens = await ensureValidToken(accessToken, refreshToken);
@@ -2157,13 +2118,8 @@ app.post('/api/locations/:locationId/photos/start-upload', photoUploadMiddleware
     let accessToken = authHeader.split(' ')[1];
 
     // Find refresh token from stored tokens
-    let refreshToken = null;
-    for (const [userId, userData] of tokenStore.entries()) {
-      if (userData.tokens.access_token === accessToken) {
-        refreshToken = userData.tokens.refresh_token;
-        break;
-      }
-    }
+    const tokenData = await tokenManager.getTokensByAccessToken(accessToken);
+    const refreshToken = tokenData?.tokens?.refresh_token || null;
 
     // Ensure token is valid and refresh if needed
     try {
@@ -2293,13 +2249,8 @@ app.post('/api/locations/:locationId/photos/create-media', photoUploadMiddleware
     let accessToken = authHeader.split(' ')[1];
 
     // Find refresh token from stored tokens
-    let refreshToken = null;
-    for (const [userId, userData] of tokenStore.entries()) {
-      if (userData.tokens.access_token === accessToken) {
-        refreshToken = userData.tokens.refresh_token;
-        break;
-      }
-    }
+    const tokenData = await tokenManager.getTokensByAccessToken(accessToken);
+    const refreshToken = tokenData?.tokens?.refresh_token || null;
 
     // Ensure token is valid and refresh if needed
     try {
@@ -3232,21 +3183,15 @@ app.post('/api/tokens/migrate', async (req, res) => {
     }
 
     const accessToken = authHeader.replace('Bearer ', '');
-    let userId = null;
-    let userTokens = null;
+    // Find user by access token
+    const tokenData = await tokenManager.getTokensByAccessToken(accessToken);
 
-    // Find user by access token in memory
-    for (const [storedUserId, userData] of tokenStore.entries()) {
-      if (userData.tokens.access_token === accessToken) {
-        userId = storedUserId;
-        userTokens = userData.tokens;
-        break;
-      }
+    if (!tokenData || !tokenData.userId || !tokenData.tokens) {
+      return res.status(404).json({ error: 'User tokens not found' });
     }
 
-    if (!userId || !userTokens) {
-      return res.status(404).json({ error: 'User tokens not found in memory' });
-    }
+    const userId = tokenData.userId;
+    const userTokens = tokenData.tokens;
 
     console.log(`[Token Migration] Migrating tokens for user ${userId} to Firestore...`);
 
@@ -3298,25 +3243,11 @@ app.post('/api/tokens/force-save', async (req, res) => {
       return res.status(400).json({ error: 'User ID is required' });
     }
 
-    // Get user's tokens from memory storage
-    let userTokens = null;
-    for (const [storedUserId, userData] of tokenStore.entries()) {
-      if (storedUserId === userId) {
-        userTokens = userData.tokens || userData; // Handle both formats
-        break;
-      }
-    }
-
-    // Also check if tokens are stored directly without userData wrapper
-    if (!userTokens && tokenStore.has(userId)) {
-      const directTokens = tokenStore.get(userId);
-      if (directTokens && directTokens.access_token) {
-        userTokens = directTokens;
-      }
-    }
+    // Get user's tokens from token manager
+    const userTokens = await tokenManager.getValidTokens(userId);
 
     if (!userTokens) {
-      return res.status(404).json({ error: 'No tokens found in memory for user' });
+      return res.status(404).json({ error: 'No tokens found for user' });
     }
 
     console.log(`[Force Save] Saving tokens for user: ${userId}`);
