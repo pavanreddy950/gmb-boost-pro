@@ -68,8 +68,8 @@ router.put('/users/:uid/role', checkAdminLevel(['super']), async (req, res) => {
     // Log the action
     await auditLogService.log({
       action: 'user.role.update',
-      adminId: req.user.uid,
-      adminEmail: req.user.email,
+      adminId: req.admin.uid,
+      adminEmail: req.admin.email,
       description: `Updated user ${req.params.uid} role to ${role}${adminLevel ? ` with admin level ${adminLevel}` : ''}`,
       targetType: 'user',
       targetId: req.params.uid,
@@ -93,8 +93,8 @@ router.put('/users/:uid/status', checkAdminLevel(['super', 'moderator']), async 
     // Log the action
     await auditLogService.log({
       action: disabled ? 'user.suspend' : 'user.activate',
-      adminId: req.user.uid,
-      adminEmail: req.user.email,
+      adminId: req.admin.uid,
+      adminEmail: req.admin.email,
       description: `${disabled ? 'Suspended' : 'Activated'} user ${req.params.uid}`,
       targetType: 'user',
       targetId: req.params.uid,
@@ -117,8 +117,8 @@ router.delete('/users/:uid', checkAdminLevel(['super']), async (req, res) => {
     // Log the action
     await auditLogService.log({
       action: 'user.delete',
-      adminId: req.user.uid,
-      adminEmail: req.user.email,
+      adminId: req.admin.uid,
+      adminEmail: req.admin.email,
       description: `Deleted user ${req.params.uid}`,
       targetType: 'user',
       targetId: req.params.uid,
@@ -197,8 +197,8 @@ router.post('/coupons', checkAdminLevel(['super', 'moderator']), async (req, res
       try {
         await auditLogService.log({
           action: 'coupon.create',
-          adminId: req.user?.uid || 'unknown',
-          adminEmail: req.user?.email || 'unknown',
+          adminId: req.admin?.uid || 'unknown',
+          adminEmail: req.admin?.email || 'unknown',
           description: `Created coupon ${couponData.code} with ${couponData.discount}${couponData.type === 'percentage' ? '%' : ' fixed'} discount`,
           targetType: 'coupon',
           targetId: couponData.code,
@@ -227,8 +227,8 @@ router.put('/coupons/:code/deactivate', checkAdminLevel(['super', 'moderator']),
       try {
         await auditLogService.log({
           action: 'coupon.deactivate',
-          adminId: req.user?.uid || 'unknown',
-          adminEmail: req.user?.email || 'unknown',
+          adminId: req.admin?.uid || 'unknown',
+          adminEmail: req.admin?.email || 'unknown',
           description: `Deactivated coupon ${req.params.code}`,
           targetType: 'coupon',
           targetId: req.params.code,
@@ -293,14 +293,14 @@ router.post('/subscriptions/:gbpAccountId/cancel', checkAdminLevel(['super', 'mo
     const updatedSubscription = persistentSubscriptionService.updateSubscription(gbpAccountId, {
       status: 'cancelled',
       cancelledAt: new Date().toISOString(),
-      cancelledBy: req.user.email
+      cancelledBy: req.admin.email
     });
-    
+
     // Log the action
     await auditLogService.log({
       action: 'subscription.cancel',
-      adminId: req.user.uid,
-      adminEmail: req.user.email,
+      adminId: req.admin.uid,
+      adminEmail: req.admin.email,
       description: `Cancelled subscription for GBP account ${gbpAccountId} (User: ${subscription.email})`,
       targetType: 'subscription',
       targetId: subscription.id,
@@ -589,8 +589,8 @@ router.post('/audit-logs', async (req, res) => {
   try {
     const logEntry = {
       ...req.body,
-      adminId: req.user.uid,
-      adminEmail: req.user.email,
+      adminId: req.admin.uid,
+      adminEmail: req.admin.email,
       ipAddress: req.ip
     };
     const result = await auditLogService.log(logEntry);

@@ -19,7 +19,11 @@ class FirebaseConfig {
       // Check if Firebase is already initialized
       if (admin.apps.length > 0) {
         this.app = admin.apps[0];
+        this.db = getFirestore(this.app);
+        this.initialized = true;
         console.log('[Firebase] ✅ Using existing Firebase app instance');
+        console.log(`[Firebase] Project ID: ${this.app.options.projectId}`);
+        return { app: this.app, db: this.db };
       } else {
         // Initialize with environment variables or service account
         if (process.env.FIREBASE_SERVICE_ACCOUNT_KEY) {
@@ -56,10 +60,33 @@ class FirebaseConfig {
             throw new Error(`Cannot load service account from ${process.env.GOOGLE_APPLICATION_CREDENTIALS}`);
           }
         } else {
+          // Try default serviceAccountKey.json as fallback
+          const fs = await import('fs');
+          const path = await import('path');
+          const { fileURLToPath } = await import('url');
+
+          try {
+            const __dirname = path.dirname(fileURLToPath(import.meta.url));
+            const credPath = path.resolve(path.dirname(__dirname), 'serviceAccountKey.json');
+            const serviceAccount = JSON.parse(fs.readFileSync(credPath, 'utf8'));
+
+            this.app = admin.initializeApp({
+              credential: admin.credential.cert(serviceAccount),
+              projectId: process.env.FIREBASE_PROJECT_ID || serviceAccount.project_id
+            });
+            console.log('[Firebase] ✅ Using service account from default file:', credPath);
+          } catch (fileError) {
+            console.error('[Firebase] Failed to load default service account file:', fileError.message);
+            // Fallback continues below
+          }
+        }
+        
+        // If still not initialized, warn and return null
+        if (!this.app) {
           // For development - create a fallback that doesn't crash the app
           console.warn('[Firebase] ⚠️ No Firebase service account configured');
           console.warn('[Firebase] Firestore will be unavailable - tokens will be stored in memory only');
-          console.warn('[Firebase] To fix: Set FIREBASE_SERVICE_ACCOUNT_KEY or GOOGLE_APPLICATION_CREDENTIALS');
+          console.warn('[Firebase] To fix: Set FIREBASE_SERVICE_ACCOUNT_KEY or GOOGLE_APPLICATION_CREDENTIALS or add serviceAccountKey.json');
           
           // Don't initialize Firebase - we'll handle this gracefully in the token storage
           this.app = null;

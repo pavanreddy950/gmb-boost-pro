@@ -2,6 +2,7 @@ import admin from 'firebase-admin';
 import fs from 'fs/promises';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import firebaseConfig from '../config/firebase.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -10,6 +11,21 @@ class AdminUserService {
   constructor() {
     this.subscriptionsPath = path.join(__dirname, '../data/subscriptions.json');
     this.mappingPath = path.join(__dirname, '../data/userGbpMapping.json');
+  }
+
+  async ensureFirebaseInitialized() {
+    try {
+      const result = await firebaseConfig.ensureInitialized();
+      if (!result.app) {
+        console.error('[AdminUserService] Firebase app is null after initialization');
+        return false;
+      }
+      return true;
+    } catch (error) {
+      console.error('[AdminUserService] Firebase not initialized:', error);
+      console.error('[AdminUserService] Stack:', error.stack);
+      return false;
+    }
   }
 
   async loadData() {
@@ -34,6 +50,12 @@ class AdminUserService {
    */
   async getAllUsers({ page = 1, limit = 50, search = '', status = 'all' }) {
     try {
+      // Ensure Firebase is initialized
+      const initialized = await this.ensureFirebaseInitialized();
+      if (!initialized) {
+        throw new Error('Firebase Admin SDK is not initialized. Please check server logs.');
+      }
+
       // Get Firebase users
       const listUsersResult = await admin.auth().listUsers(1000);
       const { subscriptions, mapping } = await this.loadData();
@@ -104,6 +126,12 @@ class AdminUserService {
    */
   async getUserById(uid) {
     try {
+      // Ensure Firebase is initialized
+      const initialized = await this.ensureFirebaseInitialized();
+      if (!initialized) {
+        throw new Error('Firebase Admin SDK is not initialized. Please check server logs.');
+      }
+
       const user = await admin.auth().getUser(uid);
       const { subscriptions, mapping } = await this.loadData();
 
@@ -136,6 +164,12 @@ class AdminUserService {
    */
   async setUserRole(uid, role, adminLevel = 'viewer') {
     try {
+      // Ensure Firebase is initialized
+      const initialized = await this.ensureFirebaseInitialized();
+      if (!initialized) {
+        throw new Error('Firebase Admin SDK is not initialized. Please check server logs.');
+      }
+
       await admin.auth().setCustomUserClaims(uid, {
         role,
         adminLevel
@@ -156,6 +190,12 @@ class AdminUserService {
    */
   async toggleUserStatus(uid, disabled) {
     try {
+      // Ensure Firebase is initialized
+      const initialized = await this.ensureFirebaseInitialized();
+      if (!initialized) {
+        throw new Error('Firebase Admin SDK is not initialized. Please check server logs.');
+      }
+
       await admin.auth().updateUser(uid, { disabled });
 
       return {
@@ -173,6 +213,12 @@ class AdminUserService {
    */
   async getUserStats() {
     try {
+      // Ensure Firebase is initialized
+      const initialized = await this.ensureFirebaseInitialized();
+      if (!initialized) {
+        throw new Error('Firebase Admin SDK is not initialized. Please check server logs.');
+      }
+
       const { subscriptions } = await this.loadData();
       const allUsers = await admin.auth().listUsers(1000);
 
@@ -213,6 +259,12 @@ class AdminUserService {
    */
   async deleteUser(uid) {
     try {
+      // Ensure Firebase is initialized
+      const initialized = await this.ensureFirebaseInitialized();
+      if (!initialized) {
+        throw new Error('Firebase Admin SDK is not initialized. Please check server logs.');
+      }
+
       await admin.auth().deleteUser(uid);
 
       return {

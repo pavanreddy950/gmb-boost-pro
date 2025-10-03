@@ -23,7 +23,7 @@ import { useState } from 'react';
 
 const AdminLayout = () => {
   // Coming Soon Barrier - Set to false when ready to enable admin panel
-  const SHOW_COMING_SOON = true;
+  const SHOW_COMING_SOON = false;
 
   const { currentUser, logout } = useAuth();
   const { adminLevel } = useAdmin();

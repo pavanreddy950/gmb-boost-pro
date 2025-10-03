@@ -18,7 +18,9 @@ import {
   Send,
   AlertCircle,
   Users,
-  TrendingUp
+  TrendingUp,
+  Clock,
+  Sparkles
 } from "lucide-react";
 import { useGoogleBusinessProfileContext } from "@/contexts/GoogleBusinessProfileContext";
 import { toast } from "@/hooks/use-toast";
@@ -238,7 +240,48 @@ const RequestForReviews = () => {
   }
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="relative p-6 space-y-6">
+      {/* Coming Soon Overlay */}
+      <div className="absolute inset-0 z-50 flex items-center justify-center backdrop-blur-sm bg-background/80">
+        <Card className="w-full max-w-lg mx-4 shadow-2xl border-2">
+          <CardContent className="pt-12 pb-10 px-8 text-center">
+            <div className="mb-6 flex items-center justify-center gap-3">
+              <div className="relative">
+                <div className="absolute inset-0 animate-ping">
+                  <Sparkles className="h-12 w-12 text-primary/60" />
+                </div>
+                <Sparkles className="h-12 w-12 text-primary relative" />
+              </div>
+              <Clock className="h-12 w-12 text-primary animate-pulse" />
+            </div>
+
+            <h2 className="text-4xl font-bold mb-4 bg-gradient-to-r from-primary to-purple-600 bg-clip-text text-transparent">
+              Coming Soon
+            </h2>
+
+            <p className="text-lg text-muted-foreground mb-6 leading-relaxed">
+              We're working hard to bring you an amazing review request feature.
+              This powerful tool will help you collect more reviews effortlessly!
+            </p>
+
+            <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
+              <Clock className="h-4 w-4" />
+              <span>Expected launch: Coming very soon</span>
+            </div>
+
+            <div className="mt-8 pt-6 border-t">
+              <p className="text-sm text-muted-foreground mb-3">
+                Get notified when this feature launches
+              </p>
+              <Button className="w-full" size="lg">
+                <Mail className="h-4 w-4 mr-2" />
+                Notify Me
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
       {/* Header */}
       <div>
         <h1 className="text-3xl font-bold">Request for Reviews</h1>

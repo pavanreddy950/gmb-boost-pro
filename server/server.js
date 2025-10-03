@@ -1087,6 +1087,10 @@ app.get('/auth/google/token-status/:userId', async (req, res) => {
   }
 });
 
+// DUPLICATE ENDPOINT REMOVED - Using the one at line ~1795 instead
+// This endpoint was causing 401 errors because it required backend token management
+// The frontend OAuth flow stores tokens in localStorage, not in the backend tokenManager
+/*
 // Get user's Google Business accounts with token refresh
 app.get('/api/accounts', async (req, res) => {
   try {
@@ -1115,9 +1119,9 @@ app.get('/api/accounts', async (req, res) => {
     });
 
     // Initialize Google My Business API
-    const mybusiness = google.mybusinessaccountmanagement({ 
-      version: 'v1', 
-      auth: oauth2Client 
+    const mybusiness = google.mybusinessaccountmanagement({
+      version: 'v1',
+      auth: oauth2Client
     });
 
     // Get accounts
@@ -1136,7 +1140,7 @@ app.get('/api/accounts', async (req, res) => {
       status: error.status,
       details: error.details
     });
-    
+
     // Provide more specific error messages
     let userMessage = error.message;
     if (error.code === 403) {
@@ -1146,8 +1150,8 @@ app.get('/api/accounts', async (req, res) => {
     } else if (error.message.includes('invalid_grant')) {
       userMessage = 'Authentication token expired. Please log in again.';
     }
-    
-    res.status(500).json({ 
+
+    res.status(500).json({
       error: 'Failed to fetch accounts',
       message: userMessage,
       debug: {
@@ -1158,6 +1162,7 @@ app.get('/api/accounts', async (req, res) => {
     });
   }
 });
+*/
 
 // Get locations for a specific account
 app.get('/api/accounts/:accountName(*)/locations', async (req, res) => {
@@ -1803,40 +1808,27 @@ app.get('/api/accounts', async (req, res) => {
     oauth2Client.setCredentials({ access_token: accessToken });
 
     console.log('🔍 Fetching Google Business Profile accounts via backend');
-    
+
     let response;
-    let apiUsed = 'Account Management';
-    
-    try {
-      // Try Google My Business v4 API first
-      response = await fetch('https://mybusiness.googleapis.com/v4/accounts', {
-        headers: {
-          'Authorization': `Bearer ${accessToken}`,
-          'Content-Type': 'application/json'
-        }
-      });
-      apiUsed = 'My Business v4';
-      console.log('🔍 Trying Google My Business v4 API for accounts');
-    } catch (error) {
-      console.log('🔍 My Business v4 failed, trying Account Management API');
-      // Fall back to Account Management API
-      response = await fetch('https://mybusinessaccountmanagement.googleapis.com/v1/accounts', {
-        headers: {
-          'Authorization': `Bearer ${accessToken}`,
-          'Content-Type': 'application/json'
-        }
-      });
-      apiUsed = 'Account Management v1';
-    }
+    let apiUsed = 'Account Management v1';
+
+    // Use Google Business Profile Account Management API v1 (v4 is deprecated)
+    console.log('🔍 Using Google Business Profile Account Management API v1');
+    response = await fetch('https://mybusinessaccountmanagement.googleapis.com/v1/accounts', {
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+        'Content-Type': 'application/json'
+      }
+    });
 
     if (!response.ok) {
       const errorText = await response.text();
       console.error(`${apiUsed} accounts error:`, errorText);
-      
+
       if (response.status === 403) {
         throw new Error('Access denied. Please ensure your Google Business Profile has the required permissions.');
       }
-      
+
       throw new Error(`Failed to fetch accounts: ${response.statusText}`);
     }
 
