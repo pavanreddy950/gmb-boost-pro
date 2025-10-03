@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useParams, Link } from "react-router-dom";
+import { useParams, Link, useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -32,12 +32,13 @@ interface BusinessProfile {
 
 const ProfileDetails = () => {
   const { profileId } = useParams();
+  const navigate = useNavigate();
   const [location, setLocation] = useState<BusinessLocation | null>(null);
   const [loading, setLoading] = useState(true);
   const [globalStats, setGlobalStats] = useState<AutoPostingStats | null>(null);
   const [isAccessDenied, setIsAccessDenied] = useState(false);
   const { accounts, isLoading: googleLoading } = useGoogleBusinessProfile();
-  const { getAccessibleAccounts, handleContactEnterprise } = useProfileLimitations();
+  const { getAccessibleAccounts } = useProfileLimitations();
 
   useEffect(() => {
     const findLocation = () => {
@@ -135,11 +136,11 @@ const ProfileDetails = () => {
                 </p>
                 <div className="flex gap-3">
                   <Button
-                    onClick={() => handleContactEnterprise('Profile Access Restriction')}
+                    onClick={() => navigate('/billing')}
                     className="bg-orange-600 hover:bg-orange-700"
                   >
                     <Mail className="h-4 w-4 mr-2" />
-                    Upgrade to Enterprise
+                    Upgrade to Access All Profiles
                   </Button>
                   <Link to="/dashboard">
                     <Button variant="outline">

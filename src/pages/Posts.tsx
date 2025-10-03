@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -52,8 +53,11 @@ const Posts = () => {
   // Get notifications context
   const { addNotification } = useNotifications();
 
+  // Navigation
+  const navigate = useNavigate();
+
   // Apply profile limitations
-  const { getAccessibleAccounts, getAccountLockMessage, handleContactEnterprise, canAccessMultipleProfiles } = useProfileLimitations();
+  const { getAccessibleAccounts, getAccountLockMessage, canAccessMultipleProfiles } = useProfileLimitations();
 
   // Memoize these values to prevent infinite re-renders
   const accessibleAccounts = useMemo(() => getAccessibleAccounts(accounts), [accounts, getAccessibleAccounts]);
@@ -355,11 +359,11 @@ const Posts = () => {
                 <h4 className="text-sm font-medium text-orange-800 mb-1">Multiple Profiles Available</h4>
                 <p className="text-sm text-orange-700 mb-3">{lockMessage}</p>
                 <Button
-                  onClick={() => handleContactEnterprise('Multiple Profile Access for Posts')}
+                  onClick={() => navigate('/billing')}
                   size="sm"
                   className="bg-orange-600 hover:bg-orange-700 text-white"
                 >
-                  Contact Enterprise Sales
+                  Upgrade to Access All Profiles
                 </Button>
               </div>
             </div>

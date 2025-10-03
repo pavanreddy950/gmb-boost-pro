@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
 import QRCode from "qrcode";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -64,9 +65,10 @@ interface ReviewLinkModalData {
 }
 
 const AskForReviews = () => {
+  const navigate = useNavigate();
   const { accounts, isConnected, isLoading } = useGoogleBusinessProfile();
   const { toast } = useToast();
-  const { getAccessibleAccounts, getAccountLockMessage, handleContactEnterprise, canAccessMultipleProfiles } = useProfileLimitations();
+  const { getAccessibleAccounts, getAccountLockMessage, canAccessMultipleProfiles } = useProfileLimitations();
   const [qrModalData, setQrModalData] = useState<QRModalData>({
     isOpen: false,
     locationName: "",
@@ -390,11 +392,11 @@ const AskForReviews = () => {
               <h4 className="text-sm font-medium text-orange-800 mb-1">Multiple Profiles Available</h4>
               <p className="text-sm text-orange-700 mb-3">{lockMessage}</p>
               <Button
-                onClick={() => handleContactEnterprise('Multiple Profile Access for Ask for Reviews')}
+                onClick={() => navigate('/billing')}
                 size="sm"
                 className="bg-orange-600 hover:bg-orange-700 text-white"
               >
-                Contact Enterprise Sales
+                Upgrade to Access All Profiles
               </Button>
             </div>
           </div>

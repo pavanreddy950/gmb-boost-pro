@@ -3,7 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Plus, Building2, MapPin, Star, Calendar, ArrowRight, Settings, AlertCircle, CreditCard, Users } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { useGoogleBusinessProfile } from "@/hooks/useGoogleBusinessProfile";
 import { useProfileLimitations } from "@/hooks/useProfileLimitations";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
@@ -12,9 +12,10 @@ import { PaymentModal } from "@/components/PaymentModal";
 import { useSubscription } from "@/contexts/SubscriptionContext";
 
 const Dashboard = () => {
+  const navigate = useNavigate();
   const { isConnected, accounts: profiles, isLoading } = useGoogleBusinessProfile();
   const subscription = useSubscription();
-  const { getAccessibleAccounts, handleContactEnterprise } = useProfileLimitations();
+  const { getAccessibleAccounts } = useProfileLimitations();
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
   
   // Safely destructure subscription context
@@ -315,7 +316,7 @@ const Dashboard = () => {
                       <Button
                         size="sm"
                         variant="outline"
-                        onClick={() => handleContactEnterprise('Dashboard - Multiple Profiles')}
+                        onClick={() => navigate('/billing')}
                         className="border-orange-300 text-orange-700 hover:bg-orange-100"
                       >
                         <CreditCard className="h-4 w-4 mr-2" />
