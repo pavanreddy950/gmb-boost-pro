@@ -158,7 +158,7 @@ const AskForReviews = () => {
       console.log('🔍 Generating QR code for custom review suggestions page');
       
       // Create custom public review page URL with business info and Google review link
-      const frontendUrl = import.meta.env.PROD ? 'https://delightful-sea-062191a0f.2.azurestaticapps.net' : window.location.origin;
+      const frontendUrl = import.meta.env.PROD ? 'https://www.app.lobaiseo.com' : window.location.origin;
       const publicReviewUrl = `${frontendUrl}/review/${location.locationId}?` +
         `business=${encodeURIComponent(location.displayName)}&` +
         `location=${encodeURIComponent(location.address?.locality || location.address?.administrativeArea || 'Location')}&` +
