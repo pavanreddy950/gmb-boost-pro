@@ -31,7 +31,7 @@ class Config {
     // Load the appropriate .env file
     const envPath = path.join(__dirname, envFile);
     const result = dotenv.config({ path: envPath });
-    
+
     if (result.error) {
       console.warn(`⚠️ Could not load ${envFile}, falling back to default environment variables`);
       // Try loading the other config as fallback
@@ -42,7 +42,50 @@ class Config {
       console.log(`✅ Loaded configuration from ${envFile}`);
     }
 
+    // Set production defaults if running in production and values are missing
+    if (process.env.NODE_ENV === 'production') {
+      this.setProductionDefaults();
+    }
+
     this.validateConfiguration();
+  }
+
+  setProductionDefaults() {
+    console.log('🔧 [CONFIG] Setting production defaults for missing environment variables...');
+
+    const productionDefaults = {
+      NODE_ENV: 'production',
+      RUN_MODE: 'AZURE',
+      FRONTEND_URL: 'https://www.app.lobaiseo.com',
+      BACKEND_URL: 'https://pavan-client-backend-bxgdaqhvarfdeuhe.canadacentral-01.azurewebsites.net',
+      GOOGLE_REDIRECT_URI: 'https://www.app.lobaiseo.com/auth/google/callback',
+      GOOGLE_CLIENT_ID: '52772597205-9ogv54i6sfvucse3jrqj1nl1hlkspcv1.apps.googleusercontent.com',
+      GOOGLE_CLIENT_SECRET: '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',
+      HARDCODED_ACCOUNT_ID: '106433552101751461082',
+      RAZORPAY_KEY_ID: 'rzp_live_RFSzT9EvJ2cwJI',
+      RAZORPAY_KEY_SECRET: '7i0iikfS6eO7w4DSLXldCBX5',
+      AZURE_OPENAI_ENDPOINT: 'https://agentplus.openai.azure.com/',
+      AZURE_OPENAI_API_KEY: '1TPW16ifwPJccSiQPSHq63nU7IcT6R9DrduIHBYwCm5jbUWiSbkLJQQJ99BDACYeBjFXJ3w3AAABACOG3Yia',
+      AZURE_OPENAI_DEPLOYMENT: 'gpt-4o',
+      AZURE_OPENAI_API_VERSION: '2024-02-15-preview',
+      FIREBASE_PROJECT_ID: 'gbp-467810-a56e2',
+      RAZORPAY_WEBHOOK_SECRET: 'gmb_boost_pro_webhook_secret_2024'
+    };
+
+    let defaultsApplied = 0;
+    Object.entries(productionDefaults).forEach(([key, value]) => {
+      if (!process.env[key]) {
+        process.env[key] = value;
+        console.log(`   ✓ ${key} = ${key.includes('SECRET') || key.includes('KEY') ? '***' : value}`);
+        defaultsApplied++;
+      }
+    });
+
+    if (defaultsApplied > 0) {
+      console.log(`✅ [CONFIG] Applied ${defaultsApplied} production default values`);
+    } else {
+      console.log(`✅ [CONFIG] All production values already configured via environment variables`);
+    }
   }
 
   validateConfiguration() {

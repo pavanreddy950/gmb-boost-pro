@@ -33,6 +33,7 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=5 \
 # Set environment variables for production
 ENV NODE_ENV=production
 ENV PORT=5000
+ENV RUN_MODE=AZURE
 
 # Start the application
 CMD ["npm", "start"]
