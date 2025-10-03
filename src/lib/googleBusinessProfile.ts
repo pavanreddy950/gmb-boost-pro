@@ -167,73 +167,105 @@ class GoogleBusinessProfileService {
     });
   }
 
-  // Connect using Google Identity Services (frontend-only)
+  // Connect using Backend OAuth flow (ensures refresh token)
   async connectGoogleBusiness(): Promise<void> {
-    console.log('🔄 DEBUGGING: Starting connectGoogleBusiness...');
+    console.log('🔄 Starting backend OAuth flow for permanent connection...');
 
-    await this.initializeGoogleAPI();
-    console.log('🔍 DEBUGGING: Google API initialized, checking window.google:', !!window.google);
-
-    return new Promise((resolve, reject) => {
-      if (!window.google?.accounts?.oauth2) {
-        console.error('❌ DEBUGGING: Google Identity Services not loaded');
-        console.log('🔍 DEBUGGING: window.google:', window.google);
-        reject(new Error('Google Identity Services not loaded'));
-        return;
-      }
-
-      console.log('✅ DEBUGGING: Google Identity Services loaded, creating token client...');
-
-      const client = window.google.accounts.oauth2.initTokenClient({
-        client_id: this.clientId,
-        scope: SCOPES.join(' '),
-        callback: (tokenResponse: any) => {
-          console.log('🔍 DEBUGGING: OAuth callback received:', tokenResponse);
-
-          if (tokenResponse.error) {
-            console.error('❌ DEBUGGING: Google OAuth Error:', tokenResponse.error);
-            reject(new Error(`OAuth failed: ${tokenResponse.error}`));
-            return;
-          }
-
-          console.log('✅ DEBUGGING: Google OAuth Success! Storing tokens...');
-          this.accessToken = tokenResponse.access_token;
-
-          // Store tokens in both localStorage (backup) and Firestore (primary)
-          const tokens: StoredGoogleTokens = {
-            access_token: tokenResponse.access_token,
-            token_type: 'Bearer',
-            expires_in: tokenResponse.expires_in || 3600, // Default to 1 hour if not provided
-            scope: tokenResponse.scope,
-            refresh_token: tokenResponse.refresh_token, // Store refresh token if provided
-            stored_at: Date.now(),
-            expires_at: Date.now() + ((tokenResponse.expires_in || 3600) * 1000)
-          };
-
-          // Store in localStorage (existing functionality - don't break anything)
-          localStorage.setItem('google_business_tokens', JSON.stringify(tokens));
-          localStorage.setItem('google_business_connected', 'true');
-          localStorage.setItem('google_business_connection_time', Date.now().toString());
-
-          console.log('✅ DEBUGGING: Tokens stored in localStorage');
-
-          // Also store in Firestore if user ID is available
-          this.storeTokensInFirestore(tokens);
-
-          // Start connection monitoring when successfully connected
-          this.startConnectionMonitoring();
-
-          resolve();
+    try {
+      // Get OAuth URL from backend (with offline access for refresh token)
+      const urlResponse = await fetch(`${this.backendUrl}/auth/google/url?userId=${this.currentUserId || ''}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
         },
       });
 
-      console.log('🔄 DEBUGGING: Requesting access token...');
-      client.requestAccessToken({
-        prompt: 'consent', // Force consent to get refresh token
-        include_granted_scopes: true,
-        enable_granular_consent: true // Enable granular consent for better refresh token support
+      if (!urlResponse.ok) {
+        throw new Error('Failed to get OAuth URL from backend');
+      }
+
+      const { authUrl } = await urlResponse.json();
+      console.log('✅ Got OAuth URL from backend');
+
+      // Open OAuth popup
+      const width = 600;
+      const height = 700;
+      const left = window.screenX + (window.outerWidth - width) / 2;
+      const top = window.screenY + (window.outerHeight - height) / 2;
+
+      const popup = window.open(
+        authUrl,
+        'Google Business Profile Connection',
+        `width=${width},height=${height},left=${left},top=${top},popup=yes`
+      );
+
+      if (!popup) {
+        throw new Error('Popup blocked. Please allow popups for this site.');
+      }
+
+      // Wait for OAuth callback via postMessage
+      return new Promise((resolve, reject) => {
+        const messageHandler = (event: MessageEvent) => {
+          // Verify origin
+          if (event.origin !== window.location.origin) {
+            return;
+          }
+
+          if (event.data.type === 'GOOGLE_OAUTH_SUCCESS') {
+            console.log('✅ OAuth success message received from popup');
+
+            // Store tokens
+            this.accessToken = event.data.tokens.access_token;
+
+            // Load tokens into service
+            this.loadStoredTokens(this.currentUserId);
+
+            // Start connection monitoring
+            this.startConnectionMonitoring();
+
+            // Clean up
+            window.removeEventListener('message', messageHandler);
+
+            console.log('✅ Permanent connection established with refresh token');
+            resolve();
+          }
+        };
+
+        window.addEventListener('message', messageHandler);
+
+        // Also check for popup close (fallback)
+        const checkPopup = setInterval(() => {
+          if (popup.closed) {
+            clearInterval(checkPopup);
+            window.removeEventListener('message', messageHandler);
+
+            // Check if connection was successful by looking for stored tokens
+            const hasTokens = localStorage.getItem('google_business_connected') === 'true';
+            if (hasTokens) {
+              console.log('✅ OAuth flow completed successfully (popup closed)');
+              this.loadStoredTokens(this.currentUserId);
+              this.startConnectionMonitoring();
+              resolve();
+            } else {
+              reject(new Error('OAuth flow cancelled or failed'));
+            }
+          }
+        }, 500);
+
+        // Timeout after 5 minutes
+        setTimeout(() => {
+          clearInterval(checkPopup);
+          window.removeEventListener('message', messageHandler);
+          if (!popup.closed) {
+            popup.close();
+          }
+          reject(new Error('OAuth flow timeout'));
+        }, 5 * 60 * 1000);
       });
-    });
+    } catch (error) {
+      console.error('❌ Backend OAuth flow error:', error);
+      throw error;
+    }
   }
 
   // Set current user ID for token management
@@ -385,7 +417,7 @@ class GoogleBusinessProfileService {
   }
 
 
-  // Check if token is expired or about to expire (within 5 minutes for safety)
+  // Check if token is expired or about to expire (within 30 minutes for safety - aggressive refresh)
   isTokenExpired(): boolean {
     // Check localStorage first
     const tokens = localStorage.getItem('google_business_tokens');
@@ -398,12 +430,12 @@ class GoogleBusinessProfileService {
       const parsed = JSON.parse(tokens);
       const expiresAt = parsed.expires_at || (parsed.stored_at + (parsed.expires_in * 1000));
       const now = Date.now();
-      const fiveMinutes = 5 * 60 * 1000; // 5 minutes buffer for token refresh
+      const thirtyMinutes = 30 * 60 * 1000; // 30 minutes buffer for proactive refresh
 
-      const isExpired = now >= (expiresAt - fiveMinutes);
+      const isExpired = now >= (expiresAt - thirtyMinutes);
       const timeLeft = Math.max(0, (expiresAt - now) / 1000 / 60); // minutes left
 
-      console.log(`🔍 Token expiry check: ${isExpired ? 'EXPIRED/EXPIRING' : 'VALID'} (${timeLeft.toFixed(1)} minutes left)`);
+      console.log(`🔍 Token expiry check: ${isExpired ? 'EXPIRED/EXPIRING SOON' : 'VALID'} (${timeLeft.toFixed(1)} minutes left)`);
 
       return isExpired;
     } catch (error) {

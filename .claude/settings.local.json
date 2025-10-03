@@ -38,7 +38,9 @@
       "Bash(git commit:*)",
       "Bash(git push:*)",
       "Bash(git rm:*)",
-      "Bash(docker:*)"
+      "Bash(docker:*)",
+      "Bash(npm run dev:azure:*)",
+      "Bash(set RUN_MODE=AZURE)"
     ],
     "deny": [],
     "ask": []

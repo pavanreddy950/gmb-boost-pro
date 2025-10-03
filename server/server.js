@@ -866,13 +866,14 @@ app.get('/config', (req, res) => {
 app.get('/auth/google/url', (req, res) => {
   try {
     const authUrl = oauth2Client.generateAuthUrl({
-      access_type: 'offline',
+      access_type: 'offline', // Critical: Get refresh token
       scope: SCOPES,
       include_granted_scopes: true,
-      prompt: 'consent'
+      prompt: 'consent', // Force consent to always get refresh token
+      state: req.query.userId || '' // Pass userId for session tracking
     });
 
-    console.log('Generated OAuth URL:', authUrl);
+    console.log('Generated OAuth URL with offline access:', authUrl);
     res.json({ authUrl });
   } catch (error) {
     console.error('Error generating OAuth URL:', error);

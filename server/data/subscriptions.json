@@ -153,6 +153,18 @@
       "createdAt": "2025-10-01T09:20:23.731Z",
       "updatedAt": "2025-10-01T09:20:23.731Z",
       "paymentHistory": []
+    },
+    "104704598843100767352": {
+      "id": "sub_1759522434864_tk1qdvwwr",
+      "userId": "104704598843100767352",
+      "gbpAccountId": "104704598843100767352",
+      "email": "meenakarjale73@gmail.com",
+      "status": "trial",
+      "trialStartDate": "2025-10-03T20:13:54.864Z",
+      "trialEndDate": "2025-10-18T20:13:54.864Z",
+      "createdAt": "2025-10-03T20:13:54.864Z",
+      "updatedAt": "2025-10-03T20:13:54.864Z",
+      "paymentHistory": []
     }
   }
 }

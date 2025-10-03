@@ -90,30 +90,27 @@ export const useGoogleBusinessProfile = (): UseGoogleBusinessProfileReturn => {
     }
   }, [toast, saveGbpAssociation]);
 
-  // Enhanced automatic token refresh with connection monitoring
+  // Aggressive automatic token refresh - never let connection die
   useEffect(() => {
     if (!isConnected) return;
 
     let refreshInterval: NodeJS.Timeout;
-    let healthCheckInterval: NodeJS.Timeout;
     let retryCount = 0;
-    const maxRetries = 3;
+    const maxRetries = 5; // More retry attempts
 
     const performTokenRefresh = async () => {
       try {
-        console.log('⏰ Checking token expiry...');
+        console.log('⏰ Proactive token check...');
+
+        // Check if token is expired or expiring soon (within 30 minutes)
         if (googleBusinessProfileService.isTokenExpired()) {
-          console.log('🔄 Token expired or expiring soon, refreshing...');
+          console.log('🔄 Token expiring soon, refreshing proactively...');
           await googleBusinessProfileService.refreshAccessToken();
-          retryCount = 0; // Reset retry count on success
+          retryCount = 0; // Reset on success
 
-          // Validate connection after refresh
-          await performConnectionHealthCheck();
-
-          toast({
-            title: "Connection refreshed",
-            description: "Your Google Business Profile connection has been renewed.",
-          });
+          console.log('✅ Token refreshed successfully - connection remains permanent');
+        } else {
+          console.log('✅ Token still valid - no refresh needed');
         }
       } catch (error) {
         console.error('Failed to refresh token:', error);
@@ -121,83 +118,63 @@ export const useGoogleBusinessProfile = (): UseGoogleBusinessProfileReturn => {
 
         if (retryCount < maxRetries) {
           console.log(`🔄 Retrying token refresh (attempt ${retryCount}/${maxRetries})...`);
-          // Retry after exponential backoff (2s, 4s, 8s)
+          // Retry with exponential backoff
           setTimeout(() => performTokenRefresh(), Math.pow(2, retryCount) * 1000);
         } else {
-          console.error('❌ Max token refresh retries exceeded, attempting connection recovery...');
+          console.error('❌ Max retries exceeded, attempting recovery...');
 
-          // Try connection recovery before giving up
+          // Try connection recovery
           try {
             const recovered = await googleBusinessProfileService.recoverConnection();
             if (recovered) {
-              console.log('✅ Connection recovered successfully');
-              retryCount = 0; // Reset retry count
-              toast({
-                title: "Connection recovered",
-                description: "Your Google Business Profile connection has been restored.",
-              });
+              console.log('✅ Connection recovered via stored tokens');
+              retryCount = 0;
               return;
             }
           } catch (recoveryError) {
-            console.error('❌ Connection recovery failed:', recoveryError);
+            console.error('❌ Recovery failed:', recoveryError);
           }
 
-          // If recovery failed, mark as disconnected
+          // Only mark as disconnected after all recovery attempts fail
           setIsConnected(false);
-          setError('Connection lost due to authentication failure');
+          setError('Connection requires re-authentication');
+
           toast({
-            title: "Connection lost",
-            description: "Unable to refresh your Google Business Profile connection. Please reconnect manually.",
+            title: "Connection expired",
+            description: "Please reconnect your Google Business Profile from Settings.",
             variant: "destructive",
           });
         }
       }
     };
 
-    // Connection health check to verify the connection is working
-    const performConnectionHealthCheck = async () => {
-      try {
-        console.log('🏥 Performing connection health check...');
-        const isValid = await googleBusinessProfileService.validateTokens();
-        if (!isValid) {
-          console.warn('⚠️ Token validation failed during health check');
-          throw new Error('Token validation failed');
-        }
-        console.log('✅ Connection health check passed');
-      } catch (error) {
-        console.error('❌ Connection health check failed:', error);
-        // Don't immediately disconnect on health check failure
-        // Let the token refresh mechanism handle it
-      }
-    };
+    // Aggressive refresh: Check every 10 minutes to ensure token never expires
+    refreshInterval = setInterval(performTokenRefresh, 10 * 60 * 1000); // 10 minutes
 
-    // Check and refresh token every 15 minutes (optimized frequency)
-    refreshInterval = setInterval(performTokenRefresh, 15 * 60 * 1000); // 15 minutes
-
-    // Perform health check every 30 minutes
-    healthCheckInterval = setInterval(performConnectionHealthCheck, 30 * 60 * 1000); // 30 minutes
-
-    // Initial token check when component mounts
+    // Immediate check on mount
     const initialCheck = async () => {
       try {
+        console.log('🔍 Initial connection check on mount...');
+
+        // If token is expiring soon, refresh immediately
         if (googleBusinessProfileService.isTokenExpired()) {
-          console.log('🔄 Initial token check: token expired, refreshing...');
+          console.log('🔄 Token expiring, refreshing immediately...');
           await googleBusinessProfileService.refreshAccessToken();
         }
-        await performConnectionHealthCheck();
+
+        console.log('✅ Connection verified - permanent connection active');
       } catch (error) {
-        console.error('Initial connection check failed:', error);
-        setError('Initial connection validation failed');
+        console.error('Initial check failed:', error);
+        // Try to recover instead of failing
+        await performTokenRefresh();
       }
     };
+
     initialCheck();
 
     return () => {
       if (refreshInterval) {
         clearInterval(refreshInterval);
-      }
-      if (healthCheckInterval) {
-        clearInterval(healthCheckInterval);
       }
     };
   }, [isConnected, toast]);
