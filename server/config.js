@@ -142,7 +142,7 @@ class Config {
   get frontendUrl() {
     // Use Azure frontend URL if in production mode
     if (process.env.NODE_ENV === 'production') {
-      return process.env.FRONTEND_URL || 'https://delightful-sea-062191a0f.2.azurestaticapps.net';
+      return process.env.FRONTEND_URL || 'https://www.app.lobaiseo.com';
     }
     return process.env.FRONTEND_URL || 'http://localhost:3000';
   }
@@ -177,6 +177,7 @@ class Config {
     if (this.isAzure) {
       // Azure production origins - Updated for new backend URL
       origins.push(
+        'https://www.app.lobaiseo.com',
         'https://delightful-sea-062191a0f.2.azurestaticapps.net',
         'https://pavan-client-backend-bxgdaqhvarfdeuhe.canadacentral-01.azurewebsites.net'
       );
@@ -190,6 +191,7 @@ class Config {
     // Always include Azure origins if running in production (fallback)
     if (process.env.NODE_ENV === 'production') {
       origins.push(
+        'https://www.app.lobaiseo.com',
         'https://delightful-sea-062191a0f.2.azurestaticapps.net',
         'https://pavan-client-backend-bxgdaqhvarfdeuhe.canadacentral-01.azurewebsites.net'
       );
