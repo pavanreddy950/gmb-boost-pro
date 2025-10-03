@@ -1842,9 +1842,14 @@ app.get('/api/accounts', async (req, res) => {
     });
   } catch (error) {
     console.error('❌ Error fetching accounts:', error);
-    res.status(500).json({ 
+    console.error('❌ Error stack:', error.stack);
+    console.error('❌ Access token (first 20 chars):', accessToken?.substring(0, 20));
+
+    res.status(500).json({
       error: 'Failed to fetch accounts',
-      message: error.message 
+      message: error.message,
+      details: process.env.NODE_ENV === 'development' ? error.stack : undefined,
+      hint: 'Check server logs for more details. Ensure your Google OAuth token has the required Business Profile API permissions.'
     });
   }
 });
@@ -3391,6 +3396,25 @@ app.get('*', (req, res) => {
       'POST /api/automation/test-post-now/:locationId',
       'POST /api/automation/test-review-check/:locationId'
     ]
+  });
+});
+
+// Global error handler - must be last middleware
+app.use((err, req, res, next) => {
+  console.error('❌ [ERROR HANDLER] Unhandled error:', err);
+  console.error('❌ [ERROR HANDLER] Request:', req.method, req.url);
+  console.error('❌ [ERROR HANDLER] Origin:', req.headers.origin);
+
+  // Ensure CORS headers are sent even with errors
+  const origin = req.headers.origin;
+  if (origin && allowedOrigins.includes(origin)) {
+    res.header('Access-Control-Allow-Origin', origin);
+    res.header('Access-Control-Allow-Credentials', 'true');
+  }
+
+  res.status(err.status || 500).json({
+    error: err.message || 'Internal Server Error',
+    details: process.env.NODE_ENV === 'development' ? err.stack : undefined
   });
 });
 
