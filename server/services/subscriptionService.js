@@ -1,10 +1,10 @@
 import PaymentService from './paymentService.js';
-import PersistentSubscriptionService from './persistentSubscriptionService.js';
+import persistentSubscriptionService from './persistentSubscriptionService.js';
 
 class SubscriptionService {
   constructor() {
     this.paymentService = new PaymentService();
-    this.persistentStorage = new PersistentSubscriptionService();
+    this.persistentStorage = persistentSubscriptionService;
     this.plans = new Map();
     this.initializePlans();
   }

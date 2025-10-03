@@ -280,15 +280,15 @@ router.get('/subscriptions', async (req, res) => {
 router.post('/subscriptions/:gbpAccountId/cancel', checkAdminLevel(['super', 'moderator']), async (req, res) => {
   try {
     const { gbpAccountId } = req.params;
-    const persistentSubscriptionService = (await import('../services/persistentSubscriptionService.js')).default;
-    
+    const { default: persistentSubscriptionService } = await import('../services/persistentSubscriptionService.js');
+
     // Get the subscription
     const subscription = persistentSubscriptionService.getSubscriptionByGBP(gbpAccountId);
-    
+
     if (!subscription) {
       return res.status(404).json({ success: false, error: 'Subscription not found' });
     }
-    
+
     // Update subscription status to cancelled
     const updatedSubscription = persistentSubscriptionService.updateSubscription(gbpAccountId, {
       status: 'cancelled',
@@ -307,10 +307,71 @@ router.post('/subscriptions/:gbpAccountId/cancel', checkAdminLevel(['super', 'mo
       metadata: { gbpAccountId, email: subscription.email },
       ipAddress: req.ip
     });
-    
+
     res.json({ success: true, data: updatedSubscription });
   } catch (error) {
     console.error('Error cancelling subscription:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// Create subscription (super admin only)
+router.post('/subscriptions/create', checkAdminLevel(['super']), async (req, res) => {
+  try {
+    const { userId, email, profileCount, durationMonths, planId } = req.body;
+    const { default: persistentSubscriptionService } = await import('../services/persistentSubscriptionService.js');
+
+    if (!userId || !email || !profileCount || !durationMonths) {
+      return res.status(400).json({ success: false, error: 'Missing required fields' });
+    }
+
+    // Calculate dates
+    const startDate = new Date();
+    const endDate = new Date();
+    endDate.setMonth(endDate.getMonth() + parseInt(durationMonths));
+
+    // Create subscription ID
+    const subscriptionId = `sub_${Date.now()}_admin_${userId.substring(0, 8)}`;
+    const gbpAccountId = userId; // Use userId as gbpAccountId
+
+    // Create subscription object
+    const subscriptionData = {
+      id: subscriptionId,
+      userId: userId,
+      gbpAccountId: gbpAccountId,
+      email: email,
+      status: 'active',
+      planId: planId || `custom_${profileCount}_profiles`,
+      profileCount: parseInt(profileCount),
+      subscriptionStartDate: startDate.toISOString(),
+      subscriptionEndDate: endDate.toISOString(),
+      amount: 0, // Admin created, no payment
+      currency: 'INR',
+      createdAt: startDate.toISOString(),
+      updatedAt: startDate.toISOString(),
+      paymentHistory: [],
+      createdBy: req.admin.email,
+      createdByAdmin: true
+    };
+
+    // Save subscription
+    const result = persistentSubscriptionService.createSubscription(subscriptionData);
+
+    // Log the action
+    await auditLogService.log({
+      action: 'subscription.create',
+      adminId: req.admin.uid,
+      adminEmail: req.admin.email,
+      description: `Created subscription for ${email} with ${profileCount} profiles for ${durationMonths} months`,
+      targetType: 'subscription',
+      targetId: subscriptionId,
+      metadata: { userId, email, profileCount, durationMonths, planId },
+      ipAddress: req.ip
+    });
+
+    res.json({ success: true, data: result });
+  } catch (error) {
+    console.error('Error creating subscription:', error);
     res.status(500).json({ success: false, error: error.message });
   }
 });

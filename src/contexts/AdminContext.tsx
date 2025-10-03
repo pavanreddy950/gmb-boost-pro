@@ -29,6 +29,7 @@ interface AdminContextType {
   updateUserRole: (uid: string, role: string, adminLevel?: string) => Promise<any>;
   toggleUserStatus: (uid: string, disabled: boolean) => Promise<any>;
   cancelUserSubscription: (gbpAccountId: string) => Promise<any>;
+  createUserSubscription: (data: { userId: string; email: string; profileCount: number; durationMonths: number; planId?: string }) => Promise<any>;
 }
 
 const AdminContext = createContext<AdminContextType | undefined>(undefined);
@@ -415,6 +416,40 @@ export const AdminProvider: React.FC<AdminProviderProps> = ({ children }) => {
     }
   };
 
+  const createUserSubscription = async (data: { userId: string; email: string; profileCount: number; durationMonths: number; planId?: string }) => {
+    try {
+      const headers = await getAuthHeaders();
+      const response = await fetch(`${BACKEND_URL}/api/admin/subscriptions/create`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(data)
+      });
+
+      if (!response.ok) throw new Error('Failed to create subscription');
+
+      const result = await response.json();
+
+      if (result.success) {
+        toast({
+          title: 'Success',
+          description: 'Subscription created successfully'
+        });
+        await fetchSubscriptions(); // Refresh subscriptions list
+        await fetchUsers(); // Refresh users list
+      }
+
+      return result;
+    } catch (error: any) {
+      console.error('Error creating subscription:', error);
+      toast({
+        title: 'Error',
+        description: error.message || 'Failed to create subscription',
+        variant: 'destructive'
+      });
+      throw error;
+    }
+  };
+
   const value = {
     isAdmin,
     adminLevel,
@@ -439,7 +474,8 @@ export const AdminProvider: React.FC<AdminProviderProps> = ({ children }) => {
     deactivateCoupon,
     updateUserRole,
     toggleUserStatus,
-    cancelUserSubscription
+    cancelUserSubscription,
+    createUserSubscription
   };
 
   return <AdminContext.Provider value={value}>{children}</AdminContext.Provider>;

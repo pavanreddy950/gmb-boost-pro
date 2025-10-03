@@ -209,6 +209,29 @@ class PersistentSubscriptionService {
     }
     return null;
   }
+
+  // Alias for backwards compatibility
+  getSubscriptionByGBP(gbpAccountId) {
+    return this.getSubscriptionByGBPAccount(gbpAccountId);
+  }
+
+  // Create a new subscription (alias for saveSubscription with validation)
+  createSubscription(subscriptionData) {
+    if (!subscriptionData.id || !subscriptionData.gbpAccountId) {
+      throw new Error('Subscription must have id and gbpAccountId');
+    }
+
+    // Check if subscription already exists
+    const existingSubscription = this.getSubscriptionByGBPAccount(subscriptionData.gbpAccountId);
+    if (existingSubscription) {
+      console.log(`[PersistentSubscriptionService] Subscription already exists for GBP: ${subscriptionData.gbpAccountId}, updating...`);
+      return this.updateSubscription(subscriptionData.gbpAccountId, subscriptionData);
+    }
+
+    return this.saveSubscription(subscriptionData);
+  }
 }
 
-export default PersistentSubscriptionService;
+// Export singleton instance
+const persistentSubscriptionService = new PersistentSubscriptionService();
+export default persistentSubscriptionService;
