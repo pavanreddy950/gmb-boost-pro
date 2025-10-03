@@ -7,9 +7,17 @@ const __dirname = path.dirname(__filename);
 
 class CouponService {
   constructor() {
+    // Singleton pattern - return existing instance if it exists
+    if (CouponService.instance) {
+      return CouponService.instance;
+    }
+
     this.couponsFile = path.join(__dirname, '../data/coupons.json');
     this.coupons = new Map();
     this.loadCoupons();
+
+    // Store the instance
+    CouponService.instance = this;
   }
 
   loadCoupons() {
@@ -79,8 +87,11 @@ class CouponService {
   }
 
   validateCoupon(code, userId = null) {
+    // Reload coupons from file to get latest data
+    this.loadCoupons();
+
     const coupon = this.coupons.get(code.toUpperCase());
-    
+
     if (!coupon) {
       return {
         valid: false,

@@ -217,18 +217,56 @@ router.post('/subscription/trial', async (req, res) => {
   }
 });
 
-// Validate coupon
+// Validate coupon (without applying/incrementing usage)
 router.post('/coupon/validate', async (req, res) => {
   try {
     const { code, amount, userId } = req.body;
-    
+
     if (!code) {
       return res.status(400).json({ error: 'Coupon code is required' });
     }
-    
-    // Pass userId to check one-time per user coupons
-    const result = couponService.applyCoupon(code, amount, userId);
-    res.json(result);
+
+    // ONLY validate, don't apply/increment usage yet
+    const validation = couponService.validateCoupon(code, userId);
+
+    if (!validation.valid) {
+      return res.json({
+        success: false,
+        error: validation.error,
+        originalAmount: amount,
+        finalAmount: amount
+      });
+    }
+
+    const coupon = validation.coupon;
+    let discountAmount = 0;
+    let finalAmount = amount;
+
+    if (coupon.type === 'percentage') {
+      discountAmount = Math.round(amount * (coupon.discount / 100));
+      finalAmount = amount - discountAmount;
+    } else if (coupon.type === 'fixed') {
+      discountAmount = Math.min(coupon.discount, amount);
+      finalAmount = Math.max(0, amount - discountAmount);
+    }
+
+    // For RAJATEST coupon, ensure final amount is exactly Rs. 1
+    if (coupon.code === 'RAJATEST') {
+      finalAmount = 1;
+    }
+
+    console.log(`[CouponService] Validated coupon ${coupon.code}: ${amount} → ${finalAmount} (discount: ${discountAmount})`);
+
+    res.json({
+      success: true,
+      valid: true,
+      couponCode: coupon.code,
+      originalAmount: amount,
+      discountAmount,
+      finalAmount,
+      discountPercentage: Math.round((discountAmount / amount) * 100),
+      description: coupon.description
+    });
   } catch (error) {
     console.error('Error validating coupon:', error);
     res.status(500).json({ error: 'Failed to validate coupon' });
