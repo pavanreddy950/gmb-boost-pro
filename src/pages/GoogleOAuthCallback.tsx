@@ -47,29 +47,19 @@ const GoogleOAuthCallback: React.FC = () => {
         console.log('✅ Tokens received and stored in backend:', data);
         console.log('✅ User ID:', data.userId);
 
-        // Tokens are already stored in Firebase by the backend
         // Mark OAuth as complete
         sessionStorage.setItem('oauth_success', 'true');
-        
-        // Also notify parent window if this is a popup
-        if (window.opener) {
-          try {
-            // Try to send message to parent window
-            window.opener.postMessage({ type: 'OAUTH_SUCCESS', data }, window.location.origin);
-          } catch (e) {
-            console.log('Could not post message to parent (COOP restriction), using sessionStorage fallback');
-          }
-        }
 
-        setMessage('Success! Closing...');
+        setMessage('Success! Redirecting...');
 
-        // Close the popup window immediately
-        if (window.opener) {
-          window.close();
-        } else {
-          // Fallback if not in popup
-          navigate('/settings?tab=connections');
-        }
+        // Get return URL or default to settings
+        const returnUrl = sessionStorage.getItem('oauth_return_url') || '/settings?tab=connections';
+        sessionStorage.removeItem('oauth_return_url');
+
+        // Redirect back to original page
+        setTimeout(() => {
+          navigate(returnUrl + '?oauth=success');
+        }, 500);
 
       } catch (error) {
         console.error('❌ OAuth callback error:', error);
@@ -78,24 +68,14 @@ const GoogleOAuthCallback: React.FC = () => {
         // Mark as failed
         sessionStorage.setItem('oauth_success', 'false');
 
-        // Also notify parent window if this is a popup
-        if (window.opener) {
-          try {
-            window.opener.postMessage({
-              type: 'OAUTH_ERROR',
-              error: error instanceof Error ? error.message : 'Authentication failed'
-            }, window.location.origin);
-          } catch (e) {
-            console.log('Could not post message to parent (COOP restriction), using sessionStorage fallback');
-          }
-        }
+        // Get return URL or default to settings
+        const returnUrl = sessionStorage.getItem('oauth_return_url') || '/settings';
+        sessionStorage.removeItem('oauth_return_url');
 
-        // Close popup after error
-        if (window.opener) {
-          window.close();
-        } else {
-          navigate('/settings?tab=connections&error=oauth_failed');
-        }
+        // Redirect back with error
+        setTimeout(() => {
+          navigate(returnUrl + '?tab=connections&oauth=failed');
+        }, 1500);
       }
     };
 

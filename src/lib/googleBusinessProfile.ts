@@ -187,102 +187,12 @@ class GoogleBusinessProfileService {
       const { authUrl } = await urlResponse.json();
       console.log('✅ Got OAuth URL from backend');
 
-      // Open OAuth in a popup window
-      const width = 600;
-      const height = 700;
-      const left = window.screen.width / 2 - width / 2;
-      const top = window.screen.height / 2 - height / 2;
+      // Store return URL for redirect back after OAuth
+      sessionStorage.setItem('oauth_return_url', window.location.pathname);
 
-      const popup = window.open(
-        authUrl,
-        'Google OAuth',
-        `width=${width},height=${height},left=${left},top=${top},toolbar=no,menubar=no,scrollbars=yes,resizable=yes`
-      );
-
-      if (!popup) {
-        throw new Error('Popup was blocked. Please allow popups for this site.');
-      }
-
-      // Listen for OAuth completion
-      return new Promise<void>((resolve, reject) => {
-        let hasResolved = false;
-        
-        // Method 1: Listen for postMessage from OAuth callback page
-        const messageListener = (event: MessageEvent) => {
-          // Verify origin for security
-          if (event.origin !== window.location.origin) return;
-          
-          if (event.data.type === 'OAUTH_SUCCESS') {
-            if (hasResolved) return;
-            hasResolved = true;
-            
-            clearInterval(checkPopup);
-            window.removeEventListener('message', messageListener);
-            console.log('✅ OAuth completed successfully (via postMessage)');
-            resolve();
-          } else if (event.data.type === 'OAUTH_ERROR') {
-            if (hasResolved) return;
-            hasResolved = true;
-            
-            clearInterval(checkPopup);
-            window.removeEventListener('message', messageListener);
-            console.log('❌ OAuth failed:', event.data.error);
-            reject(new Error(event.data.error || 'OAuth failed'));
-          }
-        };
-        
-        window.addEventListener('message', messageListener);
-        
-        // Method 2: Poll popup.closed as fallback (for sessionStorage check)
-        const checkPopup = setInterval(() => {
-          try {
-            // Try to access popup.closed - this may throw COOP error
-            // The try-catch will suppress the error from breaking the flow
-            const isClosed = popup.closed;
-            
-            if (isClosed) {
-              clearInterval(checkPopup);
-              window.removeEventListener('message', messageListener);
-              
-              if (hasResolved) return; // Prevent double resolution
-              hasResolved = true;
-
-              // Check if OAuth was successful (fallback method)
-              const oauthSuccess = sessionStorage.getItem('oauth_success');
-              sessionStorage.removeItem('oauth_success');
-
-              if (oauthSuccess === 'true') {
-                console.log('✅ OAuth completed successfully (via sessionStorage fallback)');
-                resolve();
-              } else {
-                console.log('❌ OAuth was cancelled or window was closed before completion');
-                reject(new Error('OAuth was cancelled or failed'));
-              }
-            }
-          } catch (error) {
-            // Silently ignore cross-origin errors while popup is on Google's domain
-            // This is expected behavior due to browser security (COOP policy)
-            // The error will be logged by browser but won't break our flow
-          }
-        }, 500);
-
-        // Timeout after 5 minutes
-        setTimeout(() => {
-          if (hasResolved) return; // Don't timeout if already resolved
-          hasResolved = true;
-          
-          clearInterval(checkPopup);
-          window.removeEventListener('message', messageListener);
-          try {
-            if (!popup.closed) {
-              popup.close();
-            }
-          } catch (e) {
-            // Ignore errors when closing popup
-          }
-          reject(new Error('OAuth timeout - please try again'));
-        }, 5 * 60 * 1000);
-      });
+      // Use full-page redirect instead of popup (avoids COOP issues)
+      console.log('🔄 Redirecting to Google OAuth...');
+      window.location.href = authUrl;
     } catch (error) {
       console.error('❌ Backend OAuth flow error:', error);
       throw error;
