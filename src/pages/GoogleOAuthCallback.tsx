@@ -40,6 +40,7 @@ const GoogleOAuthCallback: React.FC = () => {
 
         if (!response.ok) {
           const errorData = await response.json();
+          console.error('❌ Backend error response:', errorData);
           throw new Error(errorData.error || 'Failed to exchange authorization code');
         }
 
@@ -63,7 +64,9 @@ const GoogleOAuthCallback: React.FC = () => {
 
       } catch (error) {
         console.error('❌ OAuth callback error:', error);
-        setMessage(error instanceof Error ? error.message : 'Authentication failed');
+        const errorMsg = error instanceof Error ? error.message : 'Authentication failed';
+        console.error('❌ Error message shown to user:', errorMsg);
+        setMessage(errorMsg);
 
         // Mark as failed
         sessionStorage.setItem('oauth_success', 'false');
