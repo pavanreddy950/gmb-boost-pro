@@ -1,0 +1,24 @@
+{
+  "globalHeaders": {
+    "Cross-Origin-Opener-Policy": "same-origin-allow-popups",
+    "Cross-Origin-Embedder-Policy": "unsafe-none"
+  },
+  "routes": [
+    {
+      "route": "/auth/google/callback",
+      "headers": {
+        "Cross-Origin-Opener-Policy": "unsafe-none"
+      }
+    }
+  ],
+  "navigationFallback": {
+    "rewrite": "/index.html",
+    "exclude": ["/images/*.{png,jpg,gif}", "/css/*"]
+  },
+  "responseOverrides": {
+    "404": {
+      "rewrite": "/index.html",
+      "statusCode": 200
+    }
+  }
+}
