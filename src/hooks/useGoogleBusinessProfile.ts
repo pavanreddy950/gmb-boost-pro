@@ -267,10 +267,22 @@ export const useGoogleBusinessProfile = (): UseGoogleBusinessProfileReturn => {
       navigate('/dashboard');
     } catch (error) {
       console.error('❌ Error connecting to Google Business Profile:', error);
-      setError('Failed to connect');
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      setError(errorMessage);
+
+      // Provide user-friendly error messages
+      let description = "Failed to connect to Google Business Profile. Please try again.";
+      if (errorMessage.includes('cancelled') || errorMessage.includes('closed')) {
+        description = "OAuth was cancelled. Please try again and complete the authentication process.";
+      } else if (errorMessage.includes('timeout')) {
+        description = "Connection timed out. Please try again.";
+      } else if (errorMessage.includes('Popup blocked')) {
+        description = "Popup was blocked. Please allow popups for this site and try again.";
+      }
+
       toast({
         title: "Connection failed",
-        description: "Failed to connect to Google Business Profile. Please try again.",
+        description: description,
         variant: "destructive",
       });
     } finally {

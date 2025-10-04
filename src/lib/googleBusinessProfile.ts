@@ -207,6 +207,14 @@ class GoogleBusinessProfileService {
       return new Promise((resolve, reject) => {
         let timeoutId: NodeJS.Timeout;
         let storageCheckInterval: NodeJS.Timeout;
+        let popupCheckInterval: NodeJS.Timeout;
+
+        const cleanup = () => {
+          clearTimeout(timeoutId);
+          clearInterval(storageCheckInterval);
+          clearInterval(popupCheckInterval);
+          window.removeEventListener('message', messageHandler);
+        };
 
         const messageHandler = async (event: MessageEvent) => {
           // Verify origin
@@ -217,10 +225,7 @@ class GoogleBusinessProfileService {
           if (event.data.type === 'GOOGLE_OAUTH_SUCCESS') {
             console.log('✅ OAuth success message received from popup');
 
-            // Clean up intervals and listeners
-            clearTimeout(timeoutId);
-            clearInterval(storageCheckInterval);
-            window.removeEventListener('message', messageHandler);
+            cleanup();
 
             // Store tokens
             this.accessToken = event.data.tokens.access_token;
@@ -238,6 +243,22 @@ class GoogleBusinessProfileService {
 
         window.addEventListener('message', messageHandler);
 
+        // Check if popup was closed without completing OAuth
+        popupCheckInterval = setInterval(() => {
+          try {
+            if (popup.closed) {
+              const hasTokens = localStorage.getItem('google_business_connected') === 'true';
+              if (!hasTokens) {
+                console.log('⚠️ Popup closed without completing OAuth');
+                cleanup();
+                reject(new Error('OAuth cancelled - popup was closed before completing authentication'));
+              }
+            }
+          } catch (e) {
+            // Ignore COOP errors when checking popup.closed
+          }
+        }, 500);
+
         // Fallback: Check localStorage periodically (avoids COOP issues with popup.closed)
         // This handles cases where postMessage might fail
         storageCheckInterval = setInterval(async () => {
@@ -245,10 +266,7 @@ class GoogleBusinessProfileService {
           if (hasTokens) {
             console.log('✅ OAuth flow completed (detected via localStorage)');
 
-            // Clean up
-            clearTimeout(timeoutId);
-            clearInterval(storageCheckInterval);
-            window.removeEventListener('message', messageHandler);
+            cleanup();
 
             // Load tokens and complete connection
             await this.loadStoredTokens(this.currentUserId);
@@ -259,9 +277,9 @@ class GoogleBusinessProfileService {
 
         // Timeout after 5 minutes
         timeoutId = setTimeout(() => {
-          clearInterval(storageCheckInterval);
-          window.removeEventListener('message', messageHandler);
-          reject(new Error('OAuth flow timeout'));
+          cleanup();
+          console.error('❌ OAuth flow timed out after 5 minutes');
+          reject(new Error('OAuth flow timeout - please try again'));
         }, 5 * 60 * 1000);
       });
     } catch (error) {
