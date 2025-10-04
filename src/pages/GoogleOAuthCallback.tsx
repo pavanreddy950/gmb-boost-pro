@@ -47,38 +47,21 @@ const GoogleOAuthCallback: React.FC = () => {
         console.log('✅ User ID:', data.userId);
 
         // Tokens are already stored in Firebase by the backend
-        // No need to store in localStorage - we'll fetch from backend when needed
+        // Mark OAuth as complete
+        sessionStorage.setItem('oauth_complete', 'true');
+        sessionStorage.setItem('oauth_success', 'true');
 
-        // Notify parent window if opened as popup
-        if (window.opener) {
-          console.log('📤 Sending postMessage to parent window...');
-          const message = {
-            type: 'GOOGLE_OAUTH_SUCCESS',
-            userId: data.userId,
-            user: data.user
-          };
-          console.log('📤 Message:', message);
-          console.log('📤 Target origin:', window.location.origin);
+        setStatus('success');
+        setMessage('Connection successful! Redirecting...');
 
-          window.opener.postMessage(message, window.location.origin);
-          console.log('✅ postMessage sent successfully');
+        // Redirect back to where user was before OAuth
+        const returnUrl = sessionStorage.getItem('oauth_return_url') || '/dashboard';
+        sessionStorage.removeItem('oauth_return_url');
+        sessionStorage.removeItem('oauth_in_progress');
 
-          setStatus('success');
-          setMessage('Connection successful! Closing...');
-
-          // Close popup after short delay
-          setTimeout(() => {
-            window.close();
-          }, 1500);
-        } else {
-          // Not a popup, redirect to dashboard
-          setStatus('success');
-          setMessage('Connection successful! Redirecting...');
-
-          setTimeout(() => {
-            navigate('/dashboard');
-          }, 1500);
-        }
+        setTimeout(() => {
+          navigate(returnUrl);
+        }, 1000);
 
       } catch (error) {
         console.error('❌ OAuth callback error:', error);

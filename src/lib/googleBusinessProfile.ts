@@ -187,73 +187,16 @@ class GoogleBusinessProfileService {
       const { authUrl } = await urlResponse.json();
       console.log('✅ Got OAuth URL from backend');
 
-      // Open OAuth popup
-      const width = 600;
-      const height = 700;
-      const left = window.screenX + (window.outerWidth - width) / 2;
-      const top = window.screenY + (window.outerHeight - height) / 2;
+      // Use redirect flow instead of popup (avoids Azure Trusted Types issues)
+      // Save current location to return after OAuth
+      sessionStorage.setItem('oauth_return_url', window.location.pathname);
+      sessionStorage.setItem('oauth_in_progress', 'true');
 
-      const popup = window.open(
-        authUrl,
-        'Google Business Profile Connection',
-        `width=${width},height=${height},left=${left},top=${top},popup=yes`
-      );
+      // Redirect to Google OAuth (will come back to /auth/google/callback)
+      window.location.href = authUrl;
 
-      if (!popup) {
-        throw new Error('Popup blocked. Please allow popups for this site.');
-      }
-
-      // Wait for OAuth callback via postMessage
-      return new Promise((resolve, reject) => {
-        let timeoutId: NodeJS.Timeout;
-        let storageCheckInterval: NodeJS.Timeout;
-
-        const cleanup = () => {
-          clearTimeout(timeoutId);
-          clearInterval(storageCheckInterval);
-          window.removeEventListener('message', messageHandler);
-        };
-
-        const messageHandler = async (event: MessageEvent) => {
-          console.log('🔔 Message received:', { origin: event.origin, type: event.data?.type });
-
-          // Verify origin
-          if (event.origin !== window.location.origin) {
-            console.log('⚠️ Message origin mismatch:', event.origin, 'vs', window.location.origin);
-            return;
-          }
-
-          if (event.data.type === 'GOOGLE_OAUTH_SUCCESS') {
-            console.log('✅ OAuth success message received from popup');
-
-            cleanup();
-
-            // Store tokens
-            this.accessToken = event.data.tokens.access_token;
-
-            // Load tokens into service (wait for completion)
-            console.log('🔄 Loading tokens into service...');
-            const loaded = await this.loadStoredTokens(this.currentUserId);
-            console.log('📊 Tokens loaded:', loaded);
-
-            // Start connection monitoring
-            this.startConnectionMonitoring();
-
-            console.log('✅ Permanent connection established with refresh token');
-            resolve();
-          }
-        };
-
-        window.addEventListener('message', messageHandler);
-        console.log('👂 Listening for OAuth messages...');
-
-        // Timeout after 2 minutes (user likely closed popup or abandoned flow)
-        timeoutId = setTimeout(() => {
-          cleanup();
-          console.error('❌ OAuth flow timed out - no tokens received');
-          reject(new Error('OAuth flow timed out. Please try connecting again.'));
-        }, 2 * 60 * 1000);
-      });
+      // Return empty promise (page redirects, so this never completes)
+      return new Promise<void>(() => {});
     } catch (error) {
       console.error('❌ Backend OAuth flow error:', error);
       throw error;
@@ -276,6 +219,13 @@ class GoogleBusinessProfileService {
         currentUserIdSet: !!this.currentUserId,
         userIdToUse: userIdToUse
       });
+
+      // Check if we just completed OAuth (redirect flow)
+      if (sessionStorage.getItem('oauth_success') === 'true') {
+        console.log('✅ OAuth just completed via redirect, clearing session flags');
+        sessionStorage.removeItem('oauth_success');
+        sessionStorage.removeItem('oauth_complete');
+      }
 
       if (!userIdToUse) {
         console.log('❌ No userId available to fetch tokens');
