@@ -14,6 +14,7 @@ import { automationStorage, type AutoPostingConfig } from '@/lib/automationStora
 import { automationService } from '@/lib/automationService';
 import { serverAutomationService } from '@/lib/serverAutomationService';
 import { useAuth } from '@/contexts/AuthContext';
+import { useGoogleBusinessProfileContext } from '@/contexts/GoogleBusinessProfileContext';
 import { toast } from '@/hooks/use-toast';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
 import { googleBusinessProfileService } from '@/lib/googleBusinessProfile';
@@ -36,6 +37,7 @@ interface AutoPostingTabProps {
 
 export function AutoPostingTab({ location }: AutoPostingTabProps) {
   const { currentUser } = useAuth();
+  const { isConnected } = useGoogleBusinessProfileContext();
   const [config, setConfig] = useState<AutoPostingConfig | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isTesting, setIsTesting] = useState(false);
@@ -555,9 +557,20 @@ export function AutoPostingTab({ location }: AutoPostingTabProps) {
 
   const handleTestNow = async () => {
     if (!config) return;
-    
+
+    // Check if Google Business Profile is connected
+    if (!isConnected) {
+      toast({
+        title: "Connection Required",
+        description: "Please connect your Google Business Profile in Settings > Connections before testing auto-posts.",
+        variant: "destructive",
+        duration: 5000,
+      });
+      return;
+    }
+
     setIsTesting(true);
-    
+
     try {
       // Get the current user's ID from Firebase
       if (!currentUser) {
@@ -914,9 +927,10 @@ export function AutoPostingTab({ location }: AutoPostingTabProps) {
           <div className="flex gap-2 pt-2">
             <Button
               onClick={handleTestNow}
-              disabled={!config.enabled || isTesting}
+              disabled={!config.enabled || isTesting || !isConnected}
               variant="outline"
               className="flex items-center gap-2"
+              title={!isConnected ? "Connect your Google Business Profile in Settings > Connections first" : ""}
             >
               {isTesting ? (
                 <>
@@ -927,6 +941,7 @@ export function AutoPostingTab({ location }: AutoPostingTabProps) {
                 <>
                   <TestTube className="h-4 w-4" />
                   Test & Post Now
+                  {!isConnected && <span className="ml-1 text-xs">(Connect GBP first)</span>}
                 </>
               )}
             </Button>
