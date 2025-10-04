@@ -53,6 +53,16 @@ const GoogleOAuthCallback: React.FC = () => {
         // Tokens are already stored in Firebase by the backend
         // Mark OAuth as complete
         sessionStorage.setItem('oauth_success', 'true');
+        
+        // Also notify parent window if this is a popup
+        if (window.opener) {
+          try {
+            // Try to send message to parent window
+            window.opener.postMessage({ type: 'OAUTH_SUCCESS', data }, window.location.origin);
+          } catch (e) {
+            console.log('Could not post message to parent (COOP restriction), using sessionStorage fallback');
+          }
+        }
 
         setStatus('success');
         setMessage('Connection successful! Closing...');
@@ -74,6 +84,18 @@ const GoogleOAuthCallback: React.FC = () => {
 
         // Mark as failed
         sessionStorage.setItem('oauth_success', 'false');
+        
+        // Also notify parent window if this is a popup
+        if (window.opener) {
+          try {
+            window.opener.postMessage({ 
+              type: 'OAUTH_ERROR', 
+              error: error instanceof Error ? error.message : 'Authentication failed' 
+            }, window.location.origin);
+          } catch (e) {
+            console.log('Could not post message to parent (COOP restriction), using sessionStorage fallback');
+          }
+        }
 
         // Close popup after error (parent will check oauth_success flag)
         setTimeout(() => {

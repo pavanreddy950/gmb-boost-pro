@@ -205,34 +205,82 @@ class GoogleBusinessProfileService {
 
       // Listen for OAuth completion
       return new Promise<void>((resolve, reject) => {
+        let hasResolved = false;
+        
+        // Method 1: Listen for postMessage from OAuth callback page
+        const messageListener = (event: MessageEvent) => {
+          // Verify origin for security
+          if (event.origin !== window.location.origin) return;
+          
+          if (event.data.type === 'OAUTH_SUCCESS') {
+            if (hasResolved) return;
+            hasResolved = true;
+            
+            clearInterval(checkPopup);
+            window.removeEventListener('message', messageListener);
+            console.log('✅ OAuth completed successfully (via postMessage)');
+            resolve();
+          } else if (event.data.type === 'OAUTH_ERROR') {
+            if (hasResolved) return;
+            hasResolved = true;
+            
+            clearInterval(checkPopup);
+            window.removeEventListener('message', messageListener);
+            console.log('❌ OAuth failed:', event.data.error);
+            reject(new Error(event.data.error || 'OAuth failed'));
+          }
+        };
+        
+        window.addEventListener('message', messageListener);
+        
+        // Method 2: Poll popup.closed as fallback (for sessionStorage check)
         const checkPopup = setInterval(() => {
           try {
-            if (popup.closed) {
+            // Try to access popup.closed - this may throw COOP error
+            // The try-catch will suppress the error from breaking the flow
+            const isClosed = popup.closed;
+            
+            if (isClosed) {
               clearInterval(checkPopup);
+              window.removeEventListener('message', messageListener);
+              
+              if (hasResolved) return; // Prevent double resolution
+              hasResolved = true;
 
-              // Check if OAuth was successful
+              // Check if OAuth was successful (fallback method)
               const oauthSuccess = sessionStorage.getItem('oauth_success');
               sessionStorage.removeItem('oauth_success');
 
               if (oauthSuccess === 'true') {
-                console.log('✅ OAuth completed successfully');
+                console.log('✅ OAuth completed successfully (via sessionStorage fallback)');
                 resolve();
               } else {
+                console.log('❌ OAuth was cancelled or window was closed before completion');
                 reject(new Error('OAuth was cancelled or failed'));
               }
             }
           } catch (error) {
-            // Ignore cross-origin errors while popup is on Google's domain
+            // Silently ignore cross-origin errors while popup is on Google's domain
+            // This is expected behavior due to browser security (COOP policy)
+            // The error will be logged by browser but won't break our flow
           }
         }, 500);
 
         // Timeout after 5 minutes
         setTimeout(() => {
+          if (hasResolved) return; // Don't timeout if already resolved
+          hasResolved = true;
+          
           clearInterval(checkPopup);
-          if (!popup.closed) {
-            popup.close();
+          window.removeEventListener('message', messageListener);
+          try {
+            if (!popup.closed) {
+              popup.close();
+            }
+          } catch (e) {
+            // Ignore errors when closing popup
           }
-          reject(new Error('OAuth timeout'));
+          reject(new Error('OAuth timeout - please try again'));
         }, 5 * 60 * 1000);
       });
     } catch (error) {
@@ -551,7 +599,7 @@ class GoogleBusinessProfileService {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          refresh_token: storedTokens.refresh_token,
+          refresh_token: refreshToken,
           userId: this.currentUserId
         }),
       });
@@ -571,8 +619,8 @@ class GoogleBusinessProfileService {
         access_token: data.tokens.access_token,
         token_type: 'Bearer',
         expires_in: data.tokens.expires_in || 3600,
-        scope: data.tokens.scope || storedTokens.scope,
-        refresh_token: storedTokens.refresh_token, // Keep existing refresh token
+        scope: data.tokens.scope || storedTokens?.scope || SCOPES.join(' '),
+        refresh_token: refreshToken, // Use the refresh token we just used
         stored_at: Date.now(),
         expires_at: Date.now() + ((data.tokens.expires_in || 3600) * 1000)
       };
