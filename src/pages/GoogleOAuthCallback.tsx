@@ -1,11 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { CheckCircle, Loader2, XCircle } from 'lucide-react';
 
 const GoogleOAuthCallback: React.FC = () => {
   const navigate = useNavigate();
-  const [status, setStatus] = useState<'processing' | 'success' | 'error'>('processing');
   const [message, setMessage] = useState('Processing authentication...');
 
   useEffect(() => {
@@ -64,47 +61,41 @@ const GoogleOAuthCallback: React.FC = () => {
           }
         }
 
-        setStatus('success');
-        setMessage('Connection successful! Closing...');
+        setMessage('Success! Closing...');
 
-        // Close the popup window after success
-        setTimeout(() => {
-          if (window.opener) {
-            window.close();
-          } else {
-            // Fallback if not in popup
-            navigate('/settings?tab=connections');
-          }
-        }, 1000);
+        // Close the popup window immediately
+        if (window.opener) {
+          window.close();
+        } else {
+          // Fallback if not in popup
+          navigate('/settings?tab=connections');
+        }
 
       } catch (error) {
         console.error('❌ OAuth callback error:', error);
-        setStatus('error');
         setMessage(error instanceof Error ? error.message : 'Authentication failed');
 
         // Mark as failed
         sessionStorage.setItem('oauth_success', 'false');
-        
+
         // Also notify parent window if this is a popup
         if (window.opener) {
           try {
-            window.opener.postMessage({ 
-              type: 'OAUTH_ERROR', 
-              error: error instanceof Error ? error.message : 'Authentication failed' 
+            window.opener.postMessage({
+              type: 'OAUTH_ERROR',
+              error: error instanceof Error ? error.message : 'Authentication failed'
             }, window.location.origin);
           } catch (e) {
             console.log('Could not post message to parent (COOP restriction), using sessionStorage fallback');
           }
         }
 
-        // Close popup after error (parent will check oauth_success flag)
-        setTimeout(() => {
-          if (window.opener) {
-            window.close();
-          } else {
-            navigate('/settings?tab=connections&error=oauth_failed');
-          }
-        }, 2000);
+        // Close popup after error
+        if (window.opener) {
+          window.close();
+        } else {
+          navigate('/settings?tab=connections&error=oauth_failed');
+        }
       }
     };
 
@@ -112,41 +103,17 @@ const GoogleOAuthCallback: React.FC = () => {
   }, [navigate]);
 
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center p-4">
-      <Card className="w-full max-w-md">
-        <CardHeader className="text-center">
-          <CardTitle className="flex items-center justify-center gap-2">
-            {status === 'processing' && <Loader2 className="h-5 w-5 animate-spin text-blue-600" />}
-            {status === 'success' && <CheckCircle className="h-5 w-5 text-green-600" />}
-            {status === 'error' && <XCircle className="h-5 w-5 text-red-600" />}
-            {status === 'processing' && 'Connecting...'}
-            {status === 'success' && 'Connected!'}
-            {status === 'error' && 'Connection Failed'}
-          </CardTitle>
-
-          <CardDescription>
-            {message}
-          </CardDescription>
-        </CardHeader>
-
-        <CardContent className="text-center">
-          <div className={`p-4 rounded-lg border ${
-            status === 'processing' ? 'bg-blue-50 border-blue-200' :
-            status === 'success' ? 'bg-green-50 border-green-200' :
-            'bg-red-50 border-red-200'
-          }`}>
-            <p className={`text-sm ${
-              status === 'processing' ? 'text-blue-800' :
-              status === 'success' ? 'text-green-800' :
-              'text-red-800'
-            }`}>
-              {status === 'processing' && 'Securing your permanent connection...'}
-              {status === 'success' && 'Your Google Business Profile is now permanently connected. You won\'t need to reconnect again!'}
-              {status === 'error' && 'Please try connecting again from Settings.'}
-            </p>
-          </div>
-        </CardContent>
-      </Card>
+    <div style={{
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      minHeight: '100vh',
+      fontFamily: 'system-ui, -apple-system, sans-serif',
+      backgroundColor: '#fff'
+    }}>
+      <div style={{ textAlign: 'center', padding: '20px' }}>
+        <p style={{ fontSize: '16px', color: '#333' }}>{message}</p>
+      </div>
     </div>
   );
 };
