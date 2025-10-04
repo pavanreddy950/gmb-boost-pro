@@ -187,16 +187,54 @@ class GoogleBusinessProfileService {
       const { authUrl } = await urlResponse.json();
       console.log('✅ Got OAuth URL from backend');
 
-      // Use redirect flow instead of popup (avoids Azure Trusted Types issues)
-      // Save current location to return after OAuth
-      sessionStorage.setItem('oauth_return_url', window.location.pathname);
-      sessionStorage.setItem('oauth_in_progress', 'true');
+      // Open OAuth in a popup window
+      const width = 600;
+      const height = 700;
+      const left = window.screen.width / 2 - width / 2;
+      const top = window.screen.height / 2 - height / 2;
 
-      // Redirect to Google OAuth (will come back to /auth/google/callback)
-      window.location.href = authUrl;
+      const popup = window.open(
+        authUrl,
+        'Google OAuth',
+        `width=${width},height=${height},left=${left},top=${top},toolbar=no,menubar=no,scrollbars=yes,resizable=yes`
+      );
 
-      // Return empty promise (page redirects, so this never completes)
-      return new Promise<void>(() => {});
+      if (!popup) {
+        throw new Error('Popup was blocked. Please allow popups for this site.');
+      }
+
+      // Listen for OAuth completion
+      return new Promise<void>((resolve, reject) => {
+        const checkPopup = setInterval(() => {
+          try {
+            if (popup.closed) {
+              clearInterval(checkPopup);
+
+              // Check if OAuth was successful
+              const oauthSuccess = sessionStorage.getItem('oauth_success');
+              sessionStorage.removeItem('oauth_success');
+
+              if (oauthSuccess === 'true') {
+                console.log('✅ OAuth completed successfully');
+                resolve();
+              } else {
+                reject(new Error('OAuth was cancelled or failed'));
+              }
+            }
+          } catch (error) {
+            // Ignore cross-origin errors while popup is on Google's domain
+          }
+        }, 500);
+
+        // Timeout after 5 minutes
+        setTimeout(() => {
+          clearInterval(checkPopup);
+          if (!popup.closed) {
+            popup.close();
+          }
+          reject(new Error('OAuth timeout'));
+        }, 5 * 60 * 1000);
+      });
     } catch (error) {
       console.error('❌ Backend OAuth flow error:', error);
       throw error;

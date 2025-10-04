@@ -48,19 +48,19 @@ const GoogleOAuthCallback: React.FC = () => {
 
         // Tokens are already stored in Firebase by the backend
         // Mark OAuth as complete
-        sessionStorage.setItem('oauth_complete', 'true');
         sessionStorage.setItem('oauth_success', 'true');
 
         setStatus('success');
-        setMessage('Connection successful! Redirecting...');
+        setMessage('Connection successful! Closing...');
 
-        // Redirect back to where user was before OAuth
-        const returnUrl = sessionStorage.getItem('oauth_return_url') || '/dashboard';
-        sessionStorage.removeItem('oauth_return_url');
-        sessionStorage.removeItem('oauth_in_progress');
-
+        // Close the popup window after success
         setTimeout(() => {
-          navigate(returnUrl);
+          if (window.opener) {
+            window.close();
+          } else {
+            // Fallback if not in popup
+            navigate('/settings?tab=connections');
+          }
         }, 1000);
 
       } catch (error) {
@@ -68,14 +68,17 @@ const GoogleOAuthCallback: React.FC = () => {
         setStatus('error');
         setMessage(error instanceof Error ? error.message : 'Authentication failed');
 
-        // Close popup or redirect after error
+        // Mark as failed
+        sessionStorage.setItem('oauth_success', 'false');
+
+        // Close popup after error (parent will check oauth_success flag)
         setTimeout(() => {
           if (window.opener) {
             window.close();
           } else {
             navigate('/settings?tab=connections&error=oauth_failed');
           }
-        }, 3000);
+        }, 2000);
       }
     };
 

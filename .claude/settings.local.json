@@ -40,7 +40,20 @@
       "Bash(git rm:*)",
       "Bash(docker:*)",
       "Bash(npm run dev:azure:*)",
-      "Bash(set RUN_MODE=AZURE)"
+      "Bash(set RUN_MODE=AZURE)",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:www.app.lobaiseo.com)",
+      "Bash(curl -s \"https://www.app.lobaiseo.com/\")",
+      "Bash(curl -s \"https://www.app.lobaiseo.com/assets/index-0FYIot9y.js\")",
+      "Bash(grep:*)",
+      "Bash(set)",
+      "Bash(npm run env:status:*)",
+      "Bash(npm run switch:local:*)",
+      "Bash(npm run switch:azure:*)",
+      "Bash(git remote rename:*)",
+      "Bash(bash:*)",
+      "Bash(curl:*)",
+      "Bash(gh run list:*)"
     ],
     "deny": [],
     "ask": []
