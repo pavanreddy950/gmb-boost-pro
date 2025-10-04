@@ -888,15 +888,23 @@ app.get('/auth/google/url', (req, res) => {
 
 // Handle OAuth callback
 app.post('/auth/google/callback', async (req, res) => {
+  console.log('========================================');
+  console.log('📥 OAUTH CALLBACK RECEIVED');
+  console.log('========================================');
+
   try {
     const { code, state } = req.body;
+    console.log('1️⃣ Request body:', { hasCode: !!code, hasState: !!state });
 
     if (!code) {
+      console.error('❌ No authorization code provided');
       return res.status(400).json({ error: 'Authorization code is required' });
     }
 
-    console.log('Processing OAuth callback with code:', code.substring(0, 20) + '...');
-    console.log('Using redirect URI:', config.googleRedirectUri);
+    console.log('2️⃣ Processing OAuth callback with code:', code.substring(0, 20) + '...');
+    console.log('3️⃣ Using redirect URI:', config.googleRedirectUri);
+    console.log('4️⃣ Google Client ID:', process.env.GOOGLE_CLIENT_ID?.substring(0, 20) + '...');
+    console.log('5️⃣ Google Client Secret exists:', !!process.env.GOOGLE_CLIENT_SECRET);
 
     // Extract Firebase user ID from state
     let firebaseUserId = null;
@@ -904,24 +912,41 @@ app.post('/auth/google/callback', async (req, res) => {
       try {
         const stateData = JSON.parse(state);
         firebaseUserId = stateData.firebaseUserId;
-        console.log('Extracted Firebase user ID from state:', firebaseUserId);
+        console.log('6️⃣ Extracted Firebase user ID from state:', firebaseUserId);
       } catch (e) {
-        console.warn('Could not parse state parameter:', e);
+        console.warn('⚠️ Could not parse state parameter:', e.message);
       }
+    } else {
+      console.warn('⚠️ No state parameter provided');
     }
 
     // Exchange authorization code for tokens
     // IMPORTANT: Must use same redirect_uri that was used to generate auth URL
-    const { tokens } = await oauth2Client.getToken({
-      code,
-      redirect_uri: config.googleRedirectUri
-    });
+    console.log('7️⃣ Exchanging code for tokens...');
+    let tokenResponse;
+    try {
+      tokenResponse = await oauth2Client.getToken({
+        code,
+        redirect_uri: config.googleRedirectUri
+      });
+    } catch (tokenError) {
+      console.error('❌ Token exchange failed:', {
+        message: tokenError.message,
+        code: tokenError.code,
+        response: tokenError.response?.data
+      });
+      throw new Error(`Token exchange failed: ${tokenError.message}`);
+    }
+
+    const { tokens } = tokenResponse;
+    console.log('8️⃣ Token exchange successful');
 
     if (!tokens) {
+      console.error('❌ Tokens object is null or undefined');
       throw new Error('Failed to obtain tokens from Google');
     }
 
-    console.log('Received tokens from Google:', {
+    console.log('9️⃣ Received tokens from Google:', {
       hasAccessToken: !!tokens.access_token,
       hasRefreshToken: !!tokens.refresh_token,
       expiryDate: tokens.expiry_date
@@ -929,59 +954,87 @@ app.post('/auth/google/callback', async (req, res) => {
 
     // Set credentials for the OAuth2 client
     oauth2Client.setCredentials(tokens);
+    console.log('🔟 OAuth2 client credentials set');
 
     // Get user profile information
-    const oauth2 = google.oauth2({ version: 'v2', auth: oauth2Client });
-    const userInfo = await oauth2.userinfo.get();
+    console.log('1️⃣1️⃣ Fetching user profile information...');
+    let userInfo;
+    try {
+      const oauth2 = google.oauth2({ version: 'v2', auth: oauth2Client });
+      userInfo = await oauth2.userinfo.get();
+      console.log('1️⃣2️⃣ User profile fetched:', userInfo.data.email);
+    } catch (profileError) {
+      console.error('❌ Failed to fetch user profile:', {
+        message: profileError.message,
+        response: profileError.response?.data
+      });
+      throw new Error(`Failed to fetch user profile: ${profileError.message}`);
+    }
 
     const googleUserId = userInfo.data.id;
-    console.log('User authenticated:', userInfo.data.email);
 
     // Use Firebase user ID if provided, otherwise fall back to Google user ID
     const userId = firebaseUserId || googleUserId;
-    console.log('Using user ID for token storage:', userId, `(${firebaseUserId ? 'Firebase' : 'Google'})`);
+    console.log('1️⃣3️⃣ Using user ID for token storage:', userId, `(${firebaseUserId ? 'Firebase' : 'Google'})`);
 
     // Save tokens to Firestore (persistent storage)
+    console.log('1️⃣4️⃣ Saving tokens to Firestore...');
     const expiresIn = Math.floor((tokens.expiry_date - Date.now()) / 1000);
-    await tokenManager.saveTokens(userId, {
-      access_token: tokens.access_token,
-      refresh_token: tokens.refresh_token,
-      expires_in: expiresIn > 0 ? expiresIn : 3600,
-      scope: tokens.scope || '',
-      token_type: tokens.token_type || 'Bearer',
-      expiry_date: tokens.expiry_date,
-      userInfo: userInfo.data
-    });
+    try {
+      await tokenManager.saveTokens(userId, {
+        access_token: tokens.access_token,
+        refresh_token: tokens.refresh_token,
+        expires_in: expiresIn > 0 ? expiresIn : 3600,
+        scope: tokens.scope || '',
+        token_type: tokens.token_type || 'Bearer',
+        expiry_date: tokens.expiry_date,
+        userInfo: userInfo.data
+      });
+      console.log('1️⃣5️⃣ Tokens saved successfully to Firestore');
+    } catch (saveError) {
+      console.error('❌ Failed to save tokens to Firestore:', {
+        message: saveError.message,
+        stack: saveError.stack
+      });
+      throw new Error(`Failed to save tokens: ${saveError.message}`);
+    }
 
     // Check if user has a Google Business Profile account
+    console.log('1️⃣6️⃣ Checking for GBP accounts...');
     try {
-      // Get accounts to extract GBP Account ID
       oauth2Client.setCredentials(tokens);
-      const mybusiness = google.mybusinessaccountmanagement({ 
-        version: 'v1', 
-        auth: oauth2Client 
+      const mybusiness = google.mybusinessaccountmanagement({
+        version: 'v1',
+        auth: oauth2Client
       });
-      
+
       const accountsResponse = await mybusiness.accounts.list();
       const accounts = accountsResponse.data.accounts || [];
-      
+      console.log(`1️⃣7️⃣ Found ${accounts.length} GBP account(s)`);
+
       // If user has GBP accounts, create trial subscription for the first one
       if (accounts.length > 0) {
         const gbpAccountId = accounts[0].name.split('/')[1];
-        console.log('Creating trial subscription for GBP account:', gbpAccountId);
-        
+        console.log('1️⃣8️⃣ Creating trial subscription for GBP account:', gbpAccountId);
+
         // Create trial subscription
         await subscriptionService.createTrialSubscription(
           userId,
           gbpAccountId,
           userInfo.data.email
         );
+        console.log('1️⃣9️⃣ Trial subscription created successfully');
       }
     } catch (gbpError) {
-      console.error('Error checking GBP accounts for trial setup:', gbpError);
+      console.error('⚠️ Error checking GBP accounts for trial setup:', gbpError.message);
+      // Don't fail the whole request if GBP check fails
     }
-    
+
     // Return tokens and user info to frontend
+    console.log('2️⃣0️⃣ Sending success response to frontend');
+    console.log('========================================');
+    console.log('✅ OAUTH CALLBACK SUCCESSFUL');
+    console.log('========================================');
     res.json({
       success: true,
       userId: userId, // The userId used for token storage (Firebase or Google)
@@ -1001,16 +1054,27 @@ app.post('/auth/google/callback', async (req, res) => {
     });
 
   } catch (error) {
-    console.error('❌ OAuth callback error:', error);
-    console.error('❌ Error details:', {
-      message: error.message,
-      stack: error.stack,
-      response: error.response?.data
-    });
+    console.error('========================================');
+    console.error('❌ OAUTH CALLBACK FAILED');
+    console.error('========================================');
+    console.error('❌ Error name:', error.name);
+    console.error('❌ Error message:', error.message);
+    console.error('❌ Error stack:', error.stack);
+    if (error.response) {
+      console.error('❌ Error response:', {
+        status: error.response.status,
+        statusText: error.response.statusText,
+        data: error.response.data
+      });
+    }
+    console.error('========================================');
+
     res.status(500).json({
       error: 'Authentication failed',
       message: error.message,
-      details: error.response?.data || error.toString()
+      errorName: error.name,
+      details: error.response?.data || error.toString(),
+      timestamp: new Date().toISOString()
     });
   }
 });
