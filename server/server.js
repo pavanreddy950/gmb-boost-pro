@@ -536,28 +536,47 @@ app.post('/api/automation/test-post-now/:locationId', async (req, res) => {
     const userIdFromHeader = req.headers['x-user-id'];
     const finalUserId = userId || userIdFromHeader;
 
-    console.log(`[TEST POST] Getting token for user: ${finalUserId}`);
+    console.log(`[TEST POST] ========================================`);
+    console.log(`[TEST POST] Location ID: ${locationId}`);
+    console.log(`[TEST POST] User ID from header: ${userIdFromHeader}`);
+    console.log(`[TEST POST] User ID from body: ${userId}`);
+    console.log(`[TEST POST] Final User ID: ${finalUserId}`);
 
     // Get token from Firebase token manager
     let token = null;
     if (finalUserId) {
       try {
+        console.log(`[TEST POST] Attempting to get tokens for user: ${finalUserId}`);
         const tokens = await tokenManager.getValidTokens(finalUserId);
+        console.log(`[TEST POST] Token manager returned:`, {
+          hasTokens: !!tokens,
+          hasAccessToken: !!tokens?.access_token,
+          hasRefreshToken: !!tokens?.refresh_token
+        });
+
         if (tokens && tokens.access_token) {
           token = tokens.access_token;
-          console.log(`[TEST POST] Found token for user ${finalUserId}`);
+          console.log(`[TEST POST] ✅ Found valid token for user ${finalUserId}`);
         } else {
-          console.log(`[TEST POST] No tokens found for user ${finalUserId}`);
+          console.log(`[TEST POST] ❌ No valid access token found for user ${finalUserId}`);
+          console.log(`[TEST POST] Tokens object:`, JSON.stringify(tokens, null, 2));
         }
       } catch (error) {
-        console.log(`[TEST POST] Error getting tokens:`, error.message);
+        console.log(`[TEST POST] ❌ Error getting tokens:`, error.message);
+        console.log(`[TEST POST] Error stack:`, error.stack);
       }
+    } else {
+      console.log(`[TEST POST] ❌ No user ID provided`);
     }
 
     if (!token) {
+      console.log(`[TEST POST] ========================================`);
+      console.log(`[TEST POST] RETURNING 401 - No valid token`);
+      console.log(`[TEST POST] ========================================`);
       return res.status(401).json({
         error: 'No valid token found. Please reconnect your Google Business Profile.',
-        details: 'User token not found in Firebase'
+        details: `User token not found in Firebase for userId: ${finalUserId}`,
+        userId: finalUserId
       });
     }
     
@@ -1176,21 +1195,40 @@ app.get('/auth/google/token-status/:userId', async (req, res) => {
       return res.status(400).json({ error: 'User ID is required' });
     }
 
-    console.log('Checking token status for user:', userId);
+    console.log('[TOKEN STATUS] ========================================');
+    console.log('[TOKEN STATUS] Checking token status for user:', userId);
 
     // Get tokens from persistent storage (with automatic refresh)
     const tokens = await tokenManager.getValidTokens(userId);
+
+    console.log('[TOKEN STATUS] Token manager returned:', {
+      hasTokens: !!tokens,
+      hasAccessToken: !!tokens?.access_token,
+      hasRefreshToken: !!tokens?.refresh_token
+    });
+
     const refreshToken = tokens?.refresh_token || null;
+    const accessToken = tokens?.access_token || null;
 
     if (refreshToken) {
-      console.log('Found refresh token for user:', userId);
+      console.log('[TOKEN STATUS] ✅ Found refresh token for user:', userId);
     } else {
-      console.log('No refresh token found for user:', userId);
+      console.log('[TOKEN STATUS] ❌ No refresh token found for user:', userId);
     }
+
+    if (accessToken) {
+      console.log('[TOKEN STATUS] ✅ Found access token for user:', userId);
+    } else {
+      console.log('[TOKEN STATUS] ❌ No access token found for user:', userId);
+    }
+
+    console.log('[TOKEN STATUS] ========================================');
 
     res.json({
       hasRefreshToken: !!refreshToken,
+      hasAccessToken: !!accessToken,
       refresh_token: refreshToken,
+      access_token: accessToken ? accessToken.substring(0, 20) + '...' : null,
       userId: userId
     });
 
