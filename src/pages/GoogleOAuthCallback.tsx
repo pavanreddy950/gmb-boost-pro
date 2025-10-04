@@ -11,9 +11,10 @@ const GoogleOAuthCallback: React.FC = () => {
   useEffect(() => {
     const handleOAuthCallback = async () => {
       try {
-        // Extract authorization code from URL
+        // Extract authorization code and state from URL
         const urlParams = new URLSearchParams(window.location.search);
         const code = urlParams.get('code');
+        const state = urlParams.get('state');
         const error = urlParams.get('error');
 
         if (error) {
@@ -25,16 +26,17 @@ const GoogleOAuthCallback: React.FC = () => {
         }
 
         console.log('✅ Received OAuth code, exchanging for tokens...');
+        console.log('State parameter:', state);
         setMessage('Exchanging authorization code for permanent access...');
 
-        // Exchange code for tokens via backend
+        // Exchange code for tokens via backend (include state with Firebase user ID)
         const backendUrl = import.meta.env.VITE_BACKEND_URL || 'https://pavan-client-backend-bxgdaqhvarfdeuhe.canadacentral-01.azurewebsites.net';
         const response = await fetch(`${backendUrl}/auth/google/callback`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify({ code }),
+          body: JSON.stringify({ code, state }),
         });
 
         if (!response.ok) {

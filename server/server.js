@@ -865,17 +865,20 @@ app.get('/config', (req, res) => {
 // Get OAuth authorization URL
 app.get('/auth/google/url', (req, res) => {
   try {
+    const firebaseUserId = req.query.userId || '';
+    console.log('Generating OAuth URL for Firebase user:', firebaseUserId);
+
     const authUrl = oauth2Client.generateAuthUrl({
       access_type: 'offline', // Critical: Get refresh token
       scope: SCOPES,
       include_granted_scopes: true,
       prompt: 'consent', // Force consent to always get refresh token
-      state: req.query.userId || '', // Pass userId for session tracking
+      state: JSON.stringify({ firebaseUserId }), // Pass Firebase userId in state
       redirect_uri: config.googleRedirectUri // Explicitly set redirect URI
     });
 
     console.log('Generated OAuth URL with redirect URI:', config.googleRedirectUri);
-    console.log('Auth URL:', authUrl);
+    console.log('State parameter includes Firebase userId:', !!firebaseUserId);
     res.json({ authUrl });
   } catch (error) {
     console.error('Error generating OAuth URL:', error);
@@ -886,14 +889,26 @@ app.get('/auth/google/url', (req, res) => {
 // Handle OAuth callback
 app.post('/auth/google/callback', async (req, res) => {
   try {
-    const { code } = req.body;
-    
+    const { code, state } = req.body;
+
     if (!code) {
       return res.status(400).json({ error: 'Authorization code is required' });
     }
 
-    console.log('Processing OAuth callback with code:', code);
+    console.log('Processing OAuth callback with code:', code.substring(0, 20) + '...');
     console.log('Using redirect URI:', config.googleRedirectUri);
+
+    // Extract Firebase user ID from state
+    let firebaseUserId = null;
+    if (state) {
+      try {
+        const stateData = JSON.parse(state);
+        firebaseUserId = stateData.firebaseUserId;
+        console.log('Extracted Firebase user ID from state:', firebaseUserId);
+      } catch (e) {
+        console.warn('Could not parse state parameter:', e);
+      }
+    }
 
     // Exchange authorization code for tokens
     // IMPORTANT: Must use same redirect_uri that was used to generate auth URL
@@ -901,12 +916,12 @@ app.post('/auth/google/callback', async (req, res) => {
       code,
       redirect_uri: config.googleRedirectUri
     });
-    
+
     if (!tokens) {
       throw new Error('Failed to obtain tokens from Google');
     }
-    
-    console.log('Received tokens from Google:', { 
+
+    console.log('Received tokens from Google:', {
       hasAccessToken: !!tokens.access_token,
       hasRefreshToken: !!tokens.refresh_token,
       expiryDate: tokens.expiry_date
@@ -918,9 +933,13 @@ app.post('/auth/google/callback', async (req, res) => {
     // Get user profile information
     const oauth2 = google.oauth2({ version: 'v2', auth: oauth2Client });
     const userInfo = await oauth2.userinfo.get();
-    
-    const userId = userInfo.data.id;
+
+    const googleUserId = userInfo.data.id;
     console.log('User authenticated:', userInfo.data.email);
+
+    // Use Firebase user ID if provided, otherwise fall back to Google user ID
+    const userId = firebaseUserId || googleUserId;
+    console.log('Using user ID for token storage:', userId, `(${firebaseUserId ? 'Firebase' : 'Google'})`);
 
     // Save tokens to Firestore (persistent storage)
     const expiresIn = Math.floor((tokens.expiry_date - Date.now()) / 1000);
@@ -965,6 +984,7 @@ app.post('/auth/google/callback', async (req, res) => {
     // Return tokens and user info to frontend
     res.json({
       success: true,
+      userId: userId, // The userId used for token storage (Firebase or Google)
       tokens: {
         access_token: tokens.access_token,
         refresh_token: tokens.refresh_token,
@@ -973,6 +993,7 @@ app.post('/auth/google/callback', async (req, res) => {
       },
       user: {
         id: userId,
+        googleId: googleUserId,
         email: userInfo.data.email,
         name: userInfo.data.name,
         picture: userInfo.data.picture
@@ -980,10 +1001,16 @@ app.post('/auth/google/callback', async (req, res) => {
     });
 
   } catch (error) {
-    console.error('OAuth callback error:', error);
+    console.error('❌ OAuth callback error:', error);
+    console.error('❌ Error details:', {
+      message: error.message,
+      stack: error.stack,
+      response: error.response?.data
+    });
     res.status(500).json({
       error: 'Authentication failed',
-      message: error.message
+      message: error.message,
+      details: error.response?.data || error.toString()
     });
   }
 });
