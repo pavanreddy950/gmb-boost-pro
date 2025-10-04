@@ -26,7 +26,9 @@ const GoogleOAuthCallback: React.FC = () => {
         }
 
         console.log('✅ Received OAuth code, exchanging for tokens...');
-        console.log('State parameter:', state);
+        console.log('📍 State parameter from URL:', state);
+        console.log('📍 Full URL:', window.location.href);
+        console.log('📍 URL search params:', window.location.search);
         setMessage('Exchanging authorization code for permanent access...');
 
         // Exchange code for tokens via backend (include state with Firebase user ID)

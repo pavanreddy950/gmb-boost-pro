@@ -935,6 +935,32 @@ app.post('/auth/google/callback', async (req, res) => {
         code: tokenError.code,
         response: tokenError.response?.data
       });
+
+      // Provide more helpful error messages
+      if (tokenError.message === 'invalid_client') {
+        console.error('========================================');
+        console.error('💡 TROUBLESHOOTING invalid_client ERROR');
+        console.error('========================================');
+        console.error('This error means Google OAuth rejected the credentials.');
+        console.error('');
+        console.error('Current configuration:');
+        console.error('  Client ID:', process.env.GOOGLE_CLIENT_ID || 'NOT SET');
+        console.error('  Client Secret:', process.env.GOOGLE_CLIENT_SECRET ? `SET (${process.env.GOOGLE_CLIENT_SECRET.substring(0, 15)}...)` : 'NOT SET');
+        console.error('  Redirect URI:', config.googleRedirectUri);
+        console.error('');
+        console.error('Common causes:');
+        console.error('  1. Client ID or Secret is wrong/outdated');
+        console.error('  2. Client Secret not set in Azure environment variables');
+        console.error('  3. Redirect URI not authorized in Google Cloud Console');
+        console.error('');
+        console.error('To fix:');
+        console.error('  1. Go to Google Cloud Console > APIs & Credentials');
+        console.error('  2. Find OAuth 2.0 Client ID: 52772597205-9ogv54i6sfvucse3jrqj1nl1hlkspcv1.apps.googleusercontent.com');
+        console.error('  3. Verify Client Secret matches what\'s in Azure environment variables');
+        console.error('  4. Verify authorized redirect URIs include:', config.googleRedirectUri);
+        console.error('========================================');
+      }
+
       throw new Error(`Token exchange failed: ${tokenError.message}`);
     }
 
