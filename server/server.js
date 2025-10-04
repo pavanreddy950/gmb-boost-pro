@@ -1138,34 +1138,44 @@ app.post('/auth/google/refresh', async (req, res) => {
       throw new Error('Failed to obtain new access token');
     }
 
-    console.log('Token refresh successful for user:', userId);
+    console.log('[TOKEN REFRESH] ========================================');
+    console.log('[TOKEN REFRESH] Token refresh successful for user:', userId);
+    console.log('[TOKEN REFRESH] New token expires at:', new Date(credentials.expiry_date).toISOString());
 
     // Update stored tokens if userId is provided
     if (userId) {
+      const expiresIn = Math.floor((credentials.expiry_date - Date.now()) / 1000);
+      console.log('[TOKEN REFRESH] Token expires in:', expiresIn, 'seconds');
+
+      const tokenData = {
+        access_token: credentials.access_token,
+        refresh_token: refresh_token,
+        expires_in: expiresIn > 0 ? expiresIn : 3600,
+        scope: credentials.scope || 'https://www.googleapis.com/auth/business.manage',
+        token_type: 'Bearer',
+        expiry_date: credentials.expiry_date
+      };
+
       // Update token manager with refreshed tokens
       try {
-        await tokenManager.saveTokens(userId, {
-          access_token: credentials.access_token,
-          refresh_token: refresh_token,
-          expiry_date: credentials.expiry_date
-        });
+        console.log('[TOKEN REFRESH] Saving to token manager...');
+        await tokenManager.saveTokens(userId, tokenData);
+        console.log('[TOKEN REFRESH] ✅ Saved to token manager');
       } catch (error) {
-        console.error(`Failed to update tokens for user ${userId}:`, error);
+        console.error(`[TOKEN REFRESH] ❌ Failed to update token manager for user ${userId}:`, error);
       }
 
-      // Update Firestore token storage
+      // Update Firestore token storage (uses correct format now)
       try {
-        await firestoreTokenStorage.saveUserToken(userId, {
-          access_token: credentials.access_token,
-          refresh_token: refresh_token,
-          expires_at: new Date(credentials.expiry_date).toISOString(),
-          scope: credentials.scope || 'https://www.googleapis.com/auth/business.manage',
-          token_type: 'Bearer'
-        });
+        console.log('[TOKEN REFRESH] Saving to Firestore...');
+        await firestoreTokenStorage.saveUserToken(userId, tokenData);
+        console.log('[TOKEN REFRESH] ✅ Saved to Firestore');
       } catch (firestoreError) {
-        console.warn('Failed to update Firestore tokens (non-critical):', firestoreError);
+        console.error('[TOKEN REFRESH] ❌ Failed to update Firestore tokens:', firestoreError);
       }
     }
+
+    console.log('[TOKEN REFRESH] ========================================');
 
     res.json({
       success: true,
@@ -1197,6 +1207,19 @@ app.get('/auth/google/token-status/:userId', async (req, res) => {
 
     console.log('[TOKEN STATUS] ========================================');
     console.log('[TOKEN STATUS] Checking token status for user:', userId);
+
+    // Check Firestore directly first
+    let firestoreTokens = null;
+    try {
+      firestoreTokens = await firestoreTokenStorage.getUserToken(userId);
+      console.log('[TOKEN STATUS] Firestore check:', {
+        hasFirestoreTokens: !!firestoreTokens,
+        hasAccessToken: !!firestoreTokens?.access_token,
+        hasRefreshToken: !!firestoreTokens?.refresh_token
+      });
+    } catch (firestoreError) {
+      console.log('[TOKEN STATUS] Firestore check failed:', firestoreError.message);
+    }
 
     // Get tokens from persistent storage (with automatic refresh)
     const tokens = await tokenManager.getValidTokens(userId);
