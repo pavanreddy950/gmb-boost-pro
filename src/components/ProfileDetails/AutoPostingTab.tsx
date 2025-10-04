@@ -559,19 +559,20 @@ export function AutoPostingTab({ location }: AutoPostingTabProps) {
     setIsTesting(true);
     
     try {
-      // Get the access token from the frontend Google service
-      const accessToken = googleBusinessProfileService.getAccessToken();
-      console.log('[AutoPostingTab] Access token available:', accessToken ? 'Yes' : 'No');
-      console.log('[AutoPostingTab] Access token value:', accessToken ? `${accessToken.substring(0, 20)}...` : 'null');
-      console.log('[AutoPostingTab] Access token length:', accessToken ? accessToken.length : 0);
-      
+      // Get the current user's ID from Firebase
+      if (!currentUser) {
+        throw new Error('You must be logged in to test auto-posting');
+      }
+
+      console.log('[AutoPostingTab] Getting token for user:', currentUser.uid);
+
       // Use backend server for test post creation
       const backendUrl = import.meta.env.VITE_BACKEND_URL || 'https://pavan-client-backend-bxgdaqhvarfdeuhe.canadacentral-01.azurewebsites.net';
       const response = await fetch(`${backendUrl}/api/automation/test-post-now/${location.id}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': accessToken ? `Bearer ${accessToken}` : '',
+          'X-User-ID': currentUser.uid, // Send user ID to backend to get their token
         },
         body: JSON.stringify({
           businessName: location.name,
@@ -583,7 +584,7 @@ export function AutoPostingTab({ location }: AutoPostingTabProps) {
           region: location.address?.administrativeArea || '',
           country: location.address?.countryCode || '',
           fullAddress: location.address?.addressLines?.join(', ') || '',
-          accessToken: accessToken // Also send in body for backward compatibility
+          userId: currentUser.uid // Send user ID in body too
         })
       });
       

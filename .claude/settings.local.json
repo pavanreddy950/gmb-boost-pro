@@ -53,7 +53,8 @@
       "Bash(git remote rename:*)",
       "Bash(bash:*)",
       "Bash(curl:*)",
-      "Bash(gh run list:*)"
+      "Bash(gh run list:*)",
+      "Bash(npm run build:azure:*)"
     ],
     "deny": [],
     "ask": []

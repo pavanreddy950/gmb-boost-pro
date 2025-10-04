@@ -530,49 +530,40 @@ app.post('/api/customers/check-reviews', checkSubscription, async (req, res) => 
 app.post('/api/automation/test-post-now/:locationId', async (req, res) => {
   try {
     const { locationId } = req.params;
-    const { businessName, category, keywords, websiteUrl, locationName, city, region, country, fullAddress, accessToken } = req.body;
-    
-    // Get token from Authorization header or body
-    let token = accessToken;
-    const authHeader = req.headers.authorization;
-    if (authHeader && authHeader.startsWith('Bearer ')) {
-      token = authHeader.substring(7);
-    }
-    
-    // Clean and validate token
-    if (token) {
-      token = token.trim();
-      // Check if token looks valid (Google tokens are typically long strings)
-      if (token.length < 10) {
-        console.log(`[TEMP FIX] Token too short, treating as invalid: ${token.length} chars`);
-        token = null;
-      }
-    }
-    
-    // If no token provided, try to get from existing tokenStore (migration support)
-    if (!token) {
-      console.log(`[TEMP FIX] No token provided, checking token manager...`);
-      // Try to get tokens for default user
+    const { businessName, category, keywords, websiteUrl, locationName, city, region, country, fullAddress, userId } = req.body;
+
+    // Get userId from header or body
+    const userIdFromHeader = req.headers['x-user-id'];
+    const finalUserId = userId || userIdFromHeader;
+
+    console.log(`[TEST POST] Getting token for user: ${finalUserId}`);
+
+    // Get token from Firebase token manager
+    let token = null;
+    if (finalUserId) {
       try {
-        const defaultTokens = await tokenManager.getValidTokens('default');
-        if (defaultTokens && defaultTokens.access_token) {
-          token = defaultTokens.access_token;
-          console.log(`[TEMP FIX] Found existing token for user default, using it for test`);
+        const tokens = await tokenManager.getValidTokens(finalUserId);
+        if (tokens && tokens.access_token) {
+          token = tokens.access_token;
+          console.log(`[TEST POST] Found token for user ${finalUserId}`);
+        } else {
+          console.log(`[TEST POST] No tokens found for user ${finalUserId}`);
         }
       } catch (error) {
-        console.log(`[TEMP FIX] No tokens found in token manager:`, error.message);
+        console.log(`[TEST POST] Error getting tokens:`, error.message);
       }
     }
+
+    if (!token) {
+      return res.status(401).json({
+        error: 'No valid token found. Please reconnect your Google Business Profile.',
+        details: 'User token not found in Firebase'
+      });
+    }
     
-    console.log(`[TEMP FIX] TEST MODE - Creating post NOW for location ${locationId}`);
-    console.log(`[TEMP FIX] Token from body:`, accessToken ? 'Present' : 'Missing');
-    console.log(`[TEMP FIX] Token from header:`, authHeader ? 'Present' : 'Missing');
-    console.log(`[TEMP FIX] Final token available:`, token ? 'Yes' : 'No');
-    console.log(`[TEMP FIX] Full auth header:`, authHeader);
-    console.log(`[TEMP FIX] Token from body value:`, accessToken ? `${accessToken.substring(0, 20)}...` : 'null');
-    console.log(`[TEMP FIX] Final token value:`, token ? `${token.substring(0, 20)}...` : 'null');
-    console.log(`[TEMP FIX] All request headers:`, JSON.stringify(req.headers, null, 2));
-    console.log(`[TEMP FIX] Request body:`, JSON.stringify(req.body, null, 2));
+    console.log(`[TEST POST] Creating post NOW for location ${locationId}`);
+    console.log(`[TEST POST] Token available:`, token ? 'Yes' : 'No');
+    console.log(`[TEST POST] Token value:`, token ? `${token.substring(0, 20)}...` : 'null');
     
     // Create test config with all necessary data
     const testConfig = {
