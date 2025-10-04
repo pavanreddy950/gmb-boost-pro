@@ -247,42 +247,11 @@ class GoogleBusinessProfileService {
         window.addEventListener('message', messageHandler);
         console.log('👂 Listening for OAuth messages...');
 
-        // Fallback: Check localStorage periodically (avoids COOP issues with popup.closed)
-        // This handles cases where postMessage might fail
-        let checkCount = 0;
-        storageCheckInterval = setInterval(async () => {
-          checkCount++;
-          const hasTokens = localStorage.getItem('google_business_connected') === 'true';
-          const tokensData = localStorage.getItem('google_business_tokens');
-
-          if (checkCount % 5 === 0) {
-            console.log(`🔍 [Check ${checkCount}] localStorage polling - connected: ${hasTokens}, has tokens: ${!!tokensData}`);
-          }
-
-          if (hasTokens && tokensData) {
-            console.log('✅ OAuth flow completed (detected via localStorage)');
-
-            cleanup();
-
-            // Load tokens and complete connection
-            console.log('🔄 Loading tokens from localStorage...');
-            const loaded = await this.loadStoredTokens(this.currentUserId);
-            console.log('📊 Tokens loaded:', loaded);
-
-            this.startConnectionMonitoring();
-            resolve();
-          }
-        }, 1000);
-
         // Timeout after 2 minutes (user likely closed popup or abandoned flow)
         timeoutId = setTimeout(() => {
-          const hasTokens = localStorage.getItem('google_business_connected') === 'true';
           cleanup();
-
-          if (!hasTokens) {
-            console.error('❌ OAuth flow timed out - no tokens received');
-            reject(new Error('OAuth flow timed out. Please try connecting again.'));
-          }
+          console.error('❌ OAuth flow timed out - no tokens received');
+          reject(new Error('OAuth flow timed out. Please try connecting again.'));
         }, 2 * 60 * 1000);
       });
     } catch (error) {
@@ -297,78 +266,44 @@ class GoogleBusinessProfileService {
     console.log('🔍 DEBUGGING: Current user ID set to:', userId);
   }
 
-  // Load stored tokens with optimized performance - localStorage first for speed
+  // Load tokens from backend - backend handles permanent storage with refresh tokens in Firebase
   async loadStoredTokens(userId?: string): Promise<boolean> {
     try {
       const userIdToUse = userId || this.currentUserId;
-      
-      console.log('🔍 DEBUGGING loadStoredTokens:', { 
+
+      console.log('🔍 DEBUGGING loadStoredTokens:', {
         userIdProvided: !!userId,
         currentUserIdSet: !!this.currentUserId,
         userIdToUse: userIdToUse
       });
-      
-      // Start with localStorage first for immediate speed (no network calls)
-      const storedTokens = localStorage.getItem('google_business_tokens');
-      const isConnected = localStorage.getItem('google_business_connected');
-      
-      if (storedTokens && isConnected === 'true') {
-        try {
-          const tokens = JSON.parse(storedTokens);
-          // Quick expiry check
-          const now = Date.now();
-          const expires = tokens.expires_at || (tokens.stored_at + (tokens.expires_in * 1000));
-          
-          if (!expires || now < expires) {
-            this.accessToken = tokens.access_token;
-            console.log('✅ Loaded valid tokens from localStorage (fast path)');
-            
-            // Background sync to Firestore without waiting
-            if (userIdToUse) {
-              this.backgroundSyncToFirestore(userIdToUse, tokens).catch(e => 
-                console.warn('Background Firestore sync failed:', e)
-              );
-            }
 
-            // Start connection monitoring when tokens are loaded successfully
-            this.startConnectionMonitoring();
-
-            return true;
-          } else {
-            console.log('⏰ localStorage tokens expired, clearing');
-            localStorage.removeItem('google_business_tokens');
-            localStorage.removeItem('google_business_connected');
-          }
-        } catch (parseError) {
-          console.error('❌ Error parsing localStorage tokens:', parseError);
-          localStorage.removeItem('google_business_tokens');
-          localStorage.removeItem('google_business_connected');
-        }
+      if (!userIdToUse) {
+        console.log('❌ No userId available to fetch tokens');
+        return false;
       }
-      
-      // Only try Firestore if localStorage failed and user ID is available
-      if (userIdToUse) {
-        try {
-          console.log('🔍 Checking Firestore for tokens (localStorage failed)');
-          const firestoreTokens = await tokenStorageService.getTokens(userIdToUse);
-          if (firestoreTokens) {
-            this.accessToken = firestoreTokens.access_token;
-            console.log('✅ Loaded tokens from Firestore successfully');
-            
-            // Update localStorage for next time (performance optimization)
-            localStorage.setItem('google_business_tokens', JSON.stringify(firestoreTokens));
-            localStorage.setItem('google_business_connected', 'true');
 
-            // Start connection monitoring when tokens are loaded successfully
+      // Fetch tokens from backend API (permanent storage with auto-refresh)
+      try {
+        console.log('🔍 Fetching tokens from backend for user:', userIdToUse);
+        const response = await fetch(`${this.backendUrl}/auth/google/token-status/${userIdToUse}`);
+
+        if (response.ok) {
+          const data = await response.json();
+
+          if (data.hasRefreshToken && data.refresh_token) {
+            // Backend will auto-refresh access token if needed
+            this.accessToken = data.access_token || data.refresh_token;
+            console.log('✅ Loaded permanent tokens from backend');
+
+            // Start connection monitoring
             this.startConnectionMonitoring();
-
             return true;
           }
-        } catch (firestoreError) {
-          console.warn('⚠️ Firestore token load failed:', firestoreError);
         }
+      } catch (backendError) {
+        console.warn('⚠️ Backend token fetch failed:', backendError);
       }
-      
+
       console.log('❌ No valid stored tokens found');
       return false;
     } catch (error) {
@@ -1732,11 +1667,8 @@ class GoogleBusinessProfileService {
 
   // Check if currently connected
   isConnected(): boolean {
-    const hasToken = !!this.accessToken;
-    const isConnectedFlag = localStorage.getItem('google_business_connected') === 'true';
-    const connected = hasToken && isConnectedFlag;
-    
-    console.log('Connection check:', { hasToken, isConnectedFlag, connected });
+    const connected = !!this.accessToken;
+    console.log('Connection check:', { hasToken: connected, connected });
     return connected;
   }
 

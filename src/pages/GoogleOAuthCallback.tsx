@@ -43,37 +43,18 @@ const GoogleOAuthCallback: React.FC = () => {
         }
 
         const data = await response.json();
-        console.log('✅ Tokens received from backend:', data);
+        console.log('✅ Tokens received and stored in backend:', data);
+        console.log('✅ User ID:', data.userId);
 
-        // Store tokens in localStorage
-        const tokens = {
-          access_token: data.tokens.access_token,
-          refresh_token: data.tokens.refresh_token,
-          token_type: data.tokens.token_type || 'Bearer',
-          expiry_date: data.tokens.expiry_date,
-          expires_in: Math.floor((data.tokens.expiry_date - Date.now()) / 1000),
-          scope: data.tokens.scope || '',
-          stored_at: Date.now(),
-          expires_at: data.tokens.expiry_date
-        };
-
-        localStorage.setItem('google_business_tokens', JSON.stringify(tokens));
-        localStorage.setItem('google_business_connected', 'true');
-        localStorage.setItem('google_business_connection_time', Date.now().toString());
-
-        console.log('✅ Tokens stored permanently with refresh token');
-        console.log('📦 localStorage check:', {
-          hasTokens: !!localStorage.getItem('google_business_tokens'),
-          isConnected: localStorage.getItem('google_business_connected'),
-          hasOpener: !!window.opener
-        });
+        // Tokens are already stored in Firebase by the backend
+        // No need to store in localStorage - we'll fetch from backend when needed
 
         // Notify parent window if opened as popup
         if (window.opener) {
           console.log('📤 Sending postMessage to parent window...');
           const message = {
             type: 'GOOGLE_OAUTH_SUCCESS',
-            tokens: tokens,
+            userId: data.userId,
             user: data.user
           };
           console.log('📤 Message:', message);
