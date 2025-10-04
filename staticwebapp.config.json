@@ -3,7 +3,7 @@
     "apiRuntime": "node:16"
   },
   "globalHeaders": {
-    "Content-Security-Policy": "default-src 'self' https: data:; script-src 'self' 'unsafe-inline' 'unsafe-eval' https:; style-src 'self' 'unsafe-inline' https:; connect-src 'self' https:; img-src 'self' data: https:; font-src 'self' https:; frame-src https:"
+    "Content-Security-Policy": "default-src 'self' https: data: blob:; script-src 'self' 'unsafe-inline' 'unsafe-eval' https: blob:; style-src 'self' 'unsafe-inline' https:; connect-src 'self' https:; img-src 'self' data: https:; font-src 'self' https:; frame-src https:"
   },
   "navigationFallback": {
     "rewrite": "/index.html",
