@@ -870,10 +870,12 @@ app.get('/auth/google/url', (req, res) => {
       scope: SCOPES,
       include_granted_scopes: true,
       prompt: 'consent', // Force consent to always get refresh token
-      state: req.query.userId || '' // Pass userId for session tracking
+      state: req.query.userId || '', // Pass userId for session tracking
+      redirect_uri: config.googleRedirectUri // Explicitly set redirect URI
     });
 
-    console.log('Generated OAuth URL with offline access:', authUrl);
+    console.log('Generated OAuth URL with redirect URI:', config.googleRedirectUri);
+    console.log('Auth URL:', authUrl);
     res.json({ authUrl });
   } catch (error) {
     console.error('Error generating OAuth URL:', error);
@@ -891,9 +893,14 @@ app.post('/auth/google/callback', async (req, res) => {
     }
 
     console.log('Processing OAuth callback with code:', code);
+    console.log('Using redirect URI:', config.googleRedirectUri);
 
     // Exchange authorization code for tokens
-    const { tokens } = await oauth2Client.getToken(code);
+    // IMPORTANT: Must use same redirect_uri that was used to generate auth URL
+    const { tokens } = await oauth2Client.getToken({
+      code,
+      redirect_uri: config.googleRedirectUri
+    });
     
     if (!tokens) {
       throw new Error('Failed to obtain tokens from Google');
