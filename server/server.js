@@ -1196,6 +1196,51 @@ app.post('/auth/google/refresh', async (req, res) => {
   }
 });
 
+// Force save tokens to Firestore (migration endpoint)
+app.post('/auth/google/save-tokens', async (req, res) => {
+  try {
+    const { userId, tokens } = req.body;
+
+    if (!userId || !tokens) {
+      return res.status(400).json({ error: 'userId and tokens are required' });
+    }
+
+    console.log('[SAVE TOKENS] ========================================');
+    console.log('[SAVE TOKENS] Manually saving tokens for user:', userId);
+
+    const tokenData = {
+      access_token: tokens.access_token,
+      refresh_token: tokens.refresh_token,
+      expires_in: tokens.expires_in || 3600,
+      scope: tokens.scope || 'https://www.googleapis.com/auth/business.manage',
+      token_type: tokens.token_type || 'Bearer',
+      expiry_date: tokens.expires_at || (Date.now() + (tokens.expires_in * 1000))
+    };
+
+    // Save to both storage systems
+    try {
+      await tokenManager.saveTokens(userId, tokenData);
+      console.log('[SAVE TOKENS] ✅ Saved to token manager');
+    } catch (error) {
+      console.error('[SAVE TOKENS] ❌ Failed to save to token manager:', error);
+    }
+
+    try {
+      await firestoreTokenStorage.saveUserToken(userId, tokenData);
+      console.log('[SAVE TOKENS] ✅ Saved to Firestore');
+    } catch (error) {
+      console.error('[SAVE TOKENS] ❌ Failed to save to Firestore:', error);
+    }
+
+    console.log('[SAVE TOKENS] ========================================');
+
+    res.json({ success: true, message: 'Tokens saved successfully' });
+  } catch (error) {
+    console.error('[SAVE TOKENS] Error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // Token status endpoint - check if user has valid refresh token
 app.get('/auth/google/token-status/:userId', async (req, res) => {
   try {
