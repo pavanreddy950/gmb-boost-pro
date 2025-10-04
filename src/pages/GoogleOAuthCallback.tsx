@@ -62,14 +62,25 @@ const GoogleOAuthCallback: React.FC = () => {
         localStorage.setItem('google_business_connection_time', Date.now().toString());
 
         console.log('✅ Tokens stored permanently with refresh token');
+        console.log('📦 localStorage check:', {
+          hasTokens: !!localStorage.getItem('google_business_tokens'),
+          isConnected: localStorage.getItem('google_business_connected'),
+          hasOpener: !!window.opener
+        });
 
         // Notify parent window if opened as popup
         if (window.opener) {
-          window.opener.postMessage({
+          console.log('📤 Sending postMessage to parent window...');
+          const message = {
             type: 'GOOGLE_OAUTH_SUCCESS',
             tokens: tokens,
             user: data.user
-          }, window.location.origin);
+          };
+          console.log('📤 Message:', message);
+          console.log('📤 Target origin:', window.location.origin);
+
+          window.opener.postMessage(message, window.location.origin);
+          console.log('✅ postMessage sent successfully');
 
           setStatus('success');
           setMessage('Connection successful! Closing...');

@@ -215,8 +215,11 @@ class GoogleBusinessProfileService {
         };
 
         const messageHandler = async (event: MessageEvent) => {
+          console.log('🔔 Message received:', { origin: event.origin, type: event.data?.type });
+
           // Verify origin
           if (event.origin !== window.location.origin) {
+            console.log('⚠️ Message origin mismatch:', event.origin, 'vs', window.location.origin);
             return;
           }
 
@@ -229,7 +232,9 @@ class GoogleBusinessProfileService {
             this.accessToken = event.data.tokens.access_token;
 
             // Load tokens into service (wait for completion)
-            await this.loadStoredTokens(this.currentUserId);
+            console.log('🔄 Loading tokens into service...');
+            const loaded = await this.loadStoredTokens(this.currentUserId);
+            console.log('📊 Tokens loaded:', loaded);
 
             // Start connection monitoring
             this.startConnectionMonitoring();
@@ -240,18 +245,30 @@ class GoogleBusinessProfileService {
         };
 
         window.addEventListener('message', messageHandler);
+        console.log('👂 Listening for OAuth messages...');
 
         // Fallback: Check localStorage periodically (avoids COOP issues with popup.closed)
         // This handles cases where postMessage might fail
+        let checkCount = 0;
         storageCheckInterval = setInterval(async () => {
+          checkCount++;
           const hasTokens = localStorage.getItem('google_business_connected') === 'true';
-          if (hasTokens) {
+          const tokensData = localStorage.getItem('google_business_tokens');
+
+          if (checkCount % 5 === 0) {
+            console.log(`🔍 [Check ${checkCount}] localStorage polling - connected: ${hasTokens}, has tokens: ${!!tokensData}`);
+          }
+
+          if (hasTokens && tokensData) {
             console.log('✅ OAuth flow completed (detected via localStorage)');
 
             cleanup();
 
             // Load tokens and complete connection
-            await this.loadStoredTokens(this.currentUserId);
+            console.log('🔄 Loading tokens from localStorage...');
+            const loaded = await this.loadStoredTokens(this.currentUserId);
+            console.log('📊 Tokens loaded:', loaded);
+
             this.startConnectionMonitoring();
             resolve();
           }
