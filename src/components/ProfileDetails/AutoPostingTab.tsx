@@ -558,17 +558,6 @@ export function AutoPostingTab({ location }: AutoPostingTabProps) {
   const handleTestNow = async () => {
     if (!config) return;
 
-    // Check if Google Business Profile is connected
-    if (!isConnected) {
-      toast({
-        title: "Connection Required",
-        description: "Please connect your Google Business Profile in Settings > Connections before testing auto-posts.",
-        variant: "destructive",
-        duration: 5000,
-      });
-      return;
-    }
-
     setIsTesting(true);
 
     try {
@@ -577,10 +566,33 @@ export function AutoPostingTab({ location }: AutoPostingTabProps) {
         throw new Error('You must be logged in to test auto-posting');
       }
 
-      console.log('[AutoPostingTab] Getting token for user:', currentUser.uid);
+      console.log('[AutoPostingTab] Checking backend token status for user:', currentUser.uid);
+
+      // FIRST: Verify tokens exist on backend before attempting test post
+      const backendUrl = import.meta.env.VITE_BACKEND_URL || 'https://pavan-client-backend-bxgdaqhvarfdeuhe.canadacentral-01.azurewebsites.net';
+      const tokenCheckResponse = await fetch(`${backendUrl}/auth/google/token-status/${currentUser.uid}`);
+
+      if (!tokenCheckResponse.ok) {
+        throw new Error('Failed to check token status');
+      }
+
+      const tokenStatus = await tokenCheckResponse.json();
+      console.log('[AutoPostingTab] Token status:', tokenStatus);
+
+      if (!tokenStatus.hasAccessToken && !tokenStatus.hasRefreshToken) {
+        toast({
+          title: "Connection Required",
+          description: "Your Google Business Profile isn't connected. Go to Settings > Connections to connect.",
+          variant: "destructive",
+          duration: 5000,
+        });
+        setIsTesting(false);
+        return;
+      }
+
+      console.log('[AutoPostingTab] ✅ Backend has valid tokens, proceeding with test post...');
 
       // Use backend server for test post creation
-      const backendUrl = import.meta.env.VITE_BACKEND_URL || 'https://pavan-client-backend-bxgdaqhvarfdeuhe.canadacentral-01.azurewebsites.net';
       const response = await fetch(`${backendUrl}/api/automation/test-post-now/${location.id}`, {
         method: 'POST',
         headers: {
