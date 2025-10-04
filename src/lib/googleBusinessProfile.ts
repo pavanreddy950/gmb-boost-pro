@@ -207,12 +207,10 @@ class GoogleBusinessProfileService {
       return new Promise((resolve, reject) => {
         let timeoutId: NodeJS.Timeout;
         let storageCheckInterval: NodeJS.Timeout;
-        let popupCheckInterval: NodeJS.Timeout;
 
         const cleanup = () => {
           clearTimeout(timeoutId);
           clearInterval(storageCheckInterval);
-          clearInterval(popupCheckInterval);
           window.removeEventListener('message', messageHandler);
         };
 
@@ -243,22 +241,6 @@ class GoogleBusinessProfileService {
 
         window.addEventListener('message', messageHandler);
 
-        // Check if popup was closed without completing OAuth
-        popupCheckInterval = setInterval(() => {
-          try {
-            if (popup.closed) {
-              const hasTokens = localStorage.getItem('google_business_connected') === 'true';
-              if (!hasTokens) {
-                console.log('⚠️ Popup closed without completing OAuth');
-                cleanup();
-                reject(new Error('OAuth cancelled - popup was closed before completing authentication'));
-              }
-            }
-          } catch (e) {
-            // Ignore COOP errors when checking popup.closed
-          }
-        }, 500);
-
         // Fallback: Check localStorage periodically (avoids COOP issues with popup.closed)
         // This handles cases where postMessage might fail
         storageCheckInterval = setInterval(async () => {
@@ -275,12 +257,16 @@ class GoogleBusinessProfileService {
           }
         }, 1000);
 
-        // Timeout after 5 minutes
+        // Timeout after 2 minutes (user likely closed popup or abandoned flow)
         timeoutId = setTimeout(() => {
+          const hasTokens = localStorage.getItem('google_business_connected') === 'true';
           cleanup();
-          console.error('❌ OAuth flow timed out after 5 minutes');
-          reject(new Error('OAuth flow timeout - please try again'));
-        }, 5 * 60 * 1000);
+
+          if (!hasTokens) {
+            console.error('❌ OAuth flow timed out - no tokens received');
+            reject(new Error('OAuth flow timed out. Please try connecting again.'));
+          }
+        }, 2 * 60 * 1000);
       });
     } catch (error) {
       console.error('❌ Backend OAuth flow error:', error);
