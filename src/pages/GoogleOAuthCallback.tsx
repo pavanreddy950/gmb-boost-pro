@@ -41,7 +41,8 @@ const GoogleOAuthCallback: React.FC = () => {
         if (!response.ok) {
           const errorData = await response.json();
           console.error('❌ Backend error response:', errorData);
-          throw new Error(errorData.error || 'Failed to exchange authorization code');
+          console.error('❌ Backend error details:', JSON.stringify(errorData, null, 2));
+          throw new Error(errorData.error || errorData.message || 'Failed to exchange authorization code');
         }
 
         const data = await response.json();
