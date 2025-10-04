@@ -205,7 +205,10 @@ class GoogleBusinessProfileService {
 
       // Wait for OAuth callback via postMessage
       return new Promise((resolve, reject) => {
-        const messageHandler = (event: MessageEvent) => {
+        let timeoutId: NodeJS.Timeout;
+        let storageCheckInterval: NodeJS.Timeout;
+
+        const messageHandler = async (event: MessageEvent) => {
           // Verify origin
           if (event.origin !== window.location.origin) {
             return;
@@ -214,17 +217,19 @@ class GoogleBusinessProfileService {
           if (event.data.type === 'GOOGLE_OAUTH_SUCCESS') {
             console.log('✅ OAuth success message received from popup');
 
+            // Clean up intervals and listeners
+            clearTimeout(timeoutId);
+            clearInterval(storageCheckInterval);
+            window.removeEventListener('message', messageHandler);
+
             // Store tokens
             this.accessToken = event.data.tokens.access_token;
 
-            // Load tokens into service
-            this.loadStoredTokens(this.currentUserId);
+            // Load tokens into service (wait for completion)
+            await this.loadStoredTokens(this.currentUserId);
 
             // Start connection monitoring
             this.startConnectionMonitoring();
-
-            // Clean up
-            window.removeEventListener('message', messageHandler);
 
             console.log('✅ Permanent connection established with refresh token');
             resolve();
@@ -233,32 +238,29 @@ class GoogleBusinessProfileService {
 
         window.addEventListener('message', messageHandler);
 
-        // Also check for popup close (fallback)
-        const checkPopup = setInterval(() => {
-          if (popup.closed) {
-            clearInterval(checkPopup);
+        // Fallback: Check localStorage periodically (avoids COOP issues with popup.closed)
+        // This handles cases where postMessage might fail
+        storageCheckInterval = setInterval(async () => {
+          const hasTokens = localStorage.getItem('google_business_connected') === 'true';
+          if (hasTokens) {
+            console.log('✅ OAuth flow completed (detected via localStorage)');
+
+            // Clean up
+            clearTimeout(timeoutId);
+            clearInterval(storageCheckInterval);
             window.removeEventListener('message', messageHandler);
 
-            // Check if connection was successful by looking for stored tokens
-            const hasTokens = localStorage.getItem('google_business_connected') === 'true';
-            if (hasTokens) {
-              console.log('✅ OAuth flow completed successfully (popup closed)');
-              this.loadStoredTokens(this.currentUserId);
-              this.startConnectionMonitoring();
-              resolve();
-            } else {
-              reject(new Error('OAuth flow cancelled or failed'));
-            }
+            // Load tokens and complete connection
+            await this.loadStoredTokens(this.currentUserId);
+            this.startConnectionMonitoring();
+            resolve();
           }
-        }, 500);
+        }, 1000);
 
         // Timeout after 5 minutes
-        setTimeout(() => {
-          clearInterval(checkPopup);
+        timeoutId = setTimeout(() => {
+          clearInterval(storageCheckInterval);
           window.removeEventListener('message', messageHandler);
-          if (!popup.closed) {
-            popup.close();
-          }
           reject(new Error('OAuth flow timeout'));
         }, 5 * 60 * 1000);
       });

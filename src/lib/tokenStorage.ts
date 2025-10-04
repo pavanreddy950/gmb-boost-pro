@@ -83,20 +83,14 @@ class TokenStorageService {
       // Create Firebase Storage reference: DATA/users/{userId}/tokens.json
       const tokenRef = ref(storage, `${this.STORAGE_PATH}/users/${userId}/tokens.json`);
 
-      // Get download URL and fetch the content
-      const downloadURLPromise = getDownloadURL(tokenRef);
-      const downloadURL = await this.withTimeout(downloadURLPromise, this.STORAGE_TIMEOUT);
+      // Get the file content using Firebase SDK (avoids CORS issues)
+      const getBytesPromise = getBytes(tokenRef);
+      const bytes = await this.withTimeout(getBytesPromise, this.STORAGE_TIMEOUT);
 
-      // Fetch the content using the download URL
-      const fetchPromise = fetch(downloadURL);
-      const response = await this.withTimeout(fetchPromise, this.STORAGE_TIMEOUT);
-
-      if (!response.ok) {
-        throw new Error(`Failed to fetch token data: ${response.statusText}`);
-      }
-
-      // Convert response to JSON
-      const data = await response.json() as UserTokenData;
+      // Convert bytes to JSON
+      const textDecoder = new TextDecoder();
+      const jsonString = textDecoder.decode(bytes);
+      const data = JSON.parse(jsonString) as UserTokenData;
       const tokens = data.googleTokens;
 
       // Check if tokens are expired
