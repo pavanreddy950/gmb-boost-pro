@@ -54,7 +54,10 @@
       "Bash(bash:*)",
       "Bash(curl:*)",
       "Bash(gh run list:*)",
-      "Bash(npm run build:azure:*)"
+      "Bash(npm run build:azure:*)",
+      "Bash(npm run dev:local:*)",
+      "Bash(az webapp list:*)",
+      "Bash(npm start)"
     ],
     "deny": [],
     "ask": []

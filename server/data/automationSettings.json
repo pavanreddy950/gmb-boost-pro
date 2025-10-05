@@ -85,36 +85,33 @@
       "autoPosting": {
         "enabled": true,
         "schedule": "09:00",
-        "frequency": "alternative",
+        "frequency": "daily",
         "businessName": "Jobspring pvt.ltd",
         "category": "Educational consultant",
-        "keywords": [
-          "Jobspring pvt.ltd",
-          "jobspring",
-          "Kakinada",
-          "Jobspring pvt.ltd Kakinada"
+        "categories": [
+          "Educational consultant"
         ],
+        "keywords": "Jobspring pvt.ltd, jobspring, Kakinada, Jobspring pvt.ltd Kakinada",
         "websiteUrl": "https://www.jobspring.org/",
-        "locationName": "Kakinada",
-        "timezone": "America/New_York",
-        "userId": "OBm8qZc0jOWcY53x6rQuX4gKKnQ2"
+        "timezone": "Asia/Calcutta",
+        "fullAddress": "Flat No 57, Road No 04, Near Anil Mart, Ganganapalli, East Godavari",
+        "city": "Kakinada",
+        "region": "Andhra Pradesh",
+        "country": "IN",
+        "postalCode": "533006",
+        "userId": "jzssBuuuFZUknI20kZuyLXCc6ne2"
       },
       "autoReply": {
         "enabled": true,
         "businessName": "Jobspring pvt.ltd",
         "category": "Educational consultant",
-        "keywords": [
-          "Jobspring pvt.ltd",
-          "jobspring",
-          "Kakinada",
-          "Jobspring pvt.ltd Kakinada"
-        ],
+        "keywords": "Jobspring pvt.ltd, jobspring, Kakinada, Jobspring pvt.ltd Kakinada",
         "replyToAll": true,
-        "userId": "OBm8qZc0jOWcY53x6rQuX4gKKnQ2",
+        "userId": "jzssBuuuFZUknI20kZuyLXCc6ne2",
         "accountId": "106433552101751461082"
       },
-      "updatedAt": "2025-10-05T18:46:45.680Z",
-      "userId": "OBm8qZc0jOWcY53x6rQuX4gKKnQ2"
+      "updatedAt": "2025-10-05T20:45:13.077Z",
+      "userId": "jzssBuuuFZUknI20kZuyLXCc6ne2"
     }
   }
 }
