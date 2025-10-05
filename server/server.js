@@ -531,7 +531,7 @@ app.post('/api/customers/check-reviews', checkSubscription, async (req, res) => 
 app.post('/api/automation/test-post-now/:locationId', async (req, res) => {
   try {
     const { locationId } = req.params;
-    const { businessName, category, keywords, websiteUrl, locationName, city, region, country, fullAddress, userId } = req.body;
+    const { businessName, category, keywords, websiteUrl, locationName, city, region, country, fullAddress, userId, accessToken: frontendAccessToken } = req.body;
 
     // Get userId from header or body
     const userIdFromHeader = req.headers['x-user-id'];
@@ -542,10 +542,23 @@ app.post('/api/automation/test-post-now/:locationId', async (req, res) => {
     console.log(`[TEST POST] User ID from header: ${userIdFromHeader}`);
     console.log(`[TEST POST] User ID from body: ${userId}`);
     console.log(`[TEST POST] Final User ID: ${finalUserId}`);
+    console.log(`[TEST POST] Frontend sent accessToken: ${frontendAccessToken ? 'Yes' : 'No'}`);
+    console.log(`[TEST POST] Authorization header: ${req.headers.authorization ? 'Yes' : 'No'}`);
 
-    // Get token from Firebase token manager
-    let token = null;
-    if (finalUserId) {
+    // PRIORITY 1: Check if frontend sent access token in body or header
+    let token = frontendAccessToken;
+
+    // PRIORITY 2: Check Authorization header
+    if (!token && req.headers.authorization) {
+      const authHeader = req.headers.authorization;
+      if (authHeader.startsWith('Bearer ')) {
+        token = authHeader.substring(7);
+        console.log(`[TEST POST] ✅ Using token from Authorization header`);
+      }
+    }
+
+    // PRIORITY 3: Try to get token from Firebase token manager
+    if (!token && finalUserId) {
       try {
         console.log(`[TEST POST] Attempting to get tokens for user: ${finalUserId}`);
         const tokens = await tokenManager.getValidTokens(finalUserId);
@@ -557,7 +570,7 @@ app.post('/api/automation/test-post-now/:locationId', async (req, res) => {
 
         if (tokens && tokens.access_token) {
           token = tokens.access_token;
-          console.log(`[TEST POST] ✅ Found valid token for user ${finalUserId}`);
+          console.log(`[TEST POST] ✅ Found valid token for user ${finalUserId} from token manager`);
         } else {
           console.log(`[TEST POST] ❌ No valid access token found for user ${finalUserId}`);
           console.log(`[TEST POST] Tokens object:`, JSON.stringify(tokens, null, 2));
@@ -566,8 +579,8 @@ app.post('/api/automation/test-post-now/:locationId', async (req, res) => {
         console.log(`[TEST POST] ❌ Error getting tokens:`, error.message);
         console.log(`[TEST POST] Error stack:`, error.stack);
       }
-    } else {
-      console.log(`[TEST POST] ❌ No user ID provided`);
+    } else if (!token) {
+      console.log(`[TEST POST] ❌ No user ID provided and no token from frontend`);
     }
 
     if (!token) {
@@ -580,6 +593,8 @@ app.post('/api/automation/test-post-now/:locationId', async (req, res) => {
         userId: finalUserId
       });
     }
+
+    console.log(`[TEST POST] ✅ Token acquired successfully (length: ${token.length})`);
     
     console.log(`[TEST POST] Creating post NOW for location ${locationId}`);
     console.log(`[TEST POST] Token available:`, token ? 'Yes' : 'No');
