@@ -154,16 +154,23 @@ router.post('/stop/:locationId', (req, res) => {
 router.post('/test-post-now/:locationId', async (req, res) => {
   try {
     const { locationId } = req.params;
-    const { businessName, category, keywords, websiteUrl, locationName, city, region, country, fullAddress, accessToken } = req.body;
-    
+    const { businessName, category, keywords, websiteUrl, locationName, city, region, country, fullAddress, accessToken, userId } = req.body;
+
+    // Get userId from header or body
+    const userIdFromHeader = req.headers['x-user-id'];
+    const finalUserId = userId || userIdFromHeader;
+
     // Get token from Authorization header or body
     let token = accessToken;
     const authHeader = req.headers.authorization;
     if (authHeader && authHeader.startsWith('Bearer ')) {
       token = authHeader.substring(7);
     }
-    
+
     console.log(`[Automation API] TEST MODE - Creating post NOW for location ${locationId}`);
+    console.log(`[Automation API] User ID from header:`, userIdFromHeader);
+    console.log(`[Automation API] User ID from body:`, userId);
+    console.log(`[Automation API] Final User ID:`, finalUserId);
     console.log(`[Automation API] Token from body:`, accessToken ? 'Present' : 'Missing');
     console.log(`[Automation API] Token from header:`, authHeader ? 'Present' : 'Missing');
     console.log(`[Automation API] Final token available:`, token ? 'Yes' : 'No');
@@ -217,7 +224,7 @@ router.post('/test-post-now/:locationId', async (req, res) => {
       region: region || '',
       country: country || '',
       fullAddress: fullAddress || '',
-      userId: settings.autoPosting.userId || 'default',
+      userId: finalUserId || settings.autoPosting.userId || 'default',
       accountId: settings.autoPosting.accountId || settings.accountId || '106433552101751461082',
       test: true
     };
