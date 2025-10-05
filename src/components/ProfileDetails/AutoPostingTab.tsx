@@ -594,7 +594,8 @@ export function AutoPostingTab({ location }: AutoPostingTabProps) {
 
       // Get access token from Google Business Profile service
       const accessToken = googleBusinessProfileService.getAccessToken();
-      console.log('[AutoPostingTab] Access token from service:', accessToken ? 'Available' : 'Not available');
+      console.log('[AutoPostingTab] 🔑 Access token from service:', accessToken ? 'Available' : 'Not available');
+      console.log('[AutoPostingTab] 🔑 Token length:', accessToken?.length || 0);
 
       // Use backend server for test post creation
       const response = await fetch(`${backendUrl}/api/automation/test-post-now/${location.id}`, {
