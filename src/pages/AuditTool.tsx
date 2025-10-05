@@ -243,9 +243,8 @@ const AuditTool = () => {
     try {
       // Get Google OAuth access token from localStorage (same as other pages)
       const storedTokens = localStorage.getItem('google_business_tokens');
-      const isConnectedFlag = localStorage.getItem('google_business_connected');
 
-      if (!storedTokens || isConnectedFlag !== 'true') {
+      if (!storedTokens) {
         throw new Error('No Google Business Profile connection found. Please connect your Google Business Profile in Settings > Connections.');
       }
 
