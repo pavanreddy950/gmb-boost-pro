@@ -305,70 +305,102 @@ class AutomationScheduler {
   async createAutomatedPost(locationId, config) {
     try {
       console.log(`[AutomationScheduler] 🤖 Creating automated post for location ${locationId}`);
-      console.log(`[AutomationScheduler] Config:`, { 
-        businessName: config.businessName, 
+      console.log(`[AutomationScheduler] Config:`, {
+        businessName: config.businessName,
         userId: config.userId,
         frequency: config.frequency,
         schedule: config.schedule
       });
-      
+
       // Try to get a valid token for the configured user first
       let userToken = null;
       const targetUserId = config.userId || 'default';
-      
+
+      console.log(`[AutomationScheduler] ========================================`);
+      console.log(`[AutomationScheduler] 🔍 TOKEN RETRIEVAL DIAGNOSTICS`);
+      console.log(`[AutomationScheduler] Target User ID: ${targetUserId}`);
       console.log(`[AutomationScheduler] Attempting to get valid token for user: ${targetUserId}`);
+
       userToken = await this.getValidTokenForUser(targetUserId);
-      
+
+      console.log(`[AutomationScheduler] Token retrieval result:`, {
+        hasToken: !!userToken,
+        hasAccessToken: !!userToken?.access_token,
+        hasRefreshToken: !!userToken?.refresh_token,
+        tokenExpiresAt: userToken?.expiresAt ? new Date(userToken.expiresAt).toISOString() : 'N/A'
+      });
+
       if (!userToken) {
         // Try to find any available token from storage
-        console.log(`[AutomationScheduler] No token for ${targetUserId}, checking all available tokens...`);
+        console.log(`[AutomationScheduler] ❌ No token found for ${targetUserId}`);
+        console.log(`[AutomationScheduler] 🔍 Checking all available tokens in legacy storage...`);
         const tokens = this.loadTokens();
         const tokenKeys = Object.keys(tokens);
-        
+
+        console.log(`[AutomationScheduler] Legacy storage contains ${tokenKeys.length} user(s):`, tokenKeys);
+
         if (tokenKeys.length > 0) {
           console.log(`[AutomationScheduler] Found tokens for users: ${tokenKeys.join(', ')}`);
-          
+
           // Try each available token
           for (const userId of tokenKeys) {
+            console.log(`[AutomationScheduler] 🔄 Trying to get valid token for fallback user: ${userId}`);
             const validToken = await this.getValidTokenForUser(userId);
             if (validToken) {
               userToken = validToken;
-              console.log(`[AutomationScheduler] ✅ Using valid token from user: ${userId}`);
+              console.log(`[AutomationScheduler] ✅ Using valid token from fallback user: ${userId}`);
               break;
+            } else {
+              console.log(`[AutomationScheduler] ❌ Token for fallback user ${userId} is invalid or expired`);
             }
           }
+        } else {
+          console.log(`[AutomationScheduler] ❌ No tokens found in legacy storage`);
         }
-        
+
         if (!userToken) {
-          console.error(`[AutomationScheduler] ❌ No valid tokens available. User needs to reconnect to Google Business Profile.`);
-          console.error(`[AutomationScheduler] 💡 Please go to Settings > Connections and connect your Google Business Profile account.`);
-          
+          console.error(`[AutomationScheduler] ========================================`);
+          console.error(`[AutomationScheduler] ❌ CRITICAL: No valid tokens available!`);
+          console.error(`[AutomationScheduler] 💡 SOLUTION: User needs to reconnect to Google Business Profile.`);
+          console.error(`[AutomationScheduler] 💡 Go to: Settings > Connections > Connect Google Business Profile`);
+          console.error(`[AutomationScheduler] 💡 Target User ID: ${targetUserId}`);
+          console.error(`[AutomationScheduler] ========================================`);
+
           // Log this as a failed attempt
           this.logAutomationActivity(locationId, 'post_failed', {
             error: 'No valid tokens available',
             timestamp: new Date().toISOString(),
-            reason: 'authentication_required'
+            reason: 'authentication_required',
+            userId: targetUserId,
+            diagnostics: {
+              targetUserId: targetUserId,
+              legacyStorageUsers: tokenKeys,
+              legacyStorageCount: tokenKeys.length
+            }
           });
-          
+
           return null;
         }
       }
 
       console.log(`[AutomationScheduler] ✅ Valid token acquired, proceeding with post creation...`);
-      
+      console.log(`[AutomationScheduler] ========================================`);
+
       // Use the updated method with better API handling
       return await this.createAutomatedPostWithToken(locationId, config, userToken.access_token);
 
     } catch (error) {
-      console.error(`[AutomationScheduler] Error creating automated post:`, error);
-      
+      console.error(`[AutomationScheduler] ❌ Error creating automated post:`, error);
+      console.error(`[AutomationScheduler] Error stack:`, error.stack);
+
       // Log the error
       this.logAutomationActivity(locationId, 'post_failed', {
         error: error.message,
         timestamp: new Date().toISOString(),
-        reason: 'system_error'
+        reason: 'system_error',
+        errorStack: error.stack
       });
-      
+
       return null;
     }
   }

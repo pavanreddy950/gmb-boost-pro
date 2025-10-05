@@ -45,9 +45,10 @@
         "category": "Resort hotel",
         "keywords": "Tree House Retreat Mohani, tree, house, retreat, mohani, Kullu, Tree House Retreat Mohani Kullu",
         "timezone": "Asia/Calcutta",
-        "userId": "default"
+        "userId": "OBm8qZc0jOWcY53x6rQuX4gKKnQ2"
       },
-      "updatedAt": "2025-09-10T08:10:31.709Z"
+      "updatedAt": "2025-10-05T18:46:45.679Z",
+      "userId": "OBm8qZc0jOWcY53x6rQuX4gKKnQ2"
     },
     "17697790081864925086": {
       "autoPosting": {
@@ -78,6 +79,41 @@
         "accountId": "106433552101751461082"
       },
       "updatedAt": "2025-09-22T18:23:01.638Z",
+      "userId": "OBm8qZc0jOWcY53x6rQuX4gKKnQ2"
+    },
+    "17339526077864926205": {
+      "autoPosting": {
+        "enabled": true,
+        "schedule": "09:00",
+        "frequency": "alternative",
+        "businessName": "Jobspring pvt.ltd",
+        "category": "Educational consultant",
+        "keywords": [
+          "Jobspring pvt.ltd",
+          "jobspring",
+          "Kakinada",
+          "Jobspring pvt.ltd Kakinada"
+        ],
+        "websiteUrl": "https://www.jobspring.org/",
+        "locationName": "Kakinada",
+        "timezone": "America/New_York",
+        "userId": "OBm8qZc0jOWcY53x6rQuX4gKKnQ2"
+      },
+      "autoReply": {
+        "enabled": true,
+        "businessName": "Jobspring pvt.ltd",
+        "category": "Educational consultant",
+        "keywords": [
+          "Jobspring pvt.ltd",
+          "jobspring",
+          "Kakinada",
+          "Jobspring pvt.ltd Kakinada"
+        ],
+        "replyToAll": true,
+        "userId": "OBm8qZc0jOWcY53x6rQuX4gKKnQ2",
+        "accountId": "106433552101751461082"
+      },
+      "updatedAt": "2025-10-05T18:46:45.680Z",
       "userId": "OBm8qZc0jOWcY53x6rQuX4gKKnQ2"
     }
   }

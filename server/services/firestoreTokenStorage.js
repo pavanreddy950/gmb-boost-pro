@@ -183,14 +183,21 @@ class FirestoreTokenStorage {
 
   async getUserToken(userId) {
     try {
+      console.log(`[FirestoreTokenStorage] ========================================`);
+      console.log(`[FirestoreTokenStorage] 🔍 GET USER TOKEN: ${userId}`);
+
       await this.initialize();
 
       if (!this.db) {
-        console.log(`[FirestoreTokenStorage] Firestore not available, no token for user ${userId}`);
+        console.log(`[FirestoreTokenStorage] ❌ Firestore not available, no token for user ${userId}`);
+        console.log(`[FirestoreTokenStorage] ========================================`);
         return null;
       }
 
       // Use the same path structure as frontend: users/{userId}/tokens/googleTokens
+      const docPath = `${this.collection}/${userId}/${this.subCollection}/${this.document}`;
+      console.log(`[FirestoreTokenStorage] 📂 Document path: ${docPath}`);
+
       const docRef = this.db.collection(this.collection).doc(userId).collection(this.subCollection).doc(this.document);
 
       const doc = await Promise.race([
@@ -201,32 +208,52 @@ class FirestoreTokenStorage {
       ]);
 
       if (!doc.exists) {
-        console.log(`[FirestoreTokenStorage] No token found for user ${userId}`);
+        console.log(`[FirestoreTokenStorage] ❌ No token document found for user ${userId}`);
+        console.log(`[FirestoreTokenStorage] 💡 Path checked: ${docPath}`);
+        console.log(`[FirestoreTokenStorage] 💡 User may need to reconnect Google Business Profile`);
+        console.log(`[FirestoreTokenStorage] ========================================`);
         return null;
       }
 
       const data = doc.data();
-      console.log(`[FirestoreTokenStorage] Found token data structure:`, Object.keys(data || {}));
+      console.log(`[FirestoreTokenStorage] 📦 Found token data structure:`, Object.keys(data || {}));
 
       // The frontend stores tokens in a nested structure: { googleTokens: { ... }, userInfo: { ... } }
       const tokens = data.googleTokens || data; // Support both new and legacy formats
 
       if (!tokens || !tokens.access_token) {
-        console.log(`[FirestoreTokenStorage] No valid access_token found for user ${userId}`);
+        console.log(`[FirestoreTokenStorage] ❌ No valid access_token found for user ${userId}`);
+        console.log(`[FirestoreTokenStorage] 📦 Available keys:`, Object.keys(tokens || {}));
+        console.log(`[FirestoreTokenStorage] ========================================`);
         return null;
       }
 
       // Check if tokens are expired
       const now = Date.now();
-      if (tokens.expires_at && now >= tokens.expires_at) {
-        console.log(`[FirestoreTokenStorage] Tokens are expired for user ${userId}`);
+      const expiresAt = tokens.expires_at;
+      const isExpired = expiresAt && now >= expiresAt;
+
+      console.log(`[FirestoreTokenStorage] 🕐 Token expiry check:`, {
+        expires_at: expiresAt ? new Date(expiresAt).toISOString() : 'N/A',
+        now: new Date(now).toISOString(),
+        isExpired: isExpired,
+        hasRefreshToken: !!tokens.refresh_token
+      });
+
+      if (isExpired) {
+        console.log(`[FirestoreTokenStorage] ⚠️ Token is expired for user ${userId}`);
+        console.log(`[FirestoreTokenStorage] 💡 Will attempt refresh if refresh_token is available`);
+        console.log(`[FirestoreTokenStorage] ========================================`);
         return null;
       }
 
-      console.log(`[FirestoreTokenStorage] ✅ Token retrieved from Firestore for user ${userId}`);
+      console.log(`[FirestoreTokenStorage] ✅ Valid token retrieved from Firestore for user ${userId}`);
+      console.log(`[FirestoreTokenStorage] ========================================`);
       return tokens;
     } catch (error) {
-      console.error(`[FirestoreTokenStorage] Failed to get token from Firestore:`, error);
+      console.error(`[FirestoreTokenStorage] ❌ Failed to get token from Firestore:`, error);
+      console.error(`[FirestoreTokenStorage] Error details:`, error.message);
+      console.log(`[FirestoreTokenStorage] ========================================`);
       return null;
     }
   }
@@ -277,25 +304,36 @@ class FirestoreTokenStorage {
 
   // Refresh token if needed using Google OAuth
   async refreshTokenIfNeeded(userId) {
+    console.log(`[FirestoreTokenStorage] 🔄 REFRESH TOKEN CHECK: ${userId}`);
+
     const token = await this.getUserToken(userId);
     if (!token) {
-      console.log(`[FirestoreTokenStorage] No token found for user ${userId}`);
+      console.log(`[FirestoreTokenStorage] ❌ No token found for user ${userId}, cannot refresh`);
       return null;
     }
 
     // Check if we have a refresh token
     if (!token.refresh_token) {
-      console.warn(`[FirestoreTokenStorage] No refresh token available for user ${userId}`);
+      console.warn(`[FirestoreTokenStorage] ⚠️ No refresh token available for user ${userId}`);
+      console.warn(`[FirestoreTokenStorage] 💡 Existing token will be returned (might be expired)`);
       return token; // Return existing token (might be expired)
     }
-    
+
     // Check if token needs refresh (expires in next 5 minutes)
     if (token.expires_at) {
       const expiresAt = new Date(token.expires_at);
       const fiveMinutesFromNow = new Date(Date.now() + 5 * 60 * 1000);
-      
+      const now = new Date();
+
+      console.log(`[FirestoreTokenStorage] 🕐 Token refresh check:`, {
+        expiresAt: expiresAt.toISOString(),
+        fiveMinutesFromNow: fiveMinutesFromNow.toISOString(),
+        now: now.toISOString(),
+        needsRefresh: expiresAt <= fiveMinutesFromNow
+      });
+
       if (expiresAt > fiveMinutesFromNow) {
-        console.log(`[FirestoreTokenStorage] Token for user ${userId} is still valid`);
+        console.log(`[FirestoreTokenStorage] ✅ Token for user ${userId} is still valid (expires in ${Math.round((expiresAt - now) / 1000 / 60)} minutes)`);
         return token; // Token still valid
       }
     }
@@ -359,23 +397,34 @@ class FirestoreTokenStorage {
 
   // Get a valid token (with automatic refresh)
   async getValidToken(userId) {
-    console.log(`[FirestoreTokenStorage] Getting valid token for user ${userId}...`);
-    
+    console.log(`[FirestoreTokenStorage] ========================================`);
+    console.log(`[FirestoreTokenStorage] 🔄 GET VALID TOKEN (with auto-refresh): ${userId}`);
+
     // Try to refresh token if needed
     const token = await this.refreshTokenIfNeeded(userId);
-    
+
     if (!token) {
-      console.warn(`[FirestoreTokenStorage] No valid token available for user ${userId}`);
+      console.warn(`[FirestoreTokenStorage] ❌ No valid token available for user ${userId}`);
+      console.warn(`[FirestoreTokenStorage] 💡 Possible reasons:`);
+      console.warn(`[FirestoreTokenStorage]    1. Token not found in Firestore`);
+      console.warn(`[FirestoreTokenStorage]    2. Token expired and refresh failed`);
+      console.warn(`[FirestoreTokenStorage]    3. Refresh token is invalid`);
+      console.warn(`[FirestoreTokenStorage] 💡 SOLUTION: User needs to reconnect Google Business Profile`);
+      console.log(`[FirestoreTokenStorage] ========================================`);
       return null;
     }
 
     // Final validation
     if (!token.access_token) {
-      console.error(`[FirestoreTokenStorage] Token missing access_token for user ${userId}`);
+      console.error(`[FirestoreTokenStorage] ❌ Token missing access_token for user ${userId}`);
+      console.error(`[FirestoreTokenStorage] 📦 Token structure:`, Object.keys(token));
+      console.log(`[FirestoreTokenStorage] ========================================`);
       return null;
     }
 
     console.log(`[FirestoreTokenStorage] ✅ Valid token retrieved for user ${userId}`);
+    console.log(`[FirestoreTokenStorage] 🕐 Token expires at:`, token.expires_at ? new Date(token.expires_at).toISOString() : 'N/A');
+    console.log(`[FirestoreTokenStorage] ========================================`);
     return token;
   }
 

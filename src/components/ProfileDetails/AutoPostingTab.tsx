@@ -592,12 +592,17 @@ export function AutoPostingTab({ location }: AutoPostingTabProps) {
 
       console.log('[AutoPostingTab] ✅ Backend has valid tokens, proceeding with test post...');
 
+      // Get access token from Google Business Profile service
+      const accessToken = googleBusinessProfileService.getAccessToken();
+      console.log('[AutoPostingTab] Access token from service:', accessToken ? 'Available' : 'Not available');
+
       // Use backend server for test post creation
       const response = await fetch(`${backendUrl}/api/automation/test-post-now/${location.id}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'X-User-ID': currentUser.uid, // Send user ID to backend to get their token
+          ...(accessToken ? { 'Authorization': `Bearer ${accessToken}` } : {})
         },
         body: JSON.stringify({
           businessName: location.name,
@@ -609,7 +614,8 @@ export function AutoPostingTab({ location }: AutoPostingTabProps) {
           region: location.address?.administrativeArea || '',
           country: location.address?.countryCode || '',
           fullAddress: location.address?.addressLines?.join(', ') || '',
-          userId: currentUser.uid // Send user ID in body too
+          userId: currentUser.uid, // Send user ID in body too
+          accessToken: accessToken || undefined // Send access token in body as fallback
         })
       });
       
