@@ -19,6 +19,7 @@ import SubscriptionService from './services/subscriptionService.js';
 import automationScheduler from './services/automationScheduler.js';
 import firestoreTokenStorage from './services/firestoreTokenStorage.js';
 import tokenManager from './services/tokenManager.js';
+import tokenRefreshService from './services/tokenRefreshService.js';
 import ClientConfigService from './services/clientConfigService.js';
 import EmailService from './services/emailService.js';
 import SMSService from './services/smsService.js';
@@ -847,11 +848,34 @@ app.use(addTrialHeaders);
 
 // Health check endpoint
 app.get('/health', (req, res) => {
-  res.json({ 
-    status: 'OK', 
+  res.json({
+    status: 'OK',
     message: 'Google Business Profile Backend Server is running',
     timestamp: new Date().toISOString()
   });
+});
+
+// Token refresh service health endpoint - monitor proactive token refresh
+app.get('/health/token-refresh', (req, res) => {
+  try {
+    const stats = tokenRefreshService.getStats();
+    res.json({
+      status: 'OK',
+      service: 'Token Refresh Service',
+      ...stats,
+      message: stats.isRunning ?
+        'Proactive token refresh is running - tokens will stay fresh 24/7' :
+        'Token refresh service is NOT running - tokens may expire!',
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    res.status(500).json({
+      status: 'ERROR',
+      service: 'Token Refresh Service',
+      error: error.message,
+      timestamp: new Date().toISOString()
+    });
+  }
 });
 
 // Environment variables check endpoint
@@ -1193,13 +1217,16 @@ app.post('/auth/google/refresh', async (req, res) => {
 
     console.log('[TOKEN REFRESH] ========================================');
 
+    // Return refreshed tokens to frontend (including refresh_token for persistence)
     res.json({
       success: true,
       tokens: {
         access_token: credentials.access_token,
+        refresh_token: credentials.refresh_token || refresh_token, // Return new refresh_token if provided, else original
         token_type: 'Bearer',
         expires_in: Math.floor((credentials.expiry_date - Date.now()) / 1000),
-        scope: credentials.scope
+        scope: credentials.scope,
+        expiry_date: credentials.expiry_date
       }
     });
 
@@ -1308,13 +1335,56 @@ app.get('/auth/google/token-status/:userId', async (req, res) => {
 
     console.log('[TOKEN STATUS] ========================================');
 
-    res.json({
+    // Calculate token health metrics
+    const expiresAt = tokens?.expires_at || firestoreTokens?.expires_at;
+    const expiryDate = expiresAt ? new Date(expiresAt) : null;
+    const now = new Date();
+    const minutesUntilExpiry = expiryDate ? Math.round((expiryDate - now) / 1000 / 60) : null;
+    const isExpired = expiryDate ? now >= expiryDate : null;
+    const isExpiringSoon = minutesUntilExpiry !== null && minutesUntilExpiry < 30;
+
+    // Determine overall health status
+    let healthStatus = 'unknown';
+    if (refreshToken && accessToken && !isExpired) {
+      healthStatus = isExpiringSoon ? 'healthy-expiring-soon' : 'healthy';
+    } else if (refreshToken && isExpired) {
+      healthStatus = 'expired-can-refresh';
+    } else if (!refreshToken && !accessToken) {
+      healthStatus = 'disconnected';
+    } else if (!refreshToken && accessToken) {
+      healthStatus = 'no-refresh-token';
+    }
+
+    const response = {
+      // Existence flags
       hasRefreshToken: !!refreshToken,
       hasAccessToken: !!accessToken,
+
+      // Actual tokens (for frontend to use)
       refresh_token: refreshToken,
-      access_token: accessToken, // Return full token for frontend to use
-      userId: userId
+      access_token: accessToken,
+
+      // Health metrics
+      healthStatus: healthStatus,
+      expiresAt: expiryDate ? expiryDate.toISOString() : null,
+      minutesUntilExpiry: minutesUntilExpiry,
+      isExpired: isExpired,
+      isExpiringSoon: isExpiringSoon,
+
+      // User info
+      userId: userId,
+
+      // Timestamp
+      checkedAt: now.toISOString()
+    };
+
+    console.log('[TOKEN STATUS] Response:', {
+      healthStatus: response.healthStatus,
+      minutesUntilExpiry: response.minutesUntilExpiry,
+      isExpiringSoon: response.isExpiringSoon
     });
+
+    res.json(response);
 
   } catch (error) {
     console.error('Token status check error:', error);
@@ -3673,6 +3743,7 @@ app.listen(PORT, () => {
   }
   console.log('📊 Available endpoints:');
   console.log(`   GET  /health`);
+  console.log(`   GET  /health/token-refresh`);
   console.log(`   GET  /config`);
   console.log(`   GET  /auth/google/url`);
   console.log(`   POST /auth/google/callback`);
@@ -3687,6 +3758,15 @@ app.listen(PORT, () => {
   console.log(`   POST /api/locations/:locationId/photos/upload-bytes`);
   console.log(`   POST /api/locations/:locationId/photos/create-media`);
   console.log(`   GET  /api/locations/:locationId/insights`);
+
+  // 🚀 CRITICAL: Start proactive token refresh service for 24/7 operation
+  console.log('🔄 [TOKEN REFRESH] Starting proactive token refresh service...');
+  try {
+    tokenRefreshService.start();
+    console.log('✅ [TOKEN REFRESH] Token refresh service started! Tokens will auto-refresh every 45 minutes.');
+  } catch (error) {
+    console.error('❌ [TOKEN REFRESH] Failed to start token refresh service:', error);
+  }
 
   // 🚀 CRITICAL: Force restart all automations after server startup
   console.log('🤖 [AUTOMATION] Restarting all automations after server startup...');

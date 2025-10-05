@@ -25,7 +25,7 @@ export interface UserTokenData {
 
 class TokenStorageService {
   private readonly STORAGE_PATH = 'DATA'; // Firebase Storage path: gs://gbp-467810-a56e2.firebasestorage.app/DATA
-  private isStorageAvailable = false; // DISABLED: CORS issues with Firebase Storage - using localStorage only
+  private isStorageAvailable = false; // DISABLED: Frontend uses ONLY backend Firestore API for persistent storage (24/7 automation)
   private readonly STORAGE_TIMEOUT = 10000; // 10 seconds timeout for better reliability
 
   // Save Google Business Profile tokens to Firebase Storage

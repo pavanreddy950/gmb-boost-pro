@@ -228,7 +228,7 @@ class GoogleBusinessProfileService {
         return false;
       }
 
-      // Fetch tokens from backend API (permanent storage with auto-refresh)
+      // Fetch tokens from backend API first (permanent storage with auto-refresh)
       try {
         console.log('🔍 Fetching tokens from backend for user:', userIdToUse);
         const response = await fetch(`${this.backendUrl}/auth/google/token-status/${userIdToUse}`);
@@ -241,7 +241,7 @@ class GoogleBusinessProfileService {
             this.accessToken = data.access_token || data.refresh_token;
             console.log('✅ Loaded permanent tokens from backend');
 
-            // Start connection monitoring
+            // Start connection monitoring for 24/7 operation
             this.startConnectionMonitoring();
             return true;
           }
@@ -250,7 +250,27 @@ class GoogleBusinessProfileService {
         console.warn('⚠️ Backend token fetch failed:', backendError);
       }
 
-      console.log('❌ No valid stored tokens found');
+      // Fallback: Try to load from Firebase Storage (frontend) if backend failed
+      try {
+        console.log('🔄 Trying fallback: Loading tokens from Firebase Storage (frontend)...');
+        const firebaseTokens = await tokenStorageService.getTokens(userIdToUse);
+
+        if (firebaseTokens && firebaseTokens.access_token) {
+          this.accessToken = firebaseTokens.access_token;
+          console.log('✅ Loaded tokens from Firebase Storage (frontend fallback)');
+
+          // Store in localStorage as cache
+          localStorage.setItem('google_business_tokens', JSON.stringify(firebaseTokens));
+
+          // Start connection monitoring for 24/7 operation
+          this.startConnectionMonitoring();
+          return true;
+        }
+      } catch (firebaseError) {
+        console.warn('⚠️ Firebase Storage (frontend) token fetch failed:', firebaseError);
+      }
+
+      console.log('❌ No valid stored tokens found in backend or Firebase Storage');
       return false;
     } catch (error) {
       console.error('❌ Error loading stored tokens:', error);
@@ -530,9 +550,9 @@ class GoogleBusinessProfileService {
         token_type: 'Bearer',
         expires_in: data.tokens.expires_in || 3600,
         scope: data.tokens.scope || storedTokens?.scope || SCOPES.join(' '),
-        refresh_token: refreshToken, // Use the refresh token we just used
+        refresh_token: data.tokens.refresh_token || refreshToken, // Use new refresh_token if provided, else keep existing
         stored_at: Date.now(),
-        expires_at: Date.now() + ((data.tokens.expires_in || 3600) * 1000)
+        expires_at: data.tokens.expiry_date || (Date.now() + ((data.tokens.expires_in || 3600) * 1000))
       };
 
       // Update both localStorage and Firebase Storage with fallback handling
@@ -1751,21 +1771,25 @@ class GoogleBusinessProfileService {
     ];
   }
 
-  // Start proactive connection monitoring
+  // Start proactive connection monitoring with aggressive token refresh
   startConnectionMonitoring(): void {
     if (this.connectionMonitorInterval) {
       return; // Already monitoring
     }
 
-    console.log('🔄 Starting proactive Google Business Profile connection monitoring');
+    console.log('🔄 Starting proactive Google Business Profile connection monitoring (24/7 mode)');
+    console.log('📅 Schedule: Token refresh every 30 minutes to prevent expiry');
 
-    // Check connection every 10 minutes
+    // Check connection and refresh tokens every 30 minutes (tokens expire in 60 min)
+    // This gives us 2 refresh cycles before expiry for maximum reliability
     this.connectionMonitorInterval = setInterval(async () => {
       await this.checkConnectionHealth();
-    }, 10 * 60 * 1000);
+    }, 30 * 60 * 1000); // Changed from 10 to 30 minutes
 
-    // Immediate first check
-    setTimeout(() => this.checkConnectionHealth(), 30000); // After 30 seconds
+    // Immediate first check after 30 seconds
+    setTimeout(() => this.checkConnectionHealth(), 30000);
+
+    console.log('✅ Proactive token refresh monitoring started - tokens will stay fresh 24/7');
   }
 
   // Stop connection monitoring
@@ -1777,17 +1801,19 @@ class GoogleBusinessProfileService {
     }
   }
 
-  // Proactive connection health check
+  // Proactive connection health check with aggressive token refresh
   private async checkConnectionHealth(): Promise<void> {
     try {
       const now = Date.now();
 
-      // Skip if checked recently (within 5 minutes)
-      if (this.lastConnectionCheck && (now - this.lastConnectionCheck) < 5 * 60 * 1000) {
+      // Skip if checked recently (within 25 minutes) to prevent too frequent checks
+      // But allow checks every 30 minutes as per the interval
+      if (this.lastConnectionCheck && (now - this.lastConnectionCheck) < 25 * 60 * 1000) {
+        console.log('⏭️ Skipping health check - recently checked');
         return;
       }
 
-      console.log('🏥 Performing proactive connection health check...');
+      console.log('🏥 [PROACTIVE] Performing connection health check and token refresh...');
       this.lastConnectionCheck = now;
 
       // Check if we have valid tokens
@@ -1799,18 +1825,34 @@ class GoogleBusinessProfileService {
         return;
       }
 
-      // Test connection with a lightweight API call
+      // PROACTIVE REFRESH: Check if token will expire in next 30 minutes and refresh BEFORE expiry
+      const willExpireSoon = this.isTokenExpired(); // This checks if token expires within 30 min
+
+      if (willExpireSoon) {
+        console.log('🔄 [PROACTIVE] Token expiring soon - refreshing NOW to prevent connection loss');
+        try {
+          await this.refreshAccessToken();
+          this.connectionFailures = 0;
+          console.log('✅ [PROACTIVE] Token refreshed successfully - connection maintained');
+          return; // Skip validation since we just refreshed
+        } catch (refreshError) {
+          console.error('❌ [PROACTIVE] Token refresh failed:', refreshError);
+          this.connectionFailures++;
+        }
+      }
+
+      // Validate token health with Google API
       try {
         const isValid = await this.validateTokens();
 
         if (!isValid) {
           console.log('🔧 Token validation failed - attempting automatic refresh');
           await this.refreshAccessToken();
-          this.connectionFailures = 0; // Reset failures on successful recovery
+          this.connectionFailures = 0;
           console.log('✅ Connection automatically recovered via token refresh');
         } else {
-          this.connectionFailures = 0; // Reset failures on success
-          console.log('✅ Connection health check passed');
+          this.connectionFailures = 0;
+          console.log('✅ Connection health check passed - token is valid');
         }
       } catch (error) {
         this.connectionFailures++;
