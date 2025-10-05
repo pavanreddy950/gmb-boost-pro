@@ -1297,7 +1297,7 @@ app.get('/auth/google/token-status/:userId', async (req, res) => {
       hasRefreshToken: !!refreshToken,
       hasAccessToken: !!accessToken,
       refresh_token: refreshToken,
-      access_token: accessToken ? accessToken.substring(0, 20) + '...' : null,
+      access_token: accessToken, // Return full token for frontend to use
       userId: userId
     });
 
