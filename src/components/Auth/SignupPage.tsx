@@ -87,7 +87,7 @@ const SignupPage = () => {
           </div>
         </div>
 
-        <Card className="shadow-card border-0">
+        <Card className="shadow-card border-2 border-border bg-transparent">
           <CardHeader className="text-center">
             <CardTitle className="text-2xl font-semibold">Create Account</CardTitle>
             <CardDescription>Sign up to start managing your business profiles</CardDescription>

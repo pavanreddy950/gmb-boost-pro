@@ -60,7 +60,7 @@ const LoginPage = () => {
           </div>
         </div>
 
-        <Card className="shadow-card border-0">
+        <Card className="shadow-card border-2 border-border bg-transparent">
           <CardHeader className="text-center">
             <CardTitle className="text-2xl font-semibold">Welcome Back</CardTitle>
             <CardDescription>Sign in to access your account</CardDescription>

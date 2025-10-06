@@ -744,7 +744,7 @@ const Reviews = () => {
               <h4 className="text-sm font-medium text-orange-800 mb-1">Multiple Profiles Available</h4>
               <p className="text-sm text-orange-700 mb-3">{lockMessage}</p>
               <Button
-                onClick={() => navigate('/billing')}
+                onClick={() => navigate('/dashboard/billing')}
                 size="sm"
                 className="bg-orange-600 hover:bg-orange-700 text-white"
               >

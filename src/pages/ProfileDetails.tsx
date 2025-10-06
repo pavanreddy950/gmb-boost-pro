@@ -136,7 +136,7 @@ const ProfileDetails = () => {
                 </p>
                 <div className="flex gap-3">
                   <Button
-                    onClick={() => navigate('/billing')}
+                    onClick={() => navigate('/dashboard/billing')}
                     className="bg-orange-600 hover:bg-orange-700"
                   >
                     <Mail className="h-4 w-4 mr-2" />

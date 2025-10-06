@@ -14,7 +14,10 @@ import {
   RefreshCw,
   AlertCircle,
   Receipt,
-  Sparkles
+  Sparkles,
+  Headphones,
+  Mail,
+  MessageCircle
 } from 'lucide-react';
 import { useSubscription } from '@/contexts/SubscriptionContext';
 import { PaymentModal } from '@/components/PaymentModal';
@@ -279,7 +282,7 @@ const Billing = () => {
         </TabsList>
 
         <TabsContent value="plans" className="space-y-4">
-          <div className="grid gap-4 md:grid-cols-2">
+          <div className="grid gap-4 md:grid-cols-1 lg:grid-cols-2">
             {plans.map((plan) => (
               <Card key={plan.id} className={`relative ${
                 currentPlan?.id === plan.id
@@ -349,6 +352,72 @@ const Billing = () => {
                 </CardContent>
               </Card>
             ))}
+
+            {/* Support Card */}
+            <Card className="bg-white border-2 border-gray-200 shadow-lg hover:shadow-xl transition-shadow duration-300">
+              <CardHeader className="border-b border-gray-100 pb-4">
+                <div className="flex items-center gap-3">
+                  <div className="h-14 w-14 bg-gradient-to-br from-blue-600 to-blue-700 rounded-xl flex items-center justify-center shadow-md">
+                    <Headphones className="h-7 w-7 text-white" />
+                  </div>
+                  <div>
+                    <CardTitle className="text-2xl text-gray-900 font-bold">Need Help?</CardTitle>
+                    <CardDescription className="text-gray-600 mt-1">
+                      We're here to assist you with any questions or concerns
+                    </CardDescription>
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-4 pt-6">
+                <p className="text-sm text-gray-700 leading-relaxed">
+                  Our support team is ready to help you get the most out of your subscription. 
+                  Reach out to us through any of the following channels:
+                </p>
+                
+                <div className="space-y-3">
+                  {/* Email Support */}
+                  <div className="flex items-center gap-4 p-4 bg-gradient-to-r from-blue-50 to-blue-100/50 rounded-xl border-2 border-blue-200 hover:border-blue-300 transition-all duration-200 hover:shadow-md">
+                    <div className="h-12 w-12 bg-blue-600 rounded-xl flex items-center justify-center flex-shrink-0 shadow-sm">
+                      <Mail className="h-6 w-6 text-white" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold text-gray-900 mb-1">Email Support</p>
+                      <a 
+                        href="mailto:Support@lobaiseo.com" 
+                        className="text-sm text-blue-600 hover:text-blue-700 font-medium hover:underline break-all"
+                      >
+                        Support@lobaiseo.com
+                      </a>
+                    </div>
+                  </div>
+
+                  {/* WhatsApp Support */}
+                  <div className="flex items-center gap-4 p-4 bg-gradient-to-r from-green-50 to-green-100/50 rounded-xl border-2 border-green-200 hover:border-green-300 transition-all duration-200 hover:shadow-md">
+                    <div className="h-12 w-12 bg-green-600 rounded-xl flex items-center justify-center flex-shrink-0 shadow-sm">
+                      <MessageCircle className="h-6 w-6 text-white" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold text-gray-900 mb-1">WhatsApp Support</p>
+                      <a 
+                        href="https://wa.me/917710616166" 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        className="text-sm text-green-600 hover:text-green-700 font-medium hover:underline"
+                      >
+                        +91 7710616166
+                      </a>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="mt-4 p-4 bg-gradient-to-r from-indigo-50 to-blue-50 rounded-xl border-l-4 border-blue-600">
+                  <p className="text-xs text-gray-800 leading-relaxed">
+                    <strong className="text-blue-900 font-semibold">Response Time:</strong> We typically respond within 24 hours on business days. 
+                    Premium subscribers receive priority support.
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
           </div>
         </TabsContent>
 

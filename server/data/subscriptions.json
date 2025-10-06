@@ -9,7 +9,7 @@
       "trialStartDate": "2025-09-10T07:15:15.788Z",
       "trialEndDate": "2025-09-10T07:17:15.788Z",
       "createdAt": "2025-09-10T07:15:15.788Z",
-      "updatedAt": "2025-09-29T15:53:45.367Z",
+      "updatedAt": "2025-10-06T10:12:42.160Z",
       "paymentHistory": [
         {
           "id": "pay_1757488704953_lmo5xxwf5",
@@ -94,18 +94,32 @@
           "description": "Pro Plan",
           "paidAt": "2025-09-29T15:53:45.352Z",
           "createdAt": "2025-09-29T15:53:45.352Z"
+        },
+        {
+          "id": "pay_1759745562158_7pxjfkrjb",
+          "amount": 1,
+          "currency": "INR",
+          "status": "success",
+          "razorpayPaymentId": "pay_RQ9MOuKTgFy90c",
+          "razorpayOrderId": "order_RQ9MAzfOfibXbv",
+          "razorpaySignature": "88dcc9ec0352c3a1602faa2851991331fdf8796bfb4d585947af570ba0598491",
+          "description": "Pro Plan",
+          "paidAt": "2025-10-06T10:12:42.158Z",
+          "createdAt": "2025-10-06T10:12:42.158Z"
         }
       ],
       "planId": "per_profile_yearly",
-      "lastPaymentDate": "2025-09-29T15:53:45.355Z",
-      "subscriptionEndDate": "2026-09-29T15:53:45.355Z",
-      "razorpayPaymentId": "pay_RNTQTxvLhg8XK0",
-      "razorpayOrderId": "order_RNTPRbJKgeXuPG",
+      "lastPaymentDate": "2025-10-06T10:12:42.159Z",
+      "subscriptionEndDate": "2026-10-06T10:12:42.159Z",
+      "razorpayPaymentId": "pay_RQ9MOuKTgFy90c",
+      "razorpayOrderId": "order_RQ9MAzfOfibXbv",
       "amount": 1,
-      "currency": "USD",
-      "subscriptionStartDate": "2025-09-29T15:53:45.355Z",
-      "paidAt": "2025-09-29T15:53:45.355Z",
-      "profileCount": 17
+      "currency": "INR",
+      "subscriptionStartDate": "2025-10-06T10:12:42.160Z",
+      "paidAt": "2025-10-06T10:12:42.160Z",
+      "profileCount": 1,
+      "cancelledAt": "2025-10-06T10:06:37.147Z",
+      "cancelledBy": "scalepointstrategy@gmail.com"
     },
     "17339526077864926205": {
       "id": "sub_1757488628836_bm9lkdsnt",

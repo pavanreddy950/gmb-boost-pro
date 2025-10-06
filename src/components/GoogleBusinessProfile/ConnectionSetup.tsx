@@ -63,7 +63,7 @@ const ConnectionSetup: React.FC = () => {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <FaGoogle className="h-5 w-5 text-[#4285F4]" />
+            <img src="/ggg.png" alt="Google Business Profile" className="h-5 w-5" />
             Connect Google Business Profile
           </CardTitle>
           <CardDescription>
@@ -99,7 +99,7 @@ const ConnectionSetup: React.FC = () => {
             className="w-full"
             size="lg"
           >
-            <FaGoogle className="mr-2 h-4 w-4" />
+            <img src="/ggg.png" alt="Google Business Profile" className="mr-2 h-4 w-4" />
             Connect Google Business Profile
           </Button>
         </CardContent>
@@ -114,7 +114,7 @@ const ConnectionSetup: React.FC = () => {
         <CardHeader>
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <FaGoogle className="h-5 w-5 text-[#4285F4]" />
+              <img src="/ggg.png" alt="Google Business Profile" className="h-5 w-5" />
               <CardTitle>Google Business Profile</CardTitle>
               <Badge variant="secondary" className="bg-green-100 text-green-800">
                 <CheckCircle className="h-3 w-3 mr-1" />
@@ -442,3 +442,4 @@ const ConnectionSetup: React.FC = () => {
 };
 
 export default ConnectionSetup;
+

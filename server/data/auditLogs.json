@@ -1,5 +1,20 @@
 [
   {
+    "id": "audit_1759745197150_dkjad9g5d",
+    "timestamp": "2025-10-06T10:06:37.150Z",
+    "action": "subscription.cancel",
+    "adminId": "OBm8qZc0jOWcY53x6rQuX4gKKnQ2",
+    "adminEmail": "scalepointstrategy@gmail.com",
+    "description": "Cancelled subscription for GBP account 17697790081864925086 (User: scalepointstrategy@gmail.com)",
+    "targetType": "subscription",
+    "targetId": "sub_1757488515788_ydlfgg9ro",
+    "metadata": {
+      "gbpAccountId": "17697790081864925086",
+      "email": "scalepointstrategy@gmail.com"
+    },
+    "ipAddress": "::1"
+  },
+  {
     "id": "audit_1759415269383_hai8d8lri",
     "timestamp": "2025-10-02T14:27:49.383Z",
     "action": "coupon.create",

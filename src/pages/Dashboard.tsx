@@ -316,7 +316,7 @@ const Dashboard = () => {
                       <Button
                         size="sm"
                         variant="outline"
-                        onClick={() => navigate('/billing')}
+                        onClick={() => navigate('/dashboard/billing')}
                         className="border-orange-300 text-orange-700 hover:bg-orange-100"
                       >
                         <CreditCard className="h-4 w-4 mr-2" />

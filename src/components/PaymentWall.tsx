@@ -104,7 +104,7 @@ export const PaymentWall: React.FC<PaymentWallProps> = ({
             
             {!isExpired && (
               <Button 
-                onClick={() => navigate('/billing')}
+                onClick={() => navigate('/dashboard/billing')}
                 variant="outline"
                 className="flex-1"
                 size="lg"
