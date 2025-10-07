@@ -474,21 +474,23 @@ router.post('/verify', async (req, res) => {
     const order = await paymentService.getOrder(razorpay_order_id);
     console.log('[Payment Verify] Order details:', order);
 
-    // Extract profileCount from order notes (if available)
+    // Extract profileCount and locationId from order notes (if available)
     const profileCount = order.notes?.profileCount ? parseInt(order.notes.profileCount) : 1;
+    const locationId = order.notes?.locationId || order.notes?.profileId || null;
     console.log('[Payment Verify] Profile count from order notes:', profileCount);
+    console.log('[Payment Verify] Location ID from order notes:', locationId);
 
     // Find subscription by GBP Account ID
     let subscription = null;
     if (gbpAccountId) {
-      subscription = subscriptionService.getSubscriptionByGBPAccount(gbpAccountId);
+      subscription = await subscriptionService.getSubscriptionByGBPAccount(gbpAccountId);
     } else if (subscriptionId) {
-      subscription = subscriptionService.getSubscriptionById(subscriptionId);
+      subscription = await subscriptionService.getSubscriptionById(subscriptionId);
     }
 
     if (subscription) {
       // Add payment record
-      subscriptionService.addPaymentRecord(subscription.id, {
+      await subscriptionService.addPaymentRecord(subscription.id, {
         amount: payment.amount / 100,
         currency: payment.currency,
         status: 'success',
@@ -510,9 +512,29 @@ router.post('/verify', async (req, res) => {
         endDate.setMonth(endDate.getMonth() + 1); // 1 month (default)
       }
 
-      const updatedSubscription = subscriptionService.markSubscriptionAsPaid(gbpAccountId || subscription.gbpAccountId, {
+      // IMPORTANT: ACCUMULATE profileCount instead of overwriting
+      // Each payment for a new profile should ADD to the count, not replace it
+      const currentProfileCount = subscription.profileCount || 0;
+      const newProfileCount = currentProfileCount + profileCount;
+
+      // Track paid location IDs to know which specific profiles are paid for
+      const paidLocationIds = subscription.paidLocationIds || [];
+      if (locationId && !paidLocationIds.includes(locationId)) {
+        paidLocationIds.push(locationId);
+      }
+
+      console.log('[Payment Verify] Profile count update:', {
+        currentCount: currentProfileCount,
+        addingCount: profileCount,
+        newTotal: newProfileCount,
+        locationId: locationId,
+        paidLocationIds: paidLocationIds
+      });
+
+      const updatedSubscription = await subscriptionService.markSubscriptionAsPaid(gbpAccountId || subscription.gbpAccountId, {
         planId: planId || 'yearly_pro',
-        profileCount: profileCount, // Store the profile count from payment
+        profileCount: newProfileCount, // ACCUMULATE instead of overwrite
+        paidLocationIds: paidLocationIds, // Track which locations are paid
         lastPaymentDate: now.toISOString(),
         subscriptionEndDate: endDate.toISOString(),
         razorpayPaymentId: razorpay_payment_id,
