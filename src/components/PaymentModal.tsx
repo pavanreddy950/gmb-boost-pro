@@ -272,6 +272,9 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
               // Close modal first
               onClose();
 
+              // Set flag to indicate we're reloading after payment
+              sessionStorage.setItem('post_payment_reload', 'true');
+
               // Force subscription status refresh with delay to ensure backend is updated
               setTimeout(async () => {
                 try {

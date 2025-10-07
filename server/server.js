@@ -1160,26 +1160,55 @@ app.post('/auth/google/refresh', async (req, res) => {
   try {
     const { refresh_token, userId } = req.body;
 
+    console.log('[TOKEN REFRESH] ========================================');
+    console.log('[TOKEN REFRESH] Request received for user:', userId);
+    console.log('[TOKEN REFRESH] Has refresh token:', !!refresh_token);
+
     if (!refresh_token) {
+      console.error('[TOKEN REFRESH] ❌ No refresh token provided');
       return res.status(400).json({ error: 'Refresh token is required' });
     }
 
-    console.log('Refreshing Google token for user:', userId);
+    // Try to get stored tokens from Firestore first if userId is provided
+    let storedRefreshToken = refresh_token;
+    if (userId) {
+      try {
+        console.log('[TOKEN REFRESH] Checking Firestore for stored tokens...');
+        const storedTokens = await tokenManager.getTokens(userId);
+        if (storedTokens && storedTokens.refresh_token) {
+          storedRefreshToken = storedTokens.refresh_token;
+          console.log('[TOKEN REFRESH] ✅ Using refresh token from Firestore storage');
+        } else {
+          console.log('[TOKEN REFRESH] ⚠️ No stored tokens in Firestore, using provided token');
+        }
+      } catch (storageError) {
+        console.warn('[TOKEN REFRESH] ⚠️ Failed to fetch stored tokens:', storageError.message);
+      }
+    }
 
-    // Set the refresh token for OAuth2 client
-    oauth2Client.setCredentials({
-      refresh_token: refresh_token
+    console.log('[TOKEN REFRESH] Creating new OAuth2 client for refresh...');
+    // Create a new OAuth2 client instance for this refresh operation
+    const refreshClient = new google.auth.OAuth2(
+      process.env.GOOGLE_CLIENT_ID,
+      process.env.GOOGLE_CLIENT_SECRET,
+      config.googleRedirectUri
+    );
+
+    // Set the refresh token
+    refreshClient.setCredentials({
+      refresh_token: storedRefreshToken
     });
 
+    console.log('[TOKEN REFRESH] Attempting to refresh access token...');
     // Refresh the access token
-    const { credentials } = await oauth2Client.refreshAccessToken();
+    const { credentials } = await refreshClient.refreshAccessToken();
 
     if (!credentials.access_token) {
+      console.error('[TOKEN REFRESH] ❌ No access token in response');
       throw new Error('Failed to obtain new access token');
     }
 
-    console.log('[TOKEN REFRESH] ========================================');
-    console.log('[TOKEN REFRESH] Token refresh successful for user:', userId);
+    console.log('[TOKEN REFRESH] ✅ Token refresh successful');
     console.log('[TOKEN REFRESH] New token expires at:', new Date(credentials.expiry_date).toISOString());
 
     // Update stored tokens if userId is provided
@@ -1189,7 +1218,7 @@ app.post('/auth/google/refresh', async (req, res) => {
 
       const tokenData = {
         access_token: credentials.access_token,
-        refresh_token: refresh_token,
+        refresh_token: credentials.refresh_token || storedRefreshToken, // Use new refresh token if provided, else keep existing
         expires_in: expiresIn > 0 ? expiresIn : 3600,
         scope: credentials.scope || 'https://www.googleapis.com/auth/business.manage',
         token_type: 'Bearer',
@@ -1222,7 +1251,7 @@ app.post('/auth/google/refresh', async (req, res) => {
       success: true,
       tokens: {
         access_token: credentials.access_token,
-        refresh_token: credentials.refresh_token || refresh_token, // Return new refresh_token if provided, else original
+        refresh_token: credentials.refresh_token || storedRefreshToken, // Return new refresh_token if provided, else original
         token_type: 'Bearer',
         expires_in: Math.floor((credentials.expiry_date - Date.now()) / 1000),
         scope: credentials.scope,
@@ -1231,10 +1260,20 @@ app.post('/auth/google/refresh', async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Token refresh error:', error);
+    console.error('[TOKEN REFRESH] ========================================');
+    console.error('[TOKEN REFRESH] ❌ Token refresh failed');
+    console.error('[TOKEN REFRESH] Error type:', error.constructor.name);
+    console.error('[TOKEN REFRESH] Error message:', error.message);
+    if (error.response) {
+      console.error('[TOKEN REFRESH] Error response status:', error.response.status);
+      console.error('[TOKEN REFRESH] Error response data:', error.response.data);
+    }
+    console.error('[TOKEN REFRESH] ========================================');
+
     res.status(401).json({
       error: 'Token refresh failed',
-      message: error.message || 'Unable to refresh token'
+      message: error.message || 'Unable to refresh token',
+      details: error.response?.data || null
     });
   }
 });

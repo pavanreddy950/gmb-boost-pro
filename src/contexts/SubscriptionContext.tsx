@@ -310,16 +310,29 @@ export const SubscriptionProvider: React.FC<SubscriptionProviderProps> = ({ chil
   // Check subscription status when GBP account changes
   useEffect(() => {
     console.log('SubscriptionContext useEffect - gbpAccountId changed:', gbpAccountId);
-    if (gbpAccountId && currentUser) {
-      checkSubscriptionStatus();
-    } else if (!gbpAccountId) {
-      console.log('No GBP account, resetting subscription state');
-      setStatus('none');
-      setDaysRemaining(null);
-      setSubscription(null);
-      setIsFeatureBlocked(false);
-      setIsLoading(false);
-    }
+
+    // Delay subscription check if we just completed payment
+    const justReloaded = sessionStorage.getItem('post_payment_reload') === 'true';
+    const delay = justReloaded ? 3000 : 0;
+
+    const timeoutId = setTimeout(() => {
+      if (gbpAccountId && currentUser) {
+        checkSubscriptionStatus();
+      } else if (!gbpAccountId && currentUser) {
+        // If no GBP account but we have a user, check by user ID
+        console.log('No GBP account yet, checking subscription by user ID');
+        checkSubscriptionStatus();
+      } else if (!gbpAccountId && !currentUser) {
+        console.log('No GBP account or user, resetting subscription state');
+        setStatus('none');
+        setDaysRemaining(null);
+        setSubscription(null);
+        setIsFeatureBlocked(false);
+        setIsLoading(false);
+      }
+    }, delay);
+
+    return () => clearTimeout(timeoutId);
   }, [gbpAccountId, currentUser?.uid]);
 
   // Auto-check subscription status every 30 minutes (reduced frequency)

@@ -535,8 +535,29 @@ class GoogleBusinessProfileService {
       });
 
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(`Backend refresh failed: ${errorData.error || response.statusText}`);
+        let errorData;
+        try {
+          errorData = await response.json();
+        } catch (e) {
+          errorData = { error: response.statusText };
+        }
+
+        console.error('❌ Backend refresh failed:', {
+          status: response.status,
+          statusText: response.statusText,
+          error: errorData
+        });
+
+        // Special handling for 401 errors
+        if (response.status === 401) {
+          // Clear invalid tokens
+          localStorage.removeItem('google_business_tokens');
+          this.accessToken = null;
+
+          throw new Error(`Token refresh failed: Invalid or expired refresh token. Please reconnect your Google Business Profile.`);
+        }
+
+        throw new Error(`Backend refresh failed: ${errorData.error || errorData.message || response.statusText}`);
       }
 
       const data = await response.json();

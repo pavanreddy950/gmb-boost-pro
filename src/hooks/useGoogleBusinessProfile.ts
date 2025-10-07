@@ -185,23 +185,43 @@ export const useGoogleBusinessProfile = (): UseGoogleBusinessProfileReturn => {
       setIsLoading(true);
       console.log('🔍 DEBUGGING: Initializing Google Business Profile connection...');
       console.log('🔍 DEBUGGING: Firebase user:', currentUser?.uid);
-      
+
       try {
         // Set the current user ID in the service for Firestore operations
         googleBusinessProfileService.setCurrentUserId(currentUser?.uid || null);
-        
+
+        // Check if we just reloaded after payment
+        const justReloaded = sessionStorage.getItem('post_payment_reload') === 'true';
+        if (justReloaded) {
+          console.log('🔍 DEBUGGING: Just reloaded after payment, waiting before loading profiles...');
+          sessionStorage.removeItem('post_payment_reload');
+          // Wait a bit longer for backend to settle and tokens to be saved
+          await new Promise(resolve => setTimeout(resolve, 2000));
+        }
+
         // Load tokens with Firebase user ID
         const hasValidTokens = await googleBusinessProfileService.loadStoredTokens(currentUser?.uid);
         console.log('🔍 DEBUGGING: Has valid tokens?', hasValidTokens);
         console.log('🔍 DEBUGGING: Service isConnected?', googleBusinessProfileService.isConnected());
         console.log('🔍 DEBUGGING: LocalStorage tokens:', localStorage.getItem('google_business_tokens'));
         console.log('🔍 DEBUGGING: LocalStorage connected flag:', localStorage.getItem('google_business_connected'));
-        
+
         setIsConnected(hasValidTokens);
-        
+
         if (hasValidTokens) {
           console.log('🔍 DEBUGGING: Loading business accounts...');
-          await loadBusinessAccounts();
+          try {
+            await loadBusinessAccounts();
+          } catch (loadError) {
+            console.error('❌ DEBUGGING: Failed to load business accounts:', loadError);
+            // Don't set error state if it's just a temporary issue
+            // Let the automatic refresh retry handle it
+            if (loadError instanceof Error && loadError.message.includes('Authentication')) {
+              console.log('⚠️ Authentication issue detected, may need to reconnect');
+              setError('Authentication expired. Please reconnect your Google Business Profile.');
+              setIsConnected(false);
+            }
+          }
         } else {
           console.log('🔍 DEBUGGING: No valid tokens, skipping account load');
         }
