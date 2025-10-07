@@ -1003,7 +1003,12 @@ export function AutoPostingTab({ location }: AutoPostingTabProps) {
             <Switch
               checked={config.button?.enabled ?? true}
               onCheckedChange={(enabled) => saveConfiguration({
-                button: { enabled, type: 'auto' }
+                button: {
+                  enabled,
+                  type: config.button?.type || 'auto',
+                  phoneNumber: config.button?.phoneNumber || location.phoneNumber,
+                  customUrl: config.button?.customUrl
+                }
               })}
               disabled={!config.enabled}
             />
@@ -1023,7 +1028,8 @@ export function AutoPostingTab({ location }: AutoPostingTabProps) {
                     button: {
                       ...config.button,
                       enabled: true,
-                      type: value as any
+                      type: value as any,
+                      phoneNumber: config.button?.phoneNumber || location.phoneNumber,
                     }
                   })}
                 >
@@ -1072,6 +1078,7 @@ export function AutoPostingTab({ location }: AutoPostingTabProps) {
                       button: {
                         ...config.button,
                         enabled: true,
+                        type: config.button?.type || 'call_now',
                         phoneNumber: e.target.value
                       }
                     })}
@@ -1116,6 +1123,7 @@ export function AutoPostingTab({ location }: AutoPostingTabProps) {
                       button: {
                         ...config.button,
                         enabled: true,
+                        type: config.button?.type || 'learn_more',
                         customUrl: e.target.value
                       }
                     })}

@@ -1,12 +1,17 @@
 import PaymentService from './paymentService.js';
-import persistentSubscriptionService from './persistentSubscriptionService.js';
+import hybridSubscriptionService from './hybridSubscriptionService.js';
 
 class SubscriptionService {
   constructor() {
     this.paymentService = new PaymentService();
-    this.persistentStorage = persistentSubscriptionService;
+    this.persistentStorage = hybridSubscriptionService; // Using hybrid storage for cloud + file persistence
     this.plans = new Map();
     this.initializePlans();
+
+    // Initialize the hybrid storage
+    this.persistentStorage.initialize().catch(err => {
+      console.error('[SubscriptionService] Failed to initialize hybrid storage:', err);
+    });
   }
 
   initializePlans() {
@@ -67,7 +72,7 @@ class SubscriptionService {
 
   async createTrialSubscription(userId, gbpAccountId, email) {
     // Check if subscription already exists for this GBP account
-    const existingSubscription = this.getSubscriptionByGBPAccount(gbpAccountId);
+    const existingSubscription = await this.getSubscriptionByGBPAccount(gbpAccountId);
     if (existingSubscription) {
       console.log('Subscription already exists for GBP account:', gbpAccountId);
       return existingSubscription;
@@ -93,39 +98,39 @@ class SubscriptionService {
       paymentHistory: []
     };
 
-    // Save to persistent storage
-    this.persistentStorage.saveSubscription(subscription);
+    // Save to persistent storage (both Firestore and file)
+    await this.persistentStorage.saveSubscription(subscription);
     console.log('Created trial subscription:', subscription);
     return subscription;
   }
 
-  getSubscriptionByGBPAccount(gbpAccountId) {
-    // Get from persistent storage
-    return this.persistentStorage.getSubscriptionByGBPAccount(gbpAccountId);
+  async getSubscriptionByGBPAccount(gbpAccountId) {
+    // Get from hybrid storage (Firestore first, then file)
+    return await this.persistentStorage.getSubscriptionByGBPAccount(gbpAccountId);
   }
 
-  getSubscriptionByUserId(userId) {
-    // Use the new persistent storage method with user-GBP mapping
-    return this.persistentStorage.getSubscriptionByUserId(userId);
+  async getSubscriptionByUserId(userId) {
+    // Use the hybrid storage method with user-GBP mapping
+    return await this.persistentStorage.getSubscriptionByUserId(userId);
   }
 
-  getSubscriptionById(subscriptionId) {
-    return this.persistentStorage.getSubscriptionById(subscriptionId);
+  async getSubscriptionById(subscriptionId) {
+    return await this.persistentStorage.getSubscriptionById(subscriptionId);
   }
 
-  updateSubscription(subscriptionId, updates) {
-    const subscription = this.persistentStorage.getSubscriptionById(subscriptionId);
+  async updateSubscription(subscriptionId, updates) {
+    const subscription = await this.persistentStorage.getSubscriptionById(subscriptionId);
     if (!subscription) {
       throw new Error('Subscription not found');
     }
 
-    // Update in persistent storage
-    return this.persistentStorage.updateSubscription(subscription.gbpAccountId, updates);
+    // Update in hybrid storage (both Firestore and file)
+    return await this.persistentStorage.updateSubscription(subscription.gbpAccountId, updates);
   }
 
-  checkSubscriptionStatus(gbpAccountId) {
+  async checkSubscriptionStatus(gbpAccountId) {
     console.log('[SubscriptionService] Checking status for GBP:', gbpAccountId);
-    const subscription = this.getSubscriptionByGBPAccount(gbpAccountId);
+    const subscription = await this.getSubscriptionByGBPAccount(gbpAccountId);
     
     if (!subscription) {
       console.log('[SubscriptionService] No subscription found for GBP:', gbpAccountId);
@@ -170,7 +175,7 @@ class SubscriptionService {
         };
       } else {
         // Trial expired - ENFORCE PAYMENT
-        this.persistentStorage.updateSubscription(subscription.gbpAccountId, { status: 'expired' });
+        await this.persistentStorage.updateSubscription(subscription.gbpAccountId, { status: 'expired' });
         return { 
           isValid: false, 
           status: 'expired', 
@@ -202,10 +207,10 @@ class SubscriptionService {
           };
         } else {
           // Subscription expired
-          this.updateSubscription(subscription.id, { status: 'expired' });
-          return { 
-            isValid: false, 
-            status: 'expired', 
+          await this.updateSubscription(subscription.id, { status: 'expired' });
+          return {
+            isValid: false,
+            status: 'expired',
             daysRemaining: 0,
             subscription: { ...subscription, status: 'expired' },
             canUsePlatform: false,
@@ -215,7 +220,7 @@ class SubscriptionService {
           };
         }
       }
-      
+
       return { 
         isValid: true, 
         status: 'active',
@@ -276,7 +281,7 @@ class SubscriptionService {
         };
       } else {
         // Trial expired
-        this.persistentStorage.updateSubscription(subscription.gbpAccountId, { status: 'expired' });
+        await this.persistentStorage.updateSubscription(subscription.gbpAccountId, { status: 'expired' });
         return {
           isValid: false,
           status: 'expired',
@@ -308,7 +313,7 @@ class SubscriptionService {
           };
         } else {
           // Subscription expired
-          this.updateSubscription(subscription.id, { status: 'expired' });
+          await this.updateSubscription(subscription.id, { status: 'expired' });
           return {
             isValid: false,
             status: 'expired',
@@ -345,8 +350,8 @@ class SubscriptionService {
     };
   }
 
-  markSubscriptionAsPaid(gbpAccountId, paymentDetails) {
-    const subscription = this.getSubscriptionByGBPAccount(gbpAccountId);
+  async markSubscriptionAsPaid(gbpAccountId, paymentDetails) {
+    const subscription = await this.getSubscriptionByGBPAccount(gbpAccountId);
     if (!subscription) {
       throw new Error('No subscription found for this GBP account');
     }
@@ -385,7 +390,7 @@ class SubscriptionService {
     }
 
     // Update subscription to paid/active status with proper end date
-    return this.persistentStorage.updateSubscription(gbpAccountId, {
+    return await this.persistentStorage.updateSubscription(gbpAccountId, {
       status: 'active',
       ...paymentDetails,
       subscriptionStartDate: now.toISOString(),
@@ -399,8 +404,8 @@ class SubscriptionService {
     if (!plan) {
       throw new Error('Invalid plan ID');
     }
-    
-    const subscription = this.getSubscriptionById(subscriptionId);
+
+    const subscription = await this.getSubscriptionById(subscriptionId);
     if (!subscription) {
       throw new Error('Subscription not found');
     }
@@ -414,7 +419,7 @@ class SubscriptionService {
       endDate.setFullYear(endDate.getFullYear() + 1);
     }
 
-    return this.persistentStorage.updateSubscription(subscription.gbpAccountId, {
+    return await this.persistentStorage.updateSubscription(subscription.gbpAccountId, {
       status: 'active',
       planId,
       planName: plan.name,
@@ -427,8 +432,8 @@ class SubscriptionService {
     });
   }
 
-  addPaymentRecord(subscriptionId, payment) {
-    const subscription = this.getSubscriptionById(subscriptionId);
+  async addPaymentRecord(subscriptionId, payment) {
+    const subscription = await this.getSubscriptionById(subscriptionId);
     if (!subscription) {
       throw new Error('Subscription not found');
     }
@@ -441,12 +446,12 @@ class SubscriptionService {
 
     subscription.paymentHistory = subscription.paymentHistory || [];
     subscription.paymentHistory.push(paymentRecord);
-    
-    // Update in persistent storage
-    this.persistentStorage.updateSubscription(subscription.gbpAccountId, {
+
+    // Update in hybrid storage (both Firestore and file)
+    await this.persistentStorage.updateSubscription(subscription.gbpAccountId, {
       paymentHistory: subscription.paymentHistory
     });
-    
+
     return paymentRecord;
   }
 
