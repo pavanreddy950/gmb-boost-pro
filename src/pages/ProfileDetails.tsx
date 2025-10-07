@@ -292,6 +292,7 @@ const ProfileDetails = () => {
             name: location.displayName,
             categories: location.categories.map(c => c.name),
             websiteUri: location.websiteUrl,
+            phoneNumber: location.phoneNumber,
             address: location.address
           }} />
         </TabsContent>

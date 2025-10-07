@@ -154,7 +154,7 @@ router.post('/stop/:locationId', (req, res) => {
 router.post('/test-post-now/:locationId', async (req, res) => {
   try {
     const { locationId } = req.params;
-    const { businessName, category, keywords, websiteUrl, locationName, city, region, country, fullAddress, accessToken, userId } = req.body;
+    const { businessName, category, keywords, websiteUrl, locationName, city, region, country, fullAddress, accessToken, userId, phoneNumber, button } = req.body;
 
     // Get userId from header or body
     const userIdFromHeader = req.headers['x-user-id'];
@@ -224,6 +224,8 @@ router.post('/test-post-now/:locationId', async (req, res) => {
       region: region || '',
       country: country || '',
       fullAddress: fullAddress || '',
+      phoneNumber: phoneNumber || settings.autoPosting.phoneNumber || '',
+      button: button || settings.autoPosting.button || { enabled: false, type: 'none' },
       userId: finalUserId || settings.autoPosting.userId || 'default',
       accountId: settings.autoPosting.accountId || settings.accountId || '106433552101751461082',
       test: true

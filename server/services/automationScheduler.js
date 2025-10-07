@@ -223,9 +223,12 @@ class AutomationScheduler {
         topicType: config.topicType || 'STANDARD'
       };
 
-      // Add call to action if provided from the client
+      // Add call to action if generated
       if (postContent.callToAction) {
+        console.log('[AutomationScheduler] Adding CTA to post:', postContent.callToAction);
         postData.callToAction = postContent.callToAction;
+      } else {
+        console.log('[AutomationScheduler] No CTA to add to post');
       }
 
       const response = await fetch(postUrl, {
@@ -272,18 +275,24 @@ class AutomationScheduler {
       
       console.log(`[AutomationScheduler] Using fallback API: ${fallbackUrl}`);
       
+      const fallbackPostData = {
+        languageCode: 'en',
+        summary: postContent.content,
+        topicType: config.topicType || 'STANDARD'
+      };
+
+      // Add call to action if available
+      if (postContent.callToAction) {
+        fallbackPostData.callToAction = postContent.callToAction;
+      }
+
       const response = await fetch(fallbackUrl, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${accessToken}`,
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({
-          languageCode: 'en',
-          summary: postContent.content,
-          callToAction: postContent.callToAction,
-          topicType: config.topicType || 'STANDARD'
-        })
+        body: JSON.stringify(fallbackPostData)
       });
 
       if (response.ok) {
@@ -403,6 +412,97 @@ class AutomationScheduler {
 
       return null;
     }
+  }
+
+  // Generate call-to-action based on button configuration
+  generateCallToAction(config) {
+    const button = config.button;
+    const phoneNumber = config.phoneNumber;
+    const websiteUrl = config.websiteUrl;
+    const category = config.category || '';
+
+    // If button is not enabled or type is 'none', return null
+    if (!button || !button.enabled || button.type === 'none') {
+      console.log('[AutomationScheduler] No CTA button configured');
+      return null;
+    }
+
+    console.log('[AutomationScheduler] Generating CTA:', {
+      type: button.type,
+      phoneNumber: button.phoneNumber || phoneNumber,
+      websiteUrl: button.customUrl || websiteUrl,
+      category
+    });
+
+    // Handle different button types
+    let actionType = 'LEARN_MORE'; // Default
+    let url = button.customUrl || websiteUrl || '';
+
+    switch (button.type) {
+      case 'call_now':
+        // Use phone number from button config first, then from business profile
+        const phone = button.phoneNumber || phoneNumber;
+        if (!phone) {
+          console.warn('[AutomationScheduler] Call Now button selected but no phone number provided');
+          return null;
+        }
+        return {
+          actionType: 'CALL',
+          phoneNumber: phone
+        };
+
+      case 'book':
+        actionType = 'BOOK';
+        break;
+
+      case 'order':
+        actionType = 'ORDER';
+        break;
+
+      case 'buy':
+        actionType = 'SHOP';
+        break;
+
+      case 'learn_more':
+        actionType = 'LEARN_MORE';
+        break;
+
+      case 'sign_up':
+        actionType = 'SIGN_UP';
+        break;
+
+      case 'auto':
+        // Smart selection based on business category
+        const lowerCategory = category.toLowerCase();
+
+        if (lowerCategory.includes('restaurant') || lowerCategory.includes('food')) {
+          actionType = 'ORDER';
+        } else if (lowerCategory.includes('salon') || lowerCategory.includes('spa') ||
+                   lowerCategory.includes('health') || lowerCategory.includes('clinic')) {
+          actionType = 'BOOK';
+        } else if (lowerCategory.includes('retail') || lowerCategory.includes('shop') ||
+                   lowerCategory.includes('store')) {
+          actionType = 'SHOP';
+        } else if (lowerCategory.includes('education') || lowerCategory.includes('school') ||
+                   lowerCategory.includes('course')) {
+          actionType = 'SIGN_UP';
+        } else {
+          actionType = 'LEARN_MORE';
+        }
+        console.log(`[AutomationScheduler] Auto-selected CTA type: ${actionType} for category: ${category}`);
+        break;
+    }
+
+    // For non-CALL actions, we need a URL
+    if (!url && actionType !== 'CALL') {
+      console.warn(`[AutomationScheduler] ${actionType} button selected but no URL provided`);
+      return null;
+    }
+
+    return {
+      actionType: actionType,
+      url: url
+    };
   }
 
   // Generate post content using AI ONLY - no templates/mocks
@@ -536,10 +636,12 @@ CRITICAL RULES - MUST FOLLOW ALL:
         console.log(`[AutomationScheduler] AI generated unique content (${content.split(' ').length} words)`);
         console.log(`[AutomationScheduler] Final post content with address:`, content);
 
+        // Generate callToAction based on button configuration
+        const callToAction = this.generateCallToAction(config);
+
         return {
-          content
-          // Note: callToAction is now handled by the frontend automation service
-          // based on user's button configuration preferences
+          content,
+          callToAction
         };
       } else {
         const errorText = await response.text();

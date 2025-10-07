@@ -22,6 +22,13 @@ interface AutomationSettings {
     region?: string;
     country?: string;
     postalCode?: string;
+    phoneNumber?: string;
+    button?: {
+      enabled: boolean;
+      type: string;
+      phoneNumber?: string;
+      customUrl?: string;
+    };
   };
   autoReply?: {
     enabled: boolean;
@@ -244,6 +251,13 @@ class ServerAutomationService {
       region?: string;
       country?: string;
       postalCode?: string;
+    },
+    phoneNumber?: string,
+    button?: {
+      enabled: boolean;
+      type: string;
+      phoneNumber?: string;
+      customUrl?: string;
     }
   ): Promise<boolean> {
     const settings: AutomationSettings = {
@@ -257,6 +271,8 @@ class ServerAutomationService {
         websiteUrl,
         timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
         ...addressInfo,
+        phoneNumber,
+        button,
       },
       userId,
       accountId,

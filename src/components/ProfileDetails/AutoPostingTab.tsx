@@ -25,6 +25,7 @@ interface AutoPostingTabProps {
     name: string;
     categories?: string[];
     websiteUri?: string;
+    phoneNumber?: string;
     address?: {
       addressLines: string[];
       locality: string;
@@ -229,7 +230,9 @@ export function AutoPostingTab({ location }: AutoPostingTabProps) {
           location.websiteUri,
           currentUser?.uid,
           accountId || undefined,
-          addressInfo
+          addressInfo,
+          location.phoneNumber,
+          config?.button
         );
         
         toast({
@@ -294,6 +297,8 @@ export function AutoPostingTab({ location }: AutoPostingTabProps) {
             websiteUrl: location.websiteUri,
             timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
             ...addressInfo,
+            phoneNumber: location.phoneNumber,
+            button: config?.button,
           },
           userId: currentUser?.uid,
           accountId: accountId || undefined,
@@ -392,6 +397,8 @@ export function AutoPostingTab({ location }: AutoPostingTabProps) {
             websiteUrl: location.websiteUri,
             timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
             ...addressInfo,
+            phoneNumber: location.phoneNumber,
+            button: config?.button,
           },
           userId: currentUser?.uid,
           accountId: accountId || undefined,
@@ -498,6 +505,8 @@ export function AutoPostingTab({ location }: AutoPostingTabProps) {
             websiteUrl: location.websiteUri,
             timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
             ...addressInfo,
+            phoneNumber: location.phoneNumber,
+            button: config?.button,
           },
           userId: currentUser?.uid,
           accountId: accountId || undefined,
@@ -615,8 +624,10 @@ export function AutoPostingTab({ location }: AutoPostingTabProps) {
           region: location.address?.administrativeArea || '',
           country: location.address?.countryCode || '',
           fullAddress: location.address?.addressLines?.join(', ') || '',
+          phoneNumber: location.phoneNumber || '',
           userId: currentUser.uid, // Send user ID in body too
-          accessToken: accessToken || undefined // Send access token in body as fallback
+          accessToken: accessToken || undefined, // Send access token in body as fallback
+          button: config.button // Send button configuration
         })
       });
       
@@ -1048,7 +1059,7 @@ export function AutoPostingTab({ location }: AutoPostingTabProps) {
                     id="phone-number"
                     type="tel"
                     placeholder="e.g., +1 (555) 123-4567"
-                    value={config.button?.phoneNumber || ''}
+                    value={config.button?.phoneNumber || location.phoneNumber || ''}
                     onChange={(e) => saveConfiguration({
                       button: {
                         ...config.button,
@@ -1059,6 +1070,9 @@ export function AutoPostingTab({ location }: AutoPostingTabProps) {
                   />
                   <p className="text-xs text-muted-foreground">
                     Enter the phone number customers should call when they click the button.
+                    {location.phoneNumber && !config.button?.phoneNumber && (
+                      <span className="text-blue-600"> Using your business profile phone number.</span>
+                    )}
                   </p>
                 </div>
               )}
