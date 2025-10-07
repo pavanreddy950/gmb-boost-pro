@@ -421,18 +421,27 @@ class AutomationScheduler {
     const websiteUrl = config.websiteUrl;
     const category = config.category || '';
 
+    console.log('[AutomationScheduler] ========================================');
+    console.log('[AutomationScheduler] 🔘 CTA BUTTON GENERATION');
+    console.log('[AutomationScheduler] Config received:', {
+      hasButton: !!button,
+      buttonEnabled: button?.enabled,
+      buttonType: button?.type,
+      buttonPhoneNumber: button?.phoneNumber,
+      profilePhoneNumber: phoneNumber,
+      customUrl: button?.customUrl,
+      websiteUrl: websiteUrl,
+      category: category
+    });
+
     // If button is not enabled or type is 'none', return null
     if (!button || !button.enabled || button.type === 'none') {
-      console.log('[AutomationScheduler] No CTA button configured');
+      console.log('[AutomationScheduler] ❌ No CTA button configured or button disabled');
+      console.log('[AutomationScheduler] ========================================');
       return null;
     }
 
-    console.log('[AutomationScheduler] Generating CTA:', {
-      type: button.type,
-      phoneNumber: button.phoneNumber || phoneNumber,
-      websiteUrl: button.customUrl || websiteUrl,
-      category
-    });
+    console.log('[AutomationScheduler] ✅ Button is enabled, generating CTA...');
 
     // Handle different button types
     let actionType = 'LEARN_MORE'; // Default
@@ -442,14 +451,23 @@ class AutomationScheduler {
       case 'call_now':
         // Use phone number from button config first, then from business profile
         const phone = button.phoneNumber || phoneNumber;
+        console.log('[AutomationScheduler] Call Now button - Phone:', {
+          fromButton: button.phoneNumber,
+          fromProfile: phoneNumber,
+          finalPhone: phone
+        });
         if (!phone) {
-          console.warn('[AutomationScheduler] Call Now button selected but no phone number provided');
+          console.error('[AutomationScheduler] ❌ Call Now button selected but no phone number provided');
+          console.log('[AutomationScheduler] ========================================');
           return null;
         }
-        return {
+        const callCTA = {
           actionType: 'CALL',
           phoneNumber: phone
         };
+        console.log('[AutomationScheduler] ✅ Generated CTA:', callCTA);
+        console.log('[AutomationScheduler] ========================================');
+        return callCTA;
 
       case 'book':
         actionType = 'BOOK';
@@ -495,14 +513,18 @@ class AutomationScheduler {
 
     // For non-CALL actions, we need a URL
     if (!url && actionType !== 'CALL') {
-      console.warn(`[AutomationScheduler] ${actionType} button selected but no URL provided`);
+      console.error(`[AutomationScheduler] ❌ ${actionType} button selected but no URL provided`);
+      console.log('[AutomationScheduler] ========================================');
       return null;
     }
 
-    return {
+    const generatedCTA = {
       actionType: actionType,
       url: url
     };
+    console.log('[AutomationScheduler] ✅ Generated CTA:', generatedCTA);
+    console.log('[AutomationScheduler] ========================================');
+    return generatedCTA;
   }
 
   // Generate post content using AI ONLY - no templates/mocks

@@ -152,7 +152,7 @@ export function AutoPostingTab({ location }: AutoPostingTabProps) {
 
   const loadConfiguration = () => {
     let existingConfig = automationStorage.getConfiguration(location.id);
-    
+
     if (!existingConfig) {
       existingConfig = automationStorage.createDefaultConfiguration(location.id, location.name);
       existingConfig.categories = location.categories || [];
@@ -164,7 +164,7 @@ export function AutoPostingTab({ location }: AutoPostingTabProps) {
     } else {
       // Handle migration from string to array format for backward compatibility
       if (typeof existingConfig.keywords === 'string') {
-        existingConfig.keywords = existingConfig.keywords 
+        existingConfig.keywords = existingConfig.keywords
           ? (existingConfig.keywords as string).split(',').map(k => k.trim()).filter(k => k.length > 0)
           : generateDefaultKeywords();
         automationStorage.saveConfiguration(existingConfig);
@@ -174,20 +174,28 @@ export function AutoPostingTab({ location }: AutoPostingTabProps) {
         existingConfig.keywords = generateDefaultKeywords();
         automationStorage.saveConfiguration(existingConfig);
       }
+      // Ensure button configuration exists with defaults
+      if (!existingConfig.button) {
+        existingConfig.button = {
+          enabled: true,
+          type: 'auto',
+        };
+        automationStorage.saveConfiguration(existingConfig);
+      }
     }
-    
+
     setConfig(existingConfig);
-    
+
     // Initialize keywords state based on loaded config
     if (existingConfig.keywords && Array.isArray(existingConfig.keywords)) {
       setKeywords(existingConfig.keywords);
     }
-    
+
     // Set custom times if frequency is custom
     if (existingConfig.schedule.frequency === 'custom' && existingConfig.schedule.customTimes) {
       setCustomTimes(existingConfig.schedule.customTimes);
     }
-    
+
     setIsLoading(false);
   };
 
@@ -1058,7 +1066,7 @@ export function AutoPostingTab({ location }: AutoPostingTabProps) {
                   <Input
                     id="phone-number"
                     type="tel"
-                    placeholder="e.g., +1 (555) 123-4567"
+                    placeholder={location.phoneNumber ? `Business phone: ${location.phoneNumber}` : "e.g., +1 (555) 123-4567"}
                     value={config.button?.phoneNumber || location.phoneNumber || ''}
                     onChange={(e) => saveConfiguration({
                       button: {
@@ -1067,11 +1075,17 @@ export function AutoPostingTab({ location }: AutoPostingTabProps) {
                         phoneNumber: e.target.value
                       }
                     })}
+                    disabled={!config.enabled}
                   />
                   <p className="text-xs text-muted-foreground">
-                    Enter the phone number customers should call when they click the button.
-                    {location.phoneNumber && !config.button?.phoneNumber && (
-                      <span className="text-blue-600"> Using your business profile phone number.</span>
+                    {location.phoneNumber ? (
+                      !config.button?.phoneNumber ? (
+                        <span className="text-green-600">✓ Auto-filled from your Google Business Profile: {location.phoneNumber}</span>
+                      ) : (
+                        <span>Using custom phone number. Clear to use business profile number: {location.phoneNumber}</span>
+                      )
+                    ) : (
+                      <span className="text-amber-600">⚠ No phone number found in your Google Business Profile. Please add one.</span>
                     )}
                   </p>
                 </div>
