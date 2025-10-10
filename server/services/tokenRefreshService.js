@@ -1,11 +1,6 @@
 import cron from 'node-cron';
-import fs from 'fs';
-import path from 'path';
-import { fileURLToPath } from 'url';
-import firestoreTokenStorage from './firestoreTokenStorage.js';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+import tokenManager from './tokenManager.js';
+import supabaseAutomationService from './supabaseAutomationService.js';
 
 /**
  * Proactive Token Refresh Service
@@ -30,8 +25,6 @@ class TokenRefreshService {
       failedRefreshes: 0,
       usersProcessed: new Set()
     };
-    this.failureLogPath = path.join(__dirname, '..', 'data', 'token_failures.json');
-    this.automationSettingsPath = path.join(__dirname, '..', 'data', 'automationSettings.json');
   }
 
   /**
@@ -97,7 +90,7 @@ class TokenRefreshService {
 
     try {
       // Get all users with active automations
-      const userIds = this.getAllAutomationUserIds();
+      const userIds = await this.getAllAutomationUserIds();
 
       if (userIds.length === 0) {
         console.log('[TokenRefreshService] ℹ️ No automation users found - skipping refresh cycle');
@@ -120,7 +113,7 @@ class TokenRefreshService {
           console.log(`[TokenRefreshService] 🔄 Processing tokens for user: ${userId}`);
 
           // This will automatically refresh if token expires in <15 minutes
-          const token = await firestoreTokenStorage.getValidToken(userId);
+          const token = await tokenManager.getValidTokens(userId);
 
           if (token && token.access_token) {
             successCount++;
@@ -171,36 +164,24 @@ class TokenRefreshService {
   }
 
   /**
-   * Get all unique user IDs from automation settings
+   * Get all unique user IDs from automation settings (Supabase)
    */
-  getAllAutomationUserIds() {
+  async getAllAutomationUserIds() {
     try {
-      if (!fs.existsSync(this.automationSettingsPath)) {
-        console.log('[TokenRefreshService] ⚠️ Automation settings file not found');
+      // Get all enabled automations from Supabase
+      const automations = await supabaseAutomationService.getAllEnabledAutomations();
+
+      if (!automations || automations.length === 0) {
+        console.log('[TokenRefreshService] ⚠️ No enabled automations found');
         return [];
       }
-
-      const data = fs.readFileSync(this.automationSettingsPath, 'utf8');
-      const settings = JSON.parse(data);
-      const automations = settings.automations || {};
 
       const userIds = new Set();
 
       // Extract unique user IDs from all automations
-      for (const [locationId, config] of Object.entries(automations)) {
-        // Check top-level userId
-        if (config.userId) {
-          userIds.add(config.userId);
-        }
-
-        // Check autoPosting userId
-        if (config.autoPosting?.userId) {
-          userIds.add(config.autoPosting.userId);
-        }
-
-        // Check autoReply userId
-        if (config.autoReply?.userId) {
-          userIds.add(config.autoReply.userId);
+      for (const automation of automations) {
+        if (automation.userId) {
+          userIds.add(automation.userId);
         }
       }
 
@@ -210,49 +191,28 @@ class TokenRefreshService {
       return validUserIds;
 
     } catch (error) {
-      console.error('[TokenRefreshService] ❌ Error reading automation settings:', error);
+      console.error('[TokenRefreshService] ❌ Error reading automation settings from Supabase:', error);
       return [];
     }
   }
 
   /**
-   * Log token refresh failure
+   * Log token refresh failure (to Supabase)
    */
-  logFailure(userId, errorMessage) {
+  async logFailure(userId, errorMessage) {
     try {
-      let failures = [];
-
-      // Load existing failures
-      if (fs.existsSync(this.failureLogPath)) {
-        const data = fs.readFileSync(this.failureLogPath, 'utf8');
-        failures = JSON.parse(data);
-      }
-
-      // Add new failure
-      failures.push({
-        userId,
-        error: errorMessage,
-        timestamp: new Date().toISOString(),
-        service: 'TokenRefreshService'
-      });
-
-      // Keep only last 100 failures
-      if (failures.length > 100) {
-        failures = failures.slice(-100);
-      }
-
-      // Save to file
-      fs.writeFileSync(this.failureLogPath, JSON.stringify(failures, null, 2));
-
+      // Log to Supabase token_failures table via tokenStorage
+      const supabaseTokenStorage = (await import('./supabaseTokenStorage.js')).default;
+      await supabaseTokenStorage.logTokenFailure(userId, 'refresh_service_error', errorMessage);
     } catch (error) {
-      console.error('[TokenRefreshService] ❌ Error logging failure:', error);
+      console.error('[TokenRefreshService] ❌ Error logging failure to Supabase:', error);
     }
   }
 
   /**
    * Get service statistics
    */
-  getStats() {
+  async getStats() {
     return {
       isRunning: this.isRunning,
       lastRunTime: this.lastRunTime,
@@ -260,7 +220,7 @@ class TokenRefreshService {
       successfulRefreshes: this.refreshStats.successfulRefreshes,
       failedRefreshes: this.refreshStats.failedRefreshes,
       uniqueUsersProcessed: this.refreshStats.usersProcessed.size,
-      currentAutomationUsers: this.getAllAutomationUserIds()
+      currentAutomationUsers: await this.getAllAutomationUserIds()
     };
   }
 

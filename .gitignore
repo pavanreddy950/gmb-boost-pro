@@ -24,7 +24,19 @@ dist-ssr
 *.sln
 *.sw?
 
+# Environment files with secrets (NEVER COMMIT)
+.env
+.env.local
+.env.*.local
+.env.azure
+.env.production
+server/.env
+server/.env.local
+server/.env.azure
+server/.env.production
+
 # Firebase Service Account Keys (NEVER COMMIT)
 **/serviceAccountKey.json
 **/*firebase*adminsdk*.json
+**/firebase-service-account.json
 .env.local.backup

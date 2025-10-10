@@ -1,24 +1,24 @@
-import firestoreTokenStorage from './firestoreTokenStorage.js';
+import supabaseTokenStorage from './supabaseTokenStorage.js';
 
 /**
- * Token Manager - Centralized token management using Firestore
- * This replaces the in-memory tokenStore with persistent Firestore storage
+ * Token Manager - Centralized token management using Supabase
+ * This replaces the in-memory tokenStore with persistent Supabase storage
  */
 class TokenManager {
   constructor() {
-    // Legacy in-memory fallback (only used if Firestore fails)
+    // Legacy in-memory fallback (only used if Supabase fails)
     this.memoryStore = new Map();
   }
 
   /**
-   * Save user tokens to Firestore
+   * Save user tokens to Supabase
    */
   async saveTokens(userId, tokenData) {
     try {
       console.log(`[TokenManager] Saving tokens for user ${userId}`);
 
-      // Always save to Firestore first
-      const saved = await firestoreTokenStorage.saveUserToken(userId, {
+      // Always save to Supabase first
+      const saved = await supabaseTokenStorage.saveUserToken(userId, {
         access_token: tokenData.access_token,
         refresh_token: tokenData.refresh_token,
         expires_in: tokenData.expires_in || 3600,
@@ -34,7 +34,7 @@ class TokenManager {
         timestamp: Date.now()
       });
 
-      console.log(`[TokenManager] ✅ Tokens saved for user ${userId} (Firestore: ${saved ? 'yes' : 'fallback-only'})`);
+      console.log(`[TokenManager] ✅ Tokens saved for user ${userId} (Supabase: ${saved ? 'yes' : 'fallback-only'})`);
       return saved;
     } catch (error) {
       console.error(`[TokenManager] Error saving tokens:`, error);
@@ -57,12 +57,12 @@ class TokenManager {
     try {
       console.log(`[TokenManager] Getting valid tokens for user ${userId}`);
 
-      // Try Firestore first (with automatic refresh)
-      const firestoreTokens = await firestoreTokenStorage.getValidToken(userId);
+      // Try Supabase first (with automatic refresh)
+      const supabaseTokens = await supabaseTokenStorage.getValidToken(userId);
 
-      if (firestoreTokens && firestoreTokens.access_token) {
-        console.log(`[TokenManager] ✅ Found valid tokens in Firestore for user ${userId}`);
-        return firestoreTokens;
+      if (supabaseTokens && supabaseTokens.access_token) {
+        console.log(`[TokenManager] ✅ Found valid tokens in Supabase for user ${userId}`);
+        return supabaseTokens;
       }
 
       // Fallback to memory store
@@ -70,7 +70,7 @@ class TokenManager {
       if (memoryData && memoryData.tokens) {
         console.log(`[TokenManager] Found tokens in memory for user ${userId}`);
 
-        // Try to migrate to Firestore
+        // Try to migrate to Supabase
         await this.saveTokens(userId, memoryData.tokens);
 
         return memoryData.tokens;
@@ -97,10 +97,10 @@ class TokenManager {
         if (userData.tokens.access_token === accessToken) {
           console.log(`[TokenManager] Found user ${userId} by access token in memory`);
 
-          // Verify in Firestore and return fresh tokens
-          const firestoreTokens = await firestoreTokenStorage.getValidToken(userId);
-          if (firestoreTokens) {
-            return { userId, tokens: firestoreTokens };
+          // Verify in Supabase and return fresh tokens
+          const supabaseTokens = await supabaseTokenStorage.getValidToken(userId);
+          if (supabaseTokens) {
+            return { userId, tokens: supabaseTokens };
           }
 
           return { userId, tokens: userData.tokens };
@@ -122,8 +122,8 @@ class TokenManager {
     try {
       console.log(`[TokenManager] Removing tokens for user ${userId}`);
 
-      // Remove from Firestore
-      await firestoreTokenStorage.removeUserToken(userId);
+      // Remove from Supabase
+      await supabaseTokenStorage.removeUserToken(userId);
 
       // Remove from memory
       this.memoryStore.delete(userId);
@@ -159,10 +159,10 @@ class TokenManager {
   }
 
   /**
-   * Migrate all memory tokens to Firestore
+   * Migrate all memory tokens to Supabase
    */
-  async migrateAllToFirestore() {
-    console.log(`[TokenManager] Migrating all memory tokens to Firestore...`);
+  async migrateAllToSupabase() {
+    console.log(`[TokenManager] Migrating all memory tokens to Supabase...`);
     let migrated = 0;
 
     for (const [userId, userData] of this.memoryStore.entries()) {
@@ -174,7 +174,7 @@ class TokenManager {
       }
     }
 
-    console.log(`[TokenManager] ✅ Migrated ${migrated} users to Firestore`);
+    console.log(`[TokenManager] ✅ Migrated ${migrated} users to Supabase`);
     return migrated;
   }
 }
