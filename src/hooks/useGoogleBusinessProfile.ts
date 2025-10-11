@@ -35,18 +35,6 @@ export const useGoogleBusinessProfile = (): UseGoogleBusinessProfileReturn => {
   const hasInitialized = useRef(false);
   const lastUserId = useRef<string | null>(null);
 
-  // Store stable references to functions to avoid dependency issues
-  const loadBusinessAccountsRef = useRef(loadBusinessAccounts);
-  const toastRef = useRef(toast);
-  const navigateRef = useRef(navigate);
-
-  // Update refs when functions change
-  useEffect(() => {
-    loadBusinessAccountsRef.current = loadBusinessAccounts;
-    toastRef.current = toast;
-    navigateRef.current = navigate;
-  }, [loadBusinessAccounts, toast, navigate]);
-
   // Save GBP-user association
   const saveGbpAssociation = useCallback(async (gbpAccountId: string) => {
     if (!currentUser?.uid) return;
@@ -241,7 +229,7 @@ export const useGoogleBusinessProfile = (): UseGoogleBusinessProfileReturn => {
         if (hasValidTokens) {
           console.log('🔍 DEBUGGING: Loading business accounts...');
           try {
-            await loadBusinessAccountsRef.current();
+            await loadBusinessAccounts();
           } catch (loadError) {
             console.error('❌ DEBUGGING: Failed to load business accounts:', loadError);
             // Don't set error state if it's just a temporary issue
@@ -273,15 +261,15 @@ export const useGoogleBusinessProfile = (): UseGoogleBusinessProfileReturn => {
     const handleConnectionEvent = async (event: CustomEvent) => {
       console.log('Google Business Profile connection event received:', event.detail);
       setIsConnected(true);
-      await loadBusinessAccountsRef.current();
-      toastRef.current({
+      await loadBusinessAccounts();
+      toast({
         title: "Connection successful!",
         description: "Loading your business profiles...",
       });
 
       // Redirect to dashboard after successful OAuth callback connection
       console.log('🔄 Redirecting to dashboard after OAuth callback...');
-      navigateRef.current('/dashboard');
+      navigate('/dashboard');
     };
 
     window.addEventListener('googleBusinessProfileConnected', handleConnectionEvent as EventListener);
@@ -292,6 +280,7 @@ export const useGoogleBusinessProfile = (): UseGoogleBusinessProfileReturn => {
       window.removeEventListener('googleBusinessProfileConnected', handleConnectionEvent as EventListener);
     };
     // Only re-initialize if the user ID actually changes
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentUser?.uid]);
 
   // Connect to Google Business Profile (frontend-only)
