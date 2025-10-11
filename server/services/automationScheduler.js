@@ -214,7 +214,7 @@ class AutomationScheduler {
       
       // Create the post via Google Business Profile API (v1 - current version)
       // Updated API endpoint for Google Business Profile API v1
-      const postUrl = `https://businessprofileperformance.googleapis.com/v1/locations/${locationId}/localPosts`;
+      const postUrl = `https://mybusiness.googleapis.com/v1/locations/${locationId}/localPosts`;
       console.log(`[AutomationScheduler] Posting to URL: ${postUrl}`);
       
       const postData = {
@@ -751,7 +751,7 @@ CRITICAL RULES - MUST FOLLOW ALL:
         // Try Google Business Profile API v1 first
         console.log(`[AutomationScheduler] Fetching reviews using modern API for location ${locationId}...`);
         response = await fetch(
-          `https://businessprofileperformance.googleapis.com/v1/locations/${locationId}/reviews`,
+          `https://mybusiness.googleapis.com/v1/locations/${locationId}/reviews`,
           {
             headers: {
               'Authorization': `Bearer ${userToken.access_token}`
@@ -864,7 +864,7 @@ CRITICAL RULES - MUST FOLLOW ALL:
         // Try Google Business Profile API v1 first
         console.log(`[AutomationScheduler] Attempting to reply using modern API...`);
         const modernResponse = await fetch(
-          `https://businessprofileperformance.googleapis.com/v1/locations/${locationId}/reviews/${reviewId}/reply`,
+          `https://mybusiness.googleapis.com/v1/locations/${locationId}/reviews/${reviewId}/reply`,
           {
             method: 'PATCH',
             headers: {
