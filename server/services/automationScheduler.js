@@ -212,9 +212,10 @@ class AutomationScheduler {
       // Generate post content using AI
       const postContent = await this.generatePostContent(config);
       
-      // Create the post via Google Business Profile API (v1 - current version)
-      // Updated API endpoint for Google Business Profile API v1
-      const postUrl = `https://mybusiness.googleapis.com/v1/locations/${locationId}/localPosts`;
+      // Create the post via Google Business Profile API (v4 - current version)
+      // v4 requires accountId in the path
+      const accountId = config.accountId || '106433552101751461082';
+      const postUrl = `https://mybusiness.googleapis.com/v4/accounts/${accountId}/locations/${locationId}/localPosts`;
       console.log(`[AutomationScheduler] Posting to URL: ${postUrl}`);
       
       const postData = {
@@ -748,29 +749,9 @@ CRITICAL RULES - MUST FOLLOW ALL:
       let reviews = [];
       
       try {
-        // Try Google Business Profile API v1 first
-        console.log(`[AutomationScheduler] Fetching reviews using modern API for location ${locationId}...`);
-        response = await fetch(
-          `https://mybusiness.googleapis.com/v1/locations/${locationId}/reviews`,
-          {
-            headers: {
-              'Authorization': `Bearer ${userToken.access_token}`
-            }
-          }
-        );
-        
-        if (response.ok) {
-          const data = await response.json();
-          reviews = data.reviews || [];
-          console.log(`[AutomationScheduler] ✅ Modern API: Found ${reviews.length} reviews`);
-        } else {
-          throw new Error(`Modern API failed with status: ${response.status}`);
-        }
-      } catch (error) {
-        console.log(`[AutomationScheduler] 🔄 Modern API failed, trying fallback...`);
-        
-        // Fallback to older API
+        // Use Google Business Profile API v4 (current version)
         const accountId = config.accountId || '106433552101751461082';
+        console.log(`[AutomationScheduler] Fetching reviews using API v4 for location ${locationId}...`);
         response = await fetch(
           `https://mybusiness.googleapis.com/v4/accounts/${accountId}/locations/${locationId}/reviews`,
           {
@@ -781,13 +762,13 @@ CRITICAL RULES - MUST FOLLOW ALL:
         );
 
         if (!response.ok) {
-          console.error(`[AutomationScheduler] ❌ Both APIs failed to fetch reviews:`, await response.text());
+          console.error(`[AutomationScheduler] ❌ Failed to fetch reviews:`, await response.text());
           return;
         }
 
         const data = await response.json();
         reviews = data.reviews || [];
-        console.log(`[AutomationScheduler] ✅ Fallback API: Found ${reviews.length} reviews`);
+        console.log(`[AutomationScheduler] ✅ Found ${reviews.length} reviews`);
       }
       
       // Get list of already replied reviews
@@ -860,55 +841,29 @@ CRITICAL RULES - MUST FOLLOW ALL:
       // Send reply via Google Business Profile API - try modern endpoint first
       let success = false;
       
-      try {
-        // Try Google Business Profile API v1 first
-        console.log(`[AutomationScheduler] Attempting to reply using modern API...`);
-        const modernResponse = await fetch(
-          `https://mybusiness.googleapis.com/v1/locations/${locationId}/reviews/${reviewId}/reply`,
-          {
-            method: 'PATCH',
-            headers: {
-              'Authorization': `Bearer ${token.access_token}`,
-              'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-              comment: replyText
-            })
-          }
-        );
-
-        if (modernResponse.ok) {
-          console.log(`[AutomationScheduler] ✅ Modern API: Successfully replied to review ${reviewId}`);
-          success = true;
-        } else {
-          throw new Error(`Modern API failed with status: ${modernResponse.status}`);
+      // Use Google Business Profile API v4
+      const accountId = config.accountId || '106433552101751461082';
+      console.log(`[AutomationScheduler] Attempting to reply using API v4...`);
+      const apiResponse = await fetch(
+        `https://mybusiness.googleapis.com/v4/accounts/${accountId}/locations/${locationId}/reviews/${reviewId}/reply`,
+        {
+          method: 'PUT',
+          headers: {
+            'Authorization': `Bearer ${token.access_token}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            comment: replyText
+          })
         }
-      } catch (error) {
-        console.log(`[AutomationScheduler] 🔄 Modern API failed, trying fallback...`);
-        
-        // Fallback to older API
-        const accountId = config.accountId || '106433552101751461082';
-        const fallbackResponse = await fetch(
-          `https://mybusiness.googleapis.com/v4/accounts/${accountId}/locations/${locationId}/reviews/${reviewId}/reply`,
-          {
-            method: 'PUT',
-            headers: {
-              'Authorization': `Bearer ${token.access_token}`,
-              'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-              comment: replyText
-            })
-          }
-        );
+      );
 
-        if (fallbackResponse.ok) {
-          console.log(`[AutomationScheduler] ✅ Fallback API: Successfully replied to review ${reviewId}`);
-          success = true;
-        } else {
-          const error = await fallbackResponse.text();
-          console.error(`[AutomationScheduler] ❌ Both APIs failed to reply to review:`, error);
-        }
+      if (apiResponse.ok) {
+        console.log(`[AutomationScheduler] ✅ Successfully replied to review ${reviewId}`);
+        success = true;
+      } else {
+        const error = await apiResponse.text();
+        console.error(`[AutomationScheduler] ❌ Failed to reply to review:`, error);
       }
 
       if (success) {
