@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { BusinessAccount, BusinessLocation, googleBusinessProfileService } from '@/lib/googleBusinessProfile';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
@@ -29,6 +29,23 @@ export const useGoogleBusinessProfile = (): UseGoogleBusinessProfileReturn => {
   const { toast } = useToast();
   const { currentUser } = useAuth();
   const navigate = useNavigate();
+
+  // Track initialization to prevent multiple concurrent initializations
+  const isInitializing = useRef(false);
+  const hasInitialized = useRef(false);
+  const lastUserId = useRef<string | null>(null);
+
+  // Store stable references to functions to avoid dependency issues
+  const loadBusinessAccountsRef = useRef(loadBusinessAccounts);
+  const toastRef = useRef(toast);
+  const navigateRef = useRef(navigate);
+
+  // Update refs when functions change
+  useEffect(() => {
+    loadBusinessAccountsRef.current = loadBusinessAccounts;
+    toastRef.current = toast;
+    navigateRef.current = navigate;
+  }, [loadBusinessAccounts, toast, navigate]);
 
   // Save GBP-user association
   const saveGbpAssociation = useCallback(async (gbpAccountId: string) => {
@@ -181,14 +198,29 @@ export const useGoogleBusinessProfile = (): UseGoogleBusinessProfileReturn => {
 
   // Initialize and check existing connection
   useEffect(() => {
+    const currentUserId = currentUser?.uid || null;
+
+    // Skip if already initializing or if user hasn't changed
+    if (isInitializing.current || (hasInitialized.current && lastUserId.current === currentUserId)) {
+      console.log('🔍 DEBUGGING: Skipping initialization (already initialized or in progress)');
+      return;
+    }
+
     const initializeConnection = async () => {
+      // Prevent concurrent initializations
+      if (isInitializing.current) {
+        console.log('🔍 DEBUGGING: Initialization already in progress, skipping...');
+        return;
+      }
+
+      isInitializing.current = true;
       setIsLoading(true);
       console.log('🔍 DEBUGGING: Initializing Google Business Profile connection...');
-      console.log('🔍 DEBUGGING: Firebase user:', currentUser?.uid);
+      console.log('🔍 DEBUGGING: Firebase user:', currentUserId);
 
       try {
         // Set the current user ID in the service for Firestore operations
-        googleBusinessProfileService.setCurrentUserId(currentUser?.uid || null);
+        googleBusinessProfileService.setCurrentUserId(currentUserId);
 
         // Check if we just reloaded after payment
         const justReloaded = sessionStorage.getItem('post_payment_reload') === 'true';
@@ -200,18 +232,16 @@ export const useGoogleBusinessProfile = (): UseGoogleBusinessProfileReturn => {
         }
 
         // Load tokens with Firebase user ID
-        const hasValidTokens = await googleBusinessProfileService.loadStoredTokens(currentUser?.uid);
+        const hasValidTokens = await googleBusinessProfileService.loadStoredTokens(currentUserId);
         console.log('🔍 DEBUGGING: Has valid tokens?', hasValidTokens);
         console.log('🔍 DEBUGGING: Service isConnected?', googleBusinessProfileService.isConnected());
-        console.log('🔍 DEBUGGING: LocalStorage tokens:', localStorage.getItem('google_business_tokens'));
-        console.log('🔍 DEBUGGING: LocalStorage connected flag:', localStorage.getItem('google_business_connected'));
 
         setIsConnected(hasValidTokens);
 
         if (hasValidTokens) {
           console.log('🔍 DEBUGGING: Loading business accounts...');
           try {
-            await loadBusinessAccounts();
+            await loadBusinessAccountsRef.current();
           } catch (loadError) {
             console.error('❌ DEBUGGING: Failed to load business accounts:', loadError);
             // Don't set error state if it's just a temporary issue
@@ -225,12 +255,17 @@ export const useGoogleBusinessProfile = (): UseGoogleBusinessProfileReturn => {
         } else {
           console.log('🔍 DEBUGGING: No valid tokens, skipping account load');
         }
+
+        // Mark as initialized
+        hasInitialized.current = true;
+        lastUserId.current = currentUserId;
       } catch (error) {
         console.error('❌ DEBUGGING: Error initializing Google Business Profile connection:', error);
         setError('Failed to initialize connection');
       } finally {
         setIsLoading(false);
-        console.log('🔍 DEBUGGING: Initialization complete. Final state - isConnected:', isConnected);
+        isInitializing.current = false;
+        console.log('🔍 DEBUGGING: Initialization complete');
       }
     };
 
@@ -238,25 +273,26 @@ export const useGoogleBusinessProfile = (): UseGoogleBusinessProfileReturn => {
     const handleConnectionEvent = async (event: CustomEvent) => {
       console.log('Google Business Profile connection event received:', event.detail);
       setIsConnected(true);
-      await loadBusinessAccounts();
-      toast({
+      await loadBusinessAccountsRef.current();
+      toastRef.current({
         title: "Connection successful!",
         description: "Loading your business profiles...",
       });
-      
+
       // Redirect to dashboard after successful OAuth callback connection
       console.log('🔄 Redirecting to dashboard after OAuth callback...');
-      navigate('/dashboard');
+      navigateRef.current('/dashboard');
     };
 
     window.addEventListener('googleBusinessProfileConnected', handleConnectionEvent as EventListener);
-    
+
     initializeConnection();
 
     return () => {
       window.removeEventListener('googleBusinessProfileConnected', handleConnectionEvent as EventListener);
     };
-  }, [toast, loadBusinessAccounts, currentUser, navigate]);
+    // Only re-initialize if the user ID actually changes
+  }, [currentUser?.uid]);
 
   // Connect to Google Business Profile (frontend-only)
   const connectGoogleBusiness = useCallback(async () => {

@@ -17,7 +17,7 @@ import adminRoutes from './routes/admin.js';
 import { checkSubscription, trackTrialStart, addTrialHeaders } from './middleware/subscriptionCheck.js';
 import SubscriptionService from './services/subscriptionService.js';
 import automationScheduler from './services/automationScheduler.js';
-import firestoreTokenStorage from './services/firestoreTokenStorage.js';
+import supabaseTokenStorage from './services/supabaseTokenStorage.js';
 import tokenManager from './services/tokenManager.js';
 import tokenRefreshService from './services/tokenRefreshService.js';
 import ClientConfigService from './services/clientConfigService.js';
@@ -359,7 +359,7 @@ app.post('/api/review-requests/upload-csv', checkSubscription, async (req, res) 
     const parseResult = await csvProcessingService.parseCSVFile(csvContent, userId, locationId);
 
     // Get access token for review checking
-    const validToken = await firestoreTokenStorage.getValidToken(userId);
+    const validToken = await supabaseTokenStorage.getValidToken(userId);
     let customers = parseResult.customers;
 
     if (validToken) {
@@ -507,7 +507,7 @@ app.post('/api/customers/check-reviews', checkSubscription, async (req, res) => 
     }
 
     // Get access token for review checking
-    const validToken = await firestoreTokenStorage.getValidToken(userId);
+    const validToken = await supabaseTokenStorage.getValidToken(userId);
 
     if (!validToken) {
       return res.status(400).json({ error: 'No valid access token found. Please reconnect your Google Business Profile.' });
@@ -1237,7 +1237,7 @@ app.post('/auth/google/refresh', async (req, res) => {
       // Update Firestore token storage (uses correct format now)
       try {
         console.log('[TOKEN REFRESH] Saving to Firestore...');
-        await firestoreTokenStorage.saveUserToken(userId, tokenData);
+        await supabaseTokenStorage.saveUserToken(userId, tokenData);
         console.log('[TOKEN REFRESH] ✅ Saved to Firestore');
       } catch (firestoreError) {
         console.error('[TOKEN REFRESH] ❌ Failed to update Firestore tokens:', firestoreError);
@@ -1308,7 +1308,7 @@ app.post('/auth/google/save-tokens', async (req, res) => {
     }
 
     try {
-      await firestoreTokenStorage.saveUserToken(userId, tokenData);
+      await supabaseTokenStorage.saveUserToken(userId, tokenData);
       console.log('[SAVE TOKENS] ✅ Saved to Firestore');
     } catch (error) {
       console.error('[SAVE TOKENS] ❌ Failed to save to Firestore:', error);
@@ -1338,7 +1338,7 @@ app.get('/auth/google/token-status/:userId', async (req, res) => {
     // Check Firestore directly first
     let firestoreTokens = null;
     try {
-      firestoreTokens = await firestoreTokenStorage.getUserToken(userId);
+      firestoreTokens = await supabaseTokenStorage.getUserToken(userId);
       console.log('[TOKEN STATUS] Firestore check:', {
         hasFirestoreTokens: !!firestoreTokens,
         hasAccessToken: !!firestoreTokens?.access_token,
@@ -3541,7 +3541,7 @@ app.post('/api/tokens/migrate', async (req, res) => {
 
     // Save tokens to Firestore in the correct format
     const expiresIn = userTokens.expiry_date ? Math.floor((userTokens.expiry_date - Date.now()) / 1000) : 3600;
-    await firestoreTokenStorage.saveUserToken(userId, {
+    await supabaseTokenStorage.saveUserToken(userId, {
       access_token: userTokens.access_token,
       refresh_token: userTokens.refresh_token,
       expires_in: expiresIn > 0 ? expiresIn : 3600,
@@ -3566,7 +3566,7 @@ app.post('/api/tokens/migrate', async (req, res) => {
 // Firebase health check endpoint
 app.get('/api/firebase/health', async (req, res) => {
   try {
-    const health = await firestoreTokenStorage.healthCheck();
+    const health = await supabaseTokenStorage.healthCheck();
     res.json(health);
   } catch (error) {
     res.status(500).json({
@@ -3600,7 +3600,7 @@ app.post('/api/tokens/force-save', async (req, res) => {
     const expiresIn = userTokens.expiry_date ? Math.floor((userTokens.expiry_date - Date.now()) / 1000) : 3600;
 
     // Try to save to Firestore
-    const success = await firestoreTokenStorage.saveUserToken(userId, {
+    const success = await supabaseTokenStorage.saveUserToken(userId, {
       access_token: userTokens.access_token,
       refresh_token: userTokens.refresh_token,
       expires_in: expiresIn > 0 ? expiresIn : 3600,
@@ -3765,28 +3765,42 @@ app.use((err, req, res, next) => {
   });
 });
 
-// Start the server
-app.listen(PORT, () => {
-  const summary = config.getSummary();
-  console.log(`🚀 Backend server running on ${config.backendUrl}`);
-  console.log(`🏗️ Configuration Mode: ${summary.mode} (${summary.environment})`);
-  console.log('🔑 Google OAuth Configuration:');
-  console.log(`   Client ID: ${summary.hasGoogleClientId ? 'Configured ✅' : 'Missing ❌'}`);
-  console.log(`   Client Secret: ${summary.hasGoogleClientSecret ? 'Configured ✅' : 'Missing ❌'}`);
-  console.log(`   Redirect URI: ${summary.redirectUri}`);
-  console.log('🌐 CORS Configuration:');
-  console.log(`   Frontend URL: ${summary.frontendUrl}`);
-  console.log(`   Allowed Origins: ${summary.allowedOrigins.length} configured`);
-  if (summary.mode === 'AZURE') {
-    console.log(`   Azure Hostname: ${summary.azureHostname}`);
+// Initialize Supabase before starting the server
+async function initializeServer() {
+  try {
+    console.log('🔄 Initializing Supabase...');
+    await supabaseTokenStorage.initialize();
+    console.log('✅ Supabase initialized successfully');
+  } catch (error) {
+    console.error('❌ Failed to initialize Supabase:', error.message);
+    console.error('⚠️ Server will continue but token persistence may not work');
+    console.error('💡 Check SUPABASE_URL and SUPABASE_SERVICE_KEY in .env file');
   }
-  console.log('📊 Available endpoints:');
-  console.log(`   GET  /health`);
-  console.log(`   GET  /health/token-refresh`);
-  console.log(`   GET  /config`);
-  console.log(`   GET  /auth/google/url`);
-  console.log(`   POST /auth/google/callback`);
-  console.log(`   GET  /api/accounts`);
+}
+
+// Start the server
+initializeServer().then(() => {
+  app.listen(PORT, () => {
+    const summary = config.getSummary();
+    console.log(`🚀 Backend server running on ${config.backendUrl}`);
+    console.log(`🏗️ Configuration Mode: ${summary.mode} (${summary.environment})`);
+    console.log('🔑 Google OAuth Configuration:');
+    console.log(`   Client ID: ${summary.hasGoogleClientId ? 'Configured ✅' : 'Missing ❌'}`);
+    console.log(`   Client Secret: ${summary.hasGoogleClientSecret ? 'Configured ✅' : 'Missing ❌'}`);
+    console.log(`   Redirect URI: ${summary.redirectUri}`);
+    console.log('🌐 CORS Configuration:');
+    console.log(`   Frontend URL: ${summary.frontendUrl}`);
+    console.log(`   Allowed Origins: ${summary.allowedOrigins.length} configured`);
+    if (summary.mode === 'AZURE') {
+      console.log(`   Azure Hostname: ${summary.azureHostname}`);
+    }
+    console.log('📊 Available endpoints:');
+    console.log(`   GET  /health`);
+    console.log(`   GET  /health/token-refresh`);
+    console.log(`   GET  /config`);
+    console.log(`   GET  /auth/google/url`);
+    console.log(`   POST /auth/google/callback`);
+    console.log(`   GET  /api/accounts`);
   console.log(`   GET  /api/accounts/:accountName/locations`);
   console.log(`   POST /api/locations/:locationId/posts`);
   console.log(`   GET  /api/locations/:locationId/posts`);
@@ -3822,6 +3836,10 @@ app.listen(PORT, () => {
       console.error('❌ [AUTOMATION] Failed to restart automations:', error);
     }
   }, 5000); // Wait 5 seconds after server start to ensure all services are ready
+  });
+}).catch(error => {
+  console.error('❌ Failed to initialize server:', error);
+  process.exit(1);
 });
 
 
