@@ -20,6 +20,9 @@ COPY . .
 # Change ownership to nodejs user
 RUN chown -R nodejs:nodejs /app
 
+# Verify .env.azure is present (it should be included via .dockerignore negation)
+RUN ls -la .env.azure || echo "Warning: .env.azure not found, will use production defaults"
+
 # Switch to non-root user for security
 USER nodejs
 

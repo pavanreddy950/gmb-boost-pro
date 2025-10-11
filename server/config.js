@@ -33,11 +33,21 @@ class Config {
     const result = dotenv.config({ path: envPath });
 
     if (result.error) {
-      console.warn(`⚠️ Could not load ${envFile}, falling back to default environment variables`);
+      console.warn(`⚠️ Could not load ${envFile} from ${envPath}`);
+      console.warn(`⚠️ Error: ${result.error.message}`);
+      console.warn(`⚠️ Falling back to environment variables or defaults...`);
+
       // Try loading the other config as fallback
       const fallbackFile = envFile === '.env.local' ? '.env.azure' : '.env.local';
       const fallbackPath = path.join(__dirname, fallbackFile);
-      dotenv.config({ path: fallbackPath });
+      const fallbackResult = dotenv.config({ path: fallbackPath });
+
+      if (fallbackResult.error) {
+        console.warn(`⚠️ Could not load fallback ${fallbackFile} either`);
+        console.warn(`⚠️ Relying entirely on environment variables and production defaults`);
+      } else {
+        console.log(`✅ Loaded configuration from fallback ${fallbackFile}`);
+      }
     } else {
       console.log(`✅ Loaded configuration from ${envFile}`);
     }
