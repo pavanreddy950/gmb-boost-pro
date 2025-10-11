@@ -57,7 +57,9 @@
       "Bash(npm run build:azure:*)",
       "Bash(npm run dev:local:*)",
       "Bash(az webapp list:*)",
-      "Bash(npm start)"
+      "Bash(npm start)",
+      "Bash(sed:*)",
+      "Bash(git checkout:*)"
     ],
     "deny": [],
     "ask": []

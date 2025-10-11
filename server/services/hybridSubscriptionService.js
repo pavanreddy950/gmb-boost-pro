@@ -4,11 +4,20 @@ import firestoreSubscriptionService from './firestoreSubscriptionService.js';
 /**
  * Hybrid Subscription Service
  *
- * This service tries to use Firestore first (cloud persistence),
- * and falls back to file-based storage if Firestore is unavailable.
+ * This service uses FILE-BASED STORAGE as the source of truth for subscription data,
+ * with Firestore as a cloud backup/sync system.
  *
- * All writes go to both systems for redundancy.
- * Reads prioritize Firestore, with file-based storage as fallback.
+ * ARCHITECTURE:
+ * - All writes go to file storage FIRST, then sync to Firestore
+ * - All reads come from file storage FIRST (preserves profileCount for multi-profile subscriptions)
+ * - Firestore is used as backup only if file storage is unavailable
+ * - This ensures multi-profile subscription data (profileCount, paidLocationIds) persists correctly
+ *
+ * REASON FOR FILE-FIRST APPROACH:
+ * - Prevents data loss when users pay for 2+ profiles
+ * - File storage immediately reflects payment updates with accurate profileCount
+ * - Firestore sync may lag or fail, causing stale data on reads
+ * - On server restart, file storage guarantees correct subscription state
  */
 class HybridSubscriptionService {
   constructor() {
@@ -67,58 +76,83 @@ class HybridSubscriptionService {
     return fileSaved;
   }
 
-  // Get subscription by GBP Account ID (reads from Firestore first, then file)
+  // Get subscription by GBP Account ID (reads from FILE FIRST as source of truth, then syncs to Firestore)
   async getSubscriptionByGBPAccount(gbpAccountId) {
     await this.ensureInitialized();
 
-    // Try Firestore first
-    if (this.useFirestore) {
-      try {
-        const subscription = await firestoreSubscriptionService.getSubscriptionByGBPAccount(gbpAccountId);
-        if (subscription) {
-          console.log(`[HybridSubscriptionService] Retrieved subscription from Firestore`);
-          return subscription;
-        }
-      } catch (error) {
-        console.error('[HybridSubscriptionService] Error reading from Firestore, falling back to file storage:', error.message);
-      }
-    }
-
-    // Fallback to file-based storage
+    // Read from file-based storage FIRST (source of truth for multi-profile subscriptions)
     const subscription = persistentSubscriptionService.getSubscriptionByGBPAccount(gbpAccountId);
-    if (subscription) {
-      console.log(`[HybridSubscriptionService] Retrieved subscription from file storage`);
 
-      // Sync to Firestore if available and subscription exists
-      if (this.useFirestore && subscription) {
+    if (subscription) {
+      console.log(`[HybridSubscriptionService] ✅ Retrieved subscription from file storage (source of truth)`);
+      console.log(`[HybridSubscriptionService] Profile count: ${subscription.profileCount || 1}, Paid locations: ${subscription.paidLocationIds?.length || 0}`);
+
+      // Sync to Firestore if available to keep cloud backup updated
+      if (this.useFirestore) {
         try {
           await firestoreSubscriptionService.saveSubscription(subscription);
-          console.log(`[HybridSubscriptionService] Synced subscription to Firestore`);
+          console.log(`[HybridSubscriptionService] Synced subscription to Firestore backup`);
         } catch (error) {
           console.error('[HybridSubscriptionService] Failed to sync to Firestore:', error.message);
         }
       }
+
+      return subscription;
     }
 
-    return subscription;
+    // If not in file storage, try Firestore as backup
+    if (this.useFirestore) {
+      try {
+        const firestoreSubscription = await firestoreSubscriptionService.getSubscriptionByGBPAccount(gbpAccountId);
+        if (firestoreSubscription) {
+          console.log(`[HybridSubscriptionService] Retrieved subscription from Firestore backup`);
+          // Save to file storage to restore it as source of truth
+          persistentSubscriptionService.saveSubscription(firestoreSubscription);
+          return firestoreSubscription;
+        }
+      } catch (error) {
+        console.error('[HybridSubscriptionService] Error reading from Firestore:', error.message);
+      }
+    }
+
+    console.log(`[HybridSubscriptionService] No subscription found for GBP: ${gbpAccountId}`);
+    return null;
   }
 
   // Get subscription by ID
   async getSubscriptionById(subscriptionId) {
     await this.ensureInitialized();
 
-    // Try Firestore first
+    // Read from file-based storage FIRST (source of truth)
+    const subscription = persistentSubscriptionService.getSubscriptionById(subscriptionId);
+
+    if (subscription) {
+      // Sync to Firestore if available
+      if (this.useFirestore) {
+        try {
+          await firestoreSubscriptionService.saveSubscription(subscription);
+        } catch (error) {
+          console.error('[HybridSubscriptionService] Failed to sync to Firestore:', error.message);
+        }
+      }
+      return subscription;
+    }
+
+    // If not in file storage, try Firestore as backup
     if (this.useFirestore) {
       try {
-        const subscription = await firestoreSubscriptionService.getSubscriptionById(subscriptionId);
-        if (subscription) return subscription;
+        const firestoreSubscription = await firestoreSubscriptionService.getSubscriptionById(subscriptionId);
+        if (firestoreSubscription) {
+          // Save to file storage to restore it as source of truth
+          persistentSubscriptionService.saveSubscription(firestoreSubscription);
+          return firestoreSubscription;
+        }
       } catch (error) {
         console.error('[HybridSubscriptionService] Error reading from Firestore:', error.message);
       }
     }
 
-    // Fallback to file-based storage
-    return persistentSubscriptionService.getSubscriptionById(subscriptionId);
+    return null;
   }
 
   // Update subscription (updates both)
@@ -161,20 +195,41 @@ class HybridSubscriptionService {
   async getAllSubscriptions() {
     await this.ensureInitialized();
 
-    // Try Firestore first
+    // Read from file-based storage FIRST (source of truth)
+    const subscriptions = persistentSubscriptionService.getAllSubscriptions();
+
+    if (subscriptions && subscriptions.length > 0) {
+      // Sync all to Firestore if available
+      if (this.useFirestore) {
+        try {
+          for (const subscription of subscriptions) {
+            await firestoreSubscriptionService.saveSubscription(subscription);
+          }
+          console.log(`[HybridSubscriptionService] Synced ${subscriptions.length} subscriptions to Firestore`);
+        } catch (error) {
+          console.error('[HybridSubscriptionService] Failed to sync all subscriptions to Firestore:', error.message);
+        }
+      }
+      return subscriptions;
+    }
+
+    // If no subscriptions in file storage, try Firestore as backup
     if (this.useFirestore) {
       try {
-        const subscriptions = await firestoreSubscriptionService.getAllSubscriptions();
-        if (subscriptions && subscriptions.length > 0) {
-          return subscriptions;
+        const firestoreSubscriptions = await firestoreSubscriptionService.getAllSubscriptions();
+        if (firestoreSubscriptions && firestoreSubscriptions.length > 0) {
+          // Restore all to file storage
+          for (const subscription of firestoreSubscriptions) {
+            persistentSubscriptionService.saveSubscription(subscription);
+          }
+          return firestoreSubscriptions;
         }
       } catch (error) {
         console.error('[HybridSubscriptionService] Error reading all from Firestore:', error.message);
       }
     }
 
-    // Fallback to file-based storage
-    return persistentSubscriptionService.getAllSubscriptions();
+    return [];
   }
 
   // Check if subscription is valid
@@ -207,35 +262,71 @@ class HybridSubscriptionService {
   async getGbpAccountByUserId(userId) {
     await this.ensureInitialized();
 
-    // Try Firestore first
+    // Read from file-based storage FIRST (source of truth)
+    const gbpAccountId = persistentSubscriptionService.getGbpAccountByUserId(userId);
+
+    if (gbpAccountId) {
+      // Sync to Firestore if available
+      if (this.useFirestore) {
+        try {
+          await firestoreSubscriptionService.saveUserGbpMapping(userId, gbpAccountId);
+        } catch (error) {
+          console.error('[HybridSubscriptionService] Failed to sync mapping to Firestore:', error.message);
+        }
+      }
+      return gbpAccountId;
+    }
+
+    // If not in file storage, try Firestore as backup
     if (this.useFirestore) {
       try {
-        const gbpAccountId = await firestoreSubscriptionService.getGbpAccountByUserId(userId);
-        if (gbpAccountId) return gbpAccountId;
+        const firestoreGbpAccountId = await firestoreSubscriptionService.getGbpAccountByUserId(userId);
+        if (firestoreGbpAccountId) {
+          // Restore to file storage
+          persistentSubscriptionService.saveUserGbpMapping(userId, firestoreGbpAccountId);
+          return firestoreGbpAccountId;
+        }
       } catch (error) {
         console.error('[HybridSubscriptionService] Error reading mapping from Firestore:', error.message);
       }
     }
 
-    // Fallback to file-based storage
-    return persistentSubscriptionService.getGbpAccountByUserId(userId);
+    return null;
   }
 
   async getUserIdByGbpAccount(gbpAccountId) {
     await this.ensureInitialized();
 
-    // Try Firestore first
+    // Read from file-based storage FIRST (source of truth)
+    const userId = persistentSubscriptionService.getUserIdByGbpAccount(gbpAccountId);
+
+    if (userId) {
+      // Sync to Firestore if available
+      if (this.useFirestore) {
+        try {
+          await firestoreSubscriptionService.saveUserGbpMapping(userId, gbpAccountId);
+        } catch (error) {
+          console.error('[HybridSubscriptionService] Failed to sync mapping to Firestore:', error.message);
+        }
+      }
+      return userId;
+    }
+
+    // If not in file storage, try Firestore as backup
     if (this.useFirestore) {
       try {
-        const userId = await firestoreSubscriptionService.getUserIdByGbpAccount(gbpAccountId);
-        if (userId) return userId;
+        const firestoreUserId = await firestoreSubscriptionService.getUserIdByGbpAccount(gbpAccountId);
+        if (firestoreUserId) {
+          // Restore to file storage
+          persistentSubscriptionService.saveUserGbpMapping(firestoreUserId, gbpAccountId);
+          return firestoreUserId;
+        }
       } catch (error) {
         console.error('[HybridSubscriptionService] Error reading mapping from Firestore:', error.message);
       }
     }
 
-    // Fallback to file-based storage
-    return persistentSubscriptionService.getUserIdByGbpAccount(gbpAccountId);
+    return null;
   }
 
   // Get subscription by user ID

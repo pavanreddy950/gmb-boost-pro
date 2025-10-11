@@ -9,7 +9,7 @@
       "trialStartDate": "2025-09-10T07:15:15.788Z",
       "trialEndDate": "2025-09-10T07:17:15.788Z",
       "createdAt": "2025-09-10T07:15:15.788Z",
-      "updatedAt": "2025-10-06T10:12:42.160Z",
+      "updatedAt": "2025-10-10T17:33:54.824Z",
       "paymentHistory": [
         {
           "id": "pay_1757488704953_lmo5xxwf5",
@@ -106,6 +106,18 @@
           "description": "Pro Plan",
           "paidAt": "2025-10-06T10:12:42.158Z",
           "createdAt": "2025-10-06T10:12:42.158Z"
+        },
+        {
+          "id": "pay_1760117634823_8x7w5ic08",
+          "amount": 1,
+          "currency": "INR",
+          "status": "success",
+          "razorpayPaymentId": "pay_RRr0xbByZfmZXr",
+          "razorpayOrderId": "order_RRr0k5VaukFDPn",
+          "razorpaySignature": "f6778140c8ff59058fc251ff1e4f5d0399004d2dfca88ef2b0fb59a184a4f595",
+          "description": "Pro Plan",
+          "paidAt": "2025-10-10T17:33:54.477Z",
+          "createdAt": "2025-10-10T17:33:54.823Z"
         }
       ],
       "planId": "per_profile_yearly",
@@ -117,7 +129,8 @@
       "currency": "INR",
       "subscriptionStartDate": "2025-10-06T10:12:42.160Z",
       "paidAt": "2025-10-06T10:12:42.160Z",
-      "profileCount": 1,
+      "profileCount": 16,
+      "paidLocationIds": [],
       "cancelledAt": "2025-10-06T10:06:37.147Z",
       "cancelledBy": "scalepointstrategy@gmail.com"
     },

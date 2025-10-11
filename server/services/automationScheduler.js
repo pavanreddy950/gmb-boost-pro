@@ -3,7 +3,7 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import fetch from 'node-fetch';
-import firestoreTokenStorage from './firestoreTokenStorage.js';
+import supabaseTokenStorage from './supabaseTokenStorage.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -73,7 +73,7 @@ class AutomationScheduler {
 
   // Get valid token for user with automatic refresh
   async getValidTokenForUser(userId) {
-    return await firestoreTokenStorage.getValidToken(userId);
+    return await supabaseTokenStorage.getValidToken(userId);
   }
 
   // Initialize all automation schedules

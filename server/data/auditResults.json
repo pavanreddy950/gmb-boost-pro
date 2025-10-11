@@ -1,76 +1,12 @@
 [
   {
-    "id": "audit_1759437332145_gfkgt6tlv",
+    "id": "audit_1760118088521_899tmvg55",
     "userId": "OBm8qZc0jOWcY53x6rQuX4gKKnQ2",
     "userEmail": "scalepointstrategy@gmail.com",
     "locationId": "locations/14977377147025961194",
     "locationName": "Scale Point Strategy & Business Growth Solutions",
     "performance": {
       "timeSeriesData": [
-        {
-          "views": 8,
-          "impressions": 8,
-          "calls": 0,
-          "websiteClicks": 0,
-          "directionRequests": 3,
-          "date": "2025-09-02"
-        },
-        {
-          "views": 10,
-          "impressions": 10,
-          "calls": 0,
-          "websiteClicks": 0,
-          "directionRequests": 1,
-          "date": "2025-09-03"
-        },
-        {
-          "views": 5,
-          "impressions": 5,
-          "calls": 0,
-          "websiteClicks": 0,
-          "directionRequests": 0,
-          "date": "2025-09-04"
-        },
-        {
-          "views": 7,
-          "impressions": 7,
-          "calls": 1,
-          "websiteClicks": 0,
-          "directionRequests": 6,
-          "date": "2025-09-05"
-        },
-        {
-          "views": 5,
-          "impressions": 5,
-          "calls": 0,
-          "websiteClicks": 0,
-          "directionRequests": 0,
-          "date": "2025-09-06"
-        },
-        {
-          "views": 7,
-          "impressions": 7,
-          "calls": 0,
-          "websiteClicks": 0,
-          "directionRequests": 13,
-          "date": "2025-09-07"
-        },
-        {
-          "views": 6,
-          "impressions": 6,
-          "calls": 0,
-          "websiteClicks": 3,
-          "directionRequests": 0,
-          "date": "2025-09-08"
-        },
-        {
-          "views": 5,
-          "impressions": 5,
-          "calls": 0,
-          "websiteClicks": 0,
-          "directionRequests": 1,
-          "date": "2025-09-09"
-        },
         {
           "views": 5,
           "impressions": 5,
@@ -224,36 +160,100 @@
           "date": "2025-09-28"
         },
         {
-          "views": 1,
-          "impressions": 1,
+          "views": 4,
+          "impressions": 4,
           "calls": 0,
           "websiteClicks": 0,
           "directionRequests": 5,
           "date": "2025-09-29"
         },
         {
-          "views": 0,
-          "impressions": 0,
-          "calls": 0,
+          "views": 3,
+          "impressions": 3,
+          "calls": 1,
           "websiteClicks": 0,
           "directionRequests": 0,
           "date": "2025-09-30"
         },
         {
-          "views": 0,
-          "impressions": 0,
+          "views": 2,
+          "impressions": 2,
           "calls": 0,
           "websiteClicks": 0,
           "directionRequests": 0,
           "date": "2025-10-01"
         },
         {
+          "views": 3,
+          "impressions": 3,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 1,
+          "date": "2025-10-02"
+        },
+        {
+          "views": 6,
+          "impressions": 6,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 0,
+          "date": "2025-10-03"
+        },
+        {
+          "views": 4,
+          "impressions": 4,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 0,
+          "date": "2025-10-04"
+        },
+        {
+          "views": 4,
+          "impressions": 4,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 0,
+          "date": "2025-10-05"
+        },
+        {
           "views": 0,
           "impressions": 0,
           "calls": 0,
           "websiteClicks": 0,
           "directionRequests": 0,
-          "date": "2025-10-02"
+          "date": "2025-10-06"
+        },
+        {
+          "views": 0,
+          "impressions": 0,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 1,
+          "date": "2025-10-07"
+        },
+        {
+          "views": 0,
+          "impressions": 0,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 0,
+          "date": "2025-10-08"
+        },
+        {
+          "views": 0,
+          "impressions": 0,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 0,
+          "date": "2025-10-09"
+        },
+        {
+          "views": 0,
+          "impressions": 0,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 0,
+          "date": "2025-10-10"
         }
       ]
     },
@@ -262,17 +262,293 @@
     },
     "score": {
       "overall": 51,
-      "performance": 2,
+      "performance": 1,
       "engagement": 100
     },
     "dateRange": {
-      "startDate": "2025-09-02",
-      "endDate": "2025-10-02"
+      "startDate": "2025-09-10",
+      "endDate": "2025-10-10"
     },
-    "timestamp": "2025-10-02T20:35:32.145Z",
+    "timestamp": "2025-10-10T17:41:28.521Z",
     "metadata": {
       "source": "audit_tool",
-      "timestamp": "2025-10-02T20:35:32.129Z"
+      "timestamp": "2025-10-10T17:41:28.503Z"
+    }
+  },
+  {
+    "id": "audit_1760118078980_h72h0oozw",
+    "userId": "OBm8qZc0jOWcY53x6rQuX4gKKnQ2",
+    "userEmail": "scalepointstrategy@gmail.com",
+    "locationId": "locations/3835561564304183366",
+    "locationName": "Preet Pure Veg Restaurant And Hotel",
+    "performance": {
+      "timeSeriesData": [
+        {
+          "views": 9,
+          "impressions": 9,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 0,
+          "date": "2025-09-10"
+        },
+        {
+          "views": 6,
+          "impressions": 6,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 0,
+          "date": "2025-09-11"
+        },
+        {
+          "views": 4,
+          "impressions": 4,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 0,
+          "date": "2025-09-12"
+        },
+        {
+          "views": 13,
+          "impressions": 13,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 6,
+          "date": "2025-09-13"
+        },
+        {
+          "views": 10,
+          "impressions": 10,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 3,
+          "date": "2025-09-14"
+        },
+        {
+          "views": 14,
+          "impressions": 14,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 6,
+          "date": "2025-09-15"
+        },
+        {
+          "views": 9,
+          "impressions": 9,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 0,
+          "date": "2025-09-16"
+        },
+        {
+          "views": 9,
+          "impressions": 9,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 0,
+          "date": "2025-09-17"
+        },
+        {
+          "views": 11,
+          "impressions": 11,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 2,
+          "date": "2025-09-18"
+        },
+        {
+          "views": 6,
+          "impressions": 6,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 0,
+          "date": "2025-09-19"
+        },
+        {
+          "views": 7,
+          "impressions": 7,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 1,
+          "date": "2025-09-20"
+        },
+        {
+          "views": 11,
+          "impressions": 11,
+          "calls": 1,
+          "websiteClicks": 0,
+          "directionRequests": 0,
+          "date": "2025-09-21"
+        },
+        {
+          "views": 6,
+          "impressions": 6,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 4,
+          "date": "2025-09-22"
+        },
+        {
+          "views": 11,
+          "impressions": 11,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 3,
+          "date": "2025-09-23"
+        },
+        {
+          "views": 15,
+          "impressions": 15,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 0,
+          "date": "2025-09-24"
+        },
+        {
+          "views": 9,
+          "impressions": 9,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 0,
+          "date": "2025-09-25"
+        },
+        {
+          "views": 8,
+          "impressions": 8,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 0,
+          "date": "2025-09-26"
+        },
+        {
+          "views": 11,
+          "impressions": 11,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 0,
+          "date": "2025-09-27"
+        },
+        {
+          "views": 12,
+          "impressions": 12,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 4,
+          "date": "2025-09-28"
+        },
+        {
+          "views": 12,
+          "impressions": 12,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 0,
+          "date": "2025-09-29"
+        },
+        {
+          "views": 9,
+          "impressions": 9,
+          "calls": 3,
+          "websiteClicks": 0,
+          "directionRequests": 2,
+          "date": "2025-09-30"
+        },
+        {
+          "views": 11,
+          "impressions": 11,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 3,
+          "date": "2025-10-01"
+        },
+        {
+          "views": 7,
+          "impressions": 7,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 1,
+          "date": "2025-10-02"
+        },
+        {
+          "views": 8,
+          "impressions": 8,
+          "calls": 1,
+          "websiteClicks": 0,
+          "directionRequests": 0,
+          "date": "2025-10-03"
+        },
+        {
+          "views": 13,
+          "impressions": 13,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 0,
+          "date": "2025-10-04"
+        },
+        {
+          "views": 9,
+          "impressions": 9,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 7,
+          "date": "2025-10-05"
+        },
+        {
+          "views": 8,
+          "impressions": 8,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 1,
+          "date": "2025-10-06"
+        },
+        {
+          "views": 3,
+          "impressions": 3,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 3,
+          "date": "2025-10-07"
+        },
+        {
+          "views": 0,
+          "impressions": 0,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 0,
+          "date": "2025-10-08"
+        },
+        {
+          "views": 0,
+          "impressions": 0,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 0,
+          "date": "2025-10-09"
+        },
+        {
+          "views": 0,
+          "impressions": 0,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 0,
+          "date": "2025-10-10"
+        }
+      ]
+    },
+    "recommendations": {
+      "recommendations": []
+    },
+    "score": {
+      "overall": 52,
+      "performance": 5,
+      "engagement": 100
+    },
+    "dateRange": {
+      "startDate": "2025-09-10",
+      "endDate": "2025-10-10"
+    },
+    "timestamp": "2025-10-10T17:41:18.980Z",
+    "metadata": {
+      "source": "audit_tool",
+      "timestamp": "2025-10-10T17:41:18.966Z"
     }
   },
   {

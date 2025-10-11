@@ -295,3 +295,5 @@ No more Firestore, no more service accounts, no more headaches! 🎉
 - Test health endpoint: `GET /api/database/health`
 
 
+
+

@@ -161,16 +161,16 @@ router.get('/subscription/status', async (req, res) => {
 
     // Try to get subscription by GBP account ID first (most specific)
     if (gbpAccountId) {
-      status = subscriptionService.checkSubscriptionStatus(gbpAccountId);
+      status = await subscriptionService.checkSubscriptionStatus(gbpAccountId);
       console.log('[Payment Status] Status by GBP ID:', status);
     }
 
     // If no subscription found by GBP ID or no GBP ID provided, try user ID
     if ((!status || status.status === 'none') && userId) {
-      const userSubscription = subscriptionService.getSubscriptionByUserId(userId);
+      const userSubscription = await subscriptionService.getSubscriptionByUserId(userId);
       if (userSubscription) {
         // Convert subscription to status format
-        status = subscriptionService.checkSubscriptionStatusBySubscription(userSubscription);
+        status = await subscriptionService.checkSubscriptionStatusBySubscription(userSubscription);
         console.log('[Payment Status] Status by User ID:', status);
 
         // Add message to reconnect GBP if found by user ID but no GBP connected

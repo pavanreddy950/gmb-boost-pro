@@ -163,3 +163,5 @@ const supabaseQRCodeService = new SupabaseQRCodeService();
 export default supabaseQRCodeService;
 
 
+
+

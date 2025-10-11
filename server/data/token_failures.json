@@ -2,12 +2,6 @@
   {
     "userId": "jzssBuuuFZUknI20kZuyLXCc6ne2",
     "error": "No valid token returned from storage",
-    "timestamp": "2025-10-06T10:47:07.053Z",
-    "service": "TokenRefreshService"
-  },
-  {
-    "userId": "jzssBuuuFZUknI20kZuyLXCc6ne2",
-    "error": "No valid token returned from storage",
     "timestamp": "2025-10-06T10:47:16.318Z",
     "service": "TokenRefreshService"
   },
@@ -597,6 +591,12 @@
     "userId": "jzssBuuuFZUknI20kZuyLXCc6ne2",
     "error": "No valid token returned from storage",
     "timestamp": "2025-10-06T12:31:49.580Z",
+    "service": "TokenRefreshService"
+  },
+  {
+    "userId": "jzssBuuuFZUknI20kZuyLXCc6ne2",
+    "error": "No valid token returned from storage",
+    "timestamp": "2025-10-10T14:45:04.195Z",
     "service": "TokenRefreshService"
   }
 ]

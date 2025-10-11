@@ -245,7 +245,7 @@ class SubscriptionService {
   }
 
   // Check subscription status by subscription object (used for user ID lookups)
-  checkSubscriptionStatusBySubscription(subscription) {
+  async checkSubscriptionStatusBySubscription(subscription) {
     if (!subscription) {
       return {
         isValid: false,
