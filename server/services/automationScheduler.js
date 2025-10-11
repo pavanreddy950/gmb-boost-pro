@@ -748,29 +748,27 @@ CRITICAL RULES - MUST FOLLOW ALL:
       let response;
       let reviews = [];
       
-      try {
-        // Use Google Business Profile API v4 (current version)
-        const accountId = config.accountId || '106433552101751461082';
-        console.log(`[AutomationScheduler] Fetching reviews using API v4 for location ${locationId}...`);
-        response = await fetch(
-          `https://mybusiness.googleapis.com/v4/accounts/${accountId}/locations/${locationId}/reviews`,
-          {
-            headers: {
-              'Authorization': `Bearer ${userToken.access_token}`
-            }
+      // Use Google Business Profile API v4 (current version)
+      const accountId = config.accountId || '106433552101751461082';
+      console.log(`[AutomationScheduler] Fetching reviews using API v4 for location ${locationId}...`);
+      response = await fetch(
+        `https://mybusiness.googleapis.com/v4/accounts/${accountId}/locations/${locationId}/reviews`,
+        {
+          headers: {
+            'Authorization': `Bearer ${userToken.access_token}`
           }
-        );
-
-        if (!response.ok) {
-          console.error(`[AutomationScheduler] ❌ Failed to fetch reviews:`, await response.text());
-          return;
         }
+      );
 
-        const data = await response.json();
-        reviews = data.reviews || [];
-        console.log(`[AutomationScheduler] ✅ Found ${reviews.length} reviews`);
+      if (!response.ok) {
+        console.error(`[AutomationScheduler] ❌ Failed to fetch reviews:`, await response.text());
+        return;
       }
-      
+
+      const data = await response.json();
+      reviews = data.reviews || [];
+      console.log(`[AutomationScheduler] ✅ Found ${reviews.length} reviews`);
+
       // Get list of already replied reviews
       const repliedReviews = this.getRepliedReviews(locationId);
       
