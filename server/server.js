@@ -532,7 +532,7 @@ app.post('/api/customers/check-reviews', checkSubscription, async (req, res) => 
 app.post('/api/automation/test-post-now/:locationId', async (req, res) => {
   try {
     const { locationId } = req.params;
-    const { businessName, category, keywords, websiteUrl, locationName, city, region, country, fullAddress, userId, accessToken: frontendAccessToken } = req.body;
+    const { businessName, category, keywords, websiteUrl, locationName, city, region, country, fullAddress, phoneNumber, userId, accessToken: frontendAccessToken, button } = req.body;
 
     // Get userId from header or body
     const userIdFromHeader = req.headers['x-user-id'];
@@ -545,6 +545,7 @@ app.post('/api/automation/test-post-now/:locationId', async (req, res) => {
     console.log(`[TEST POST] Final User ID: ${finalUserId}`);
     console.log(`[TEST POST] Frontend sent accessToken: ${frontendAccessToken ? 'Yes' : 'No'}`);
     console.log(`[TEST POST] Authorization header: ${req.headers.authorization ? 'Yes' : 'No'}`);
+    console.log(`[TEST POST] Button config:`, button);
 
     // PRIORITY 1: Check if frontend sent access token in body or header
     let token = frontendAccessToken;
@@ -596,183 +597,139 @@ app.post('/api/automation/test-post-now/:locationId', async (req, res) => {
     }
 
     console.log(`[TEST POST] ✅ Token acquired successfully (length: ${token.length})`);
-    
-    console.log(`[TEST POST] Creating post NOW for location ${locationId}`);
-    console.log(`[TEST POST] Token available:`, token ? 'Yes' : 'No');
-    console.log(`[TEST POST] Token value:`, token ? `${token.substring(0, 20)}...` : 'null');
-    
-    // Create test config with all necessary data
-    const testConfig = {
-      businessName: businessName || 'Business',
-      category: category || 'business',
-      keywords: keywords || 'quality service, customer satisfaction, professional',
-      websiteUrl: websiteUrl || '',
-      locationName: locationName || city || '',
-      city: city || locationName || '',
-      region: region || '',
-      country: country || '',
-      fullAddress: fullAddress || '',
-      userId: 'default',
-      accountId: HARDCODED_ACCOUNT_ID,
-      test: true
-    };
-    
-    console.log(`[TEMP FIX] Test config:`, testConfig);
-    
-    // If we have a token from frontend, try to create a real post
-    if (token) {
-      try {
-        console.log(`[TEMP FIX] Attempting to create real post with token`);
-        
-        // First, try to get the correct account ID from the token
-        let accountId = HARDCODED_ACCOUNT_ID;
-        try {
-          const accountsResponse = await fetch(
-            'https://mybusinessaccountmanagement.googleapis.com/v1/accounts',
-            {
-              headers: {
-                'Authorization': `Bearer ${token}`,
-                'Content-Type': 'application/json'
-              }
-            }
-          );
-          
-          if (accountsResponse.ok) {
-            const accountsData = await accountsResponse.json();
-            const accounts = accountsData.accounts || [];
-            if (accounts.length > 0) {
-              // Extract account ID from account name (format: accounts/123456789)
-              accountId = accounts[0].name.split('/')[1];
-              console.log(`[TEMP FIX] Found account ID from API: ${accountId}`);
-            }
-          }
-        } catch (accountError) {
-          console.log(`[TEMP FIX] Could not fetch account ID, using hardcoded: ${accountId}`);
-        }
-        
-        // Use the existing post creation logic from the main server
-        const postData = {
-          summary: `Test post for ${testConfig.businessName} - ${testConfig.keywords}`,
-          topicType: 'STANDARD',
-          languageCode: 'en-US'
-        };
-        
-        const locationName = `accounts/${accountId}/locations/${locationId}`;
-        const apiUrl = `https://mybusiness.googleapis.com/v4/${locationName}/localPosts`;
-        
-        const response = await fetch(apiUrl, {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify(postData)
-        });
-        
-        if (response.ok) {
-          const data = await response.json();
-          console.log(`[TEMP FIX] Real post created successfully!`);
-          
-          return res.json({ 
-            success: true, 
-            message: 'Test post created successfully! Check your Google Business Profile.',
-            config: testConfig,
-            result: data,
-            realTime: true
-          });
-        } else {
-          const errorText = await response.text();
-          console.log(`[TEMP FIX] Real post creation failed: ${response.status} - ${errorText}`);
-          
-          // Fall back to simulated response
-          const simulatedPost = {
-            name: `${locationName}/localPosts/${Date.now()}`,
-            summary: postData.summary,
-            topicType: postData.topicType,
-            createTime: new Date().toISOString(),
-            updateTime: new Date().toISOString(),
-            state: 'SIMULATED'
+
+    // Generate call-to-action based on button configuration
+    let callToAction = null;
+    if (button?.enabled && button?.type !== 'none') {
+      const buttonType = button.type || 'auto';
+
+      if (buttonType === 'call_now') {
+        if (button.phoneNumber || phoneNumber) {
+          callToAction = {
+            actionType: 'CALL',
+            phoneNumber: button.phoneNumber || phoneNumber
           };
-          
-          return res.json({ 
-            success: true, 
-            message: 'Post creation simulated due to Google API restrictions. This post was not actually submitted to Google Business Profile.',
-            config: testConfig,
-            result: simulatedPost,
-            realTime: false,
-            warning: 'Google has restricted access to the Posts API. Real posting is not currently available.'
-          });
+          console.log(`[TEST POST] ✅ Added CALL button with phone: ${callToAction.phoneNumber}`);
+        } else {
+          console.warn('[TEST POST] Call Now button selected but no phone number provided');
         }
-      } catch (apiError) {
-        console.log(`[TEMP FIX] API error, providing simulated response:`, apiError.message);
-        
-        // Provide simulated response
-        const simulatedPost = {
-          name: `accounts/${accountId}/locations/${locationId}/localPosts/${Date.now()}`,
-          summary: `Test post for ${testConfig.businessName} - ${testConfig.keywords}`,
-          topicType: 'STANDARD',
-          createTime: new Date().toISOString(),
-          updateTime: new Date().toISOString(),
-          state: 'SIMULATED'
-        };
-        
-        return res.json({ 
-          success: true, 
-          message: 'Post creation simulated due to Google API restrictions. This post was not actually submitted to Google Business Profile.',
-          config: testConfig,
-          result: simulatedPost,
-          realTime: false,
-          warning: 'Google has restricted access to the Posts API. Real posting is not currently available.'
-        });
+      } else {
+        // For all other button types, we need a URL
+        const url = button.customUrl || websiteUrl;
+        if (url) {
+          // Map button types to Google Business Profile action types
+          const actionTypeMap = {
+            'auto': getAutoActionType(category),
+            'book': 'BOOK',
+            'order': 'ORDER_ONLINE',
+            'buy': 'BUY',
+            'learn_more': 'LEARN_MORE',
+            'sign_up': 'SIGN_UP'
+          };
+
+          const actionType = actionTypeMap[buttonType] || 'LEARN_MORE';
+          callToAction = {
+            actionType: actionType,
+            url: url
+          };
+          console.log(`[TEST POST] ✅ Added ${actionType} button with URL: ${url}`);
+        } else {
+          console.warn('[TEST POST] Button enabled but no URL available');
+        }
       }
     } else {
-      // No token available - provide more helpful error message
-      console.log(`[TEMP FIX] No access token provided for location ${locationId}`);
-      console.log(`[TEMP FIX] Request headers:`, req.headers);
-      console.log(`[TEMP FIX] Request body keys:`, Object.keys(req.body));
-      
-      // For now, provide a simulated response instead of 401 to help with testing
-      // This allows the automation to work even when tokens are not properly loaded
-      const simulatedPost = {
-        name: `accounts/${HARDCODED_ACCOUNT_ID}/locations/${locationId}/localPosts/${Date.now()}`,
-        summary: `Test post for ${businessName || 'Business'} - ${keywords || 'quality service, customer satisfaction'}`,
-        topicType: 'STANDARD',
-        createTime: new Date().toISOString(),
-        updateTime: new Date().toISOString(),
-        state: 'SIMULATED'
-      };
-      
-      return res.json({ 
-        success: true, 
-        message: 'Test post simulated (no valid token available). Please reconnect your Google Business Profile account for real posting.',
-        config: {
-          businessName: businessName || 'Business',
-          category: category || 'business',
-          keywords: keywords || 'quality service, customer satisfaction',
-          locationId: locationId,
-          test: true
+      console.log(`[TEST POST] ℹ️ Button not enabled or type is 'none'`);
+    }
+
+    // Helper function to determine auto action type based on category
+    function getAutoActionType(category) {
+      const lowerCategory = (category || '').toLowerCase();
+      if (lowerCategory.includes('restaurant') || lowerCategory.includes('food')) {
+        return 'ORDER_ONLINE';
+      }
+      if (lowerCategory.includes('salon') || lowerCategory.includes('spa') || lowerCategory.includes('health')) {
+        return 'BOOK';
+      }
+      if (lowerCategory.includes('retail') || lowerCategory.includes('store') || lowerCategory.includes('shop')) {
+        return 'BUY';
+      }
+      if (lowerCategory.includes('education') || lowerCategory.includes('school') || lowerCategory.includes('course')) {
+        return 'SIGN_UP';
+      }
+      return 'LEARN_MORE'; // Default fallback
+    }
+
+    // Use the existing post creation logic from the main server
+    const postData = {
+      summary: `✅ TEST POST: ${businessName || 'Business'} - This is a test post to verify posting functionality. Keywords: ${keywords || 'quality service, customer satisfaction'}`,
+      topicType: 'STANDARD',
+      languageCode: 'en-US'
+    };
+
+    // Add call-to-action if available
+    if (callToAction) {
+      postData.callToAction = callToAction;
+      console.log(`[TEST POST] ✅ Call-to-action added to post:`, callToAction);
+    }
+
+    console.log(`[TEST POST] Creating post for location ${locationId}`);
+    console.log(`[TEST POST] Post data:`, JSON.stringify(postData, null, 2));
+
+    // Call the SAME endpoint that automated posting uses for consistency
+    // This ensures test posts and automated posts work exactly the same way
+    try {
+      // Use localhost for internal calls - works both locally and in Azure
+      // Azure Web Apps route internal calls to localhost correctly
+      const backendUrl = `http://127.0.0.1:${PORT}`;
+      const internalResponse = await fetch(`${backendUrl}/api/locations/${locationId}/posts`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
         },
-        result: simulatedPost,
-        realTime: false,
-        warning: 'No valid Google Business Profile access token found. This is a simulated response. Please go to Settings > Connections to reconnect your Google Business Profile account.',
-        debug: {
-          hasAuthHeader: !!req.headers.authorization,
-          hasTokenInBody: !!req.body.accessToken,
-          locationId: locationId,
-          businessName: businessName,
-          tokenLength: accessToken ? accessToken.length : 0
-        }
+        body: JSON.stringify(postData)
+      });
+
+      const contentType = internalResponse.headers.get('Content-Type');
+      let result;
+
+      if (contentType && contentType.includes('application/json')) {
+        result = await internalResponse.json();
+      } else {
+        const textResponse = await internalResponse.text();
+        console.error(`[TEST POST] Non-JSON response from internal endpoint:`, textResponse.substring(0, 200));
+        throw new Error('Internal endpoint returned non-JSON response');
+      }
+
+      if (internalResponse.ok && (result.post || result.success)) {
+        console.log(`[TEST POST] ✅ Test post created successfully via internal endpoint!`);
+
+        return res.json({
+          success: true,
+          message: 'Test post created successfully! Check your Google Business Profile.',
+          post: result.post || result,
+          realTime: true
+        });
+      } else {
+        console.log(`[TEST POST] ❌ Internal endpoint failed:`, result);
+        throw new Error(result.error || result.message || 'Internal endpoint failed');
+      }
+    } catch (apiError) {
+      console.log(`[TEST POST] ❌ Error calling internal endpoint:`, apiError.message);
+
+      return res.status(500).json({
+        success: false,
+        error: 'Test post creation failed',
+        details: apiError.message,
+        help: 'The test post could not be created. This might be due to API restrictions or authentication issues. Please check the server logs for more details.'
       });
     }
   } catch (error) {
-    console.error('[TEMP FIX] Error creating test post:', error);
-    console.error('[TEMP FIX] Error stack:', error.stack);
-    console.error('[TEMP FIX] Request body:', req.body);
-    console.error('[TEMP FIX] Request headers:', req.headers);
-    
-    res.status(500).json({ 
-      error: error.message || 'Failed to create test post',
-      details: error.toString(),
+    console.error(`[TEST POST] ❌ Unexpected error:`, error);
+    return res.status(500).json({
+      success: false,
+      error: 'Test post failed with unexpected error',
+      details: error.message,
       stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
     });
   }
