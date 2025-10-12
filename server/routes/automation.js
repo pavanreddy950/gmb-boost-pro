@@ -160,11 +160,11 @@ router.post('/test-post-now/:locationId', async (req, res) => {
     const userIdFromHeader = req.headers['x-user-id'];
     const finalUserId = userId || userIdFromHeader;
 
-    // Get token from Authorization header or body
-    let token = accessToken;
+    // Get token from Authorization header or body (fallback only)
+    let frontendToken = accessToken;
     const authHeader = req.headers.authorization;
     if (authHeader && authHeader.startsWith('Bearer ')) {
-      token = authHeader.substring(7);
+      frontendToken = authHeader.substring(7);
     }
 
     console.log(`[Automation API] TEST MODE - Creating post NOW for location ${locationId}`);
@@ -173,7 +173,7 @@ router.post('/test-post-now/:locationId', async (req, res) => {
     console.log(`[Automation API] Final User ID:`, finalUserId);
     console.log(`[Automation API] Token from body:`, accessToken ? 'Present' : 'Missing');
     console.log(`[Automation API] Token from header:`, authHeader ? 'Present' : 'Missing');
-    console.log(`[Automation API] Final token available:`, token ? 'Yes' : 'No');
+    console.log(`[Automation API] Frontend token available:`, frontendToken ? 'Yes' : 'No');
     
     // Get existing automation settings OR create default
     let settings = automationScheduler.settings.automations?.[locationId];
@@ -232,15 +232,45 @@ router.post('/test-post-now/:locationId', async (req, res) => {
     };
     
     console.log(`[Automation API] Test config:`, testConfig);
-    
-    // If we have a token from frontend, use it directly
+
+    // PRIORITY 1: Try to get valid token from backend storage (with auto-refresh)
+    console.log(`[Automation API] 🔍 STEP 1: Attempting to get backend stored token for user ${finalUserId}`);
     let result;
-    if (token) {
-      console.log(`[Automation API] Using token from frontend for immediate post creation`);
-      result = await automationScheduler.createAutomatedPostWithToken(locationId, testConfig, token);
-    } else {
-      // Try with stored tokens
-      result = await automationScheduler.createAutomatedPost(locationId, testConfig);
+
+    try {
+      // Import the token storage at the top if not already imported
+      const supabaseTokenStorage = (await import('../services/supabaseTokenStorage.js')).default;
+
+      // Try to get a valid token from backend storage (this will auto-refresh if expired)
+      const backendToken = await supabaseTokenStorage.getValidToken(finalUserId);
+
+      if (backendToken && backendToken.access_token) {
+        console.log(`[Automation API] ✅ STEP 1: Backend has valid token for user ${finalUserId}, using it`);
+        result = await automationScheduler.createAutomatedPostWithToken(locationId, testConfig, backendToken.access_token);
+      } else {
+        console.log(`[Automation API] ❌ STEP 1: No backend token found`);
+
+        // PRIORITY 2: Fall back to frontend token if backend has none
+        if (frontendToken) {
+          console.log(`[Automation API] 🔄 STEP 2: Using frontend token as fallback`);
+          result = await automationScheduler.createAutomatedPostWithToken(locationId, testConfig, frontendToken);
+        } else {
+          console.log(`[Automation API] ❌ STEP 2: No frontend token available either`);
+          // No tokens available at all
+          result = null;
+        }
+      }
+    } catch (tokenError) {
+      console.error(`[Automation API] ❌ Error getting backend token:`, tokenError);
+
+      // Fall back to frontend token on error
+      if (frontendToken) {
+        console.log(`[Automation API] 🔄 Falling back to frontend token due to backend error`);
+        result = await automationScheduler.createAutomatedPostWithToken(locationId, testConfig, frontendToken);
+      } else {
+        console.log(`[Automation API] ❌ No frontend token available as fallback`);
+        result = null;
+      }
     }
     
     // Check if post was actually created
