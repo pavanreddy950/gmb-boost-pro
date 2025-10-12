@@ -244,19 +244,23 @@ class AutomationScheduler {
       if (response.ok) {
         const result = await response.json();
         console.log(`[AutomationScheduler] ✅ Successfully created post for location ${locationId}:`, result.name || result.id);
-        
+
         // Log the post creation
         this.logAutomationActivity(locationId, 'post_created', {
           postId: result.name || result.id,
           content: postContent.content,
           timestamp: new Date().toISOString()
         });
-        
+
         return result; // Return success result
       } else {
-        const error = await response.text();
-        console.error(`[AutomationScheduler] ❌ Failed to create post for location ${locationId}:`, error);
-        
+        const errorText = await response.text();
+        console.error(`[AutomationScheduler] ❌ Failed to create post for location ${locationId}`);
+        console.error(`[AutomationScheduler] HTTP Status: ${response.status} ${response.statusText}`);
+        console.error(`[AutomationScheduler] Error Response:`, errorText);
+        console.error(`[AutomationScheduler] Post URL used: ${postUrl}`);
+        console.error(`[AutomationScheduler] Account ID: ${accountId}`);
+
         // Try fallback to older API if the new one fails
         console.log(`[AutomationScheduler] 🔄 Trying fallback API endpoint...`);
         return await this.createPostWithFallbackAPI(locationId, postContent, accessToken, config);

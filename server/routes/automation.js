@@ -236,13 +236,14 @@ router.post('/test-post-now/:locationId', async (req, res) => {
     // PRIORITY 1: Try to get valid token from backend storage (with auto-refresh)
     console.log(`[Automation API] 🔍 STEP 1: Attempting to get backend stored token for user ${finalUserId}`);
     let result;
+    let backendToken = null;
 
     try {
       // Import the token storage at the top if not already imported
       const supabaseTokenStorage = (await import('../services/supabaseTokenStorage.js')).default;
 
       // Try to get a valid token from backend storage (this will auto-refresh if expired)
-      const backendToken = await supabaseTokenStorage.getValidToken(finalUserId);
+      backendToken = await supabaseTokenStorage.getValidToken(finalUserId);
 
       if (backendToken && backendToken.access_token) {
         console.log(`[Automation API] ✅ STEP 1: Backend has valid token for user ${finalUserId}, using it`);
@@ -276,25 +277,34 @@ router.post('/test-post-now/:locationId', async (req, res) => {
     // Check if post was actually created
     if (result === undefined || result === null) {
       // Post creation failed (likely due to no token)
-      return res.status(401).json({ 
-        success: false, 
-        error: 'Failed to create post. No Google account connected.',
+      console.error(`[Automation API] ❌ Post creation returned null/undefined`);
+      return res.status(401).json({
+        success: false,
+        error: 'Failed to create post. No Google account connected or token invalid.',
         details: 'Please connect your Google Business Profile account in Settings > Connections first.',
-        requiresAuth: true
+        requiresAuth: true,
+        debugInfo: {
+          hadBackendToken: !!backendToken,
+          hadFrontendToken: !!frontendToken,
+          userId: finalUserId
+        }
       });
     }
-    
-    res.json({ 
-      success: true, 
+
+    console.log(`[Automation API] ✅ Post created successfully!`);
+    res.json({
+      success: true,
       message: 'Test post created successfully! Check your Google Business Profile.',
       config: testConfig,
-      result: result 
+      result: result
     });
   } catch (error) {
-    console.error('Error creating test post:', error);
-    res.status(500).json({ 
+    console.error('[Automation API] ❌ Error in test-post-now endpoint:', error);
+    console.error('[Automation API] Error stack:', error.stack);
+    res.status(500).json({
       error: error.message || 'Failed to create test post',
-      details: error.toString() 
+      details: error.toString(),
+      stack: error.stack
     });
   }
 });
