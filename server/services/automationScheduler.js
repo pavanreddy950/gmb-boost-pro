@@ -534,6 +534,10 @@ class AutomationScheduler {
 
   // Generate post content using AI ONLY - no templates/mocks
   async generatePostContent(config) {
+    console.log(`[AutomationScheduler] ========================================`);
+    console.log(`[AutomationScheduler] 📝 GENERATING POST CONTENT`);
+    console.log(`[AutomationScheduler] Config received:`, JSON.stringify(config, null, 2));
+    
     // Ensure we have proper business name and details
     const businessName = config.businessName || 'Business';
     const category = config.category || 'service';
@@ -567,12 +571,15 @@ class AutomationScheduler {
       }
     }
     
-    console.log(`[AutomationScheduler] Generating AI content for: ${businessName}`);
+    console.log(`[AutomationScheduler] ========================================`);
+    console.log(`[AutomationScheduler] 🎯 POST GENERATION PARAMETERS`);
+    console.log(`[AutomationScheduler] Business Name: ${businessName}`);
     console.log(`[AutomationScheduler] Category: ${category}`);
-    console.log(`[AutomationScheduler] Keywords: ${keywords}`);
+    console.log(`[AutomationScheduler] 🔑 KEYWORDS: ${keywords}`);
     console.log(`[AutomationScheduler] Location: ${locationStr}`);
     console.log(`[AutomationScheduler] Complete Address: ${completeAddress}`);
     console.log(`[AutomationScheduler] Website: ${websiteUrl}`);
+    console.log(`[AutomationScheduler] ========================================`);
     
     if (!this.apiKey || !this.azureEndpoint) {
       throw new Error('[AutomationScheduler] Azure OpenAI not configured - AI generation is required');

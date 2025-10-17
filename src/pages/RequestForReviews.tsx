@@ -240,42 +240,47 @@ const RequestForReviews = () => {
   }
 
   return (
-    <div className="relative p-6 space-y-6">
-      {/* Coming Soon Overlay */}
-      <div className="absolute inset-0 z-50 flex items-center justify-center backdrop-blur-sm bg-background/80">
-        <Card className="w-full max-w-lg mx-4 shadow-2xl border-2">
-          <CardContent className="pt-12 pb-10 px-8 text-center">
-            <div className="mb-6 flex items-center justify-center gap-3">
+    <div className="relative p-3 sm:p-4 md:p-6 space-y-4 sm:space-y-6 min-h-[calc(100vh-4rem)]">
+      {/* Coming Soon Overlay - Fully Responsive */}
+      <div className="absolute inset-0 z-10 flex items-start justify-center backdrop-blur-sm bg-background/90 p-4 pt-8 sm:pt-12 overflow-y-auto">
+        <Card className="w-full max-w-xs sm:max-w-md md:max-w-lg mx-auto shadow-2xl border-2 animate-fade-in">
+          <CardContent className="pt-8 sm:pt-10 md:pt-12 pb-6 sm:pb-8 md:pb-10 px-4 sm:px-6 md:px-8 text-center">
+            {/* Icons - Responsive sizing */}
+            <div className="mb-4 sm:mb-6 flex items-center justify-center gap-2 sm:gap-3">
               <div className="relative">
                 <div className="absolute inset-0 animate-ping">
-                  <Sparkles className="h-12 w-12 text-primary/60" />
+                  <Sparkles className="h-8 w-8 sm:h-10 sm:w-10 md:h-12 md:w-12 text-primary/60" />
                 </div>
-                <Sparkles className="h-12 w-12 text-primary relative" />
+                <Sparkles className="h-8 w-8 sm:h-10 sm:w-10 md:h-12 md:w-12 text-primary relative" />
               </div>
-              <Clock className="h-12 w-12 text-primary animate-pulse" />
+              <Clock className="h-8 w-8 sm:h-10 sm:w-10 md:h-12 md:w-12 text-primary animate-pulse" />
             </div>
 
-            <h2 className="text-4xl font-bold mb-4 bg-gradient-to-r from-primary to-purple-600 bg-clip-text text-transparent">
+            {/* Title - Responsive text size */}
+            <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold mb-3 sm:mb-4 bg-gradient-to-r from-primary to-purple-600 bg-clip-text text-transparent">
               Coming Soon
             </h2>
 
-            <p className="text-lg text-muted-foreground mb-6 leading-relaxed">
+            {/* Description - Responsive text */}
+            <p className="text-sm sm:text-base md:text-lg text-muted-foreground mb-4 sm:mb-6 leading-relaxed px-2">
               We're working hard to bring you an amazing review request feature.
               This powerful tool will help you collect more reviews effortlessly!
             </p>
 
-            <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
-              <Clock className="h-4 w-4" />
+            {/* Expected launch - Responsive */}
+            <div className="flex items-center justify-center gap-2 text-xs sm:text-sm text-muted-foreground mb-4 sm:mb-6">
+              <Clock className="h-3 w-3 sm:h-4 sm:w-4" />
               <span>Expected launch: Coming very soon</span>
             </div>
 
-            <div className="mt-8 pt-6 border-t">
-              <p className="text-sm text-muted-foreground mb-3">
+            {/* Notify button - Responsive */}
+            <div className="mt-6 sm:mt-8 pt-4 sm:pt-6 border-t">
+              <p className="text-xs sm:text-sm text-muted-foreground mb-3">
                 Get notified when this feature launches
               </p>
-              <Button className="w-full" size="lg">
-                <Mail className="h-4 w-4 mr-2" />
-                Notify Me
+              <Button className="w-full h-10 sm:h-11 text-sm sm:text-base">
+                <Mail className="h-3 w-3 sm:h-4 sm:w-4 mr-2" />
+                <span>Notify Me</span>
               </Button>
             </div>
           </CardContent>

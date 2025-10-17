@@ -37,7 +37,7 @@ interface ReviewsTabProps {
 }
 
 const ReviewsTab = ({ profileId }: ReviewsTabProps) => {
-  const { user } = useAuth();
+  const { currentUser } = useAuth();
   const [reviews, setReviews] = useState<Review[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -225,7 +225,7 @@ const ReviewsTab = ({ profileId }: ReviewsTabProps) => {
           profileId,
           businessName,
           true, // replyToAll
-          user?.uid,
+          currentUser?.uid,
           accountId || undefined,
           keywords,
           category
@@ -363,25 +363,25 @@ const ReviewsTab = ({ profileId }: ReviewsTabProps) => {
   return (
     <Tabs defaultValue="reviews" className="w-full">
       <TabsList className="grid w-full grid-cols-2">
-        <TabsTrigger value="reviews">Customer Reviews</TabsTrigger>
-        <TabsTrigger value="automation">Auto-Reply Settings</TabsTrigger>
+        <TabsTrigger value="reviews" className="text-xs sm:text-sm">Customer Reviews</TabsTrigger>
+        <TabsTrigger value="automation" className="text-xs sm:text-sm">Auto-Reply Settings</TabsTrigger>
       </TabsList>
       
       <TabsContent value="reviews" className="space-y-4">
         <Card className="shadow-card border-0">
           <CardHeader>
-            <div className="flex items-center justify-between">
-              <CardTitle>Customer Reviews</CardTitle>
-              <div className="flex items-center gap-2">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <CardTitle className="text-lg sm:text-xl">Customer Reviews</CardTitle>
+              <div className="flex flex-wrap items-center gap-2">
                 <Button 
                   variant="outline" 
                   size="sm"
                   onClick={() => fetchReviews(true)}
                   disabled={refreshing}
-                  className="gap-2"
+                  className="gap-1 sm:gap-2"
                 >
                   <RefreshCw className={cn("h-3 w-3", refreshing && "animate-spin")} />
-                  Refresh
+                  <span className="text-xs sm:text-sm">Refresh</span>
                 </Button>
                 <div className="flex items-center gap-1">
                   <div className={cn(
@@ -392,7 +392,7 @@ const ReviewsTab = ({ profileId }: ReviewsTabProps) => {
                     {autoPolling ? "Live" : "Offline"}
                   </span>
                 </div>
-                <Badge variant="secondary" className="bg-primary/10 text-primary">
+                <Badge variant="secondary" className="bg-primary/10 text-primary text-xs">
                   {reviews.length} Total Reviews
                 </Badge>
               </div>
@@ -439,26 +439,26 @@ const ReviewsTab = ({ profileId }: ReviewsTabProps) => {
             <p className="text-muted-foreground">Customer reviews will appear here once you receive them</p>
           </div>
         ) : (
-          <div className="space-y-6">
+          <div className="space-y-4 sm:space-y-6">
             {reviews.map((review, index) => (
               <div key={review.id} className={cn(
-                "pb-6",
+                "pb-4 sm:pb-6",
                 index < reviews.length - 1 && "border-b border-border"
               )}>
-                <div className="flex gap-4">
-                  <Avatar className="h-10 w-10">
-                    <AvatarFallback className="bg-primary/10 text-primary">
+                <div className="flex gap-3 sm:gap-4">
+                  <Avatar className="h-8 w-8 sm:h-10 sm:w-10 flex-shrink-0">
+                    <AvatarFallback className="bg-primary/10 text-primary text-xs sm:text-sm">
                       {getInitials(review.author)}
                     </AvatarFallback>
                   </Avatar>
                   
-                  <div className="flex-1 space-y-3">
+                  <div className="flex-1 space-y-2 sm:space-y-3 min-w-0">
                     {/* Review Header */}
-                    <div className="flex items-start justify-between">
-                      <div>
-                        <div className="flex items-center gap-2 mb-1">
-                          <h4 className="font-medium">{review.author}</h4>
-                          <div className="flex items-center gap-1">
+                    <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-2">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2 mb-1">
+                          <h4 className="font-medium text-sm sm:text-base truncate">{review.author}</h4>
+                          <div className="flex items-center gap-0.5 sm:gap-1">
                             {renderStars(review.rating)}
                           </div>
                         </div>
@@ -473,21 +473,22 @@ const ReviewsTab = ({ profileId }: ReviewsTabProps) => {
                           variant="outline"
                           size="sm"
                           onClick={() => handleAutoReply(review.id, review.content, review.author, review.rating)}
-                          className="gap-2"
+                          className="gap-1 sm:gap-2 w-full sm:w-auto text-xs sm:text-sm whitespace-nowrap"
                         >
                           <Bot className="h-3 w-3" />
-                          Reply with AI
+                          <span className="hidden sm:inline">Reply with AI</span>
+                          <span className="sm:hidden">AI Reply</span>
                         </Button>
                       )}
                     </div>
                     
                     {/* Review Content */}
-                    <p className="text-sm leading-relaxed">{review.content}</p>
+                    <p className="text-xs sm:text-sm leading-relaxed break-words">{review.content}</p>
                     
                     {/* Reply */}
                     {review.replied && review.replyContent && (
-                      <div className="bg-muted/50 rounded-lg p-3 ml-4 border-l-2 border-primary/20">
-                        <div className="flex items-center gap-2 mb-2">
+                      <div className="bg-muted/50 rounded-lg p-2 sm:p-3 ml-0 sm:ml-4 border-l-2 border-primary/20">
+                        <div className="flex flex-wrap items-center gap-1 sm:gap-2 mb-2">
                           <MessageSquare className="h-3 w-3 text-primary" />
                           <span className="text-xs font-medium text-primary">Your Reply</span>
                           {review.repliedAt && (
@@ -496,7 +497,7 @@ const ReviewsTab = ({ profileId }: ReviewsTabProps) => {
                             </span>
                           )}
                         </div>
-                        <p className="text-sm">{review.replyContent}</p>
+                        <p className="text-xs sm:text-sm break-words">{review.replyContent}</p>
                       </div>
                     )}
                   </div>
@@ -512,17 +513,17 @@ const ReviewsTab = ({ profileId }: ReviewsTabProps) => {
       <TabsContent value="automation" className="space-y-4">
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Settings2 className="h-5 w-5" />
-              Review Auto-Reply Settings
+            <CardTitle className="flex items-center gap-2 text-lg sm:text-xl">
+              <Settings2 className="h-4 w-4 sm:h-5 sm:w-5" />
+              <span className="text-base sm:text-lg">Review Auto-Reply Settings</span>
             </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-6">
+          <CardContent className="space-y-4 sm:space-y-6">
             {/* Enable Review Automation */}
-            <div className="flex items-center justify-between">
-              <div className="space-y-0.5">
-                <Label>Enable Review Automation</Label>
-                <p className="text-sm text-muted-foreground">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div className="space-y-0.5 flex-1">
+                <Label className="text-sm sm:text-base">Enable Review Automation</Label>
+                <p className="text-xs sm:text-sm text-muted-foreground">
                   Monitor and automatically reply to customer reviews
                 </p>
               </div>

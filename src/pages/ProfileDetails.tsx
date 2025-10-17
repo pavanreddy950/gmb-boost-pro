@@ -174,7 +174,7 @@ const ProfileDetails = () => {
   }
 
   return (
-    <div className="space-y-6 animate-fade-in">
+    <div className="space-y-3 sm:space-y-4 md:space-y-6 animate-fade-in px-2 sm:px-0">
       {/* Header */}
       <div className="flex items-center gap-2 sm:gap-4">
         <Link to="/dashboard">
@@ -186,16 +186,16 @@ const ProfileDetails = () => {
       </div>
 
       {/* Profile Overview & Today's Statistics */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-4 md:gap-6">
         {/* Profile Overview */}
         <Card className="shadow-sm">
-          <CardHeader>
-            <CardTitle className="text-xl">Profile Overview</CardTitle>
+          <CardHeader className="p-3 sm:p-4 md:p-6 pb-2 sm:pb-4">
+            <CardTitle className="text-sm sm:text-base md:text-lg">Profile Overview</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex items-start gap-2">
-              <MapPin className="h-4 w-4 mt-1 text-muted-foreground" />
-              <span className="text-sm">
+          <CardContent className="space-y-2 sm:space-y-3 md:space-y-4 p-3 sm:p-4 md:p-6 pt-0">
+            <div className="flex items-start gap-1.5 sm:gap-2">
+              <MapPin className="h-3 w-3 sm:h-4 sm:w-4 mt-0.5 text-muted-foreground flex-shrink-0" />
+              <span className="text-[11px] sm:text-xs md:text-sm break-words leading-snug flex-1">
                 {location.address.addressLines.length > 0 
                   ? `${location.address.addressLines.join(', ')}, ${location.address.locality}`
                   : location.address.locality || 'No address available'
@@ -204,23 +204,23 @@ const ProfileDetails = () => {
             </div>
             
             {location.websiteUrl && (
-              <div className="flex items-center gap-2">
-                <Globe className="h-4 w-4 text-muted-foreground" />
+              <div className="flex items-start gap-1.5 sm:gap-2">
+                <Globe className="h-3 w-3 sm:h-4 sm:w-4 mt-0.5 text-muted-foreground flex-shrink-0" />
                 <a 
                   href={location.websiteUrl} 
                   target="_blank" 
                   rel="noopener noreferrer"
-                  className="text-sm text-primary hover:text-primary-hover flex items-center gap-1"
+                  className="text-[11px] sm:text-xs md:text-sm text-primary hover:text-primary-hover flex items-center gap-1 break-all flex-1 min-w-0"
                 >
-                  {location.websiteUrl}
-                  <ExternalLink className="h-3 w-3" />
+                  <span className="truncate">{location.websiteUrl}</span>
+                  <ExternalLink className="h-2.5 w-2.5 sm:h-3 sm:w-3 flex-shrink-0" />
                 </a>
               </div>
             )}
             
-            <div className="flex flex-wrap gap-1">
+            <div className="flex flex-wrap gap-1 max-w-full">
               {location.categories.map((category) => (
-                <Badge key={category.name} variant="secondary">
+                <Badge key={category.name} variant="secondary" className="text-[10px] sm:text-xs px-1.5 sm:px-2 py-0.5 whitespace-nowrap leading-tight">
                   {category.name}
                 </Badge>
               ))}
@@ -231,43 +231,43 @@ const ProfileDetails = () => {
         {/* Today's Statistics */}
         {globalStats && (
           <Card className="shadow-sm">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <BarChart3 className="h-5 w-5" />
-                Today's Statistics
+            <CardHeader className="p-3 sm:p-4 md:p-6 pb-2 sm:pb-4">
+              <CardTitle className="flex items-center gap-1.5 sm:gap-2 text-sm sm:text-base md:text-lg">
+                <BarChart3 className="h-3.5 w-3.5 sm:h-4 sm:w-4 md:h-5 md:w-5" />
+                <span className="text-xs sm:text-sm md:text-base">Today's Statistics</span>
               </CardTitle>
             </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-2 gap-4">
+            <CardContent className="p-3 sm:p-4 md:p-6 pt-0">
+              <div className="grid grid-cols-2 gap-2 sm:gap-3 md:gap-4">
                 {/* Successful Posts Box */}
                 <Card className="border border-green-200 bg-green-50">
-                  <CardContent className="p-4 text-center">
-                    <div className="text-2xl font-bold text-green-600">{globalStats.successfulPostsToday}</div>
-                    <div className="text-sm text-muted-foreground">Successful Posts</div>
+                  <CardContent className="p-2 sm:p-3 md:p-4 text-center">
+                    <div className="text-lg sm:text-xl md:text-2xl font-bold text-green-600">{globalStats.successfulPostsToday}</div>
+                    <div className="text-[10px] sm:text-xs md:text-sm text-muted-foreground leading-tight">Successful</div>
                   </CardContent>
                 </Card>
                 
                 {/* Failed Posts Box */}
                 <Card className="border border-red-200 bg-red-50">
-                  <CardContent className="p-4 text-center">
-                    <div className="text-2xl font-bold text-red-600">{globalStats.failedPostsToday}</div>
-                    <div className="text-sm text-muted-foreground">Failed Posts</div>
+                  <CardContent className="p-2 sm:p-3 md:p-4 text-center">
+                    <div className="text-lg sm:text-xl md:text-2xl font-bold text-red-600">{globalStats.failedPostsToday}</div>
+                    <div className="text-[10px] sm:text-xs md:text-sm text-muted-foreground leading-tight">Failed</div>
                   </CardContent>
                 </Card>
                 
                 {/* Active Locations Box */}
                 <Card className="border border-blue-200 bg-blue-50">
-                  <CardContent className="p-4 text-center">
-                    <div className="text-2xl font-bold text-blue-600">{globalStats.activeConfigurations}</div>
-                    <div className="text-sm text-muted-foreground">Active Locations</div>
+                  <CardContent className="p-2 sm:p-3 md:p-4 text-center">
+                    <div className="text-lg sm:text-xl md:text-2xl font-bold text-blue-600">{globalStats.activeConfigurations}</div>
+                    <div className="text-[10px] sm:text-xs md:text-sm text-muted-foreground leading-tight">Active</div>
                   </CardContent>
                 </Card>
                 
                 {/* Total Posts Box */}
                 <Card className="border border-gray-200 bg-gray-50">
-                  <CardContent className="p-4 text-center">
-                    <div className="text-2xl font-bold text-gray-700">{globalStats.totalPostsToday}</div>
-                    <div className="text-sm text-muted-foreground">Total Posts</div>
+                  <CardContent className="p-2 sm:p-3 md:p-4 text-center">
+                    <div className="text-lg sm:text-xl md:text-2xl font-bold text-gray-700">{globalStats.totalPostsToday}</div>
+                    <div className="text-[10px] sm:text-xs md:text-sm text-muted-foreground leading-tight">Total</div>
                   </CardContent>
                 </Card>
               </div>
@@ -277,13 +277,13 @@ const ProfileDetails = () => {
       </div>
 
       {/* Tabs */}
-      <Tabs defaultValue="auto-posting" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 h-auto">
-          <TabsTrigger value="auto-posting" className="text-xs sm:text-sm px-2 sm:px-3">Auto Posting</TabsTrigger>
-          <TabsTrigger value="posts" className="text-xs sm:text-sm px-2 sm:px-3">Posts</TabsTrigger>
-          <TabsTrigger value="reviews" className="text-xs sm:text-sm px-2 sm:px-3">Reviews</TabsTrigger>
-          <TabsTrigger value="photos" className="text-xs sm:text-sm px-2 sm:px-3">Photos</TabsTrigger>
-          <TabsTrigger value="edit" className="text-xs sm:text-sm px-2 sm:px-3">Edit Profile</TabsTrigger>
+      <Tabs defaultValue="auto-posting" className="space-y-3 sm:space-y-4 md:space-y-6">
+        <TabsList className="grid w-full grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 h-auto gap-0.5 sm:gap-1 p-0.5 sm:p-1">
+          <TabsTrigger value="auto-posting" className="text-[10px] sm:text-xs md:text-sm px-1 sm:px-2 md:px-3 py-1.5 sm:py-2 data-[state=active]:text-[10px] sm:data-[state=active]:text-xs md:data-[state=active]:text-sm">Auto Posting</TabsTrigger>
+          <TabsTrigger value="posts" className="text-[10px] sm:text-xs md:text-sm px-1 sm:px-2 md:px-3 py-1.5 sm:py-2">Posts</TabsTrigger>
+          <TabsTrigger value="reviews" className="text-[10px] sm:text-xs md:text-sm px-1 sm:px-2 md:px-3 py-1.5 sm:py-2">Reviews</TabsTrigger>
+          <TabsTrigger value="photos" className="text-[10px] sm:text-xs md:text-sm px-1 sm:px-2 md:px-3 py-1.5 sm:py-2">Photos</TabsTrigger>
+          <TabsTrigger value="edit" className="text-[10px] sm:text-xs md:text-sm px-1 sm:px-2 md:px-3 py-1.5 sm:py-2">Edit Profile</TabsTrigger>
         </TabsList>
         
         <TabsContent value="auto-posting">

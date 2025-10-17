@@ -104,8 +104,6 @@ const AuditTool = () => {
   const [autoRefresh, setAutoRefresh] = useState(true);
   const [refreshInterval, setRefreshInterval] = useState(5 * 60 * 1000); // 5 minutes
   const [chartType, setChartType] = useState<'area' | 'line'>('area');
-  const [apiDiagnostics, setApiDiagnostics] = useState<any>(null);
-  const [showDiagnostics, setShowDiagnostics] = useState(false);
   const [aiInsights, setAiInsights] = useState<string | null>(null);
   const [loadingAiInsights, setLoadingAiInsights] = useState(false);
 
@@ -131,12 +129,21 @@ const AuditTool = () => {
   // Locations that are locked (require upgrade)
   const lockedLocations = allLocations.slice(maxAllowedProfiles);
 
-  // Auto-select first available location if available
+  // Auto-select first available location if available and fetch initial data
   useEffect(() => {
     if (availableLocations.length > 0 && !selectedLocationId) {
       setSelectedLocationId(availableLocations[0].id);
     }
-  }, [availableLocations, selectedLocationId]);
+  }, [availableLocations.length, selectedLocationId]);
+
+  // Initial fetch when location changes
+  useEffect(() => {
+    if (selectedLocationId) {
+      console.log('Location changed to:', selectedLocationId);
+      fetchMetrics(selectedLocationId);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedLocationId]);
 
   // Save audit result to backend
   const saveAuditResult = async (locationId: string, performanceData: any, auditScore: any, recommendations: any = null) => {
@@ -189,14 +196,11 @@ const AuditTool = () => {
     }
   };
 
-  // Real-time auto-refresh effect
+  // Real-time auto-refresh effect (but don't fetch initially here, that's handled by the location change effect)
   useEffect(() => {
     if (!selectedLocationId || !autoRefresh) return;
 
-    // Initial fetch
-    fetchMetrics(selectedLocationId);
-
-    // Set up interval for auto-refresh
+    // Set up interval for auto-refresh (don't fetch immediately)
     const interval = setInterval(() => {
       if (!loadingMetrics) {
         console.log('Auto-refreshing audit data...');
@@ -205,7 +209,8 @@ const AuditTool = () => {
     }, refreshInterval);
 
     return () => clearInterval(interval);
-  }, [selectedLocationId, autoRefresh, refreshInterval]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedLocationId, autoRefresh, refreshInterval, loadingMetrics]);
 
   // Page visibility change handler for smart refresh
   useEffect(() => {
@@ -285,17 +290,6 @@ const AuditTool = () => {
         const data = await performanceResponse.value.json();
         console.log('📊 Audit Tool - Received performance data:', data);
         
-        // Capture diagnostics
-        setApiDiagnostics({
-          status: 'success',
-          statusCode: performanceResponse.value.status,
-          apiUsed: data.apiUsed || 'Unknown',
-          dateRange: data.dateRange,
-          metricsCount: data.performance?.locationMetrics?.[0]?.dailyMetrics?.length || 0,
-          sampleData: data.performance?.locationMetrics?.[0]?.dailyMetrics?.slice(0, 2),
-          timestamp: new Date().toISOString()
-        });
-        
         if (data.performance?.locationMetrics?.[0]?.dailyMetrics) {
           // Convert backend format to frontend format
           const dailyMetrics = data.performance.locationMetrics[0].dailyMetrics;
@@ -315,57 +309,20 @@ const AuditTool = () => {
           performanceData = convertedMetrics;
         } else {
           console.warn('⚠️ Audit Tool - No daily metrics in response:', data);
-          setApiDiagnostics({
-            status: 'no_data',
-            statusCode: performanceResponse.value.status,
-            apiUsed: data.apiUsed || 'Unknown',
-            message: 'Google Business Profile Performance API returned 0 metrics',
-            dateRange: data.dateRange,
-            responseStructure: Object.keys(data),
-            fullResponse: data,
-            explanation: 'This location may not have enough historical data or may not be eligible for Performance API metrics. Google requires 18+ months of activity for most performance metrics.',
-            timestamp: new Date().toISOString()
-          });
         }
       } else if (performanceResponse.status === 'fulfilled' && performanceResponse.value.status === 503) {
         const errorData = await performanceResponse.value.json();
         console.warn('Performance API access required:', errorData.message);
-        setApiDiagnostics({
-          status: 'api_unavailable',
-          statusCode: 503,
-          message: errorData.message,
-          suggestions: errorData.suggestions,
-          timestamp: new Date().toISOString()
-        });
       } else if (performanceResponse.status === 'fulfilled') {
         console.error('❌ Audit Tool - API error:', performanceResponse.value.status, performanceResponse.value.statusText);
         try {
           const errorData = await performanceResponse.value.json();
           console.error('❌ Audit Tool - Error details:', errorData);
-          setApiDiagnostics({
-            status: 'error',
-            statusCode: performanceResponse.value.status,
-            statusText: performanceResponse.value.statusText,
-            errorDetails: errorData,
-            timestamp: new Date().toISOString()
-          });
         } catch (e) {
           console.error('❌ Audit Tool - Could not parse error response');
-          setApiDiagnostics({
-            status: 'error',
-            statusCode: performanceResponse.value.status,
-            statusText: performanceResponse.value.statusText,
-            message: 'Could not parse error response',
-            timestamp: new Date().toISOString()
-          });
         }
       } else {
         console.error('❌ Audit Tool - Promise rejected:', performanceResponse.reason);
-        setApiDiagnostics({
-          status: 'rejected',
-          reason: performanceResponse.reason?.message || String(performanceResponse.reason),
-          timestamp: new Date().toISOString()
-        });
       }
 
       // Check if we have real performance data
@@ -583,18 +540,18 @@ Keep it professional, specific with numbers, and under 200 words total.`;
   const selectedLocation = availableLocations.find(loc => loc.id === selectedLocationId);
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-3 sm:p-4 md:p-6 space-y-4 sm:space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold">Business Profile Audit</h1>
-          <p className="text-muted-foreground">
+          <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold">Business Profile Audit</h1>
+          <p className="text-sm sm:text-base text-muted-foreground">
             Real-time performance insights and optimization recommendations
           </p>
         </div>
-        <div className="flex items-center gap-4">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-4 w-full lg:w-auto">
           {lastUpdated && (
-            <div className="text-sm text-muted-foreground">
+            <div className="text-xs sm:text-sm text-muted-foreground">
               <p>Last updated: {lastUpdated.toLocaleTimeString()}</p>
               {autoRefresh && (
                 <p className="text-xs opacity-75">
@@ -603,18 +560,12 @@ Keep it professional, specific with numbers, and under 200 words total.`;
               )}
             </div>
           )}
-          <div className="flex items-center gap-2">
-            <Button
-              onClick={() => setShowDiagnostics(!showDiagnostics)}
-              variant={showDiagnostics ? "default" : "outline"}
-              size="sm"
-            >
-              🔍 Debug Info
-            </Button>
+          <div className="flex flex-wrap items-center gap-2">
             <Button
               onClick={() => setAutoRefresh(!autoRefresh)}
               variant={autoRefresh ? "default" : "outline"}
               size="sm"
+              className="text-xs sm:text-sm"
             >
               {autoRefresh ? "🔄 Live" : "📍 Manual"}
             </Button>
@@ -622,121 +573,36 @@ Keep it professional, specific with numbers, and under 200 words total.`;
               onClick={() => fetchMetrics(selectedLocationId)}
               disabled={loadingMetrics}
               size="sm"
+              className="text-xs sm:text-sm"
             >
               {loadingMetrics ? (
-                <RefreshCw className="h-4 w-4 animate-spin mr-2" />
+                <RefreshCw className="h-3 w-3 sm:h-4 sm:w-4 animate-spin mr-1 sm:mr-2" />
               ) : (
-                <RefreshCw className="h-4 w-4 mr-2" />
+                <RefreshCw className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
               )}
-              Refresh
+              <span className="hidden sm:inline">Refresh</span>
             </Button>
           </div>
         </div>
       </div>
 
-      {/* API Diagnostics Panel */}
-      {showDiagnostics && apiDiagnostics && (
-        <Card className="border-2 border-blue-500 bg-blue-50">
-          <CardHeader>
-            <CardTitle className="text-lg flex items-center gap-2">
-              🔍 API Diagnostics
-              <Badge variant={
-                apiDiagnostics.status === 'success' ? 'default' :
-                apiDiagnostics.status === 'no_data' ? 'secondary' : 'destructive'
-              }>
-                {apiDiagnostics.status}
-              </Badge>
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-3 text-sm font-mono">
-              <div className="grid grid-cols-2 gap-2">
-                <div><strong>Status Code:</strong> {apiDiagnostics.statusCode}</div>
-                <div><strong>Timestamp:</strong> {new Date(apiDiagnostics.timestamp).toLocaleTimeString()}</div>
-              </div>
-              
-              {apiDiagnostics.apiUsed && (
-                <div><strong>API Used:</strong> {apiDiagnostics.apiUsed}</div>
-              )}
-              
-              {apiDiagnostics.metricsCount !== undefined && (
-                <div><strong>Metrics Count:</strong> {apiDiagnostics.metricsCount} days</div>
-              )}
-              
-              {apiDiagnostics.dateRange && (
-                <div><strong>Date Range:</strong> {apiDiagnostics.dateRange.startDate} to {apiDiagnostics.dateRange.endDate}</div>
-              )}
-              
-              {apiDiagnostics.message && (
-                <div className="text-orange-700"><strong>Message:</strong> {apiDiagnostics.message}</div>
-              )}
-              
-              {apiDiagnostics.explanation && (
-                <div className="text-blue-700 bg-blue-100 p-3 rounded"><strong>⚠️ Why:</strong> {apiDiagnostics.explanation}</div>
-              )}
-              
-              {apiDiagnostics.reason && (
-                <div className="text-red-700"><strong>Reason:</strong> {apiDiagnostics.reason}</div>
-              )}
-              
-              {apiDiagnostics.sampleData && (
-                <div>
-                  <strong>Sample Data:</strong>
-                  <pre className="mt-2 p-2 bg-white rounded text-xs overflow-auto max-h-40">
-                    {JSON.stringify(apiDiagnostics.sampleData, null, 2)}
-                  </pre>
-                </div>
-              )}
-              
-              {apiDiagnostics.suggestions && (
-                <div>
-                  <strong>Suggestions:</strong>
-                  <ul className="list-disc list-inside mt-1 space-y-1 text-blue-800">
-                    {apiDiagnostics.suggestions.map((s: string, i: number) => (
-                      <li key={i}>{s}</li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-              
-              {apiDiagnostics.fullResponse && (
-                <div>
-                  <strong>Full API Response:</strong>
-                  <pre className="mt-2 p-2 bg-white rounded text-xs overflow-auto max-h-60">
-                    {JSON.stringify(apiDiagnostics.fullResponse, null, 2)}
-                  </pre>
-                </div>
-              )}
-              
-              {apiDiagnostics.errorDetails && (
-                <div>
-                  <strong>Error Details:</strong>
-                  <pre className="mt-2 p-2 bg-white rounded text-xs overflow-auto max-h-40 text-red-700">
-                    {JSON.stringify(apiDiagnostics.errorDetails, null, 2)}
-                  </pre>
-                </div>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-      )}
 
       {/* Currently Viewing Banner - Enhanced */}
       {selectedLocation && (
         <Card className="border-2 border-primary/30 bg-gradient-to-r from-primary/10 via-blue-50/70 to-purple-50/50 shadow-md">
-          <CardContent className="py-6">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-4">
+          <CardContent className="py-4 sm:py-6">
+            <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4">
+              <div className="flex items-center gap-3 sm:gap-4">
                 <div className="relative">
-                  <div className="w-12 h-12 bg-primary/20 rounded-full flex items-center justify-center">
-                    <BarChart3 className="h-6 w-6 text-primary" />
+                  <div className="w-10 h-10 sm:w-12 sm:h-12 bg-primary/20 rounded-full flex items-center justify-center">
+                    <BarChart3 className="h-5 w-5 sm:h-6 sm:w-6 text-primary" />
                   </div>
                   <div className="absolute -top-1 -right-1 w-4 h-4 bg-green-500 rounded-full animate-pulse border-2 border-white"></div>
                 </div>
                 <div>
-                  <p className="text-sm font-medium text-muted-foreground">📊 Audit Analysis For:</p>
-                  <div className="flex items-center gap-3 mt-1">
-                    <h2 className="text-2xl font-bold text-primary">{selectedLocation.name}</h2>
+                  <p className="text-xs sm:text-sm font-medium text-muted-foreground">📊 Audit Analysis For:</p>
+                  <div className="flex flex-wrap items-center gap-2 sm:gap-3 mt-1">
+                    <h2 className="text-lg sm:text-xl lg:text-2xl font-bold text-primary">{selectedLocation.name}</h2>
                     <Badge variant="outline" className="bg-white/70">
                       {selectedLocation.accountName}
                     </Badge>
@@ -799,8 +665,8 @@ Keep it professional, specific with numbers, and under 200 words total.`;
                   });
                   return;
                 }
+                // Just update the state, let useEffect handle fetching
                 setSelectedLocationId(value);
-                fetchMetrics(value);
               }}
             >
               <SelectTrigger className="w-full">
@@ -1372,38 +1238,40 @@ Keep it professional, specific with numbers, and under 200 words total.`;
           </TabsContent>
 
 
-          <TabsContent value="insights" className="space-y-6">
+          <TabsContent value="insights" className="space-y-4 sm:space-y-6">
             {/* Tab Header with Location Context */}
-            <div className="flex items-center justify-between border-b pb-4">
-              <div className="flex items-center gap-3">
-                <Target className="h-6 w-6 text-primary" />
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b pb-4 gap-4">
+              <div className="flex items-center gap-2 sm:gap-3">
+                <Target className="h-5 w-5 sm:h-6 sm:w-6 text-primary" />
                 <div>
-                  <h2 className="text-xl font-semibold">Insights</h2>
-                  <p className="text-sm text-muted-foreground">
+                  <h2 className="text-lg sm:text-xl font-semibold">Insights</h2>
+                  <p className="text-xs sm:text-sm text-muted-foreground">
                     Business insights for <span className="font-medium text-foreground">{selectedLocation?.name}</span>
                   </p>
                 </div>
               </div>
-              <div className="flex items-center gap-3">
+              <div className="flex flex-wrap items-center gap-2 sm:gap-3">
                 <Button
                   onClick={generateAIInsights}
                   disabled={loadingAiInsights || !metrics || metrics.length === 0}
                   size="sm"
-                  className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
+                  className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-xs sm:text-sm"
                 >
                   {loadingAiInsights ? (
                     <>
-                      <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                      Analyzing...
+                      <RefreshCw className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2 animate-spin" />
+                      <span className="hidden sm:inline">Analyzing...</span>
+                      <span className="sm:hidden">...</span>
                     </>
                   ) : (
                     <>
-                      <Target className="h-4 w-4 mr-2" />
-                      Generate AI Insights
+                      <Target className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
+                      <span className="hidden sm:inline">Generate AI Insights</span>
+                      <span className="sm:hidden">Insights</span>
                     </>
                   )}
                 </Button>
-                <Badge variant="secondary" className="px-3 py-1">
+                <Badge variant="secondary" className="px-2 sm:px-3 py-1 text-xs">
                   {selectedLocation?.accountName}
                 </Badge>
               </div>
@@ -1413,17 +1281,17 @@ Keep it professional, specific with numbers, and under 200 words total.`;
             {aiInsights && (
               <Card className="border-2 border-blue-200 bg-white shadow-lg">
                 <CardHeader className="bg-gradient-to-r from-blue-50 to-purple-50 border-b">
-                  <CardTitle className="flex items-center gap-2 text-gray-900">
-                    <Target className="h-5 w-5 text-blue-600" />
-                    AI-Powered Insights
-                    <Badge className="bg-blue-600 text-white">GPT-4</Badge>
+                  <CardTitle className="flex flex-wrap items-center gap-2 text-gray-900 text-base sm:text-lg">
+                    <Target className="h-4 w-4 sm:h-5 sm:w-5 text-blue-600" />
+                    <span className="text-sm sm:text-base">AI-Powered Insights</span>
+                    <Badge className="bg-blue-600 text-white text-xs">GPT-4</Badge>
                   </CardTitle>
-                  <p className="text-sm text-gray-600">
+                  <p className="text-xs sm:text-sm text-gray-600">
                     Expert recommendations for {selectedLocation?.name}
                   </p>
                 </CardHeader>
-                <CardContent className="pt-6">
-                  <div className="space-y-6">
+                <CardContent className="pt-4 sm:pt-6">
+                  <div className="space-y-4 sm:space-y-6">
                     {aiInsights.split('\n\n').map((section, index) => {
                       const lines = section.split('\n');
                       const title = lines[0]?.trim();
@@ -1433,10 +1301,10 @@ Keep it professional, specific with numbers, and under 200 words total.`;
 
                       return (
                         <div key={index} className="space-y-2">
-                          <h3 className="font-semibold text-sm text-blue-900 uppercase tracking-wide">
+                          <h3 className="font-semibold text-xs sm:text-sm text-blue-900 uppercase tracking-wide">
                             {title}
                           </h3>
-                          <div className="text-sm text-gray-700 space-y-1 pl-1">
+                          <div className="text-xs sm:text-sm text-gray-700 space-y-1 pl-1">
                             {content.map((line, idx) => (
                               <div key={idx} className={line.trim().startsWith('•') || line.trim().match(/^\d\./) ? 'ml-2' : ''}>
                                 {line}
@@ -1454,21 +1322,22 @@ Keep it professional, specific with numbers, and under 200 words total.`;
             {/* Placeholder when no AI insights */}
             {!aiInsights && !loadingAiInsights && (
               <Card className="border-2 border-dashed border-blue-200">
-                <CardContent className="py-12 text-center">
-                  <div className="mx-auto mb-4 h-16 w-16 rounded-full bg-blue-100 flex items-center justify-center">
-                    <Target className="h-8 w-8 text-blue-600" />
+                <CardContent className="py-8 sm:py-12 text-center px-4">
+                  <div className="mx-auto mb-3 sm:mb-4 h-12 w-12 sm:h-16 sm:w-16 rounded-full bg-blue-100 flex items-center justify-center">
+                    <Target className="h-6 w-6 sm:h-8 sm:w-8 text-blue-600" />
                   </div>
-                  <h3 className="text-lg font-semibold text-gray-900 mb-2">Get AI-Powered Insights</h3>
-                  <p className="text-muted-foreground mb-4 max-w-md mx-auto">
+                  <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-2">Get AI-Powered Insights</h3>
+                  <p className="text-xs sm:text-sm text-muted-foreground mb-4 max-w-md mx-auto">
                     Get a concise analysis with key strengths, areas to improve, and top 3 actions to boost your profile performance.
                   </p>
                   <Button
                     onClick={generateAIInsights}
                     disabled={!metrics || metrics.length === 0}
-                    className="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800"
+                    className="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 w-full sm:w-auto"
+                    size="sm"
                   >
-                    <Target className="h-4 w-4 mr-2" />
-                    Generate Insights
+                    <Target className="h-3 w-3 sm:h-4 sm:w-4 mr-2" />
+                    <span className="text-sm sm:text-base">Generate Insights</span>
                   </Button>
                 </CardContent>
               </Card>

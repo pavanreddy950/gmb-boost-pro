@@ -21,10 +21,15 @@ router.post('/settings/:locationId', (req, res) => {
     const { locationId } = req.params;
     const settings = req.body;
     
-    console.log(`[Automation API] Updating settings for location ${locationId}:`, settings);
+    console.log(`[Automation API] ========================================`);
+    console.log(`[Automation API] Updating settings for location ${locationId}`);
+    console.log(`[Automation API] Incoming settings:`, JSON.stringify(settings, null, 2));
+    console.log(`[Automation API] Keywords in autoPosting:`, settings.autoPosting?.keywords || 'MISSING');
+    console.log(`[Automation API] Keywords in root:`, settings.keywords || 'MISSING');
     
     // Ensure both autoPosting and autoReply are configured
     if (!settings.autoPosting) {
+      console.log(`[Automation API] No autoPosting object - creating default`);
       settings.autoPosting = {
         enabled: true,
         schedule: '09:00',
@@ -35,7 +40,11 @@ router.post('/settings/:locationId', (req, res) => {
         userId: settings.userId || 'default'
       };
     } else {
-      settings.autoPosting.userId = settings.userId || 'default';
+      console.log(`[Automation API] autoPosting exists - preserving incoming data`);
+      // DO NOT MODIFY the incoming autoPosting object - just ensure userId is set
+      if (!settings.autoPosting.userId) {
+        settings.autoPosting.userId = settings.userId || 'default';
+      }
     }
     
     if (!settings.autoReply) {
@@ -49,11 +58,20 @@ router.post('/settings/:locationId', (req, res) => {
         accountId: settings.accountId || '106433552101751461082'
       };
     } else {
-      settings.autoReply.userId = settings.userId || 'default';
-      settings.autoReply.accountId = settings.accountId || '106433552101751461082';
+      // Preserve all incoming autoReply properties (including keywords!)
+      settings.autoReply.userId = settings.userId || settings.autoReply.userId || 'default';
+      settings.autoReply.accountId = settings.accountId || settings.autoReply.accountId || '106433552101751461082';
+      // Ensure keywords from autoReply settings are preserved
+      if (settings.autoReply.keywords === undefined && (settings.keywords || settings.autoPosting?.keywords)) {
+        settings.autoReply.keywords = settings.keywords || settings.autoPosting?.keywords;
+      }
     }
     
     const updatedSettings = automationScheduler.updateAutomationSettings(locationId, settings);
+    console.log(`[Automation API] ✅ Settings saved successfully`);
+    console.log(`[Automation API] Saved keywords:`, updatedSettings.autoPosting?.keywords || 'NONE');
+    console.log(`[Automation API] Full saved settings:`, JSON.stringify(updatedSettings, null, 2));
+    console.log(`[Automation API] ========================================`);
     
     res.json({ 
       success: true, 

@@ -3,25 +3,41 @@
     "14977377147025961194": {
       "autoReply": {
         "enabled": true,
-        "replyToAll": true,
-        "replyToPositive": true,
-        "replyToNegative": true,
-        "replyToNeutral": true,
-        "businessName": "Current Location",
-        "keywords": "Scale Point Strategy & Business Growth Solutions, scale, point, strategy, growth, Jalandhar, Scale Point Strategy & Business Growth Solutions Jalandhar",
+        "businessName": "Scale Point Strategy & Business Growth Solutions",
         "category": "Internet marketing service",
-        "userId": "default",
+        "keywords": "automation agency, for help contact raja123@gmail.com",
+        "replyToAll": true,
+        "userId": "OBm8qZc0jOWcY53x6rQuX4gKKnQ2",
         "accountId": "106433552101751461082"
       },
-      "updatedAt": "2025-10-10T17:50:38.008Z",
+      "updatedAt": "2025-10-17T11:31:13.220Z",
       "autoPosting": {
         "enabled": true,
         "schedule": "09:00",
         "frequency": "alternative",
-        "businessName": "Business",
-        "category": "business",
-        "keywords": "quality service, customer satisfaction",
-        "userId": "default"
+        "businessName": "Scale Point Strategy & Business Growth Solutions",
+        "category": "Internet marketing service",
+        "categories": [
+          "Internet marketing service",
+          "Branding agency",
+          "Marketing agency",
+          "Web Designer",
+          "Business development service"
+        ],
+        "keywords": "automation agency, for help contact raja123@gmail.com",
+        "websiteUrl": "https://www.scalepointstrategy.com/",
+        "timezone": "Asia/Calcutta",
+        "fullAddress": "3204 First Floor Above abhi electrical point near Shehnai palace, Tej Mohan , Nagar, Ashok Nagar",
+        "city": "Jalandhar",
+        "region": "Punjab",
+        "country": "IN",
+        "postalCode": "144001",
+        "phoneNumber": "",
+        "button": {
+          "enabled": true,
+          "type": "call_now"
+        },
+        "userId": "OBm8qZc0jOWcY53x6rQuX4gKKnQ2"
       },
       "userId": "OBm8qZc0jOWcY53x6rQuX4gKKnQ2"
     },
@@ -101,6 +117,39 @@
       },
       "updatedAt": "2025-10-05T20:45:13.077Z",
       "userId": "jzssBuuuFZUknI20kZuyLXCc6ne2"
+    },
+    "17676898239868064955": {
+      "autoPosting": {
+        "enabled": true,
+        "schedule": "09:00",
+        "frequency": "alternative",
+        "businessName": "The Royale Retreat Apartment",
+        "category": "Holiday apartment rental",
+        "keywords": "The Royale Retreat Apartment, the, royale, retreat, apartment, Varanasi, The Royale Retreat Apartment Varanasi",
+        "timezone": "Asia/Calcutta",
+        "fullAddress": "Flat No 101, 1st Floor sushil heights, Tulsipur Akashwani Taradham Colony, Mahmoorganj",
+        "city": "Varanasi",
+        "region": "Uttar Pradesh",
+        "country": "IN",
+        "postalCode": "221010",
+        "phoneNumber": "",
+        "button": {
+          "enabled": true,
+          "type": "auto"
+        },
+        "userId": "OBm8qZc0jOWcY53x6rQuX4gKKnQ2"
+      },
+      "userId": "OBm8qZc0jOWcY53x6rQuX4gKKnQ2",
+      "autoReply": {
+        "enabled": true,
+        "businessName": "The Royale Retreat Apartment",
+        "category": "Holiday apartment rental",
+        "keywords": "The Royale Retreat Apartment, the, royale, retreat, apartment, Varanasi, The Royale Retreat Apartment Varanasi",
+        "replyToAll": true,
+        "userId": "OBm8qZc0jOWcY53x6rQuX4gKKnQ2",
+        "accountId": "106433552101751461082"
+      },
+      "updatedAt": "2025-10-17T12:52:28.834Z"
     }
   }
 }

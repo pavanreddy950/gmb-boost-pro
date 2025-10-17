@@ -330,21 +330,22 @@ const Posts = () => {
 
   return (
     <>
-      <div className="space-y-6">
+      <div className="space-y-4 sm:space-y-6">
         {/* Header */}
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4">
           <div>
-            <h1 className="text-3xl font-bold tracking-tight">Posts</h1>
-            <p className="text-muted-foreground mt-1">
+            <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold tracking-tight">Posts</h1>
+            <p className="text-sm sm:text-base text-muted-foreground mt-1">
               Manage posts across all your business profiles
             </p>
           </div>
           <Button 
             onClick={() => setShowCreateModal(true)}
-            className="bg-primary hover:bg-primary-hover shadow-primary"
+            className="bg-primary hover:bg-primary-hover shadow-primary w-full sm:w-auto"
+            size="sm"
           >
-            <Plus className="mr-2 h-4 w-4" />
-            Create Post
+            <Plus className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4" />
+            <span className="text-sm sm:text-base">Create Post</span>
           </Button>
         </div>
 

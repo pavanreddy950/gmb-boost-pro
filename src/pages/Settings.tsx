@@ -52,7 +52,7 @@ const Settings = () => {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       {/* Header */}
       <div className="px-1">
         <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold tracking-tight">Settings</h1>
@@ -98,10 +98,10 @@ const Settings = () => {
             </CardHeader>
             <CardContent className="space-y-6">
               <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <div className="space-y-0.5">
-                    <Label htmlFor="new-reviews">New Reviews</Label>
-                    <p className="text-sm text-muted-foreground">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div className="space-y-0.5 flex-1">
+                    <Label htmlFor="new-reviews" className="text-sm sm:text-base">New Reviews</Label>
+                    <p className="text-xs sm:text-sm text-muted-foreground">
                       Get notified when you receive new customer reviews
                     </p>
                   </div>
@@ -116,10 +116,10 @@ const Settings = () => {
 
                 <Separator />
 
-                <div className="flex items-center justify-between">
-                  <div className="space-y-0.5">
-                    <Label htmlFor="scheduled-posts">Scheduled Posts</Label>
-                    <p className="text-sm text-muted-foreground">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div className="space-y-0.5 flex-1">
+                    <Label htmlFor="scheduled-posts" className="text-sm sm:text-base">Scheduled Posts</Label>
+                    <p className="text-xs sm:text-sm text-muted-foreground">
                       Receive confirmations when posts are published
                     </p>
                   </div>
@@ -134,10 +134,10 @@ const Settings = () => {
 
                 <Separator />
 
-                <div className="flex items-center justify-between">
-                  <div className="space-y-0.5">
-                    <Label htmlFor="weekly-reports">Weekly Reports</Label>
-                    <p className="text-sm text-muted-foreground">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div className="space-y-0.5 flex-1">
+                    <Label htmlFor="weekly-reports" className="text-sm sm:text-base">Weekly Reports</Label>
+                    <p className="text-xs sm:text-sm text-muted-foreground">
                       Get weekly performance summaries via email
                     </p>
                   </div>
@@ -152,10 +152,10 @@ const Settings = () => {
 
                 <Separator />
 
-                <div className="flex items-center justify-between">
-                  <div className="space-y-0.5">
-                    <Label htmlFor="account-alerts">Account Alerts</Label>
-                    <p className="text-sm text-muted-foreground">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div className="space-y-0.5 flex-1">
+                    <Label htmlFor="account-alerts" className="text-sm sm:text-base">Account Alerts</Label>
+                    <p className="text-xs sm:text-sm text-muted-foreground">
                       Important account and billing notifications
                     </p>
                   </div>
@@ -183,10 +183,10 @@ const Settings = () => {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
-              <div className="flex items-center justify-between">
-                <div className="space-y-0.5">
-                  <Label htmlFor="auto-reply">Enable Auto Reply</Label>
-                  <p className="text-sm text-muted-foreground">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div className="space-y-0.5 flex-1">
+                  <Label htmlFor="auto-reply" className="text-sm sm:text-base">Enable Auto Reply</Label>
+                  <p className="text-xs sm:text-sm text-muted-foreground">
                     Automatically respond to reviews using AI-generated responses
                   </p>
                 </div>
@@ -201,8 +201,8 @@ const Settings = () => {
 
               {autoReply.enabled && (
                 <div className="space-y-4 border-l-2 border-primary/20 pl-4">
-                  <div className="flex items-center justify-between">
-                    <Label htmlFor="positive-reviews">Positive Reviews (4-5 stars)</Label>
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <Label htmlFor="positive-reviews" className="text-sm sm:text-base">Positive Reviews (4-5 stars)</Label>
                     <Switch
                       id="positive-reviews"
                       checked={autoReply.positiveReviews}
@@ -212,8 +212,8 @@ const Settings = () => {
                     />
                   </div>
 
-                  <div className="flex items-center justify-between">
-                    <Label htmlFor="neutral-reviews">Neutral Reviews (3 stars)</Label>
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <Label htmlFor="neutral-reviews" className="text-sm sm:text-base">Neutral Reviews (3 stars)</Label>
                     <Switch
                       id="neutral-reviews"
                       checked={autoReply.neutralReviews}
@@ -223,8 +223,8 @@ const Settings = () => {
                     />
                   </div>
 
-                  <div className="flex items-center justify-between">
-                    <Label htmlFor="negative-reviews">Negative Reviews (1-2 stars)</Label>
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <Label htmlFor="negative-reviews" className="text-sm sm:text-base">Negative Reviews (1-2 stars)</Label>
                     <Switch
                       id="negative-reviews"
                       checked={autoReply.negativeReviews}
@@ -275,14 +275,14 @@ const Settings = () => {
               
               <Separator />
               
-              <div className="flex items-center justify-between">
-                <div>
-                  <h4 className="font-medium">Account Status</h4>
-                  <p className="text-sm text-muted-foreground">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div className="flex-1">
+                  <h4 className="font-medium text-sm sm:text-base">Account Status</h4>
+                  <p className="text-xs sm:text-sm text-muted-foreground">
                     Your account is active and verified
                   </p>
                 </div>
-                <Badge variant="secondary" className="bg-green-100 text-green-800">
+                <Badge variant="secondary" className="bg-green-100 text-green-800 shrink-0">
                   Active
                 </Badge>
               </div>
@@ -301,15 +301,15 @@ const Settings = () => {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h4 className="font-medium">Sign Out</h4>
-                  <p className="text-sm text-muted-foreground">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div className="flex-1">
+                  <h4 className="font-medium text-sm sm:text-base">Sign Out</h4>
+                  <p className="text-xs sm:text-sm text-muted-foreground">
                     Sign out of your account on this device
                   </p>
                 </div>
-                <Button variant="outline" onClick={handleLogout}>
-                  <LogOut className="h-4 w-4 mr-2" />
+                <Button variant="outline" onClick={handleLogout} className="w-full sm:w-auto">
+                  <LogOut className="h-3 w-3 sm:h-4 sm:w-4 mr-2" />
                   Sign Out
                 </Button>
               </div>
