@@ -25,6 +25,7 @@ import EmailService from './services/emailService.js';
 import SMSService from './services/smsService.js';
 import WhatsAppService from './services/whatsappService.js';
 import CSVProcessingService from './services/csvProcessingService.js';
+import TrialEmailScheduler from './services/trialEmailScheduler.js';
 
 // Configuration is now managed by config.js
 // All hardcoded values have been moved to .env files
@@ -1500,7 +1501,7 @@ app.get('/api/accounts/:accountName(*)/locations', async (req, res) => {
         parent: parent,
         pageSize: 100, // Maximum page size to reduce API calls
         pageToken: nextPageToken,
-        readMask: 'name,title,storefrontAddress,websiteUri,phoneNumbers,categories,latlng,metadata'
+        readMask: 'name,title,storefrontAddress,websiteUri,phoneNumbers,categories,latlng,metadata,profile,regularHours,serviceArea,labels,languageCode,openInfo,specialHours'
       });
 
       const locations = locationsResponse.data.locations || [];
@@ -1512,7 +1513,14 @@ app.get('/api/accounts/:accountName(*)/locations', async (req, res) => {
     } while (nextPageToken);
 
     console.log(`✅ Found ${allLocations.length} total locations for account ${accountName}`);
-    
+
+    // Debug: Log fields available in first location
+    if (allLocations.length > 0) {
+      console.log('🔍 DEBUG: Fields in first location:', Object.keys(allLocations[0]));
+      console.log('🔍 DEBUG: Has profile?', !!allLocations[0].profile);
+      console.log('🔍 DEBUG: Has regularHours?', !!allLocations[0].regularHours);
+    }
+
     res.json({ locations: allLocations });
 
   } catch (error) {
@@ -1791,6 +1799,73 @@ app.get('/api/locations/:locationId/posts', async (req, res) => {
     console.error('Error fetching posts:', error);
     // Return empty array instead of error for graceful degradation
     res.json({ posts: [] });
+  }
+});
+
+// Get location profile details for audit tool
+app.get('/api/locations/:locationId', async (req, res) => {
+  try {
+    const { locationId } = req.params;
+    const authHeader = req.headers.authorization;
+
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return res.status(401).json({ error: 'Access token required' });
+    }
+
+    let accessToken = authHeader.split(' ')[1];
+
+    // Try to find refresh token from stored tokens
+    const tokenData = await tokenManager.getTokensByAccessToken(accessToken);
+    const refreshToken = tokenData?.tokens?.refresh_token || null;
+
+    // Ensure token is valid and refresh if needed
+    try {
+      const validTokens = await ensureValidToken(accessToken, refreshToken);
+      accessToken = validTokens.access_token;
+      oauth2Client.setCredentials({ access_token: accessToken });
+    } catch (tokenError) {
+      console.error('Token validation/refresh failed for location details:', tokenError);
+      return res.status(401).json({
+        error: 'Authentication failed',
+        message: 'Token expired and refresh failed. Please re-authenticate.',
+        needsReauth: true
+      });
+    }
+
+    console.log(`🔍 Fetching location details for: ${locationId}`);
+
+    // Fetch location details using Google Business Information API v1
+    // Must specify exact fields in readMask - wildcard (*) is not supported
+    const fields = 'name,title,storefrontAddress,phoneNumbers,websiteUri,regularHours,categories,profile,metadata,serviceArea,labels,adWordsLocationExtensions,languageCode,attributes,moreHours';
+    const url = `https://mybusinessbusinessinformation.googleapis.com/v1/accounts/${HARDCODED_ACCOUNT_ID}/locations/${locationId}?readMask=${fields}`;
+    console.log(`🔍 Full location API URL: ${url}`);
+
+    const response = await fetch(url, {
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+        'Content-Type': 'application/json'
+      }
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`❌ Failed to fetch location details: ${response.status}`, errorText);
+      return res.status(response.status).json({
+        error: 'Failed to fetch location details',
+        details: errorText
+      });
+    }
+
+    const locationData = await response.json();
+    console.log(`✅ Successfully fetched location details for ${locationId}`);
+
+    res.json(locationData);
+  } catch (error) {
+    console.error('❌ Error fetching location details:', error);
+    res.status(500).json({
+      error: 'Internal server error',
+      message: error.message
+    });
   }
 });
 
@@ -3674,15 +3749,83 @@ app.patch('/api/locations/:locationId/update', async (req, res) => {
   }
 });
 
+// 📧 Test Email Endpoint - Send trial reminder email
+app.post('/api/email/test-trial-reminder', async (req, res) => {
+  try {
+    const { email, daysRemaining } = req.body;
+
+    if (!email) {
+      return res.status(400).json({
+        success: false,
+        error: 'Email address is required'
+      });
+    }
+
+    console.log(`[EMAIL TEST] Sending trial reminder email to ${email} (${daysRemaining || 3} days remaining)`);
+
+    // Import the email service
+    const TrialEmailService = (await import('./services/trialEmailService.js')).default;
+    const emailService = new TrialEmailService();
+
+    // Calculate trial end date (example: 3 days from now)
+    const days = daysRemaining || 3;
+    const trialEndDate = new Date();
+    trialEndDate.setDate(trialEndDate.getDate() + days);
+    const formattedDate = trialEndDate.toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    });
+
+    // Extract name from email
+    const userName = email.split('@')[0];
+
+    // Send email
+    const result = await emailService.sendTrialReminderEmail(
+      email,
+      userName,
+      days,
+      formattedDate,
+      days <= 0 ? 'expired' : 'reminder'
+    );
+
+    if (result.success) {
+      console.log(`[EMAIL TEST] ✅ Email sent successfully to ${email}`);
+      res.json({
+        success: true,
+        message: `Trial reminder email sent to ${email}`,
+        messageId: result.messageId,
+        statusCode: result.statusCode,
+        daysRemaining: days
+      });
+    } else {
+      console.error(`[EMAIL TEST] ❌ Failed to send email:`, result.error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to send email',
+        details: result.error
+      });
+    }
+
+  } catch (error) {
+    console.error('[EMAIL TEST] Error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Internal server error',
+      details: error.message
+    });
+  }
+});
+
 // NOTE: Frontend is hosted separately on Azure Static Web Apps, so we don't serve index.html
 app.get('*', (req, res) => {
   // Always return 404 for unmatched routes since frontend is hosted separately
-  res.status(404).json({ 
-    error: 'Endpoint not found', 
+  res.status(404).json({
+    error: 'Endpoint not found',
     message: 'This is a backend API server. Frontend is hosted separately.',
     availableEndpoints: [
       'GET /health',
-      'GET /config', 
+      'GET /config',
       'GET /auth/google/url',
       'POST /auth/google/callback',
       'GET /api/accounts',
@@ -3698,7 +3841,8 @@ app.get('*', (req, res) => {
       'POST /api/locations/:locationId/photos/create-media',
       'GET /api/locations/:locationId/insights',
       'POST /api/automation/test-post-now/:locationId',
-      'POST /api/automation/test-review-check/:locationId'
+      'POST /api/automation/test-review-check/:locationId',
+      'POST /api/email/test-trial-reminder'
     ]
   });
 });
@@ -3793,6 +3937,18 @@ initializeServer().then(() => {
       console.error('❌ [AUTOMATION] Failed to restart automations:', error);
     }
   }, 5000); // Wait 5 seconds after server start to ensure all services are ready
+
+  // 📧 Start Trial Email Scheduler
+  console.log('📧 [EMAIL] Starting trial email automation...');
+  setTimeout(() => {
+    try {
+      const trialEmailScheduler = new TrialEmailScheduler();
+      trialEmailScheduler.start();
+      console.log('✅ [EMAIL] Trial email scheduler started! Emails will be sent daily at 9:00 AM.');
+    } catch (error) {
+      console.error('❌ [EMAIL] Failed to start trial email scheduler:', error);
+    }
+  }, 6000); // Start after automation scheduler
   });
 }).catch(error => {
   console.error('❌ Failed to initialize server:', error);

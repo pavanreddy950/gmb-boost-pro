@@ -1054,6 +1054,22 @@ class GoogleBusinessProfileService {
         name: location.name,
         locationId: this.extractLocationId(location.name),
         displayName: location.title || location.displayName || 'Unnamed Location',
+        // Include raw fields for audit tool
+        title: location.title,
+        storefrontAddress: location.storefrontAddress,
+        phoneNumbers: location.phoneNumbers,
+        websiteUri: location.websiteUri,
+        categories: location.categories,
+        profile: location.profile,
+        regularHours: location.regularHours,
+        serviceArea: location.serviceArea,
+        labels: location.labels,
+        languageCode: location.languageCode,
+        openInfo: location.openInfo,
+        specialHours: location.specialHours,
+        latlng: location.latlng,
+        metadata: location.metadata,
+        // Processed fields for UI display
         address: {
           addressLines: location.storefrontAddress?.addressLines || [],
           locality: location.storefrontAddress?.locality || '',
@@ -1063,16 +1079,10 @@ class GoogleBusinessProfileService {
         },
         phoneNumber: location.phoneNumbers?.[0]?.number || '',
         websiteUrl: location.websiteUri,
-        categories: (location.categories?.primaryCategory ? [location.categories.primaryCategory] : []).concat(location.categories?.additionalCategories || []).map((category: any) => ({
+        categoriesFormatted: (location.categories?.primaryCategory ? [location.categories.primaryCategory] : []).concat(location.categories?.additionalCategories || []).map((category: any) => ({
           name: category.displayName || category.name || category,
           categoryId: category.categoryId || category.name || category,
         })),
-        metadata: {
-          duplicate: location.metadata?.duplicate || false,
-          suspended: location.metadata?.suspended || false,
-          canDelete: location.metadata?.canDelete || false,
-          canUpdate: location.metadata?.canUpdate !== false,
-        },
       }));
       
       // Cache the locations before returning
