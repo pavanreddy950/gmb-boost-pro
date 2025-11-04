@@ -40,6 +40,16 @@ const ProfileDetails = () => {
   const { accounts, isLoading: googleLoading } = useGoogleBusinessProfile();
   const { getAccessibleAccounts } = useProfileLimitations();
 
+  // Helper function to get categories as array
+  const getCategories = (location: BusinessLocation) => {
+    // Check if categoriesFormatted exists (processed format)
+    if ((location as any).categoriesFormatted && Array.isArray((location as any).categoriesFormatted)) {
+      return (location as any).categoriesFormatted;
+    }
+    // Fallback to empty array
+    return [];
+  };
+
   useEffect(() => {
     const findLocation = () => {
       console.log('ProfileDetails: Looking for profileId:', profileId);
@@ -219,7 +229,7 @@ const ProfileDetails = () => {
             )}
             
             <div className="flex flex-wrap gap-1 max-w-full">
-              {location.categories.map((category) => (
+              {getCategories(location).map((category: any) => (
                 <Badge key={category.name} variant="secondary" className="text-[10px] sm:text-xs px-1.5 sm:px-2 py-0.5 whitespace-nowrap leading-tight">
                   {category.name}
                 </Badge>
@@ -290,7 +300,7 @@ const ProfileDetails = () => {
           <AutoPostingTab location={{
             id: location.locationId,
             name: location.displayName,
-            categories: location.categories.map(c => c.name),
+            categories: getCategories(location).map((c: any) => c.name),
             websiteUri: location.websiteUrl,
             phoneNumber: location.phoneNumber,
             address: location.address
