@@ -1,5 +1,29 @@
 [
   {
+    "id": "audit_1761841603613_a68xr4nvq",
+    "timestamp": "2025-10-30T16:26:43.613Z",
+    "action": "coupon.create",
+    "adminId": "OBm8qZc0jOWcY53x6rQuX4gKKnQ2",
+    "adminEmail": "scalepointstrategy@gmail.com",
+    "description": "Created coupon PAVABN with 90% discount",
+    "targetType": "coupon",
+    "targetId": "PAVABN",
+    "metadata": {
+      "couponData": {
+        "code": "PAVABN",
+        "type": "percentage",
+        "discount": 90,
+        "maxUses": null,
+        "validUntil": "2025-12-31T00:00:00.000Z",
+        "description": "",
+        "oneTimePerUser": true,
+        "singleUse": true,
+        "usedBy": []
+      }
+    },
+    "ipAddress": "::1"
+  },
+  {
     "id": "audit_1759745197150_dkjad9g5d",
     "timestamp": "2025-10-06T10:06:37.150Z",
     "action": "subscription.cancel",

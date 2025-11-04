@@ -59,7 +59,10 @@
       "Bash(az webapp list:*)",
       "Bash(npm start)",
       "Bash(sed:*)",
-      "Bash(git checkout:*)"
+      "Bash(git checkout:*)",
+      "Bash(nul)",
+      "Bash(git reset:*)",
+      "Bash(git restore:*)"
     ],
     "deny": [],
     "ask": []

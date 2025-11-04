@@ -1,692 +1,70 @@
 [
   {
-    "id": "audit_1760704881208_02s09dbg1",
+    "id": "audit_1762276887543_awjze1ad3",
     "userId": "OBm8qZc0jOWcY53x6rQuX4gKKnQ2",
     "userEmail": "scalepointstrategy@gmail.com",
-    "locationId": "locations/17676898239868064955",
-    "locationName": "The Royale Retreat Apartment",
+    "locationId": "locations/17697790081864925086",
+    "locationName": "SITARAM GUEST HOUSE",
     "performance": {
-      "timeSeriesData": [
-        {
-          "views": 37,
-          "impressions": 37,
-          "calls": 0,
-          "websiteClicks": 0,
-          "directionRequests": 4,
-          "date": "2025-09-17"
-        },
-        {
-          "views": 33,
-          "impressions": 33,
-          "calls": 0,
-          "websiteClicks": 0,
-          "directionRequests": 0,
-          "date": "2025-09-18"
-        },
-        {
-          "views": 34,
-          "impressions": 34,
-          "calls": 0,
-          "websiteClicks": 0,
-          "directionRequests": 12,
-          "date": "2025-09-19"
-        },
-        {
-          "views": 41,
-          "impressions": 41,
-          "calls": 0,
-          "websiteClicks": 0,
-          "directionRequests": 6,
-          "date": "2025-09-20"
-        },
-        {
-          "views": 32,
-          "impressions": 32,
-          "calls": 0,
-          "websiteClicks": 0,
-          "directionRequests": 1,
-          "date": "2025-09-21"
-        },
-        {
-          "views": 22,
-          "impressions": 22,
-          "calls": 0,
-          "websiteClicks": 0,
-          "directionRequests": 0,
-          "date": "2025-09-22"
-        },
-        {
-          "views": 31,
-          "impressions": 31,
-          "calls": 0,
-          "websiteClicks": 0,
-          "directionRequests": 1,
-          "date": "2025-09-23"
-        },
-        {
-          "views": 38,
-          "impressions": 38,
-          "calls": 0,
-          "websiteClicks": 0,
-          "directionRequests": 0,
-          "date": "2025-09-24"
-        },
-        {
-          "views": 32,
-          "impressions": 32,
-          "calls": 0,
-          "websiteClicks": 0,
-          "directionRequests": 2,
-          "date": "2025-09-25"
-        },
-        {
-          "views": 29,
-          "impressions": 29,
-          "calls": 0,
-          "websiteClicks": 0,
-          "directionRequests": 5,
-          "date": "2025-09-26"
-        },
-        {
-          "views": 28,
-          "impressions": 28,
-          "calls": 0,
-          "websiteClicks": 0,
-          "directionRequests": 0,
-          "date": "2025-09-27"
-        },
-        {
-          "views": 28,
-          "impressions": 28,
-          "calls": 0,
-          "websiteClicks": 0,
-          "directionRequests": 6,
-          "date": "2025-09-28"
-        },
-        {
-          "views": 24,
-          "impressions": 24,
-          "calls": 0,
-          "websiteClicks": 0,
-          "directionRequests": 0,
-          "date": "2025-09-29"
-        },
-        {
-          "views": 22,
-          "impressions": 22,
-          "calls": 0,
-          "websiteClicks": 0,
-          "directionRequests": 3,
-          "date": "2025-09-30"
-        },
-        {
-          "views": 27,
-          "impressions": 27,
-          "calls": 0,
-          "websiteClicks": 0,
-          "directionRequests": 0,
-          "date": "2025-10-01"
-        },
-        {
-          "views": 18,
-          "impressions": 18,
-          "calls": 0,
-          "websiteClicks": 0,
-          "directionRequests": 0,
-          "date": "2025-10-02"
-        },
-        {
-          "views": 49,
-          "impressions": 49,
-          "calls": 0,
-          "websiteClicks": 0,
-          "directionRequests": 7,
-          "date": "2025-10-03"
-        },
-        {
-          "views": 37,
-          "impressions": 37,
-          "calls": 0,
-          "websiteClicks": 0,
-          "directionRequests": 0,
-          "date": "2025-10-04"
-        },
-        {
-          "views": 39,
-          "impressions": 39,
-          "calls": 0,
-          "websiteClicks": 0,
-          "directionRequests": 0,
-          "date": "2025-10-05"
-        },
-        {
-          "views": 4,
-          "impressions": 4,
-          "calls": 0,
-          "websiteClicks": 0,
-          "directionRequests": 0,
-          "date": "2025-10-06"
-        },
-        {
-          "views": 4,
-          "impressions": 4,
-          "calls": 0,
-          "websiteClicks": 0,
-          "directionRequests": 0,
-          "date": "2025-10-07"
-        },
-        {
-          "views": 6,
-          "impressions": 6,
-          "calls": 0,
-          "websiteClicks": 0,
-          "directionRequests": 0,
-          "date": "2025-10-08"
-        },
-        {
-          "views": 3,
-          "impressions": 3,
-          "calls": 0,
-          "websiteClicks": 0,
-          "directionRequests": 4,
-          "date": "2025-10-09"
-        },
-        {
-          "views": 28,
-          "impressions": 28,
-          "calls": 0,
-          "websiteClicks": 0,
-          "directionRequests": 6,
-          "date": "2025-10-10"
-        },
-        {
-          "views": 26,
-          "impressions": 26,
-          "calls": 0,
-          "websiteClicks": 0,
-          "directionRequests": 13,
-          "date": "2025-10-11"
-        },
-        {
-          "views": 4,
-          "impressions": 4,
-          "calls": 0,
-          "websiteClicks": 0,
-          "directionRequests": 0,
-          "date": "2025-10-12"
-        },
-        {
-          "views": 2,
-          "impressions": 2,
-          "calls": 0,
-          "websiteClicks": 0,
-          "directionRequests": 5,
-          "date": "2025-10-13"
-        },
-        {
-          "views": 3,
-          "impressions": 3,
-          "calls": 0,
-          "websiteClicks": 0,
-          "directionRequests": 1,
-          "date": "2025-10-14"
-        },
-        {
-          "views": 0,
-          "impressions": 0,
-          "calls": 0,
-          "websiteClicks": 0,
-          "directionRequests": 0,
-          "date": "2025-10-15"
-        },
-        {
-          "views": 0,
-          "impressions": 0,
-          "calls": 0,
-          "websiteClicks": 0,
-          "directionRequests": 0,
-          "date": "2025-10-16"
-        },
-        {
-          "views": 0,
-          "impressions": 0,
-          "calls": 0,
-          "websiteClicks": 0,
-          "directionRequests": 0,
-          "date": "2025-10-17"
-        }
-      ]
+      "timeSeriesData": null
     },
     "recommendations": {
       "recommendations": []
     },
     "score": {
-      "overall": 53,
-      "performance": 5,
-      "engagement": 100
+      "overall": 41,
+      "performance": 87,
+      "engagement": 78,
+      "searchRank": 13,
+      "profileCompletion": 47,
+      "seoScore": 34,
+      "reviewScore": 0,
+      "reviewReplyScore": 0,
+      "profileCompletionDetails": {
+        "totalFields": 15,
+        "completedFields": 7,
+        "missingFields": [
+          "Website",
+          "Description",
+          "Service Area",
+          "Labels",
+          "Google Ads",
+          "Profile",
+          "Attributes",
+          "Special Hours"
+        ]
+      },
+      "seoDetails": {
+        "hasDescription": false,
+        "hasKeywords": false,
+        "hasCategories": true
+      },
+      "reviewDetails": {
+        "totalReviews": 0,
+        "reviewsLast30Days": 0,
+        "reviewsPerWeek": 0,
+        "repliedReviews": 0,
+        "replyRate": 0
+      }
     },
     "dateRange": {
-      "startDate": "2025-09-17",
-      "endDate": "2025-10-17"
+      "startDate": "2025-10-05",
+      "endDate": "2025-11-04"
     },
-    "timestamp": "2025-10-17T12:41:21.208Z",
+    "timestamp": "2025-11-04T17:21:27.543Z",
     "metadata": {
       "source": "audit_tool",
-      "timestamp": "2025-10-17T12:41:21.189Z"
+      "timestamp": "2025-11-04T17:21:27.535Z"
     }
   },
   {
-    "id": "audit_1760704555508_o7oi7yfo7",
-    "userId": "OBm8qZc0jOWcY53x6rQuX4gKKnQ2",
-    "userEmail": "scalepointstrategy@gmail.com",
-    "locationId": "locations/9152028977863765725",
-    "locationName": "Tree House Retreat Mohani",
-    "performance": {
-      "timeSeriesData": [
-        {
-          "views": 1,
-          "impressions": 1,
-          "calls": 0,
-          "websiteClicks": 0,
-          "directionRequests": 1,
-          "date": "2025-09-17"
-        },
-        {
-          "views": 5,
-          "impressions": 5,
-          "calls": 0,
-          "websiteClicks": 0,
-          "directionRequests": 0,
-          "date": "2025-09-18"
-        },
-        {
-          "views": 0,
-          "impressions": 0,
-          "calls": 0,
-          "websiteClicks": 0,
-          "directionRequests": 0,
-          "date": "2025-09-19"
-        },
-        {
-          "views": 2,
-          "impressions": 2,
-          "calls": 0,
-          "websiteClicks": 0,
-          "directionRequests": 0,
-          "date": "2025-09-20"
-        },
-        {
-          "views": 2,
-          "impressions": 2,
-          "calls": 0,
-          "websiteClicks": 0,
-          "directionRequests": 3,
-          "date": "2025-09-21"
-        },
-        {
-          "views": 1,
-          "impressions": 1,
-          "calls": 0,
-          "websiteClicks": 0,
-          "directionRequests": 2,
-          "date": "2025-09-22"
-        },
-        {
-          "views": 0,
-          "impressions": 0,
-          "calls": 0,
-          "websiteClicks": 0,
-          "directionRequests": 0,
-          "date": "2025-09-23"
-        },
-        {
-          "views": 3,
-          "impressions": 3,
-          "calls": 0,
-          "websiteClicks": 0,
-          "directionRequests": 0,
-          "date": "2025-09-24"
-        },
-        {
-          "views": 1,
-          "impressions": 1,
-          "calls": 0,
-          "websiteClicks": 0,
-          "directionRequests": 0,
-          "date": "2025-09-25"
-        },
-        {
-          "views": 2,
-          "impressions": 2,
-          "calls": 0,
-          "websiteClicks": 0,
-          "directionRequests": 0,
-          "date": "2025-09-26"
-        },
-        {
-          "views": 3,
-          "impressions": 3,
-          "calls": 0,
-          "websiteClicks": 0,
-          "directionRequests": 1,
-          "date": "2025-09-27"
-        },
-        {
-          "views": 1,
-          "impressions": 1,
-          "calls": 0,
-          "websiteClicks": 0,
-          "directionRequests": 6,
-          "date": "2025-09-28"
-        },
-        {
-          "views": 0,
-          "impressions": 0,
-          "calls": 0,
-          "websiteClicks": 0,
-          "directionRequests": 1,
-          "date": "2025-09-29"
-        },
-        {
-          "views": 1,
-          "impressions": 1,
-          "calls": 0,
-          "websiteClicks": 0,
-          "directionRequests": 1,
-          "date": "2025-09-30"
-        },
-        {
-          "views": 4,
-          "impressions": 4,
-          "calls": 0,
-          "websiteClicks": 0,
-          "directionRequests": 0,
-          "date": "2025-10-01"
-        },
-        {
-          "views": 1,
-          "impressions": 1,
-          "calls": 0,
-          "websiteClicks": 0,
-          "directionRequests": 4,
-          "date": "2025-10-02"
-        },
-        {
-          "views": 3,
-          "impressions": 3,
-          "calls": 0,
-          "websiteClicks": 0,
-          "directionRequests": 0,
-          "date": "2025-10-03"
-        },
-        {
-          "views": 5,
-          "impressions": 5,
-          "calls": 0,
-          "websiteClicks": 0,
-          "directionRequests": 0,
-          "date": "2025-10-04"
-        },
-        {
-          "views": 5,
-          "impressions": 5,
-          "calls": 0,
-          "websiteClicks": 0,
-          "directionRequests": 6,
-          "date": "2025-10-05"
-        },
-        {
-          "views": 5,
-          "impressions": 5,
-          "calls": 0,
-          "websiteClicks": 0,
-          "directionRequests": 0,
-          "date": "2025-10-06"
-        },
-        {
-          "views": 1,
-          "impressions": 1,
-          "calls": 0,
-          "websiteClicks": 0,
-          "directionRequests": 0,
-          "date": "2025-10-07"
-        },
-        {
-          "views": 0,
-          "impressions": 0,
-          "calls": 0,
-          "websiteClicks": 0,
-          "directionRequests": 0,
-          "date": "2025-10-08"
-        },
-        {
-          "views": 2,
-          "impressions": 2,
-          "calls": 0,
-          "websiteClicks": 0,
-          "directionRequests": 0,
-          "date": "2025-10-09"
-        },
-        {
-          "views": 1,
-          "impressions": 1,
-          "calls": 0,
-          "websiteClicks": 0,
-          "directionRequests": 3,
-          "date": "2025-10-10"
-        },
-        {
-          "views": 1,
-          "impressions": 1,
-          "calls": 0,
-          "websiteClicks": 0,
-          "directionRequests": 0,
-          "date": "2025-10-11"
-        },
-        {
-          "views": 3,
-          "impressions": 3,
-          "calls": 0,
-          "websiteClicks": 0,
-          "directionRequests": 2,
-          "date": "2025-10-12"
-        },
-        {
-          "views": 1,
-          "impressions": 1,
-          "calls": 0,
-          "websiteClicks": 0,
-          "directionRequests": 1,
-          "date": "2025-10-13"
-        },
-        {
-          "views": 0,
-          "impressions": 0,
-          "calls": 0,
-          "websiteClicks": 0,
-          "directionRequests": 5,
-          "date": "2025-10-14"
-        },
-        {
-          "views": 0,
-          "impressions": 0,
-          "calls": 0,
-          "websiteClicks": 0,
-          "directionRequests": 0,
-          "date": "2025-10-15"
-        },
-        {
-          "views": 0,
-          "impressions": 0,
-          "calls": 0,
-          "websiteClicks": 0,
-          "directionRequests": 0,
-          "date": "2025-10-16"
-        },
-        {
-          "views": 0,
-          "impressions": 0,
-          "calls": 0,
-          "websiteClicks": 0,
-          "directionRequests": 0,
-          "date": "2025-10-17"
-        }
-      ]
-    },
-    "recommendations": {
-      "recommendations": []
-    },
-    "score": {
-      "overall": 50,
-      "performance": 1,
-      "engagement": 100
-    },
-    "dateRange": {
-      "startDate": "2025-09-17",
-      "endDate": "2025-10-17"
-    },
-    "timestamp": "2025-10-17T12:35:55.508Z",
-    "metadata": {
-      "source": "audit_tool",
-      "timestamp": "2025-10-17T12:35:55.490Z"
-    }
-  },
-  {
-    "id": "audit_1760704250287_uey49d5pl",
+    "id": "audit_1762058051046_f89s0vprz",
     "userId": "OBm8qZc0jOWcY53x6rQuX4gKKnQ2",
     "userEmail": "scalepointstrategy@gmail.com",
     "locationId": "locations/1497453847846156772",
     "locationName": "NK Desert Camp & Resort",
     "performance": {
       "timeSeriesData": [
-        {
-          "views": 120,
-          "impressions": 120,
-          "calls": 0,
-          "websiteClicks": 1,
-          "directionRequests": 4,
-          "date": "2025-09-17"
-        },
-        {
-          "views": 145,
-          "impressions": 145,
-          "calls": 2,
-          "websiteClicks": 3,
-          "directionRequests": 8,
-          "date": "2025-09-18"
-        },
-        {
-          "views": 150,
-          "impressions": 150,
-          "calls": 1,
-          "websiteClicks": 5,
-          "directionRequests": 6,
-          "date": "2025-09-19"
-        },
-        {
-          "views": 115,
-          "impressions": 115,
-          "calls": 1,
-          "websiteClicks": 2,
-          "directionRequests": 3,
-          "date": "2025-09-20"
-        },
-        {
-          "views": 112,
-          "impressions": 112,
-          "calls": 1,
-          "websiteClicks": 0,
-          "directionRequests": 1,
-          "date": "2025-09-21"
-        },
-        {
-          "views": 121,
-          "impressions": 121,
-          "calls": 2,
-          "websiteClicks": 2,
-          "directionRequests": 1,
-          "date": "2025-09-22"
-        },
-        {
-          "views": 110,
-          "impressions": 110,
-          "calls": 0,
-          "websiteClicks": 1,
-          "directionRequests": 12,
-          "date": "2025-09-23"
-        },
-        {
-          "views": 119,
-          "impressions": 119,
-          "calls": 0,
-          "websiteClicks": 3,
-          "directionRequests": 10,
-          "date": "2025-09-24"
-        },
-        {
-          "views": 160,
-          "impressions": 160,
-          "calls": 2,
-          "websiteClicks": 1,
-          "directionRequests": 6,
-          "date": "2025-09-25"
-        },
-        {
-          "views": 193,
-          "impressions": 193,
-          "calls": 4,
-          "websiteClicks": 2,
-          "directionRequests": 2,
-          "date": "2025-09-26"
-        },
-        {
-          "views": 166,
-          "impressions": 166,
-          "calls": 6,
-          "websiteClicks": 0,
-          "directionRequests": 2,
-          "date": "2025-09-27"
-        },
-        {
-          "views": 193,
-          "impressions": 193,
-          "calls": 0,
-          "websiteClicks": 0,
-          "directionRequests": 7,
-          "date": "2025-09-28"
-        },
-        {
-          "views": 216,
-          "impressions": 216,
-          "calls": 0,
-          "websiteClicks": 0,
-          "directionRequests": 7,
-          "date": "2025-09-29"
-        },
-        {
-          "views": 257,
-          "impressions": 257,
-          "calls": 4,
-          "websiteClicks": 1,
-          "directionRequests": 13,
-          "date": "2025-09-30"
-        },
-        {
-          "views": 271,
-          "impressions": 271,
-          "calls": 3,
-          "websiteClicks": 1,
-          "directionRequests": 4,
-          "date": "2025-10-01"
-        },
-        {
-          "views": 238,
-          "impressions": 238,
-          "calls": 1,
-          "websiteClicks": 0,
-          "directionRequests": 18,
-          "date": "2025-10-02"
-        },
         {
           "views": 281,
           "impressions": 281,
@@ -696,8 +74,8 @@
           "date": "2025-10-03"
         },
         {
-          "views": 280,
-          "impressions": 280,
+          "views": 282,
+          "impressions": 282,
           "calls": 1,
           "websiteClicks": 3,
           "directionRequests": 10,
@@ -712,32 +90,32 @@
           "date": "2025-10-05"
         },
         {
-          "views": 186,
-          "impressions": 186,
+          "views": 219,
+          "impressions": 219,
           "calls": 9,
           "websiteClicks": 1,
           "directionRequests": 3,
           "date": "2025-10-06"
         },
         {
-          "views": 181,
-          "impressions": 181,
+          "views": 218,
+          "impressions": 218,
           "calls": 2,
           "websiteClicks": 1,
           "directionRequests": 1,
           "date": "2025-10-07"
         },
         {
-          "views": 149,
-          "impressions": 149,
+          "views": 184,
+          "impressions": 184,
           "calls": 3,
           "websiteClicks": 3,
           "directionRequests": 7,
           "date": "2025-10-08"
         },
         {
-          "views": 192,
-          "impressions": 192,
+          "views": 224,
+          "impressions": 224,
           "calls": 4,
           "websiteClicks": 5,
           "directionRequests": 15,
@@ -760,32 +138,335 @@
           "date": "2025-10-11"
         },
         {
-          "views": 218,
-          "impressions": 218,
+          "views": 268,
+          "impressions": 268,
           "calls": 4,
           "websiteClicks": 1,
           "directionRequests": 9,
           "date": "2025-10-12"
         },
         {
-          "views": 241,
-          "impressions": 241,
-          "calls": 0,
+          "views": 291,
+          "impressions": 291,
+          "calls": 4,
           "websiteClicks": 0,
           "directionRequests": 7,
           "date": "2025-10-13"
         },
         {
-          "views": 276,
-          "impressions": 276,
-          "calls": 0,
-          "websiteClicks": 0,
+          "views": 305,
+          "impressions": 305,
+          "calls": 5,
+          "websiteClicks": 4,
           "directionRequests": 11,
           "date": "2025-10-14"
         },
         {
+          "views": 179,
+          "impressions": 179,
+          "calls": 0,
+          "websiteClicks": 1,
+          "directionRequests": 7,
+          "date": "2025-10-15"
+        },
+        {
+          "views": 193,
+          "impressions": 193,
+          "calls": 7,
+          "websiteClicks": 1,
+          "directionRequests": 17,
+          "date": "2025-10-16"
+        },
+        {
+          "views": 255,
+          "impressions": 255,
+          "calls": 2,
+          "websiteClicks": 1,
+          "directionRequests": 13,
+          "date": "2025-10-17"
+        },
+        {
+          "views": 355,
+          "impressions": 355,
+          "calls": 4,
+          "websiteClicks": 0,
+          "directionRequests": 12,
+          "date": "2025-10-18"
+        },
+        {
+          "views": 450,
+          "impressions": 450,
+          "calls": 5,
+          "websiteClicks": 0,
+          "directionRequests": 14,
+          "date": "2025-10-19"
+        },
+        {
+          "views": 405,
+          "impressions": 405,
+          "calls": 5,
+          "websiteClicks": 0,
+          "directionRequests": 23,
+          "date": "2025-10-20"
+        },
+        {
+          "views": 377,
+          "impressions": 377,
+          "calls": 7,
+          "websiteClicks": 0,
+          "directionRequests": 18,
+          "date": "2025-10-21"
+        },
+        {
+          "views": 305,
+          "impressions": 305,
+          "calls": 15,
+          "websiteClicks": 0,
+          "directionRequests": 39,
+          "date": "2025-10-22"
+        },
+        {
+          "views": 385,
+          "impressions": 385,
+          "calls": 10,
+          "websiteClicks": 1,
+          "directionRequests": 36,
+          "date": "2025-10-23"
+        },
+        {
+          "views": 299,
+          "impressions": 299,
+          "calls": 25,
+          "websiteClicks": 1,
+          "directionRequests": 49,
+          "date": "2025-10-24"
+        },
+        {
+          "views": 299,
+          "impressions": 299,
+          "calls": 5,
+          "websiteClicks": 3,
+          "directionRequests": 40,
+          "date": "2025-10-25"
+        },
+        {
+          "views": 245,
+          "impressions": 245,
+          "calls": 6,
+          "websiteClicks": 1,
+          "directionRequests": 17,
+          "date": "2025-10-26"
+        },
+        {
+          "views": 216,
+          "impressions": 216,
+          "calls": 5,
+          "websiteClicks": 3,
+          "directionRequests": 18,
+          "date": "2025-10-27"
+        },
+        {
+          "views": 260,
+          "impressions": 260,
+          "calls": 4,
+          "websiteClicks": 0,
+          "directionRequests": 23,
+          "date": "2025-10-28"
+        },
+        {
+          "views": 54,
+          "impressions": 54,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 0,
+          "date": "2025-10-29"
+        },
+        {
           "views": 0,
           "impressions": 0,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 0,
+          "date": "2025-10-30"
+        },
+        {
+          "views": 0,
+          "impressions": 0,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 0,
+          "date": "2025-10-31"
+        },
+        {
+          "views": 0,
+          "impressions": 0,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 0,
+          "date": "2025-11-01"
+        },
+        {
+          "views": 0,
+          "impressions": 0,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 0,
+          "date": "2025-11-02"
+        }
+      ]
+    },
+    "recommendations": {
+      "recommendations": []
+    },
+    "score": {
+      "overall": 63,
+      "performance": 76,
+      "engagement": 100,
+      "searchRank": 1,
+      "profileCompletion": 73,
+      "seoScore": 34,
+      "reviewScore": 100,
+      "reviewReplyScore": 0,
+      "profileCompletionDetails": {
+        "totalFields": 15,
+        "completedFields": 11,
+        "missingFields": [
+          "Labels",
+          "Google Ads",
+          "Attributes",
+          "Special Hours"
+        ]
+      },
+      "seoDetails": {
+        "hasDescription": false,
+        "hasKeywords": false,
+        "hasCategories": true
+      },
+      "reviewDetails": {
+        "totalReviews": 50,
+        "reviewsLast30Days": 50,
+        "reviewsPerWeek": 11.666666666666668,
+        "repliedReviews": 0,
+        "replyRate": 0
+      }
+    },
+    "dateRange": {
+      "startDate": "2025-10-03",
+      "endDate": "2025-11-02"
+    },
+    "timestamp": "2025-11-02T04:34:11.046Z",
+    "metadata": {
+      "source": "audit_tool",
+      "timestamp": "2025-11-02T04:34:11.038Z"
+    }
+  },
+  {
+    "id": "audit_1762056749747_02eqw09p8",
+    "userId": "OBm8qZc0jOWcY53x6rQuX4gKKnQ2",
+    "userEmail": "scalepointstrategy@gmail.com",
+    "locationId": "locations/14977377147025961194",
+    "locationName": "locations/14977377147025961194",
+    "performance": {
+      "timeSeriesData": [
+        {
+          "views": 6,
+          "impressions": 6,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 0,
+          "date": "2025-10-03"
+        },
+        {
+          "views": 4,
+          "impressions": 4,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 0,
+          "date": "2025-10-04"
+        },
+        {
+          "views": 5,
+          "impressions": 5,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 0,
+          "date": "2025-10-05"
+        },
+        {
+          "views": 2,
+          "impressions": 2,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 0,
+          "date": "2025-10-06"
+        },
+        {
+          "views": 1,
+          "impressions": 1,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 1,
+          "date": "2025-10-07"
+        },
+        {
+          "views": 2,
+          "impressions": 2,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 0,
+          "date": "2025-10-08"
+        },
+        {
+          "views": 2,
+          "impressions": 2,
+          "calls": 0,
+          "websiteClicks": 1,
+          "directionRequests": 0,
+          "date": "2025-10-09"
+        },
+        {
+          "views": 3,
+          "impressions": 3,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 0,
+          "date": "2025-10-10"
+        },
+        {
+          "views": 5,
+          "impressions": 5,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 0,
+          "date": "2025-10-11"
+        },
+        {
+          "views": 2,
+          "impressions": 2,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 1,
+          "date": "2025-10-12"
+        },
+        {
+          "views": 2,
+          "impressions": 2,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 0,
+          "date": "2025-10-13"
+        },
+        {
+          "views": 4,
+          "impressions": 4,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 1,
+          "date": "2025-10-14"
+        },
+        {
+          "views": 2,
+          "impressions": 2,
           "calls": 0,
           "websiteClicks": 0,
           "directionRequests": 0,
@@ -800,12 +481,140 @@
           "date": "2025-10-16"
         },
         {
+          "views": 3,
+          "impressions": 3,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 4,
+          "date": "2025-10-17"
+        },
+        {
+          "views": 5,
+          "impressions": 5,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 4,
+          "date": "2025-10-18"
+        },
+        {
+          "views": 7,
+          "impressions": 7,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 0,
+          "date": "2025-10-19"
+        },
+        {
+          "views": 2,
+          "impressions": 2,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 0,
+          "date": "2025-10-20"
+        },
+        {
+          "views": 1,
+          "impressions": 1,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 1,
+          "date": "2025-10-21"
+        },
+        {
+          "views": 2,
+          "impressions": 2,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 1,
+          "date": "2025-10-22"
+        },
+        {
+          "views": 1,
+          "impressions": 1,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 1,
+          "date": "2025-10-23"
+        },
+        {
+          "views": 3,
+          "impressions": 3,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 0,
+          "date": "2025-10-24"
+        },
+        {
+          "views": 4,
+          "impressions": 4,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 1,
+          "date": "2025-10-25"
+        },
+        {
+          "views": 1,
+          "impressions": 1,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 0,
+          "date": "2025-10-26"
+        },
+        {
+          "views": 2,
+          "impressions": 2,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 1,
+          "date": "2025-10-27"
+        },
+        {
+          "views": 1,
+          "impressions": 1,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 0,
+          "date": "2025-10-28"
+        },
+        {
+          "views": 1,
+          "impressions": 1,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 0,
+          "date": "2025-10-29"
+        },
+        {
           "views": 0,
           "impressions": 0,
           "calls": 0,
           "websiteClicks": 0,
           "directionRequests": 0,
-          "date": "2025-10-17"
+          "date": "2025-10-30"
+        },
+        {
+          "views": 0,
+          "impressions": 0,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 0,
+          "date": "2025-10-31"
+        },
+        {
+          "views": 0,
+          "impressions": 0,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 0,
+          "date": "2025-11-01"
+        },
+        {
+          "views": 0,
+          "impressions": 0,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 0,
+          "date": "2025-11-02"
         }
       ]
     },
@@ -813,67 +622,62 @@
       "recommendations": []
     },
     "score": {
-      "overall": 100,
-      "performance": 100,
-      "engagement": 100
+      "overall": 65,
+      "performance": 1,
+      "engagement": 100,
+      "searchRank": 1,
+      "profileCompletion": 73,
+      "seoScore": 100,
+      "reviewScore": 0,
+      "reviewReplyScore": 100,
+      "profileCompletionDetails": {
+        "totalFields": 15,
+        "completedFields": 11,
+        "missingFields": [
+          "Labels",
+          "Google Ads",
+          "Attributes",
+          "Special Hours"
+        ]
+      },
+      "seoDetails": {
+        "hasDescription": true,
+        "hasKeywords": true,
+        "hasCategories": true
+      },
+      "reviewDetails": {
+        "totalReviews": 3,
+        "reviewsLast30Days": 0,
+        "reviewsPerWeek": 0,
+        "repliedReviews": 3,
+        "replyRate": 100
+      }
     },
     "dateRange": {
-      "startDate": "2025-09-17",
-      "endDate": "2025-10-17"
+      "startDate": "2025-10-03",
+      "endDate": "2025-11-02"
     },
-    "timestamp": "2025-10-17T12:30:50.287Z",
+    "timestamp": "2025-11-02T04:12:29.748Z",
     "metadata": {
       "source": "audit_tool",
-      "timestamp": "2025-10-17T12:30:50.273Z"
+      "timestamp": "2025-11-02T04:12:29.676Z"
     }
   },
   {
-    "id": "audit_1760704070169_4466v2t0t",
+    "id": "audit_1762056700667_rguqha4qr",
     "userId": "OBm8qZc0jOWcY53x6rQuX4gKKnQ2",
     "userEmail": "scalepointstrategy@gmail.com",
-    "locationId": "locations/9861967061576614941",
-    "locationName": "Jubilation Banquet Hall, Restaurant & Outdoor Catering",
+    "locationId": "locations/3835561564304183366",
+    "locationName": "locations/3835561564304183366",
     "performance": {
       "timeSeriesData": [
         {
-          "views": 17,
-          "impressions": 17,
-          "calls": 0,
-          "websiteClicks": 0,
-          "directionRequests": 1,
-          "date": "2025-09-17"
-        },
-        {
-          "views": 22,
-          "impressions": 22,
-          "calls": 0,
-          "websiteClicks": 0,
-          "directionRequests": 2,
-          "date": "2025-09-18"
-        },
-        {
-          "views": 11,
-          "impressions": 11,
-          "calls": 0,
-          "websiteClicks": 0,
-          "directionRequests": 0,
-          "date": "2025-09-19"
-        },
-        {
-          "views": 19,
-          "impressions": 19,
+          "views": 8,
+          "impressions": 8,
           "calls": 1,
           "websiteClicks": 0,
-          "directionRequests": 1,
-          "date": "2025-09-20"
-        },
-        {
-          "views": 27,
-          "impressions": 27,
-          "calls": 0,
-          "websiteClicks": 0,
           "directionRequests": 0,
-          "date": "2025-09-21"
+          "date": "2025-10-03"
         },
         {
           "views": 12,
@@ -881,47 +685,442 @@
           "calls": 0,
           "websiteClicks": 0,
           "directionRequests": 0,
-          "date": "2025-09-22"
+          "date": "2025-10-04"
         },
         {
-          "views": 13,
-          "impressions": 13,
+          "views": 9,
+          "impressions": 9,
           "calls": 0,
           "websiteClicks": 0,
-          "directionRequests": 0,
-          "date": "2025-09-23"
+          "directionRequests": 7,
+          "date": "2025-10-05"
         },
         {
-          "views": 25,
-          "impressions": 25,
+          "views": 9,
+          "impressions": 9,
           "calls": 0,
           "websiteClicks": 0,
           "directionRequests": 1,
-          "date": "2025-09-24"
+          "date": "2025-10-06"
         },
         {
-          "views": 13,
-          "impressions": 13,
+          "views": 3,
+          "impressions": 3,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 3,
+          "date": "2025-10-07"
+        },
+        {
+          "views": 8,
+          "impressions": 8,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 6,
+          "date": "2025-10-08"
+        },
+        {
+          "views": 9,
+          "impressions": 9,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 6,
+          "date": "2025-10-09"
+        },
+        {
+          "views": 2,
+          "impressions": 2,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 1,
+          "date": "2025-10-10"
+        },
+        {
+          "views": 4,
+          "impressions": 4,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 2,
+          "date": "2025-10-11"
+        },
+        {
+          "views": 14,
+          "impressions": 14,
           "calls": 0,
           "websiteClicks": 0,
           "directionRequests": 0,
-          "date": "2025-09-25"
+          "date": "2025-10-12"
         },
         {
-          "views": 39,
-          "impressions": 39,
-          "calls": 1,
+          "views": 10,
+          "impressions": 10,
+          "calls": 0,
           "websiteClicks": 0,
-          "directionRequests": 4,
-          "date": "2025-09-26"
+          "directionRequests": 0,
+          "date": "2025-10-13"
         },
         {
-          "views": 22,
-          "impressions": 22,
-          "calls": 5,
+          "views": 12,
+          "impressions": 12,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 0,
+          "date": "2025-10-14"
+        },
+        {
+          "views": 6,
+          "impressions": 6,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 3,
+          "date": "2025-10-15"
+        },
+        {
+          "views": 18,
+          "impressions": 18,
+          "calls": 2,
           "websiteClicks": 0,
           "directionRequests": 2,
-          "date": "2025-09-27"
+          "date": "2025-10-16"
+        },
+        {
+          "views": 10,
+          "impressions": 10,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 5,
+          "date": "2025-10-17"
+        },
+        {
+          "views": 12,
+          "impressions": 12,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 0,
+          "date": "2025-10-18"
+        },
+        {
+          "views": 10,
+          "impressions": 10,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 1,
+          "date": "2025-10-19"
+        },
+        {
+          "views": 6,
+          "impressions": 6,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 1,
+          "date": "2025-10-20"
+        },
+        {
+          "views": 14,
+          "impressions": 14,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 0,
+          "date": "2025-10-21"
+        },
+        {
+          "views": 16,
+          "impressions": 16,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 0,
+          "date": "2025-10-22"
+        },
+        {
+          "views": 6,
+          "impressions": 6,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 2,
+          "date": "2025-10-23"
+        },
+        {
+          "views": 15,
+          "impressions": 15,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 0,
+          "date": "2025-10-24"
+        },
+        {
+          "views": 7,
+          "impressions": 7,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 4,
+          "date": "2025-10-25"
+        },
+        {
+          "views": 12,
+          "impressions": 12,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 1,
+          "date": "2025-10-26"
+        },
+        {
+          "views": 15,
+          "impressions": 15,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 0,
+          "date": "2025-10-27"
+        },
+        {
+          "views": 19,
+          "impressions": 19,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 0,
+          "date": "2025-10-28"
+        },
+        {
+          "views": 0,
+          "impressions": 0,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 0,
+          "date": "2025-10-29"
+        },
+        {
+          "views": 0,
+          "impressions": 0,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 0,
+          "date": "2025-10-30"
+        },
+        {
+          "views": 0,
+          "impressions": 0,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 0,
+          "date": "2025-10-31"
+        },
+        {
+          "views": 0,
+          "impressions": 0,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 0,
+          "date": "2025-11-01"
+        },
+        {
+          "views": 0,
+          "impressions": 0,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 0,
+          "date": "2025-11-02"
+        }
+      ]
+    },
+    "recommendations": {
+      "recommendations": []
+    },
+    "score": {
+      "overall": 35,
+      "performance": 5,
+      "engagement": 0,
+      "searchRank": 1,
+      "profileCompletion": 47,
+      "seoScore": 34,
+      "reviewScore": 25,
+      "reviewReplyScore": 98,
+      "profileCompletionDetails": {
+        "totalFields": 15,
+        "completedFields": 7,
+        "missingFields": [
+          "Website",
+          "Description",
+          "Service Area",
+          "Labels",
+          "Google Ads",
+          "Profile",
+          "Attributes",
+          "Special Hours"
+        ]
+      },
+      "seoDetails": {
+        "hasDescription": false,
+        "hasKeywords": false,
+        "hasCategories": true
+      },
+      "reviewDetails": {
+        "totalReviews": 50,
+        "reviewsLast30Days": 1,
+        "reviewsPerWeek": 0.23333333333333334,
+        "repliedReviews": 49,
+        "replyRate": 98
+      }
+    },
+    "dateRange": {
+      "startDate": "2025-10-03",
+      "endDate": "2025-11-02"
+    },
+    "timestamp": "2025-11-02T04:11:40.667Z",
+    "metadata": {
+      "source": "audit_tool",
+      "timestamp": "2025-11-02T04:11:40.614Z"
+    }
+  },
+  {
+    "id": "audit_1762056677763_tcnqti3c8",
+    "userId": "OBm8qZc0jOWcY53x6rQuX4gKKnQ2",
+    "userEmail": "scalepointstrategy@gmail.com",
+    "locationId": "locations/3902532824310785738",
+    "locationName": "locations/3902532824310785738",
+    "performance": {
+      "timeSeriesData": [
+        {
+          "views": 5,
+          "impressions": 5,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 4,
+          "date": "2025-10-03"
+        },
+        {
+          "views": 8,
+          "impressions": 8,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 0,
+          "date": "2025-10-04"
+        },
+        {
+          "views": 9,
+          "impressions": 9,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 1,
+          "date": "2025-10-05"
+        },
+        {
+          "views": 4,
+          "impressions": 4,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 3,
+          "date": "2025-10-06"
+        },
+        {
+          "views": 1,
+          "impressions": 1,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 0,
+          "date": "2025-10-07"
+        },
+        {
+          "views": 3,
+          "impressions": 3,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 0,
+          "date": "2025-10-08"
+        },
+        {
+          "views": 3,
+          "impressions": 3,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 0,
+          "date": "2025-10-09"
+        },
+        {
+          "views": 2,
+          "impressions": 2,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 0,
+          "date": "2025-10-10"
+        },
+        {
+          "views": 3,
+          "impressions": 3,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 0,
+          "date": "2025-10-11"
+        },
+        {
+          "views": 2,
+          "impressions": 2,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 0,
+          "date": "2025-10-12"
+        },
+        {
+          "views": 4,
+          "impressions": 4,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 0,
+          "date": "2025-10-13"
+        },
+        {
+          "views": 3,
+          "impressions": 3,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 1,
+          "date": "2025-10-14"
+        },
+        {
+          "views": 10,
+          "impressions": 10,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 0,
+          "date": "2025-10-15"
+        },
+        {
+          "views": 5,
+          "impressions": 5,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 8,
+          "date": "2025-10-16"
+        },
+        {
+          "views": 6,
+          "impressions": 6,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 3,
+          "date": "2025-10-17"
+        },
+        {
+          "views": 4,
+          "impressions": 4,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 1,
+          "date": "2025-10-18"
+        },
+        {
+          "views": 4,
+          "impressions": 4,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 12,
+          "date": "2025-10-19"
+        },
+        {
+          "views": 4,
+          "impressions": 4,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 0,
+          "date": "2025-10-20"
         },
         {
           "views": 11,
@@ -929,32 +1128,1703 @@
           "calls": 0,
           "websiteClicks": 0,
           "directionRequests": 0,
-          "date": "2025-09-28"
+          "date": "2025-10-21"
         },
         {
-          "views": 18,
-          "impressions": 18,
+          "views": 6,
+          "impressions": 6,
           "calls": 0,
           "websiteClicks": 0,
           "directionRequests": 0,
-          "date": "2025-09-29"
+          "date": "2025-10-22"
         },
         {
-          "views": 18,
-          "impressions": 18,
+          "views": 12,
+          "impressions": 12,
           "calls": 0,
           "websiteClicks": 0,
           "directionRequests": 0,
-          "date": "2025-09-30"
+          "date": "2025-10-23"
+        },
+        {
+          "views": 5,
+          "impressions": 5,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 0,
+          "date": "2025-10-24"
+        },
+        {
+          "views": 8,
+          "impressions": 8,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 4,
+          "date": "2025-10-25"
+        },
+        {
+          "views": 3,
+          "impressions": 3,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 5,
+          "date": "2025-10-26"
+        },
+        {
+          "views": 8,
+          "impressions": 8,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 2,
+          "date": "2025-10-27"
+        },
+        {
+          "views": 6,
+          "impressions": 6,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 0,
+          "date": "2025-10-28"
+        },
+        {
+          "views": 0,
+          "impressions": 0,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 0,
+          "date": "2025-10-29"
+        },
+        {
+          "views": 0,
+          "impressions": 0,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 0,
+          "date": "2025-10-30"
+        },
+        {
+          "views": 0,
+          "impressions": 0,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 0,
+          "date": "2025-10-31"
+        },
+        {
+          "views": 0,
+          "impressions": 0,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 0,
+          "date": "2025-11-01"
+        },
+        {
+          "views": 0,
+          "impressions": 0,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 0,
+          "date": "2025-11-02"
+        }
+      ]
+    },
+    "recommendations": {
+      "recommendations": []
+    },
+    "score": {
+      "overall": 30,
+      "performance": 2,
+      "engagement": 100,
+      "searchRank": 1,
+      "profileCompletion": 40,
+      "seoScore": 34,
+      "reviewScore": 0,
+      "reviewReplyScore": 0,
+      "profileCompletionDetails": {
+        "totalFields": 15,
+        "completedFields": 6,
+        "missingFields": [
+          "Phone Number",
+          "Website",
+          "Description",
+          "Service Area",
+          "Labels",
+          "Google Ads",
+          "Profile",
+          "Attributes",
+          "Special Hours"
+        ]
+      },
+      "seoDetails": {
+        "hasDescription": false,
+        "hasKeywords": false,
+        "hasCategories": true
+      },
+      "reviewDetails": {
+        "totalReviews": 1,
+        "reviewsLast30Days": 0,
+        "reviewsPerWeek": 0,
+        "repliedReviews": 0,
+        "replyRate": 0
+      }
+    },
+    "dateRange": {
+      "startDate": "2025-10-03",
+      "endDate": "2025-11-02"
+    },
+    "timestamp": "2025-11-02T04:11:17.763Z",
+    "metadata": {
+      "source": "audit_tool",
+      "timestamp": "2025-11-02T04:11:17.731Z"
+    }
+  },
+  {
+    "id": "audit_1762056651317_8yfgr0eyy",
+    "userId": "OBm8qZc0jOWcY53x6rQuX4gKKnQ2",
+    "userEmail": "scalepointstrategy@gmail.com",
+    "locationId": "locations/17676898239868064955",
+    "locationName": "locations/17676898239868064955",
+    "performance": {
+      "timeSeriesData": [
+        {
+          "views": 49,
+          "impressions": 49,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 7,
+          "date": "2025-10-03"
+        },
+        {
+          "views": 34,
+          "impressions": 34,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 0,
+          "date": "2025-10-04"
+        },
+        {
+          "views": 39,
+          "impressions": 39,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 0,
+          "date": "2025-10-05"
+        },
+        {
+          "views": 31,
+          "impressions": 31,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 0,
+          "date": "2025-10-06"
+        },
+        {
+          "views": 25,
+          "impressions": 25,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 0,
+          "date": "2025-10-07"
+        },
+        {
+          "views": 28,
+          "impressions": 28,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 0,
+          "date": "2025-10-08"
+        },
+        {
+          "views": 27,
+          "impressions": 27,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 4,
+          "date": "2025-10-09"
+        },
+        {
+          "views": 28,
+          "impressions": 28,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 6,
+          "date": "2025-10-10"
+        },
+        {
+          "views": 26,
+          "impressions": 26,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 13,
+          "date": "2025-10-11"
+        },
+        {
+          "views": 28,
+          "impressions": 28,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 0,
+          "date": "2025-10-12"
         },
         {
           "views": 21,
           "impressions": 21,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 5,
+          "date": "2025-10-13"
+        },
+        {
+          "views": 28,
+          "impressions": 28,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 1,
+          "date": "2025-10-14"
+        },
+        {
+          "views": 33,
+          "impressions": 33,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 14,
+          "date": "2025-10-15"
+        },
+        {
+          "views": 33,
+          "impressions": 33,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 0,
+          "date": "2025-10-16"
+        },
+        {
+          "views": 15,
+          "impressions": 15,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 1,
+          "date": "2025-10-17"
+        },
+        {
+          "views": 16,
+          "impressions": 16,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 12,
+          "date": "2025-10-18"
+        },
+        {
+          "views": 15,
+          "impressions": 15,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 2,
+          "date": "2025-10-19"
+        },
+        {
+          "views": 22,
+          "impressions": 22,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 2,
+          "date": "2025-10-20"
+        },
+        {
+          "views": 26,
+          "impressions": 26,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 1,
+          "date": "2025-10-21"
+        },
+        {
+          "views": 27,
+          "impressions": 27,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 9,
+          "date": "2025-10-22"
+        },
+        {
+          "views": 17,
+          "impressions": 17,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 6,
+          "date": "2025-10-23"
+        },
+        {
+          "views": 31,
+          "impressions": 31,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 6,
+          "date": "2025-10-24"
+        },
+        {
+          "views": 40,
+          "impressions": 40,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 7,
+          "date": "2025-10-25"
+        },
+        {
+          "views": 35,
+          "impressions": 35,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 5,
+          "date": "2025-10-26"
+        },
+        {
+          "views": 31,
+          "impressions": 31,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 2,
+          "date": "2025-10-27"
+        },
+        {
+          "views": 17,
+          "impressions": 17,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 0,
+          "date": "2025-10-28"
+        },
+        {
+          "views": 21,
+          "impressions": 21,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 0,
+          "date": "2025-10-29"
+        },
+        {
+          "views": 0,
+          "impressions": 0,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 0,
+          "date": "2025-10-30"
+        },
+        {
+          "views": 0,
+          "impressions": 0,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 0,
+          "date": "2025-10-31"
+        },
+        {
+          "views": 0,
+          "impressions": 0,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 0,
+          "date": "2025-11-01"
+        },
+        {
+          "views": 0,
+          "impressions": 0,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 0,
+          "date": "2025-11-02"
+        }
+      ]
+    },
+    "recommendations": {
+      "recommendations": []
+    },
+    "score": {
+      "overall": 46,
+      "performance": 10,
+      "engagement": 58,
+      "searchRank": 1,
+      "profileCompletion": 53,
+      "seoScore": 34,
+      "reviewScore": 25,
+      "reviewReplyScore": 100,
+      "profileCompletionDetails": {
+        "totalFields": 15,
+        "completedFields": 8,
+        "missingFields": [
+          "Website",
+          "Description",
+          "Labels",
+          "Google Ads",
+          "Profile",
+          "Attributes",
+          "Special Hours"
+        ]
+      },
+      "seoDetails": {
+        "hasDescription": false,
+        "hasKeywords": false,
+        "hasCategories": true
+      },
+      "reviewDetails": {
+        "totalReviews": 12,
+        "reviewsLast30Days": 1,
+        "reviewsPerWeek": 0.23333333333333334,
+        "repliedReviews": 12,
+        "replyRate": 100
+      }
+    },
+    "dateRange": {
+      "startDate": "2025-10-03",
+      "endDate": "2025-11-02"
+    },
+    "timestamp": "2025-11-02T04:10:51.317Z",
+    "metadata": {
+      "source": "audit_tool",
+      "timestamp": "2025-11-02T04:10:51.271Z"
+    }
+  },
+  {
+    "id": "audit_1762056569950_j0hpj27ua",
+    "userId": "OBm8qZc0jOWcY53x6rQuX4gKKnQ2",
+    "userEmail": "scalepointstrategy@gmail.com",
+    "locationId": "locations/9152028977863765725",
+    "locationName": "locations/9152028977863765725",
+    "performance": {
+      "timeSeriesData": [
+        {
+          "views": 3,
+          "impressions": 3,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 0,
+          "date": "2025-10-03"
+        },
+        {
+          "views": 3,
+          "impressions": 3,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 0,
+          "date": "2025-10-04"
+        },
+        {
+          "views": 5,
+          "impressions": 5,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 6,
+          "date": "2025-10-05"
+        },
+        {
+          "views": 7,
+          "impressions": 7,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 0,
+          "date": "2025-10-06"
+        },
+        {
+          "views": 2,
+          "impressions": 2,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 0,
+          "date": "2025-10-07"
+        },
+        {
+          "views": 1,
+          "impressions": 1,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 0,
+          "date": "2025-10-08"
+        },
+        {
+          "views": 3,
+          "impressions": 3,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 0,
+          "date": "2025-10-09"
+        },
+        {
+          "views": 1,
+          "impressions": 1,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 3,
+          "date": "2025-10-10"
+        },
+        {
+          "views": 1,
+          "impressions": 1,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 0,
+          "date": "2025-10-11"
+        },
+        {
+          "views": 4,
+          "impressions": 4,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 2,
+          "date": "2025-10-12"
+        },
+        {
+          "views": 2,
+          "impressions": 2,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 1,
+          "date": "2025-10-13"
+        },
+        {
+          "views": 2,
+          "impressions": 2,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 5,
+          "date": "2025-10-14"
+        },
+        {
+          "views": 4,
+          "impressions": 4,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 1,
+          "date": "2025-10-15"
+        },
+        {
+          "views": 1,
+          "impressions": 1,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 1,
+          "date": "2025-10-16"
+        },
+        {
+          "views": 0,
+          "impressions": 0,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 7,
+          "date": "2025-10-17"
+        },
+        {
+          "views": 4,
+          "impressions": 4,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 1,
+          "date": "2025-10-18"
+        },
+        {
+          "views": 4,
+          "impressions": 4,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 0,
+          "date": "2025-10-19"
+        },
+        {
+          "views": 0,
+          "impressions": 0,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 5,
+          "date": "2025-10-20"
+        },
+        {
+          "views": 2,
+          "impressions": 2,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 1,
+          "date": "2025-10-21"
+        },
+        {
+          "views": 5,
+          "impressions": 5,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 0,
+          "date": "2025-10-22"
+        },
+        {
+          "views": 6,
+          "impressions": 6,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 0,
+          "date": "2025-10-23"
+        },
+        {
+          "views": 1,
+          "impressions": 1,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 0,
+          "date": "2025-10-24"
+        },
+        {
+          "views": 2,
+          "impressions": 2,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 1,
+          "date": "2025-10-25"
+        },
+        {
+          "views": 1,
+          "impressions": 1,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 0,
+          "date": "2025-10-26"
+        },
+        {
+          "views": 1,
+          "impressions": 1,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 0,
+          "date": "2025-10-27"
+        },
+        {
+          "views": 3,
+          "impressions": 3,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 0,
+          "date": "2025-10-28"
+        },
+        {
+          "views": 0,
+          "impressions": 0,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 0,
+          "date": "2025-10-29"
+        },
+        {
+          "views": 0,
+          "impressions": 0,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 0,
+          "date": "2025-10-30"
+        },
+        {
+          "views": 0,
+          "impressions": 0,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 0,
+          "date": "2025-10-31"
+        },
+        {
+          "views": 0,
+          "impressions": 0,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 0,
+          "date": "2025-11-01"
+        },
+        {
+          "views": 0,
+          "impressions": 0,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 0,
+          "date": "2025-11-02"
+        }
+      ]
+    },
+    "recommendations": {
+      "recommendations": []
+    },
+    "score": {
+      "overall": 16,
+      "performance": 1,
+      "engagement": 0,
+      "searchRank": 1,
+      "profileCompletion": 47,
+      "seoScore": 34,
+      "reviewScore": 0,
+      "reviewReplyScore": 0,
+      "profileCompletionDetails": {
+        "totalFields": 15,
+        "completedFields": 7,
+        "missingFields": [
+          "Website",
+          "Description",
+          "Business Hours",
+          "Labels",
+          "Google Ads",
+          "Profile",
+          "Attributes",
+          "Special Hours"
+        ]
+      },
+      "seoDetails": {
+        "hasDescription": false,
+        "hasKeywords": false,
+        "hasCategories": true
+      },
+      "reviewDetails": {
+        "totalReviews": 0,
+        "reviewsLast30Days": 0,
+        "reviewsPerWeek": 0,
+        "repliedReviews": 0,
+        "replyRate": 0
+      }
+    },
+    "dateRange": {
+      "startDate": "2025-10-03",
+      "endDate": "2025-11-02"
+    },
+    "timestamp": "2025-11-02T04:09:29.950Z",
+    "metadata": {
+      "source": "audit_tool",
+      "timestamp": "2025-11-02T04:09:29.912Z"
+    }
+  },
+  {
+    "id": "audit_1762056389114_rlyzfcxq7",
+    "userId": "OBm8qZc0jOWcY53x6rQuX4gKKnQ2",
+    "userEmail": "scalepointstrategy@gmail.com",
+    "locationId": "locations/1852324590760696192",
+    "locationName": "New hope treatment and rehabilitation centre",
+    "performance": {
+      "timeSeriesData": [
+        {
+          "views": 7,
+          "impressions": 7,
+          "calls": 2,
+          "websiteClicks": 0,
+          "directionRequests": 2,
+          "date": "2025-10-03"
+        },
+        {
+          "views": 15,
+          "impressions": 15,
+          "calls": 2,
+          "websiteClicks": 0,
+          "directionRequests": 0,
+          "date": "2025-10-04"
+        },
+        {
+          "views": 13,
+          "impressions": 13,
+          "calls": 3,
+          "websiteClicks": 0,
+          "directionRequests": 2,
+          "date": "2025-10-05"
+        },
+        {
+          "views": 16,
+          "impressions": 16,
+          "calls": 5,
+          "websiteClicks": 0,
+          "directionRequests": 4,
+          "date": "2025-10-06"
+        },
+        {
+          "views": 22,
+          "impressions": 22,
+          "calls": 2,
+          "websiteClicks": 0,
+          "directionRequests": 0,
+          "date": "2025-10-07"
+        },
+        {
+          "views": 9,
+          "impressions": 9,
+          "calls": 2,
+          "websiteClicks": 0,
+          "directionRequests": 5,
+          "date": "2025-10-08"
+        },
+        {
+          "views": 13,
+          "impressions": 13,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 5,
+          "date": "2025-10-09"
+        },
+        {
+          "views": 13,
+          "impressions": 13,
+          "calls": 1,
+          "websiteClicks": 0,
+          "directionRequests": 1,
+          "date": "2025-10-10"
+        },
+        {
+          "views": 11,
+          "impressions": 11,
+          "calls": 2,
+          "websiteClicks": 0,
+          "directionRequests": 11,
+          "date": "2025-10-11"
+        },
+        {
+          "views": 14,
+          "impressions": 14,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 8,
+          "date": "2025-10-12"
+        },
+        {
+          "views": 24,
+          "impressions": 24,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 2,
+          "date": "2025-10-13"
+        },
+        {
+          "views": 18,
+          "impressions": 18,
+          "calls": 2,
+          "websiteClicks": 0,
+          "directionRequests": 1,
+          "date": "2025-10-14"
+        },
+        {
+          "views": 4,
+          "impressions": 4,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 0,
+          "date": "2025-10-15"
+        },
+        {
+          "views": 12,
+          "impressions": 12,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 3,
+          "date": "2025-10-16"
+        },
+        {
+          "views": 13,
+          "impressions": 13,
+          "calls": 1,
+          "websiteClicks": 0,
+          "directionRequests": 3,
+          "date": "2025-10-17"
+        },
+        {
+          "views": 8,
+          "impressions": 8,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 3,
+          "date": "2025-10-18"
+        },
+        {
+          "views": 7,
+          "impressions": 7,
+          "calls": 3,
+          "websiteClicks": 0,
+          "directionRequests": 1,
+          "date": "2025-10-19"
+        },
+        {
+          "views": 8,
+          "impressions": 8,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 4,
+          "date": "2025-10-20"
+        },
+        {
+          "views": 14,
+          "impressions": 14,
+          "calls": 2,
+          "websiteClicks": 0,
+          "directionRequests": 0,
+          "date": "2025-10-21"
+        },
+        {
+          "views": 16,
+          "impressions": 16,
+          "calls": 1,
+          "websiteClicks": 0,
+          "directionRequests": 5,
+          "date": "2025-10-22"
+        },
+        {
+          "views": 7,
+          "impressions": 7,
+          "calls": 1,
+          "websiteClicks": 0,
+          "directionRequests": 5,
+          "date": "2025-10-23"
+        },
+        {
+          "views": 24,
+          "impressions": 24,
+          "calls": 2,
+          "websiteClicks": 0,
+          "directionRequests": 5,
+          "date": "2025-10-24"
+        },
+        {
+          "views": 15,
+          "impressions": 15,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 4,
+          "date": "2025-10-25"
+        },
+        {
+          "views": 16,
+          "impressions": 16,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 0,
+          "date": "2025-10-26"
+        },
+        {
+          "views": 21,
+          "impressions": 21,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 1,
+          "date": "2025-10-27"
+        },
+        {
+          "views": 22,
+          "impressions": 22,
+          "calls": 2,
+          "websiteClicks": 0,
+          "directionRequests": 0,
+          "date": "2025-10-28"
+        },
+        {
+          "views": 23,
+          "impressions": 23,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 0,
+          "date": "2025-10-29"
+        },
+        {
+          "views": 0,
+          "impressions": 0,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 0,
+          "date": "2025-10-30"
+        },
+        {
+          "views": 0,
+          "impressions": 0,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 0,
+          "date": "2025-10-31"
+        },
+        {
+          "views": 0,
+          "impressions": 0,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 0,
+          "date": "2025-11-01"
+        },
+        {
+          "views": 0,
+          "impressions": 0,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 0,
+          "date": "2025-11-02"
+        }
+      ]
+    },
+    "recommendations": {
+      "recommendations": []
+    },
+    "score": {
+      "overall": 28,
+      "performance": 9,
+      "engagement": 91,
+      "searchRank": 1,
+      "profileCompletion": 0,
+      "seoScore": 0,
+      "reviewScore": 50,
+      "reviewReplyScore": 36,
+      "profileCompletionDetails": {
+        "totalFields": 15,
+        "completedFields": 0,
+        "missingFields": [
+          "Business Name",
+          "Phone Number",
+          "Address",
+          "Website",
+          "Categories",
+          "Description",
+          "Business Hours",
+          "Service Area",
+          "Labels",
+          "Google Ads",
+          "Language",
+          "Metadata",
+          "Profile",
+          "Attributes",
+          "Special Hours"
+        ]
+      },
+      "seoDetails": {
+        "hasDescription": false,
+        "hasKeywords": false,
+        "hasCategories": false
+      },
+      "reviewDetails": {
+        "totalReviews": 22,
+        "reviewsLast30Days": 7,
+        "reviewsPerWeek": 1.6333333333333333,
+        "repliedReviews": 8,
+        "replyRate": 36.36363636363637
+      }
+    },
+    "dateRange": {
+      "startDate": "2025-10-03",
+      "endDate": "2025-11-02"
+    },
+    "timestamp": "2025-11-02T04:06:29.114Z",
+    "metadata": {
+      "source": "audit_tool",
+      "timestamp": "2025-11-02T04:06:29.071Z"
+    }
+  },
+  {
+    "id": "audit_1762044908950_rqyr5uee9",
+    "userId": "OBm8qZc0jOWcY53x6rQuX4gKKnQ2",
+    "userEmail": "scalepointstrategy@gmail.com",
+    "locationId": "locations/17683209108307525705",
+    "locationName": "Dson Bath Fittings & Bathroom Accessories Manufacturer",
+    "performance": {
+      "timeSeriesData": [
+        {
+          "views": 10,
+          "impressions": 10,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 3,
+          "date": "2025-10-03"
+        },
+        {
+          "views": 9,
+          "impressions": 9,
+          "calls": 2,
+          "websiteClicks": 0,
+          "directionRequests": 6,
+          "date": "2025-10-04"
+        },
+        {
+          "views": 9,
+          "impressions": 9,
+          "calls": 0,
+          "websiteClicks": 2,
+          "directionRequests": 0,
+          "date": "2025-10-05"
+        },
+        {
+          "views": 9,
+          "impressions": 9,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 0,
+          "date": "2025-10-06"
+        },
+        {
+          "views": 13,
+          "impressions": 13,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 0,
+          "date": "2025-10-07"
+        },
+        {
+          "views": 15,
+          "impressions": 15,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 0,
+          "date": "2025-10-08"
+        },
+        {
+          "views": 12,
+          "impressions": 12,
+          "calls": 0,
+          "websiteClicks": 1,
+          "directionRequests": 0,
+          "date": "2025-10-09"
+        },
+        {
+          "views": 9,
+          "impressions": 9,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 5,
+          "date": "2025-10-10"
+        },
+        {
+          "views": 6,
+          "impressions": 6,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 2,
+          "date": "2025-10-11"
+        },
+        {
+          "views": 10,
+          "impressions": 10,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 3,
+          "date": "2025-10-12"
+        },
+        {
+          "views": 9,
+          "impressions": 9,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 1,
+          "date": "2025-10-13"
+        },
+        {
+          "views": 11,
+          "impressions": 11,
+          "calls": 0,
+          "websiteClicks": 2,
+          "directionRequests": 3,
+          "date": "2025-10-14"
+        },
+        {
+          "views": 3,
+          "impressions": 3,
+          "calls": 0,
+          "websiteClicks": 1,
+          "directionRequests": 4,
+          "date": "2025-10-15"
+        },
+        {
+          "views": 16,
+          "impressions": 16,
+          "calls": 0,
+          "websiteClicks": 2,
+          "directionRequests": 4,
+          "date": "2025-10-16"
+        },
+        {
+          "views": 11,
+          "impressions": 11,
+          "calls": 1,
+          "websiteClicks": 2,
+          "directionRequests": 0,
+          "date": "2025-10-17"
+        },
+        {
+          "views": 4,
+          "impressions": 4,
+          "calls": 3,
+          "websiteClicks": 0,
+          "directionRequests": 2,
+          "date": "2025-10-18"
+        },
+        {
+          "views": 11,
+          "impressions": 11,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 0,
+          "date": "2025-10-19"
+        },
+        {
+          "views": 5,
+          "impressions": 5,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 0,
+          "date": "2025-10-20"
+        },
+        {
+          "views": 11,
+          "impressions": 11,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 2,
+          "date": "2025-10-21"
+        },
+        {
+          "views": 4,
+          "impressions": 4,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 0,
+          "date": "2025-10-22"
+        },
+        {
+          "views": 14,
+          "impressions": 14,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 8,
+          "date": "2025-10-23"
+        },
+        {
+          "views": 9,
+          "impressions": 9,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 2,
+          "date": "2025-10-24"
+        },
+        {
+          "views": 8,
+          "impressions": 8,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 4,
+          "date": "2025-10-25"
+        },
+        {
+          "views": 5,
+          "impressions": 5,
           "calls": 1,
           "websiteClicks": 0,
           "directionRequests": 0,
-          "date": "2025-10-01"
+          "date": "2025-10-26"
         },
+        {
+          "views": 11,
+          "impressions": 11,
+          "calls": 2,
+          "websiteClicks": 1,
+          "directionRequests": 1,
+          "date": "2025-10-27"
+        },
+        {
+          "views": 12,
+          "impressions": 12,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 2,
+          "date": "2025-10-28"
+        },
+        {
+          "views": 6,
+          "impressions": 6,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 0,
+          "date": "2025-10-29"
+        },
+        {
+          "views": 0,
+          "impressions": 0,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 0,
+          "date": "2025-10-30"
+        },
+        {
+          "views": 0,
+          "impressions": 0,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 0,
+          "date": "2025-10-31"
+        },
+        {
+          "views": 0,
+          "impressions": 0,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 0,
+          "date": "2025-11-01"
+        },
+        {
+          "views": 0,
+          "impressions": 0,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 0,
+          "date": "2025-11-02"
+        }
+      ]
+    },
+    "recommendations": {
+      "recommendations": []
+    },
+    "score": {
+      "overall": 31,
+      "performance": 4,
+      "engagement": 100,
+      "searchRank": 1,
+      "profileCompletion": 0,
+      "seoScore": 0,
+      "reviewScore": 0,
+      "reviewReplyScore": 100,
+      "profileCompletionDetails": {
+        "totalFields": 15,
+        "completedFields": 0,
+        "missingFields": [
+          "Business Name",
+          "Phone Number",
+          "Address",
+          "Website",
+          "Categories",
+          "Description",
+          "Business Hours",
+          "Service Area",
+          "Labels",
+          "Google Ads",
+          "Language",
+          "Metadata",
+          "Profile",
+          "Attributes",
+          "Special Hours"
+        ]
+      },
+      "seoDetails": {
+        "hasDescription": false,
+        "hasKeywords": false,
+        "hasCategories": false
+      },
+      "reviewDetails": {
+        "totalReviews": 2,
+        "reviewsLast30Days": 0,
+        "reviewsPerWeek": 0,
+        "repliedReviews": 2,
+        "replyRate": 100
+      }
+    },
+    "dateRange": {
+      "startDate": "2025-10-03",
+      "endDate": "2025-11-02"
+    },
+    "timestamp": "2025-11-02T00:55:08.950Z",
+    "metadata": {
+      "source": "audit_tool",
+      "timestamp": "2025-11-02T00:55:08.910Z"
+    }
+  },
+  {
+    "id": "audit_1761990687958_bauur7pda",
+    "userId": "OBm8qZc0jOWcY53x6rQuX4gKKnQ2",
+    "userEmail": "scalepointstrategy@gmail.com",
+    "locationId": "locations/7245365010488798663",
+    "locationName": "Kaayanaat Villa",
+    "performance": {
+      "timeSeriesData": [
+        {
+          "views": 4,
+          "impressions": 4,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 0,
+          "date": "2025-10-02"
+        },
+        {
+          "views": 6,
+          "impressions": 6,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 7,
+          "date": "2025-10-03"
+        },
+        {
+          "views": 5,
+          "impressions": 5,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 2,
+          "date": "2025-10-04"
+        },
+        {
+          "views": 1,
+          "impressions": 1,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 13,
+          "date": "2025-10-05"
+        },
+        {
+          "views": 1,
+          "impressions": 1,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 5,
+          "date": "2025-10-06"
+        },
+        {
+          "views": 3,
+          "impressions": 3,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 1,
+          "date": "2025-10-07"
+        },
+        {
+          "views": 0,
+          "impressions": 0,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 6,
+          "date": "2025-10-08"
+        },
+        {
+          "views": 3,
+          "impressions": 3,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 4,
+          "date": "2025-10-09"
+        },
+        {
+          "views": 0,
+          "impressions": 0,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 1,
+          "date": "2025-10-10"
+        },
+        {
+          "views": 2,
+          "impressions": 2,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 3,
+          "date": "2025-10-11"
+        },
+        {
+          "views": 3,
+          "impressions": 3,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 3,
+          "date": "2025-10-12"
+        },
+        {
+          "views": 5,
+          "impressions": 5,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 13,
+          "date": "2025-10-13"
+        },
+        {
+          "views": 7,
+          "impressions": 7,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 9,
+          "date": "2025-10-14"
+        },
+        {
+          "views": 3,
+          "impressions": 3,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 0,
+          "date": "2025-10-15"
+        },
+        {
+          "views": 5,
+          "impressions": 5,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 5,
+          "date": "2025-10-16"
+        },
+        {
+          "views": 4,
+          "impressions": 4,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 1,
+          "date": "2025-10-17"
+        },
+        {
+          "views": 2,
+          "impressions": 2,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 7,
+          "date": "2025-10-18"
+        },
+        {
+          "views": 2,
+          "impressions": 2,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 2,
+          "date": "2025-10-19"
+        },
+        {
+          "views": 4,
+          "impressions": 4,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 0,
+          "date": "2025-10-20"
+        },
+        {
+          "views": 3,
+          "impressions": 3,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 11,
+          "date": "2025-10-21"
+        },
+        {
+          "views": 2,
+          "impressions": 2,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 14,
+          "date": "2025-10-22"
+        },
+        {
+          "views": 5,
+          "impressions": 5,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 0,
+          "date": "2025-10-23"
+        },
+        {
+          "views": 2,
+          "impressions": 2,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 6,
+          "date": "2025-10-24"
+        },
+        {
+          "views": 2,
+          "impressions": 2,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 11,
+          "date": "2025-10-25"
+        },
+        {
+          "views": 0,
+          "impressions": 0,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 0,
+          "date": "2025-10-26"
+        },
+        {
+          "views": 0,
+          "impressions": 0,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 0,
+          "date": "2025-10-27"
+        },
+        {
+          "views": 3,
+          "impressions": 3,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 0,
+          "date": "2025-10-28"
+        },
+        {
+          "views": 0,
+          "impressions": 0,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 0,
+          "date": "2025-10-29"
+        },
+        {
+          "views": 0,
+          "impressions": 0,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 0,
+          "date": "2025-10-30"
+        },
+        {
+          "views": 0,
+          "impressions": 0,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 0,
+          "date": "2025-10-31"
+        },
+        {
+          "views": 0,
+          "impressions": 0,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 0,
+          "date": "2025-11-01"
+        }
+      ]
+    },
+    "recommendations": {
+      "recommendations": []
+    },
+    "score": {
+      "overall": 0,
+      "performance": 0,
+      "engagement": 0,
+      "searchRank": 1,
+      "profileCompletion": 0,
+      "seoScore": 0,
+      "reviewScore": 0,
+      "reviewReplyScore": 0,
+      "profileCompletionDetails": {
+        "totalFields": 15,
+        "completedFields": 0,
+        "missingFields": []
+      },
+      "seoDetails": {
+        "hasDescription": false,
+        "hasKeywords": false,
+        "hasCategories": false
+      },
+      "reviewDetails": {
+        "totalReviews": 0,
+        "reviewsLast30Days": 0,
+        "reviewsPerWeek": 0,
+        "repliedReviews": 0,
+        "replyRate": 0
+      }
+    },
+    "dateRange": {
+      "startDate": "2025-10-02",
+      "endDate": "2025-11-01"
+    },
+    "timestamp": "2025-11-01T09:51:27.958Z",
+    "metadata": {
+      "source": "audit_tool",
+      "timestamp": "2025-11-01T09:51:27.941Z"
+    }
+  },
+  {
+    "id": "audit_1761990274749_oss40yad3",
+    "userId": "OBm8qZc0jOWcY53x6rQuX4gKKnQ2",
+    "userEmail": "scalepointstrategy@gmail.com",
+    "locationId": "locations/9861967061576614941",
+    "locationName": "Jubilation Banquet Hall, Restaurant & Outdoor Catering",
+    "performance": {
+      "timeSeriesData": [
         {
           "views": 25,
           "impressions": 25,
@@ -988,32 +2858,32 @@
           "date": "2025-10-05"
         },
         {
-          "views": 7,
-          "impressions": 7,
+          "views": 22,
+          "impressions": 22,
           "calls": 2,
           "websiteClicks": 0,
           "directionRequests": 13,
           "date": "2025-10-06"
         },
         {
-          "views": 7,
-          "impressions": 7,
+          "views": 13,
+          "impressions": 13,
           "calls": 1,
           "websiteClicks": 0,
           "directionRequests": 2,
           "date": "2025-10-07"
         },
         {
-          "views": 10,
-          "impressions": 10,
+          "views": 19,
+          "impressions": 19,
           "calls": 0,
           "websiteClicks": 0,
           "directionRequests": 0,
           "date": "2025-10-08"
         },
         {
-          "views": 12,
-          "impressions": 12,
+          "views": 17,
+          "impressions": 17,
           "calls": 0,
           "websiteClicks": 0,
           "directionRequests": 5,
@@ -1036,436 +2906,68 @@
           "date": "2025-10-11"
         },
         {
-          "views": 9,
-          "impressions": 9,
+          "views": 17,
+          "impressions": 17,
           "calls": 1,
           "websiteClicks": 0,
           "directionRequests": 2,
           "date": "2025-10-12"
         },
         {
-          "views": 11,
-          "impressions": 11,
+          "views": 19,
+          "impressions": 19,
           "calls": 0,
           "websiteClicks": 0,
           "directionRequests": 3,
           "date": "2025-10-13"
         },
         {
-          "views": 7,
-          "impressions": 7,
+          "views": 21,
+          "impressions": 21,
           "calls": 0,
           "websiteClicks": 0,
           "directionRequests": 5,
           "date": "2025-10-14"
         },
         {
-          "views": 0,
-          "impressions": 0,
-          "calls": 0,
-          "websiteClicks": 0,
-          "directionRequests": 0,
-          "date": "2025-10-15"
-        },
-        {
-          "views": 0,
-          "impressions": 0,
-          "calls": 0,
-          "websiteClicks": 0,
-          "directionRequests": 0,
-          "date": "2025-10-16"
-        },
-        {
-          "views": 0,
-          "impressions": 0,
-          "calls": 0,
-          "websiteClicks": 0,
-          "directionRequests": 0,
-          "date": "2025-10-17"
-        }
-      ]
-    },
-    "recommendations": {
-      "recommendations": []
-    },
-    "score": {
-      "overall": 53,
-      "performance": 7,
-      "engagement": 100
-    },
-    "dateRange": {
-      "startDate": "2025-09-17",
-      "endDate": "2025-10-17"
-    },
-    "timestamp": "2025-10-17T12:27:50.169Z",
-    "metadata": {
-      "source": "audit_tool",
-      "timestamp": "2025-10-17T12:27:50.156Z"
-    }
-  },
-  {
-    "id": "audit_1760704061111_6euuubxkq",
-    "userId": "OBm8qZc0jOWcY53x6rQuX4gKKnQ2",
-    "userEmail": "scalepointstrategy@gmail.com",
-    "locationId": "locations/14977377147025961194",
-    "locationName": "Scale Point Strategy & Business Growth Solutions",
-    "performance": {
-      "timeSeriesData": [
-        {
-          "views": 4,
-          "impressions": 4,
-          "calls": 0,
-          "websiteClicks": 0,
-          "directionRequests": 0,
-          "date": "2025-09-17"
-        },
-        {
-          "views": 6,
-          "impressions": 6,
-          "calls": 1,
-          "websiteClicks": 1,
-          "directionRequests": 0,
-          "date": "2025-09-18"
-        },
-        {
-          "views": 2,
-          "impressions": 2,
-          "calls": 0,
-          "websiteClicks": 1,
-          "directionRequests": 0,
-          "date": "2025-09-19"
-        },
-        {
-          "views": 1,
-          "impressions": 1,
-          "calls": 0,
-          "websiteClicks": 0,
-          "directionRequests": 1,
-          "date": "2025-09-20"
-        },
-        {
-          "views": 1,
-          "impressions": 1,
-          "calls": 0,
-          "websiteClicks": 0,
-          "directionRequests": 0,
-          "date": "2025-09-21"
-        },
-        {
-          "views": 3,
-          "impressions": 3,
-          "calls": 0,
-          "websiteClicks": 0,
-          "directionRequests": 1,
-          "date": "2025-09-22"
-        },
-        {
-          "views": 2,
-          "impressions": 2,
-          "calls": 0,
-          "websiteClicks": 0,
-          "directionRequests": 0,
-          "date": "2025-09-23"
-        },
-        {
-          "views": 2,
-          "impressions": 2,
-          "calls": 0,
-          "websiteClicks": 0,
-          "directionRequests": 2,
-          "date": "2025-09-24"
-        },
-        {
-          "views": 1,
-          "impressions": 1,
-          "calls": 0,
-          "websiteClicks": 0,
-          "directionRequests": 0,
-          "date": "2025-09-25"
-        },
-        {
-          "views": 3,
-          "impressions": 3,
-          "calls": 0,
-          "websiteClicks": 0,
-          "directionRequests": 4,
-          "date": "2025-09-26"
-        },
-        {
-          "views": 1,
-          "impressions": 1,
-          "calls": 0,
-          "websiteClicks": 0,
-          "directionRequests": 8,
-          "date": "2025-09-27"
-        },
-        {
-          "views": 6,
-          "impressions": 6,
-          "calls": 0,
-          "websiteClicks": 0,
-          "directionRequests": 0,
-          "date": "2025-09-28"
-        },
-        {
-          "views": 4,
-          "impressions": 4,
-          "calls": 0,
-          "websiteClicks": 0,
-          "directionRequests": 5,
-          "date": "2025-09-29"
-        },
-        {
-          "views": 3,
-          "impressions": 3,
+          "views": 18,
+          "impressions": 18,
           "calls": 1,
           "websiteClicks": 0,
           "directionRequests": 0,
-          "date": "2025-09-30"
-        },
-        {
-          "views": 2,
-          "impressions": 2,
-          "calls": 0,
-          "websiteClicks": 0,
-          "directionRequests": 0,
-          "date": "2025-10-01"
-        },
-        {
-          "views": 3,
-          "impressions": 3,
-          "calls": 0,
-          "websiteClicks": 0,
-          "directionRequests": 1,
-          "date": "2025-10-02"
-        },
-        {
-          "views": 6,
-          "impressions": 6,
-          "calls": 0,
-          "websiteClicks": 0,
-          "directionRequests": 0,
-          "date": "2025-10-03"
-        },
-        {
-          "views": 4,
-          "impressions": 4,
-          "calls": 0,
-          "websiteClicks": 0,
-          "directionRequests": 0,
-          "date": "2025-10-04"
-        },
-        {
-          "views": 5,
-          "impressions": 5,
-          "calls": 0,
-          "websiteClicks": 0,
-          "directionRequests": 0,
-          "date": "2025-10-05"
-        },
-        {
-          "views": 0,
-          "impressions": 0,
-          "calls": 0,
-          "websiteClicks": 0,
-          "directionRequests": 0,
-          "date": "2025-10-06"
-        },
-        {
-          "views": 0,
-          "impressions": 0,
-          "calls": 0,
-          "websiteClicks": 0,
-          "directionRequests": 1,
-          "date": "2025-10-07"
-        },
-        {
-          "views": 0,
-          "impressions": 0,
-          "calls": 0,
-          "websiteClicks": 0,
-          "directionRequests": 0,
-          "date": "2025-10-08"
-        },
-        {
-          "views": 1,
-          "impressions": 1,
-          "calls": 0,
-          "websiteClicks": 1,
-          "directionRequests": 0,
-          "date": "2025-10-09"
-        },
-        {
-          "views": 3,
-          "impressions": 3,
-          "calls": 0,
-          "websiteClicks": 0,
-          "directionRequests": 0,
-          "date": "2025-10-10"
-        },
-        {
-          "views": 5,
-          "impressions": 5,
-          "calls": 0,
-          "websiteClicks": 0,
-          "directionRequests": 0,
-          "date": "2025-10-11"
-        },
-        {
-          "views": 1,
-          "impressions": 1,
-          "calls": 0,
-          "websiteClicks": 0,
-          "directionRequests": 1,
-          "date": "2025-10-12"
-        },
-        {
-          "views": 0,
-          "impressions": 0,
-          "calls": 0,
-          "websiteClicks": 0,
-          "directionRequests": 0,
-          "date": "2025-10-13"
-        },
-        {
-          "views": 0,
-          "impressions": 0,
-          "calls": 0,
-          "websiteClicks": 0,
-          "directionRequests": 1,
-          "date": "2025-10-14"
-        },
-        {
-          "views": 0,
-          "impressions": 0,
-          "calls": 0,
-          "websiteClicks": 0,
-          "directionRequests": 0,
           "date": "2025-10-15"
-        },
-        {
-          "views": 0,
-          "impressions": 0,
-          "calls": 0,
-          "websiteClicks": 0,
-          "directionRequests": 0,
-          "date": "2025-10-16"
-        },
-        {
-          "views": 0,
-          "impressions": 0,
-          "calls": 0,
-          "websiteClicks": 0,
-          "directionRequests": 0,
-          "date": "2025-10-17"
-        }
-      ]
-    },
-    "recommendations": {
-      "recommendations": []
-    },
-    "score": {
-      "overall": 50,
-      "performance": 1,
-      "engagement": 100
-    },
-    "dateRange": {
-      "startDate": "2025-09-17",
-      "endDate": "2025-10-17"
-    },
-    "timestamp": "2025-10-17T12:27:41.111Z",
-    "metadata": {
-      "source": "audit_tool",
-      "timestamp": "2025-10-17T12:27:41.097Z"
-    }
-  },
-  {
-    "id": "audit_1760118078980_h72h0oozw",
-    "userId": "OBm8qZc0jOWcY53x6rQuX4gKKnQ2",
-    "userEmail": "scalepointstrategy@gmail.com",
-    "locationId": "locations/3835561564304183366",
-    "locationName": "Preet Pure Veg Restaurant And Hotel",
-    "performance": {
-      "timeSeriesData": [
-        {
-          "views": 9,
-          "impressions": 9,
-          "calls": 0,
-          "websiteClicks": 0,
-          "directionRequests": 0,
-          "date": "2025-09-10"
-        },
-        {
-          "views": 6,
-          "impressions": 6,
-          "calls": 0,
-          "websiteClicks": 0,
-          "directionRequests": 0,
-          "date": "2025-09-11"
-        },
-        {
-          "views": 4,
-          "impressions": 4,
-          "calls": 0,
-          "websiteClicks": 0,
-          "directionRequests": 0,
-          "date": "2025-09-12"
-        },
-        {
-          "views": 13,
-          "impressions": 13,
-          "calls": 0,
-          "websiteClicks": 0,
-          "directionRequests": 6,
-          "date": "2025-09-13"
         },
         {
           "views": 10,
           "impressions": 10,
           "calls": 0,
           "websiteClicks": 0,
-          "directionRequests": 3,
-          "date": "2025-09-14"
+          "directionRequests": 0,
+          "date": "2025-10-16"
         },
         {
-          "views": 14,
-          "impressions": 14,
-          "calls": 0,
-          "websiteClicks": 0,
-          "directionRequests": 6,
-          "date": "2025-09-15"
-        },
-        {
-          "views": 9,
-          "impressions": 9,
+          "views": 12,
+          "impressions": 12,
           "calls": 0,
           "websiteClicks": 0,
           "directionRequests": 0,
-          "date": "2025-09-16"
+          "date": "2025-10-17"
         },
         {
-          "views": 9,
-          "impressions": 9,
-          "calls": 0,
+          "views": 8,
+          "impressions": 8,
+          "calls": 1,
           "websiteClicks": 0,
           "directionRequests": 0,
-          "date": "2025-09-17"
+          "date": "2025-10-18"
         },
         {
-          "views": 11,
-          "impressions": 11,
+          "views": 16,
+          "impressions": 16,
           "calls": 0,
           "websiteClicks": 0,
-          "directionRequests": 2,
-          "date": "2025-09-18"
-        },
-        {
-          "views": 6,
-          "impressions": 6,
-          "calls": 0,
-          "websiteClicks": 0,
-          "directionRequests": 0,
-          "date": "2025-09-19"
+          "directionRequests": 7,
+          "date": "2025-10-19"
         },
         {
           "views": 7,
@@ -1473,143 +2975,71 @@
           "calls": 0,
           "websiteClicks": 0,
           "directionRequests": 1,
-          "date": "2025-09-20"
+          "date": "2025-10-20"
         },
         {
-          "views": 11,
-          "impressions": 11,
+          "views": 15,
+          "impressions": 15,
+          "calls": 4,
+          "websiteClicks": 0,
+          "directionRequests": 5,
+          "date": "2025-10-21"
+        },
+        {
+          "views": 13,
+          "impressions": 13,
           "calls": 1,
           "websiteClicks": 0,
           "directionRequests": 0,
-          "date": "2025-09-21"
+          "date": "2025-10-22"
         },
         {
-          "views": 6,
-          "impressions": 6,
+          "views": 20,
+          "impressions": 20,
           "calls": 0,
           "websiteClicks": 0,
-          "directionRequests": 4,
-          "date": "2025-09-22"
+          "directionRequests": 2,
+          "date": "2025-10-23"
         },
         {
-          "views": 11,
-          "impressions": 11,
+          "views": 22,
+          "impressions": 22,
           "calls": 0,
           "websiteClicks": 0,
           "directionRequests": 3,
-          "date": "2025-09-23"
+          "date": "2025-10-24"
+        },
+        {
+          "views": 25,
+          "impressions": 25,
+          "calls": 2,
+          "websiteClicks": 0,
+          "directionRequests": 4,
+          "date": "2025-10-25"
+        },
+        {
+          "views": 22,
+          "impressions": 22,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 0,
+          "date": "2025-10-26"
         },
         {
           "views": 15,
           "impressions": 15,
           "calls": 0,
           "websiteClicks": 0,
-          "directionRequests": 0,
-          "date": "2025-09-24"
-        },
-        {
-          "views": 9,
-          "impressions": 9,
-          "calls": 0,
-          "websiteClicks": 0,
-          "directionRequests": 0,
-          "date": "2025-09-25"
-        },
-        {
-          "views": 8,
-          "impressions": 8,
-          "calls": 0,
-          "websiteClicks": 0,
-          "directionRequests": 0,
-          "date": "2025-09-26"
-        },
-        {
-          "views": 11,
-          "impressions": 11,
-          "calls": 0,
-          "websiteClicks": 0,
-          "directionRequests": 0,
-          "date": "2025-09-27"
-        },
-        {
-          "views": 12,
-          "impressions": 12,
-          "calls": 0,
-          "websiteClicks": 0,
-          "directionRequests": 4,
-          "date": "2025-09-28"
-        },
-        {
-          "views": 12,
-          "impressions": 12,
-          "calls": 0,
-          "websiteClicks": 0,
-          "directionRequests": 0,
-          "date": "2025-09-29"
-        },
-        {
-          "views": 9,
-          "impressions": 9,
-          "calls": 3,
-          "websiteClicks": 0,
           "directionRequests": 2,
-          "date": "2025-09-30"
+          "date": "2025-10-27"
         },
         {
-          "views": 11,
-          "impressions": 11,
-          "calls": 0,
-          "websiteClicks": 0,
-          "directionRequests": 3,
-          "date": "2025-10-01"
-        },
-        {
-          "views": 7,
-          "impressions": 7,
-          "calls": 0,
-          "websiteClicks": 0,
-          "directionRequests": 1,
-          "date": "2025-10-02"
-        },
-        {
-          "views": 8,
-          "impressions": 8,
+          "views": 14,
+          "impressions": 14,
           "calls": 1,
           "websiteClicks": 0,
-          "directionRequests": 0,
-          "date": "2025-10-03"
-        },
-        {
-          "views": 13,
-          "impressions": 13,
-          "calls": 0,
-          "websiteClicks": 0,
-          "directionRequests": 0,
-          "date": "2025-10-04"
-        },
-        {
-          "views": 9,
-          "impressions": 9,
-          "calls": 0,
-          "websiteClicks": 0,
-          "directionRequests": 7,
-          "date": "2025-10-05"
-        },
-        {
-          "views": 8,
-          "impressions": 8,
-          "calls": 0,
-          "websiteClicks": 0,
           "directionRequests": 1,
-          "date": "2025-10-06"
-        },
-        {
-          "views": 3,
-          "impressions": 3,
-          "calls": 0,
-          "websiteClicks": 0,
-          "directionRequests": 3,
-          "date": "2025-10-07"
+          "date": "2025-10-28"
         },
         {
           "views": 0,
@@ -1617,7 +3047,7 @@
           "calls": 0,
           "websiteClicks": 0,
           "directionRequests": 0,
-          "date": "2025-10-08"
+          "date": "2025-10-29"
         },
         {
           "views": 0,
@@ -1625,7 +3055,7 @@
           "calls": 0,
           "websiteClicks": 0,
           "directionRequests": 0,
-          "date": "2025-10-09"
+          "date": "2025-10-30"
         },
         {
           "views": 0,
@@ -1633,7 +3063,15 @@
           "calls": 0,
           "websiteClicks": 0,
           "directionRequests": 0,
-          "date": "2025-10-10"
+          "date": "2025-10-31"
+        },
+        {
+          "views": 0,
+          "impressions": 0,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 0,
+          "date": "2025-11-01"
         }
       ]
     },
@@ -1641,18 +3079,40 @@
       "recommendations": []
     },
     "score": {
-      "overall": 52,
-      "performance": 5,
-      "engagement": 100
+      "overall": 23,
+      "performance": 7,
+      "engagement": 100,
+      "searchRank": 1,
+      "profileCompletion": 0,
+      "seoScore": 0,
+      "reviewScore": 0,
+      "reviewReplyScore": 45,
+      "profileCompletionDetails": {
+        "totalFields": 15,
+        "completedFields": 0,
+        "missingFields": []
+      },
+      "seoDetails": {
+        "hasDescription": false,
+        "hasKeywords": false,
+        "hasCategories": false
+      },
+      "reviewDetails": {
+        "totalReviews": 20,
+        "reviewsLast30Days": 0,
+        "reviewsPerWeek": 0,
+        "repliedReviews": 9,
+        "replyRate": 45
+      }
     },
     "dateRange": {
-      "startDate": "2025-09-10",
-      "endDate": "2025-10-10"
+      "startDate": "2025-10-02",
+      "endDate": "2025-11-01"
     },
-    "timestamp": "2025-10-10T17:41:18.980Z",
+    "timestamp": "2025-11-01T09:44:34.749Z",
     "metadata": {
       "source": "audit_tool",
-      "timestamp": "2025-10-10T17:41:18.966Z"
+      "timestamp": "2025-11-01T09:44:34.733Z"
     }
   },
   {
@@ -1929,282 +3389,6 @@
     "metadata": {
       "source": "audit_tool",
       "timestamp": "2025-10-02T19:53:08.474Z"
-    }
-  },
-  {
-    "id": "audit_1759434543102_okmkm9lky",
-    "userId": "OBm8qZc0jOWcY53x6rQuX4gKKnQ2",
-    "userEmail": "scalepointstrategy@gmail.com",
-    "locationId": "locations/3902532824310785738",
-    "locationName": "Cozy Nest Cottage",
-    "performance": {
-      "timeSeriesData": [
-        {
-          "views": 2,
-          "impressions": 2,
-          "calls": 0,
-          "websiteClicks": 0,
-          "directionRequests": 0,
-          "date": "2025-09-02"
-        },
-        {
-          "views": 7,
-          "impressions": 7,
-          "calls": 0,
-          "websiteClicks": 0,
-          "directionRequests": 0,
-          "date": "2025-09-03"
-        },
-        {
-          "views": 5,
-          "impressions": 5,
-          "calls": 0,
-          "websiteClicks": 0,
-          "directionRequests": 1,
-          "date": "2025-09-04"
-        },
-        {
-          "views": 6,
-          "impressions": 6,
-          "calls": 0,
-          "websiteClicks": 0,
-          "directionRequests": 4,
-          "date": "2025-09-05"
-        },
-        {
-          "views": 5,
-          "impressions": 5,
-          "calls": 0,
-          "websiteClicks": 0,
-          "directionRequests": 0,
-          "date": "2025-09-06"
-        },
-        {
-          "views": 6,
-          "impressions": 6,
-          "calls": 0,
-          "websiteClicks": 0,
-          "directionRequests": 0,
-          "date": "2025-09-07"
-        },
-        {
-          "views": 4,
-          "impressions": 4,
-          "calls": 0,
-          "websiteClicks": 0,
-          "directionRequests": 0,
-          "date": "2025-09-08"
-        },
-        {
-          "views": 3,
-          "impressions": 3,
-          "calls": 0,
-          "websiteClicks": 0,
-          "directionRequests": 0,
-          "date": "2025-09-09"
-        },
-        {
-          "views": 3,
-          "impressions": 3,
-          "calls": 0,
-          "websiteClicks": 0,
-          "directionRequests": 0,
-          "date": "2025-09-10"
-        },
-        {
-          "views": 2,
-          "impressions": 2,
-          "calls": 0,
-          "websiteClicks": 0,
-          "directionRequests": 0,
-          "date": "2025-09-11"
-        },
-        {
-          "views": 5,
-          "impressions": 5,
-          "calls": 0,
-          "websiteClicks": 0,
-          "directionRequests": 0,
-          "date": "2025-09-12"
-        },
-        {
-          "views": 3,
-          "impressions": 3,
-          "calls": 0,
-          "websiteClicks": 0,
-          "directionRequests": 0,
-          "date": "2025-09-13"
-        },
-        {
-          "views": 5,
-          "impressions": 5,
-          "calls": 0,
-          "websiteClicks": 0,
-          "directionRequests": 3,
-          "date": "2025-09-14"
-        },
-        {
-          "views": 5,
-          "impressions": 5,
-          "calls": 0,
-          "websiteClicks": 0,
-          "directionRequests": 3,
-          "date": "2025-09-15"
-        },
-        {
-          "views": 1,
-          "impressions": 1,
-          "calls": 0,
-          "websiteClicks": 0,
-          "directionRequests": 0,
-          "date": "2025-09-16"
-        },
-        {
-          "views": 4,
-          "impressions": 4,
-          "calls": 0,
-          "websiteClicks": 0,
-          "directionRequests": 1,
-          "date": "2025-09-17"
-        },
-        {
-          "views": 5,
-          "impressions": 5,
-          "calls": 0,
-          "websiteClicks": 0,
-          "directionRequests": 0,
-          "date": "2025-09-18"
-        },
-        {
-          "views": 5,
-          "impressions": 5,
-          "calls": 0,
-          "websiteClicks": 0,
-          "directionRequests": 5,
-          "date": "2025-09-19"
-        },
-        {
-          "views": 5,
-          "impressions": 5,
-          "calls": 0,
-          "websiteClicks": 0,
-          "directionRequests": 0,
-          "date": "2025-09-20"
-        },
-        {
-          "views": 6,
-          "impressions": 6,
-          "calls": 0,
-          "websiteClicks": 0,
-          "directionRequests": 0,
-          "date": "2025-09-21"
-        },
-        {
-          "views": 1,
-          "impressions": 1,
-          "calls": 0,
-          "websiteClicks": 0,
-          "directionRequests": 0,
-          "date": "2025-09-22"
-        },
-        {
-          "views": 3,
-          "impressions": 3,
-          "calls": 0,
-          "websiteClicks": 0,
-          "directionRequests": 0,
-          "date": "2025-09-23"
-        },
-        {
-          "views": 6,
-          "impressions": 6,
-          "calls": 0,
-          "websiteClicks": 0,
-          "directionRequests": 0,
-          "date": "2025-09-24"
-        },
-        {
-          "views": 2,
-          "impressions": 2,
-          "calls": 0,
-          "websiteClicks": 0,
-          "directionRequests": 0,
-          "date": "2025-09-25"
-        },
-        {
-          "views": 4,
-          "impressions": 4,
-          "calls": 0,
-          "websiteClicks": 0,
-          "directionRequests": 2,
-          "date": "2025-09-26"
-        },
-        {
-          "views": 4,
-          "impressions": 4,
-          "calls": 0,
-          "websiteClicks": 0,
-          "directionRequests": 0,
-          "date": "2025-09-27"
-        },
-        {
-          "views": 4,
-          "impressions": 4,
-          "calls": 0,
-          "websiteClicks": 0,
-          "directionRequests": 0,
-          "date": "2025-09-28"
-        },
-        {
-          "views": 11,
-          "impressions": 11,
-          "calls": 0,
-          "websiteClicks": 0,
-          "directionRequests": 3,
-          "date": "2025-09-29"
-        },
-        {
-          "views": 0,
-          "impressions": 0,
-          "calls": 0,
-          "websiteClicks": 0,
-          "directionRequests": 0,
-          "date": "2025-09-30"
-        },
-        {
-          "views": 0,
-          "impressions": 0,
-          "calls": 0,
-          "websiteClicks": 0,
-          "directionRequests": 0,
-          "date": "2025-10-01"
-        },
-        {
-          "views": 0,
-          "impressions": 0,
-          "calls": 0,
-          "websiteClicks": 0,
-          "directionRequests": 0,
-          "date": "2025-10-02"
-        }
-      ]
-    },
-    "recommendations": {
-      "recommendations": []
-    },
-    "score": {
-      "overall": 52,
-      "performance": 3,
-      "engagement": 100
-    },
-    "dateRange": {
-      "startDate": "2025-09-02",
-      "endDate": "2025-10-02"
-    },
-    "timestamp": "2025-10-02T19:49:03.102Z",
-    "metadata": {
-      "source": "audit_tool",
-      "timestamp": "2025-10-02T19:49:03.075Z"
     }
   }
 ]
