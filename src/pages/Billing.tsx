@@ -308,14 +308,14 @@ const Billing = () => {
                   <div className="flex items-center justify-between">
                     <CardTitle className="text-lg">{plan.name}</CardTitle>
                     {plan.interval === 'yearly' && (
-                      <Badge className="bg-green-100 text-green-800">Save 17%</Badge>
+                      <Badge className="bg-green-100 text-green-800">Save 80%</Badge>
                     )}
                   </div>
                   {plan.id === 'per_profile_yearly' ? (
                     <div className="mt-2">
                       <div className="flex items-baseline gap-2">
                         <span className="text-3xl font-bold text-foreground">$99</span>
-                        <span className="text-xl text-muted-foreground line-through">$119</span>
+                        <span className="text-xl text-muted-foreground line-through">$499</span>
                       </div>
                       <CardDescription className="mt-1">per Google Business Profile/year</CardDescription>
                     </div>

@@ -645,18 +645,18 @@ router.get('/subscription/:gbpAccountId/payments', async (req, res) => {
 router.post('/webhook', async (req, res) => {
   try {
     const signature = req.headers['x-razorpay-signature'];
-    
+
     // Verify webhook signature
     const isValid = paymentService.verifyWebhookSignature(req.body, signature);
-    
+
     if (!isValid) {
       console.error('Invalid webhook signature');
       return res.status(400).json({ error: 'Invalid webhook signature' });
     }
-    
+
     // Process webhook event
     await subscriptionService.handleWebhookEvent(req.body);
-    
+
     res.json({ status: 'ok' });
   } catch (error) {
     console.error('Webhook processing error:', error);
@@ -664,5 +664,216 @@ router.post('/webhook', async (req, res) => {
   }
 });
 
+// ===== MANDATE / RECURRING PAYMENT ENDPOINTS =====
+
+// Create customer and setup mandate token
+router.post('/mandate/setup', async (req, res) => {
+  try {
+    const { userId, email, name, contact, gbpAccountId } = req.body;
+
+    console.log('[Mandate Setup] Request received:', { userId, email, name, contact, gbpAccountId });
+
+    if (!userId || !email || !gbpAccountId) {
+      console.error('[Mandate Setup] Missing required fields');
+      return res.status(400).json({ error: 'userId, email, and gbpAccountId are required' });
+    }
+
+    // Check if mandate is already authorized
+    const subscription = subscriptionService.getSubscriptionByGBPAccount(gbpAccountId);
+    if (subscription && subscription.mandateAuthorized && subscription.mandateTokenId) {
+      console.log('[Mandate Setup] ✅ Mandate already authorized for this account');
+      return res.json({
+        success: true,
+        alreadyAuthorized: true,
+        customerId: subscription.razorpayCustomerId,
+        message: 'Mandate already authorized. No action needed.'
+      });
+    }
+
+    console.log('[Mandate Setup] Creating Razorpay customer for:', email);
+
+    // Create Razorpay customer
+    let customer;
+    try {
+      customer = await paymentService.createCustomer(email, name || email, contact || '');
+      console.log('[Mandate Setup] ✅ Customer created:', customer.id);
+    } catch (customerError) {
+      console.error('[Mandate Setup] ❌ Error creating Razorpay customer:', customerError);
+      console.error('[Mandate Setup] Error type:', typeof customerError);
+      console.error('[Mandate Setup] Error details:', JSON.stringify(customerError, null, 2));
+
+      const errorMessage = customerError.message ||
+                          customerError.description ||
+                          customerError.error?.description ||
+                          'Unknown Razorpay error';
+
+      throw new Error(`Razorpay customer creation failed: ${errorMessage}`);
+    }
+
+    // Store customer ID with subscription (if exists)
+    try {
+      if (subscription) {
+        console.log('[Mandate Setup] Found subscription:', subscription.id);
+        subscriptionService.updateSubscription(subscription.id, {
+          razorpayCustomerId: customer.id
+        });
+        console.log('[Mandate Setup] ✅ Updated subscription with customer ID');
+      } else {
+        console.log('[Mandate Setup] ⚠️ No subscription found for GBP account:', gbpAccountId);
+        // This is OK - subscription might not exist yet for new users
+      }
+    } catch (subError) {
+      console.error('[Mandate Setup] ⚠️ Error updating subscription:', subError);
+      // Don't fail the request - customer was created successfully
+    }
+
+    res.json({
+      success: true,
+      alreadyAuthorized: false,
+      customerId: customer.id,
+      message: 'Customer created successfully. Proceed with mandate authorization.'
+    });
+  } catch (error) {
+    console.error('[Mandate Setup] ❌ Fatal Error:', error);
+    console.error('[Mandate Setup] Error stack:', error.stack);
+    res.status(500).json({
+      error: 'Failed to setup mandate',
+      details: error.message,
+      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+    });
+  }
+});
+
+// Create mandate order for authorization
+router.post('/mandate/create-auth-order', async (req, res) => {
+  try {
+    const { customerId, amount = 200, currency = 'INR', userId, gbpAccountId } = req.body;
+
+    if (!customerId) {
+      return res.status(400).json({ error: 'customerId is required' });
+    }
+
+    console.log('[Mandate Auth] Creating authorization order for customer:', customerId);
+
+    // Create a minimal order for mandate authorization (₹2)
+    const order = await paymentService.createOrder(amount, currency, {
+      userId,
+      gbpAccountId,
+      purpose: 'mandate_authorization',
+      description: 'Payment method authorization for recurring payments'
+    });
+
+    console.log('[Mandate Auth] Authorization order created:', order.id);
+
+    res.json({
+      success: true,
+      order,
+      message: 'Authorization order created. Proceed with payment to authorize mandate.'
+    });
+  } catch (error) {
+    console.error('[Mandate Auth] Error:', error);
+    res.status(500).json({ error: 'Failed to create authorization order', details: error.message });
+  }
+});
+
+// Verify mandate authorization and save token
+router.post('/mandate/verify', async (req, res) => {
+  try {
+    const {
+      razorpay_order_id,
+      razorpay_payment_id,
+      razorpay_signature,
+      customerId,
+      gbpAccountId
+    } = req.body;
+
+    if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature) {
+      return res.status(400).json({ error: 'Missing payment verification parameters' });
+    }
+
+    console.log('[Mandate Verify] Verifying mandate authorization:', razorpay_payment_id);
+
+    // Verify payment signature
+    const payment = await paymentService.verifyPayment(
+      razorpay_order_id,
+      razorpay_payment_id,
+      razorpay_signature
+    );
+
+    console.log('[Mandate Verify] Payment verified:', payment.razorpay_payment_id);
+
+    // Fetch payment details to get token
+    const paymentDetails = await paymentService.fetchPaymentDetails(razorpay_payment_id);
+    const tokenId = paymentDetails.token_id;
+
+    if (!tokenId) {
+      console.warn('[Mandate Verify] No token found in payment. Creating recurring token...');
+      // For cards, create a token from the payment
+      // This will be handled by Razorpay's recurring payments
+    }
+
+    // Update subscription with mandate details
+    const subscription = subscriptionService.getSubscriptionByGBPAccount(gbpAccountId);
+    if (subscription) {
+      subscriptionService.updateSubscription(subscription.id, {
+        razorpayCustomerId: customerId,
+        mandateAuthorized: true,
+        mandateTokenId: tokenId,
+        mandateAuthDate: new Date().toISOString(),
+        mandatePaymentId: razorpay_payment_id
+      });
+
+      console.log('[Mandate Verify] Mandate authorized and saved for subscription:', subscription.id);
+    }
+
+    res.json({
+      success: true,
+      message: 'Mandate authorized successfully. Auto-payments are now enabled.',
+      tokenId,
+      subscription: subscription ? {
+        id: subscription.id,
+        status: subscription.status,
+        mandateAuthorized: true
+      } : null
+    });
+  } catch (error) {
+    console.error('[Mandate Verify] Error:', error);
+    res.status(500).json({ error: 'Failed to verify mandate', details: error.message });
+  }
+});
+
+// Check mandate status
+router.get('/mandate/status/:gbpAccountId', async (req, res) => {
+  try {
+    const { gbpAccountId } = req.params;
+
+    const subscription = subscriptionService.getSubscriptionByGBPAccount(gbpAccountId);
+
+    if (!subscription) {
+      return res.status(404).json({ error: 'Subscription not found' });
+    }
+
+    // Consider existing customers with payment history as already authorized
+    const hasPaymentHistory = subscription.paymentHistory && subscription.paymentHistory.length > 0;
+    const mandateAuthorized = subscription.mandateAuthorized || hasPaymentHistory;
+
+    console.log('[Mandate Status] Check for', gbpAccountId, ':', {
+      mandateAuthorized: subscription.mandateAuthorized,
+      hasPaymentHistory,
+      finalStatus: mandateAuthorized
+    });
+
+    res.json({
+      success: true,
+      mandateAuthorized,
+      mandateTokenId: subscription.mandateTokenId || null,
+      mandateAuthDate: subscription.mandateAuthDate || null,
+      razorpayCustomerId: subscription.razorpayCustomerId || null
+    });
+  } catch (error) {
+    console.error('[Mandate Status] Error:', error);
+    res.status(500).json({ error: 'Failed to fetch mandate status' });
+  }
+});
 
 export default router;

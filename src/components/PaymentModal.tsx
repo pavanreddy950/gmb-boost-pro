@@ -392,9 +392,10 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
             setIsProcessing(false);
             toast({
               title: "Payment Cancelled",
-              description: "Your payment was cancelled.",
+              description: "Your payment was cancelled. You can try again when ready.",
               variant: "default"
             });
+            // Note: Modal is already closed, user can reopen from dashboard if needed
           },
           escape: true,
           backdropclose: false,
@@ -419,14 +420,19 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
           });
         });
 
-        // Open Razorpay modal
-        razorpayInstance.open();
+        // Close the upgrade modal BEFORE opening Razorpay to prevent overlap
+        onClose();
 
-        // Show success toast for modal opening
-        toast({
-          title: "Payment Gateway Loaded",
-          description: "Choose your preferred payment method to continue.",
-        });
+        // Open Razorpay modal after a small delay to ensure smooth transition
+        setTimeout(() => {
+          razorpayInstance.open();
+
+          // Show success toast for modal opening
+          toast({
+            title: "Payment Gateway Loaded",
+            description: "Choose your preferred payment method to continue.",
+          });
+        }, 100);
 
       } catch (razorpayError) {
         console.error('Failed to initialize Razorpay:', razorpayError);
@@ -510,7 +516,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
                     </div>
                     {plan.interval === 'yearly' && (
                       <div className="bg-green-100 text-green-800 px-2 py-1 rounded-md text-sm font-medium">
-                        Save 17%
+                        Save 80%
                       </div>
                     )}
                   </div>

@@ -796,7 +796,14 @@ CRITICAL RULES - MUST FOLLOW ALL:
 
         for (const review of unrepliedReviews) {
           const reviewerName = review.reviewer?.displayName || 'Unknown';
-          const rating = review.starRating?.value || review.starRating || 'Unknown';
+
+          // Convert rating string to number for display
+          const ratingMap = { 'ONE': 1, 'TWO': 2, 'THREE': 3, 'FOUR': 4, 'FIVE': 5 };
+          let rating = review.starRating?.value || review.starRating || 5;
+          if (typeof rating === 'string') {
+            rating = ratingMap[rating.toUpperCase()] || 5;
+          }
+
           console.log(`[AutomationScheduler] 📝 Processing review from ${reviewerName} (${rating} stars)`);
           
           await this.replyToReview(locationId, review, config, userToken);
@@ -822,7 +829,12 @@ CRITICAL RULES - MUST FOLLOW ALL:
 
   // Check if we should reply to a review based on configuration
   shouldReplyToReview(review, config) {
-    const rating = review.starRating?.value || 0;
+    // Convert rating string to number
+    const ratingMap = { 'ONE': 1, 'TWO': 2, 'THREE': 3, 'FOUR': 4, 'FIVE': 5 };
+    let rating = review.starRating?.value || review.starRating || 5;
+    if (typeof rating === 'string') {
+      rating = ratingMap[rating.toUpperCase()] || 5;
+    }
     
     // Reply based on configuration
     if (config.replyToAll) return true;
@@ -837,9 +849,16 @@ CRITICAL RULES - MUST FOLLOW ALL:
   async replyToReview(locationId, review, config, token) {
     try {
       const reviewId = review.reviewId || review.name;
-      const rating = review.starRating?.value || review.starRating;
+
+      // Convert rating string to number for display
+      const ratingMap = { 'ONE': 1, 'TWO': 2, 'THREE': 3, 'FOUR': 4, 'FIVE': 5 };
+      let rating = review.starRating?.value || review.starRating || 5;
+      if (typeof rating === 'string') {
+        rating = ratingMap[rating.toUpperCase()] || 5;
+      }
+
       const reviewerName = review.reviewer?.displayName || 'Unknown';
-      
+
       console.log(`[AutomationScheduler] 🤖 AUTO-GENERATING AI REPLY for review ${reviewId}`);
       console.log(`[AutomationScheduler] 📊 Review details: ${rating} stars from ${reviewerName}`);
       
@@ -913,7 +932,15 @@ CRITICAL RULES - MUST FOLLOW ALL:
 
   // Generate review reply using AI ONLY - no templates
   async generateReviewReply(review, config) {
-    const rating = review.starRating?.value || 0;
+    // Convert rating string to number
+    const ratingMap = { 'ONE': 1, 'TWO': 2, 'THREE': 3, 'FOUR': 4, 'FIVE': 5 };
+    let rating = review.starRating?.value || review.starRating || 5;
+
+    // If rating is a string like "FIVE", convert to number
+    if (typeof rating === 'string') {
+      rating = ratingMap[rating.toUpperCase()] || 5;
+    }
+
     const reviewText = review.comment || '';
     const businessName = config.businessName || 'our business';
     const reviewerName = review.reviewer?.displayName || 'valued customer';

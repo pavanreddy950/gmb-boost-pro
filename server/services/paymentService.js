@@ -177,18 +177,60 @@ export class PaymentService {
 
   async createCustomer(email, name, contact) {
     try {
+      this._checkConfiguration();
+
       const customerOptions = {
-        name,
+        name: name || email,
         email,
-        contact,
         fail_existing: 0
       };
 
+      // Only add contact if it's a valid phone number (not empty string)
+      if (contact && contact.trim() !== '') {
+        customerOptions.contact = contact;
+      }
+
+      console.log('[PaymentService] Creating customer with options:', {
+        name: customerOptions.name,
+        email: customerOptions.email,
+        hasContact: !!customerOptions.contact
+      });
+
       const customer = await this.razorpay.customers.create(customerOptions);
-      console.log('Created Razorpay customer:', customer);
+      console.log('[PaymentService] ✅ Created Razorpay customer:', customer.id);
       return customer;
     } catch (error) {
-      console.error('Error creating Razorpay customer:', error);
+      console.error('[PaymentService] ❌ Error creating Razorpay customer:', error);
+      console.error('[PaymentService] Error details:', {
+        message: error.message,
+        description: error.description,
+        statusCode: error.statusCode,
+        error: error.error
+      });
+
+      // Check if customer already exists
+      // Error description can be in error.description or error.error.description
+      const errorMsg = error.description || error.error?.description || error.message || '';
+      if (errorMsg.includes('Customer already exists') || errorMsg.includes('already exists for the merchant')) {
+        console.log('[PaymentService] 🔍 Customer already exists, fetching existing customer...');
+        try {
+          // Fetch all customers and find by email
+          const customers = await this.razorpay.customers.all();
+          const existingCustomer = customers.items.find(c => c.email === email);
+
+          if (existingCustomer) {
+            console.log('[PaymentService] ✅ Found existing customer:', existingCustomer.id);
+            return existingCustomer;
+          } else {
+            console.error('[PaymentService] ❌ Could not find existing customer by email');
+            throw new Error('Customer exists but could not be retrieved');
+          }
+        } catch (fetchError) {
+          console.error('[PaymentService] ❌ Error fetching existing customer:', fetchError);
+          throw fetchError;
+        }
+      }
+
       throw error;
     }
   }
@@ -341,6 +383,77 @@ export class PaymentService {
       return invoices;
     } catch (error) {
       console.error('Error fetching invoices:', error);
+      throw error;
+    }
+  }
+
+  async fetchPaymentDetails(paymentId) {
+    try {
+      this._checkConfiguration();
+      console.log('[PaymentService] Fetching payment details for:', paymentId);
+
+      const payment = await this.razorpay.payments.fetch(paymentId);
+      console.log('[PaymentService] Payment details fetched successfully');
+      return payment;
+    } catch (error) {
+      console.error('[PaymentService] Error fetching payment details:', error);
+      throw error;
+    }
+  }
+
+  async createToken(customerId, method, notes = {}) {
+    try {
+      this._checkConfiguration();
+      console.log('[PaymentService] Creating token for customer:', customerId);
+
+      const tokenData = {
+        customer_id: customerId,
+        method,
+        notes
+      };
+
+      const token = await this.razorpay.tokens.create(tokenData);
+      console.log('[PaymentService] Token created:', token.id);
+      return token;
+    } catch (error) {
+      console.error('[PaymentService] Error creating token:', error);
+      throw error;
+    }
+  }
+
+  async deleteToken(tokenId, customerId) {
+    try {
+      this._checkConfiguration();
+      console.log('[PaymentService] Deleting token:', tokenId);
+
+      const result = await this.razorpay.tokens.delete(tokenId, customerId);
+      console.log('[PaymentService] Token deleted successfully');
+      return result;
+    } catch (error) {
+      console.error('[PaymentService] Error deleting token:', error);
+      throw error;
+    }
+  }
+
+  async createRecurringPayment(customerId, tokenId, amount, currency = 'INR', notes = {}) {
+    try {
+      this._checkConfiguration();
+      console.log('[PaymentService] Creating recurring payment for customer:', customerId);
+
+      const paymentData = {
+        amount: amount,
+        currency,
+        customer_id: customerId,
+        token: tokenId,
+        notes,
+        description: 'Recurring payment for subscription'
+      };
+
+      const payment = await this.razorpay.payments.createRecurring(paymentData);
+      console.log('[PaymentService] Recurring payment created:', payment.id);
+      return payment;
+    } catch (error) {
+      console.error('[PaymentService] Error creating recurring payment:', error);
       throw error;
     }
   }

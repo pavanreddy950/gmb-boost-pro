@@ -80,13 +80,13 @@ export const PaymentWall: React.FC<PaymentWallProps> = ({
               <div>
                 <p className="font-semibold text-green-900">Unlock All Features</p>
                 <p className="text-sm text-green-700 mt-1">
-                  Starting at just ₹999/month
+                  Just $99 per profile/year
                 </p>
               </div>
               <div className="text-right">
                 <p className="text-xs text-green-600">Limited Time Offer</p>
-                <p className="text-lg font-bold text-green-900">Save 17%</p>
-                <p className="text-xs text-green-600">with yearly plan</p>
+                <p className="text-lg font-bold text-green-900">Save 80%</p>
+                <p className="text-xs text-green-600">Regular price $499</p>
               </div>
             </div>
           </div>
