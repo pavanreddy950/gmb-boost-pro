@@ -124,9 +124,33 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       });
     } catch (error: any) {
       console.error('Google login error:', error);
+
+      // Don't show error toast if user simply closed the popup
+      if (error.code === 'auth/popup-closed-by-user' || error.code === 'auth/cancelled-popup-request') {
+        console.log('User closed Google sign-in popup');
+        return; // Exit silently without showing error
+      }
+
+      // Show error toast for actual errors
+      let errorMessage = "An error occurred during Google login";
+
+      switch (error.code) {
+        case 'auth/popup-blocked':
+          errorMessage = "Popup was blocked by browser. Please allow popups for this site.";
+          break;
+        case 'auth/unauthorized-domain':
+          errorMessage = "This domain is not authorized for Google sign-in.";
+          break;
+        case 'auth/account-exists-with-different-credential':
+          errorMessage = "An account already exists with this email using a different sign-in method.";
+          break;
+        default:
+          errorMessage = error.message;
+      }
+
       toast({
         title: "Google login failed",
-        description: error.message || "An error occurred during Google login",
+        description: errorMessage,
         variant: "destructive",
       });
       throw error;
