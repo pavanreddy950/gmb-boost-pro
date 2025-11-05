@@ -43,6 +43,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
     error?: string;
   } | null>(null);
   const [isValidatingCoupon, setIsValidatingCoupon] = useState(false);
+  const [exchangeRate, setExchangeRate] = useState(88.718); // Dynamic exchange rate, default fallback
 
   const { Razorpay } = useRazorpay();
   const { currentUser } = useAuth();
@@ -67,6 +68,32 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
       setProfileCount(Math.max(1, totalConnectedProfiles));
     }
   }, [selectedPlanId, totalConnectedProfiles]);
+
+  // Fetch live exchange rate when modal opens
+  useEffect(() => {
+    if (isOpen) {
+      const fetchExchangeRate = async () => {
+        try {
+          console.log('[PaymentModal] 🔄 Fetching live exchange rate...');
+          const response = await fetch(`${backendUrl}/api/payment/detect-currency`);
+
+          if (response.ok) {
+            const data = await response.json();
+            const rate = data.exchangeRate || 88.718;
+            setExchangeRate(rate);
+            console.log(`[PaymentModal] ✅ Live exchange rate: 1 USD = ${rate} INR`);
+          } else {
+            console.warn('[PaymentModal] ⚠️ Using fallback rate: 88.718 INR');
+          }
+        } catch (error) {
+          console.error('[PaymentModal] ❌ Error fetching exchange rate:', error);
+          console.warn('[PaymentModal] ⚠️ Using fallback rate: 88.718 INR');
+        }
+      };
+
+      fetchExchangeRate();
+    }
+  }, [isOpen, backendUrl]);
   
   const validateCoupon = async () => {
     if (!couponCode || !selectedPlan) return;
@@ -159,26 +186,26 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
       console.log('[Payment] 🌍 Detecting user currency...');
       const currencyDetectionResponse = await fetch(`${backendUrl}/api/payment/detect-currency`);
 
-      let exchangeRate = 88.78; // Fallback rate
+      let paymentExchangeRate = 88.718; // Fallback rate (updated Nov 2025)
       let targetCurrency = 'INR'; // Default fallback
       let currencySymbol = '₹';
 
       if (currencyDetectionResponse.ok) {
         const currencyData = await currencyDetectionResponse.json();
         targetCurrency = currencyData.detectedCurrency;
-        exchangeRate = currencyData.exchangeRate || 88.78;
+        paymentExchangeRate = currencyData.exchangeRate || 88.718;
         currencySymbol = currencyData.currencySymbol;
         console.log(`[Payment] ✅ Detected: ${currencyData.country} → ${targetCurrency} (${currencySymbol})`);
-        console.log(`[Payment] ✅ Live exchange rate: 1 USD = ${exchangeRate} ${targetCurrency}`);
+        console.log(`[Payment] ✅ Live exchange rate: 1 USD = ${paymentExchangeRate} ${targetCurrency}`);
       } else {
         console.warn('[Payment] ⚠️ Currency detection failed, using fallback: INR');
       }
 
       // Convert USD to target currency using live rate
       const usdInDollars = usdAmount / 100;
-      const convertedAmount = Math.round(usdInDollars * exchangeRate * 100); // Convert to paise/cents
+      const convertedAmount = Math.round(usdInDollars * paymentExchangeRate * 100); // Convert to paise/cents
 
-      console.log(`[Payment] 💱 Converting: $${usdInDollars} USD → ${convertedAmount/100} ${targetCurrency} (rate: ${exchangeRate})`);
+      console.log(`[Payment] 💱 Converting: $${usdInDollars} USD → ${convertedAmount/100} ${targetCurrency} (rate: ${paymentExchangeRate})`);
 
       // Create order in backend with retry logic
       let orderResponse;
@@ -508,8 +535,8 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
                         <CardTitle className="text-lg">{plan.name}</CardTitle>
                         <CardDescription className="mt-1">
                           {plan.id === 'per_profile_yearly'
-                            ? `$${(SubscriptionService.calculateTotalPrice(profileCount) / 100).toFixed(0)}/year (₹${Math.round((SubscriptionService.calculateTotalPrice(profileCount) / 100) * 83)}/year)`
-                            : `$${(plan.amount / 100).toFixed(0)}/${plan.interval === 'monthly' ? 'month' : 'year'} (₹${Math.round((plan.amount / 100) * 83)}/${plan.interval === 'monthly' ? 'month' : 'year'})`
+                            ? `$${(SubscriptionService.calculateTotalPrice(profileCount) / 100).toFixed(0)}/year (₹${Math.round((SubscriptionService.calculateTotalPrice(profileCount) / 100) * exchangeRate)}/year)`
+                            : `$${(plan.amount / 100).toFixed(0)}/${plan.interval === 'monthly' ? 'month' : 'year'} (₹${Math.round((plan.amount / 100) * exchangeRate)}/${plan.interval === 'monthly' ? 'month' : 'year'})`
                           }
                         </CardDescription>
                       </div>
@@ -559,7 +586,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
                   <div className="text-sm text-gray-600">
                     × $99/year = <span className="font-semibold text-green-600">
                       ${(SubscriptionService.calculateTotalPrice(profileCount) / 100).toFixed(0)}/year
-                      (₹{Math.round((SubscriptionService.calculateTotalPrice(profileCount) / 100) * 83)}/year)
+                      (₹{Math.round((SubscriptionService.calculateTotalPrice(profileCount) / 100) * exchangeRate)}/year)
                     </span>
                   </div>
                 </div>
@@ -637,7 +664,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
                     Your payment information is encrypted and secure. We support Cards, PayPal, and international payment methods via Razorpay.
                   </p>
                   <p className="text-xs text-blue-600 mt-1">
-                    💡 Payment is processed in INR (Indian Rupees) at current exchange rate: 1 USD = ₹83
+                    💡 Payment is processed in INR (Indian Rupees) at live exchange rate: 1 USD = ₹{exchangeRate.toFixed(2)}
                   </p>
                 </div>
               </div>
@@ -678,7 +705,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
                     </span>
                   </p>
                   <p className="text-sm text-gray-600">
-                    ₹{Math.round((getFinalAmount() / 100) * 83)}/{selectedPlan?.interval === 'monthly' ? 'month' : 'year'}
+                    ₹{Math.round((getFinalAmount() / 100) * exchangeRate)}/{selectedPlan?.interval === 'monthly' ? 'month' : 'year'}
                   </p>
                 </div>
               ) : (
@@ -690,7 +717,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
                     </span>
                   </p>
                   <p className="text-sm text-gray-600">
-                    ₹{Math.round((getFinalAmount() / 100) * 83)}/{selectedPlan?.interval === 'monthly' ? 'month' : 'year'}
+                    ₹{Math.round((getFinalAmount() / 100) * exchangeRate)}/{selectedPlan?.interval === 'monthly' ? 'month' : 'year'}
                   </p>
                   {selectedPlanId === 'per_profile_yearly' && (
                     <p className="text-sm text-gray-600">

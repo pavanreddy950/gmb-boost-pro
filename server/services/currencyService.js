@@ -6,7 +6,9 @@ import fetch from 'node-fetch';
  */
 export class CurrencyService {
   constructor() {
-    this.baseUrl = 'https://api.exchangerate-api.com/v4/latest';
+    // Using ExchangeRate-API with API key for higher rate limits and reliability
+    this.apiKey = process.env.EXCHANGE_RATE_API_KEY || 'c5a029cf315fa4936eb03248';
+    this.baseUrl = `https://v6.exchangerate-api.com/v6/${this.apiKey}/latest`;
     this.baseCurrency = 'USD';
     this.cache = {
       rates: null,
@@ -15,6 +17,7 @@ export class CurrencyService {
     };
 
     console.log('[CurrencyService] Initialized with base currency:', this.baseCurrency);
+    console.log('[CurrencyService] Using ExchangeRate-API with authenticated access');
   }
 
   /**
@@ -39,20 +42,26 @@ export class CurrencyService {
 
       const data = await response.json();
 
-      // Cache the rates
-      this.cache.rates = data.rates;
+      // Check if API call was successful
+      if (data.result !== 'success') {
+        throw new Error(`Exchange rate API error: ${data['error-type'] || 'Unknown error'}`);
+      }
+
+      // Cache the rates (v6 API uses conversion_rates instead of rates)
+      this.cache.rates = data.conversion_rates;
       this.cache.timestamp = now;
 
       console.log('[CurrencyService] ✅ Exchange rates updated successfully');
+      console.log('[CurrencyService] Last update:', data.time_last_update_utc);
       console.log('[CurrencyService] Sample rates:', {
-        INR: data.rates.INR,
-        EUR: data.rates.EUR,
-        GBP: data.rates.GBP,
-        AUD: data.rates.AUD,
-        CAD: data.rates.CAD
+        INR: data.conversion_rates.INR,
+        EUR: data.conversion_rates.EUR,
+        GBP: data.conversion_rates.GBP,
+        AUD: data.conversion_rates.AUD,
+        CAD: data.conversion_rates.CAD
       });
 
-      return data.rates;
+      return data.conversion_rates;
     } catch (error) {
       console.error('[CurrencyService] ❌ Error fetching exchange rates:', error.message);
 
@@ -69,12 +78,12 @@ export class CurrencyService {
   }
 
   /**
-   * Fallback rates in case API is unavailable (updated 2024)
+   * Fallback rates in case API is unavailable (updated Nov 2025)
    */
   getFallbackRates() {
     return {
       USD: 1,
-      INR: 88.78,
+      INR: 88.718, // Updated to current rate as of Nov 5, 2025
       EUR: 0.92,
       GBP: 0.79,
       AUD: 1.52,
