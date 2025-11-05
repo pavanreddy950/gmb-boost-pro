@@ -5,7 +5,8 @@ import {
   createUserWithEmailAndPassword,
   signOut,
   onAuthStateChanged,
-  signInWithPopup,
+  signInWithRedirect,
+  getRedirectResult,
   GoogleAuthProvider,
   updateProfile,
   setPersistence,
@@ -117,26 +118,18 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       await setPersistence(auth, browserLocalPersistence);
 
       const provider = new GoogleAuthProvider();
-      await signInWithPopup(auth, provider);
-      toast({
-        title: "Welcome!",
-        description: "You have successfully signed in with Google.",
-      });
+      // Use redirect instead of popup to avoid CORS issues
+      await signInWithRedirect(auth, provider);
+      // Note: Success toast will be shown after redirect completes (in useEffect)
     } catch (error: any) {
       console.error('Google login error:', error);
-
-      // Don't show error toast if user simply closed the popup
-      if (error.code === 'auth/popup-closed-by-user' || error.code === 'auth/cancelled-popup-request') {
-        console.log('User closed Google sign-in popup');
-        return; // Exit silently without showing error
-      }
 
       // Show error toast for actual errors
       let errorMessage = "An error occurred during Google login";
 
       switch (error.code) {
         case 'auth/popup-blocked':
-          errorMessage = "Popup was blocked by browser. Please allow popups for this site.";
+          errorMessage = "Browser blocked the authentication. Please allow redirects for this site.";
           break;
         case 'auth/unauthorized-domain':
           errorMessage = "This domain is not authorized for Google sign-in.";
@@ -190,6 +183,32 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   };
 
   useEffect(() => {
+    // Check for redirect result from Google sign-in
+    const checkRedirectResult = async () => {
+      try {
+        const result = await getRedirectResult(auth);
+        if (result) {
+          // User successfully signed in via redirect
+          console.log('Google sign-in redirect successful:', result.user.email);
+          toast({
+            title: "Welcome!",
+            description: "You have successfully signed in with Google.",
+          });
+        }
+      } catch (error: any) {
+        console.error('Redirect result error:', error);
+        if (error.code !== 'auth/popup-closed-by-user') {
+          toast({
+            title: "Google login failed",
+            description: error.message || "An error occurred during Google login",
+            variant: "destructive",
+          });
+        }
+      }
+    };
+
+    checkRedirectResult();
+
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (user) {
         try {
@@ -220,7 +239,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       unsubscribe();
       clearInterval(tokenRefreshInterval);
     };
-  }, [currentUser]);
+  }, [currentUser, toast]);
 
   const value: AuthContextType = {
     currentUser,
