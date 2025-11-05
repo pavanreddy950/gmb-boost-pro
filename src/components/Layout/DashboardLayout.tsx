@@ -14,51 +14,14 @@ const DashboardLayout = () => {
   const { subscription, status } = useSubscription();
   const location = useLocation();
 
-  // MANDATORY: Check if mandate setup is needed - only for NEW users (not existing users with payment history)
+  // REMOVED: Mandate setup at sign-in
+  // Mandate will now be shown only after trial ends when purchasing yearly plan
+  // This improves user experience by not blocking access immediately after sign-up
   useEffect(() => {
-    const checkMandateStatus = async () => {
-      // Only check once and when user has a subscription
-      if (mandateCheckDone || !subscription?.gbpAccountId || status === 'none') {
-        return;
-      }
-
-      // IMPORTANT: Skip mandate check for paid/active users with existing subscription
-      // Only show mandate to trial users who haven't paid yet
-      if (status === 'active' || status === 'trial_expired') {
-        console.log('[Mandate Check] User has active/expired subscription - skipping mandate check');
-        setMandateCheckDone(true);
-        return;
-      }
-
-      try {
-        const backendUrl = import.meta.env.VITE_BACKEND_URL || 'https://pavan-client-backend-bxgdaqhvarfdeuhe.canadacentral-01.azurewebsites.net';
-        const response = await fetch(`${backendUrl}/api/payment/mandate/status/${subscription.gbpAccountId}`);
-
-        if (response.ok) {
-          const data = await response.json();
-
-          console.log('[Mandate Check] Status for', subscription.gbpAccountId, ':', data);
-
-          // IMPORTANT: Only show mandate setup for NEW users
-          // Existing users with payment history are automatically considered authorized
-          // This prevents the mandate popup from showing to existing customers
-          if (!data.mandateAuthorized) {
-            console.log('[Mandate Check] NOT authorized - showing mandate setup');
-            setShowMandateSetup(true);
-          } else {
-            console.log('[Mandate Check] ALREADY authorized - skipping mandate setup');
-          }
-
-          setMandateCheckDone(true);
-        }
-      } catch (error) {
-        console.error('[Mandate Check] Error checking mandate status:', error);
-        setMandateCheckDone(true);
-      }
-    };
-
-    checkMandateStatus();
-  }, [subscription?.gbpAccountId, status, mandateCheckDone]);
+    // Skip mandate check - it's now handled in the billing flow
+    console.log('[Mandate Check] Skipping mandatory mandate - will be triggered after trial ends');
+    setMandateCheckDone(true);
+  }, []);
 
   return (
     <div className="min-h-screen bg-background">

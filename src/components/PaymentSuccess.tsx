@@ -1,23 +1,39 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { CheckCircle } from 'lucide-react';
 import { useSubscription } from '@/contexts/SubscriptionContext';
+import { MandateSetup } from './MandateSetup';
 
 export const PaymentSuccess: React.FC = () => {
   const navigate = useNavigate();
-  const { checkSubscriptionStatus } = useSubscription();
+  const { checkSubscriptionStatus, subscription } = useSubscription();
+  const [showMandateSetup, setShowMandateSetup] = useState(false);
+  const [redirectTimer, setRedirectTimer] = useState<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     // Refresh subscription status
     checkSubscriptionStatus();
-    
-    // Redirect to dashboard after 3 seconds
-    const timer = setTimeout(() => {
-      navigate('/dashboard');
-    }, 3000);
 
-    return () => clearTimeout(timer);
-  }, [navigate, checkSubscriptionStatus]);
+    // Show mandate setup modal after 2 seconds for yearly plan users
+    const mandateTimer = setTimeout(() => {
+      // Check if user purchased a yearly plan (₹99)
+      if (subscription?.planId?.includes('yearly')) {
+        console.log('[Payment Success] Showing mandate setup for yearly plan user');
+        setShowMandateSetup(true);
+      } else {
+        // If not yearly plan, redirect to dashboard after 3 seconds
+        const timer = setTimeout(() => {
+          navigate('/dashboard');
+        }, 1000);
+        setRedirectTimer(timer);
+      }
+    }, 2000);
+
+    return () => {
+      clearTimeout(mandateTimer);
+      if (redirectTimer) clearTimeout(redirectTimer);
+    };
+  }, [navigate, checkSubscriptionStatus, subscription?.planId]);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center">
@@ -51,6 +67,19 @@ export const PaymentSuccess: React.FC = () => {
           Go to Dashboard Now
         </button>
       </div>
+
+      {/* Mandate Setup Modal for Yearly Plan Users */}
+      <MandateSetup
+        isOpen={showMandateSetup}
+        onClose={() => {
+          setShowMandateSetup(false);
+          navigate('/dashboard');
+        }}
+        onSuccess={() => {
+          setShowMandateSetup(false);
+          navigate('/dashboard');
+        }}
+      />
     </div>
   );
 };
