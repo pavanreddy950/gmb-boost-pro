@@ -62,7 +62,9 @@
       "Bash(git checkout:*)",
       "Bash(nul)",
       "Bash(git reset:*)",
-      "Bash(git restore:*)"
+      "Bash(git restore:*)",
+      "Bash(if exist \"node_modules\\.vite\" rd /s /q \"node_modules\\.vite\")",
+      "Bash(del nul 2)"
     ],
     "deny": [],
     "ask": []
