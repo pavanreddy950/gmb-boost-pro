@@ -5,12 +5,9 @@ import {
   createUserWithEmailAndPassword,
   signOut,
   onAuthStateChanged,
-  signInWithRedirect,
-  getRedirectResult,
+  signInWithPopup,
   GoogleAuthProvider,
-  updateProfile,
-  setPersistence,
-  browserLocalPersistence
+  updateProfile
 } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
 import { useToast } from '@/hooks/use-toast';
@@ -74,9 +71,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const login = async (email: string, password: string) => {
     try {
-      // Ensure persistence is set before login
-      await setPersistence(auth, browserLocalPersistence);
-
       await signInWithEmailAndPassword(auth, email, password);
       toast({
         title: "Welcome back!",
@@ -114,22 +108,41 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const loginWithGoogle = async () => {
     try {
-      // Ensure persistence is set before Google login
-      await setPersistence(auth, browserLocalPersistence);
+      console.log('🚀 Starting Google sign-in with popup...');
 
       const provider = new GoogleAuthProvider();
-      // Use redirect instead of popup to avoid CORS issues
-      await signInWithRedirect(auth, provider);
-      // Note: Success toast will be shown after redirect completes (in useEffect)
+      // Add required scopes
+      provider.addScope('email');
+      provider.addScope('profile');
+
+      // Force the account selection prompt
+      provider.setCustomParameters({
+        prompt: 'select_account'
+      });
+
+      console.log('🚀 Calling signInWithPopup...');
+      const result = await signInWithPopup(auth, provider);
+
+      console.log('✅ Google sign-in successful:', result.user.email);
+      toast({
+        title: "Welcome!",
+        description: "You have successfully signed in with Google.",
+      });
     } catch (error: any) {
-      console.error('Google login error:', error);
+      console.error('❌ Google login error:', error);
+
+      // Don't show error if user closed the popup
+      if (error.code === 'auth/popup-closed-by-user' || error.code === 'auth/cancelled-popup-request') {
+        console.log('User closed Google sign-in popup');
+        throw error;
+      }
 
       // Show error toast for actual errors
       let errorMessage = "An error occurred during Google login";
 
       switch (error.code) {
         case 'auth/popup-blocked':
-          errorMessage = "Browser blocked the authentication. Please allow redirects for this site.";
+          errorMessage = "Popup was blocked by your browser. Please allow popups for this site.";
           break;
         case 'auth/unauthorized-domain':
           errorMessage = "This domain is not authorized for Google sign-in.";
@@ -183,44 +196,24 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   };
 
   useEffect(() => {
-    // Check for redirect result from Google sign-in
-    const checkRedirectResult = async () => {
-      try {
-        const result = await getRedirectResult(auth);
-        if (result) {
-          // User successfully signed in via redirect
-          console.log('Google sign-in redirect successful:', result.user.email);
-          toast({
-            title: "Welcome!",
-            description: "You have successfully signed in with Google.",
-          });
-        }
-      } catch (error: any) {
-        console.error('Redirect result error:', error);
-        if (error.code !== 'auth/popup-closed-by-user') {
-          toast({
-            title: "Google login failed",
-            description: error.message || "An error occurred during Google login",
-            variant: "destructive",
-          });
-        }
-      }
-    };
+    console.log('🔍 AuthContext - Setting up auth state listener...');
 
-    checkRedirectResult();
-
+    // Set up auth state listener
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      console.log('🔍 AuthContext - Auth state changed:', user ? 'User: ' + user.email : 'No user');
+
       if (user) {
         try {
           // Force token refresh to ensure it's valid
           await user.getIdToken(true);
-          console.log('User authenticated and token refreshed:', user.email);
+          console.log('✅ AuthContext - User authenticated and token refreshed:', user.email);
         } catch (error) {
-          console.error('Token refresh failed during auth state change:', error);
+          console.error('❌ AuthContext - Token refresh failed during auth state change:', error);
         }
       }
       setCurrentUser(user);
       setLoading(false);
+      console.log('✅ AuthContext - Loading set to false, currentUser:', user ? user.email : 'null');
     });
 
     // Set up automatic token refresh every 30 minutes
@@ -239,7 +232,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       unsubscribe();
       clearInterval(tokenRefreshInterval);
     };
-  }, [currentUser, toast]);
+  }, [currentUser]);
 
   const value: AuthContextType = {
     currentUser,

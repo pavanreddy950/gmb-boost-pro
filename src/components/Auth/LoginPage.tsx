@@ -24,10 +24,10 @@ const LoginPage = () => {
     setLoading(true);
     try {
       await loginWithGoogle();
+      // Auth state will change and AuthRedirect will handle navigation
       navigate(from, { replace: true });
     } catch (error) {
       console.error("Google login error:", error);
-    } finally {
       setLoading(false);
     }
   };

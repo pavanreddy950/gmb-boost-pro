@@ -30,7 +30,6 @@ const SignupPage = () => {
       navigate("/dashboard", { replace: true });
     } catch (error) {
       console.error("Google signup error:", error);
-    } finally {
       setLoading(false);
     }
   };

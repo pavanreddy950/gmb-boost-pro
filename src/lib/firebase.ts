@@ -1,5 +1,5 @@
 import { initializeApp } from 'firebase/app';
-import { getAuth, setPersistence, browserLocalPersistence } from 'firebase/auth';
+import { getAuth, setPersistence, browserLocalPersistence, indexedDBLocalPersistence, inMemoryPersistence } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
 
@@ -19,11 +19,24 @@ const app = initializeApp(firebaseConfig);
 // Initialize Firebase Authentication and get a reference to the service
 export const auth = getAuth(app);
 
-// Set persistence to LOCAL to keep users logged in across browser sessions
-// This ensures users stay logged in even after closing and reopening the browser
-setPersistence(auth, browserLocalPersistence).catch((error) => {
-  console.error('Failed to set Firebase auth persistence:', error);
-});
+// Set persistence with fallback to ensure it works
+// Try indexedDB first (most reliable), then localStorage, then memory
+console.log('🔧 Firebase - Setting up persistence...');
+setPersistence(auth, indexedDBLocalPersistence)
+  .then(() => {
+    console.log('✅ Firebase - IndexedDB persistence set successfully');
+  })
+  .catch((error) => {
+    console.warn('⚠️ Firebase - IndexedDB persistence failed, trying localStorage:', error);
+    return setPersistence(auth, browserLocalPersistence);
+  })
+  .then(() => {
+    console.log('✅ Firebase - LocalStorage persistence set successfully');
+  })
+  .catch((error) => {
+    console.error('❌ Firebase - All persistence methods failed, using in-memory:', error);
+    return setPersistence(auth, inMemoryPersistence);
+  });
 
 // Initialize Cloud Firestore and get a reference to the service
 export const db = getFirestore(app);
