@@ -1,12 +1,8 @@
 name: Deploy Backend to Azure App Service
 
+# Workflow disabled - use manual deployment scripts instead
+# To enable: remove the line below and configure GitHub secrets
 on:
-  push:
-    branches:
-      - main
-    paths:
-      - 'server/**'
-      - '.github/workflows/azure-backend-deploy.yml'
   workflow_dispatch:
 
 jobs:
@@ -32,8 +28,8 @@ jobs:
         context: ./server
         file: ./server/Dockerfile
         push: true
-        tags: scale112/pavan-client-backend:latest
-        cache-from: type=registry,ref=scale112/pavan-client-backend:latest
+        tags: scale112/lobaiseo-backend:latest
+        cache-from: type=registry,ref=scale112/lobaiseo-backend:latest
         cache-to: type=inline
 
     - name: Deploy to Azure Web App
@@ -41,4 +37,4 @@ jobs:
       with:
         app-name: 'pavan-client-backend-bxgdaqhvarfdeuhe'
         publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
-        images: 'scale112/pavan-client-backend:latest'
+        images: 'scale112/lobaiseo-backend:latest'
