@@ -1,5 +1,32 @@
 [
   {
+    "id": "audit_1762414006651_kmgq2hshr",
+    "timestamp": "2025-11-06T07:26:46.651Z",
+    "action": "coupon.deactivate",
+    "adminId": "OBm8qZc0jOWcY53x6rQuX4gKKnQ2",
+    "adminEmail": "scalepointstrategy@gmail.com",
+    "description": "Deactivated coupon PAVABN",
+    "targetType": "coupon",
+    "targetId": "PAVABN",
+    "metadata": {},
+    "ipAddress": "::1"
+  },
+  {
+    "id": "audit_1762413379755_c4pen6q5y",
+    "timestamp": "2025-11-06T07:16:19.755Z",
+    "action": "user.role.update",
+    "adminId": "OBm8qZc0jOWcY53x6rQuX4gKKnQ2",
+    "adminEmail": "scalepointstrategy@gmail.com",
+    "description": "Updated user g9nPJnKnjrgScYUVc8Xo1AFRDsu1 role to admin with admin level moderator",
+    "targetType": "user",
+    "targetId": "g9nPJnKnjrgScYUVc8Xo1AFRDsu1",
+    "metadata": {
+      "role": "admin",
+      "adminLevel": "moderator"
+    },
+    "ipAddress": "::1"
+  },
+  {
     "id": "audit_1761841603613_a68xr4nvq",
     "timestamp": "2025-10-30T16:26:43.613Z",
     "action": "coupon.create",

@@ -52,10 +52,28 @@ const CreatePostModal = ({ open, onOpenChange, onSubmit, profileId, availablePro
   const [buttonType, setButtonType] = useState<string>("none");
   const [buttonUrl, setButtonUrl] = useState("");
 
-  // Update selectedProfileId when profileId prop changes
+  // Update selectedProfileId when profileId prop changes or when availableProfiles changes
   useEffect(() => {
-    setSelectedProfileId(profileId);
-  }, [profileId]);
+    if (profileId) {
+      setSelectedProfileId(profileId);
+      console.log('[CreatePostModal] Selected profile from prop:', profileId);
+    } else if (availableProfiles.length > 0) {
+      // Always auto-select first profile if none selected
+      setSelectedProfileId(availableProfiles[0].id);
+      console.log('[CreatePostModal] Auto-selected first profile:', availableProfiles[0].name, availableProfiles[0].id);
+    }
+  }, [profileId, availableProfiles, open]);
+
+  // Debug log when modal opens
+  useEffect(() => {
+    if (open) {
+      console.log('[CreatePostModal] Modal opened with:', {
+        availableProfiles: availableProfiles.length,
+        selectedProfileId,
+        profiles: availableProfiles.map(p => ({ id: p.id, name: p.name }))
+      });
+    }
+  }, [open]);
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -136,7 +154,7 @@ const CreatePostModal = ({ open, onOpenChange, onSubmit, profileId, availablePro
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="w-[95vw] max-w-[525px] max-h-[90vh] overflow-y-auto">
+      <DialogContent className="w-[95vw] max-w-[525px] max-h-[90vh] overflow-y-auto" onOpenAutoFocus={(e) => e.preventDefault()}>
         <DialogHeader>
           <DialogTitle>Create New Post</DialogTitle>
           <DialogDescription>
@@ -146,27 +164,42 @@ const CreatePostModal = ({ open, onOpenChange, onSubmit, profileId, availablePro
         
         <form onSubmit={handleSubmit} className="space-y-3 sm:space-y-4">
           {/* Business Profile Selector */}
-          {availableProfiles.length > 0 && (
-            <div className="space-y-2">
-              <Label htmlFor="profile">Business Profile</Label>
-              <Select value={selectedProfileId} onValueChange={setSelectedProfileId}>
-                <SelectTrigger>
-                  <Building2 className="mr-2 h-4 w-4" />
+          <div className="space-y-2">
+            <Label htmlFor="profile">Business Profile</Label>
+            {availableProfiles.length === 0 ? (
+              <div className="text-sm text-muted-foreground p-3 border border-dashed rounded-md">
+                No business profiles available. Please connect your Google Business Profile first.
+              </div>
+            ) : (
+              <Select
+                value={selectedProfileId || ""}
+                onValueChange={(value) => {
+                  console.log('[CreatePostModal] Profile selected:', value);
+                  setSelectedProfileId(value);
+                }}
+              >
+                <SelectTrigger className="w-full">
+                  <Building2 className="mr-2 h-4 w-4 flex-shrink-0" />
                   <SelectValue placeholder="Select a business profile" />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent
+                  className="z-[9999]"
+                  position="popper"
+                  sideOffset={5}
+                  align="start"
+                >
                   {availableProfiles.map(profile => (
                     <SelectItem key={profile.id} value={profile.id}>
-                      <div className="flex flex-col">
-                        <span className="font-medium">{profile.name}</span>
+                      <div className="flex flex-col py-1">
+                        <span className="font-medium text-sm">{profile.name}</span>
                         <span className="text-xs text-muted-foreground">{profile.accountName}</span>
                       </div>
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
-            </div>
-          )}
+            )}
+          </div>
 
           {/* Post Content */}
           <div className="space-y-2">
@@ -233,10 +266,15 @@ const CreatePostModal = ({ open, onOpenChange, onSubmit, profileId, availablePro
               Add Button (Optional)
             </Label>
             <Select value={buttonType} onValueChange={setButtonType}>
-              <SelectTrigger>
+              <SelectTrigger className="w-full">
                 <SelectValue placeholder="Select button type" />
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent
+                className="z-[9999]"
+                position="popper"
+                sideOffset={5}
+                align="start"
+              >
                 <SelectItem value="none">No Button</SelectItem>
                 <SelectItem value="book">Book</SelectItem>
                 <SelectItem value="order">Order Online</SelectItem>
@@ -270,10 +308,15 @@ const CreatePostModal = ({ open, onOpenChange, onSubmit, profileId, availablePro
           <div className="space-y-2">
             <Label>Schedule</Label>
             <Select value={scheduleType} onValueChange={(value: any) => setScheduleType(value)}>
-              <SelectTrigger>
+              <SelectTrigger className="w-full">
                 <SelectValue placeholder="When to publish" />
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent
+                className="z-[9999]"
+                position="popper"
+                sideOffset={5}
+                align="start"
+              >
                 <SelectItem value="now">Post Now</SelectItem>
                 <SelectItem value="1hr">In 1 Hour</SelectItem>
                 <SelectItem value="2hr">In 2 Hours</SelectItem>

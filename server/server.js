@@ -14,6 +14,7 @@ import googleReviewLinkRoutes from './routes/googleReviewLink.js';
 import automationRoutes from './routes/automation.js';
 import qrCodesRoutes from './routes/qrCodes.js';
 import adminRoutes from './routes/admin.js';
+import welcomeEmailRoutes from './routes/welcomeEmail.js';
 import { checkSubscription, trackTrialStart, addTrialHeaders } from './middleware/subscriptionCheck.js';
 import SubscriptionService from './services/subscriptionService.js';
 import automationScheduler from './services/automationScheduler.js';
@@ -26,6 +27,8 @@ import SMSService from './services/smsService.js';
 import WhatsAppService from './services/whatsappService.js';
 import CSVProcessingService from './services/csvProcessingService.js';
 import TrialEmailScheduler from './services/trialEmailScheduler.js';
+import dailyActivityScheduler from './services/dailyActivityScheduler.js';
+import dailyActivityEmailService from './services/dailyActivityEmailService.js';
 
 // Configuration is now managed by config.js
 // All hardcoded values have been moved to .env files
@@ -231,6 +234,9 @@ app.use('/api/qr-codes', qrCodesRoutes);
 
 // Admin routes (protected by admin auth middleware)
 app.use('/api/admin', adminRoutes);
+
+// Welcome email route (public - called after signup)
+app.use('/api/welcome-email', welcomeEmailRoutes);
 
 // Client Configuration API Endpoints
 app.post('/api/client/config/email', checkSubscription, async (req, res) => {
@@ -3949,6 +3955,17 @@ initializeServer().then(() => {
       console.error('❌ [EMAIL] Failed to start trial email scheduler:', error);
     }
   }, 6000); // Start after automation scheduler
+
+  // 📊 Start Daily Activity Report Scheduler
+  console.log('📊 [REPORTS] Starting daily activity report scheduler...');
+  setTimeout(() => {
+    try {
+      dailyActivityScheduler.start();
+      console.log('✅ [REPORTS] Daily activity report scheduler started! Reports will be sent daily at 6:00 PM.');
+    } catch (error) {
+      console.error('❌ [REPORTS] Failed to start daily activity scheduler:', error);
+    }
+  }, 7000); // Start after trial email scheduler
   });
 }).catch(error => {
   console.error('❌ Failed to initialize server:', error);

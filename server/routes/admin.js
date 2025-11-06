@@ -414,10 +414,10 @@ router.get('/payments', async (req, res) => {
 router.get('/users/:uid/business-audits', checkAdminLevel(['super', 'moderator', 'viewer']), async (req, res) => {
   try {
     const { uid } = req.params;
-    const hybridTokenStorage = (await import('../services/hybridTokenStorage.js')).default;
-    
+    const supabaseTokenStorage = (await import('../services/supabaseTokenStorage.js')).default;
+
     // Get user's token to make API calls on their behalf
-    const validToken = await hybridTokenStorage.getValidToken(uid);
+    const validToken = await supabaseTokenStorage.getValidToken(uid);
     
     if (!validToken) {
       return res.status(404).json({ 
@@ -486,10 +486,10 @@ router.get('/users/:uid/business-audits', checkAdminLevel(['super', 'moderator',
 router.get('/users/:uid/locations/:locationId/audit', checkAdminLevel(['super', 'moderator', 'viewer']), async (req, res) => {
   try {
     const { uid, locationId } = req.params;
-    const hybridTokenStorage = (await import('../services/hybridTokenStorage.js')).default;
-    
+    const supabaseTokenStorage = (await import('../services/supabaseTokenStorage.js')).default;
+
     // Get user's token
-    const validToken = await hybridTokenStorage.getValidToken(uid);
+    const validToken = await supabaseTokenStorage.getValidToken(uid);
     
     if (!validToken) {
       return res.status(404).json({ 
