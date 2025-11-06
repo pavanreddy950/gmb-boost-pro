@@ -27,16 +27,20 @@ RUN ls -la .env.azure || echo "Warning: .env.azure not found, will use productio
 USER nodejs
 
 # Expose the port that server will run on
+# Note: Azure Web Apps will override this with dynamic port via PORT env variable
 EXPOSE 5000
+EXPOSE 8080
 
 # Add health check to monitor container health
+# Use PORT environment variable for health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=5 \
-  CMD node -e "require('http').get('http://localhost:5000/health', (res) => { if (res.statusCode === 200) { process.exit(0) } else { process.exit(1) } })" || exit 1
+  CMD node -e "const port = process.env.PORT || 5000; require('http').get('http://localhost:' + port + '/health', (res) => { if (res.statusCode === 200) { process.exit(0) } else { process.exit(1) } })" || exit 1
 
 # Set environment variables for production
 ENV NODE_ENV=production
-ENV PORT=5000
 ENV RUN_MODE=AZURE
+# Don't hardcode PORT - let Azure set it dynamically
+# Azure Web Apps will provide PORT environment variable
 
 # Start the application
 CMD ["npm", "start"]
