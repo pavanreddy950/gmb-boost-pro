@@ -28,8 +28,8 @@ jobs:
         context: ./server
         file: ./server/Dockerfile
         push: true
-        tags: scale112/lobaiseo-backend:latest
-        cache-from: type=registry,ref=scale112/lobaiseo-backend:latest
+        tags: scale112/pavan-client-backend:latest
+        cache-from: type=registry,ref=scale112/pavan-client-backend:latest
         cache-to: type=inline
 
     - name: Deploy to Azure Web App
@@ -37,4 +37,4 @@ jobs:
       with:
         app-name: 'pavan-client-backend-bxgdaqhvarfdeuhe'
         publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
-        images: 'scale112/lobaiseo-backend:latest'
+        images: 'scale112/pavan-client-backend:latest'
