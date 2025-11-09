@@ -966,27 +966,29 @@ CRITICAL RULES - MUST FOLLOW ALL:
       const randomSeed = Math.random();
       const currentMonth = new Date().toLocaleDateString('en-US', { month: 'long' });
       
-      const prompt = `Generate a completely unique and personalized reply to this Google Business review for "${businessName}" (${category}):
-      
+      const prompt = `Generate a SHORT, natural reply to this Google Business review for "${businessName}" (${category}):
+
 Reviewer Name: ${reviewerName}
 Rating: ${rating}/5 stars
 Review Text: "${reviewText}"
-Business Keywords/Strengths: ${keywordList.length > 0 ? keywordList.join(', ') : 'quality service, customer satisfaction'}
-Current Month: ${currentMonth}
+Business Keywords: ${keywordList.length > 0 ? keywordList.join(', ') : 'quality service, customer satisfaction'}
 Random Seed: ${randomSeed}
 
 STRICT Requirements:
-1. Write EXACTLY 80-120 words
+1. Write EXACTLY 35-55 words (SHORT and concise!)
 2. Use a ${tone} tone
-3. Address the reviewer by name if appropriate
-4. Specifically reference something they mentioned in their review
-5. If positive, subtly mention one of our business keywords/strengths when relevant
-6. Thank them genuinely and personally
-7. If negative, apologize sincerely and offer to make things right
-8. End with an invitation for future visits or continued relationship
-9. Make it feel personal and human, not automated
-10. NO generic phrases or template language
-11. Each reply must be completely unique and natural`;
+3. Optionally address reviewer by first name if appropriate (keep it casual)
+4. Briefly reference something specific they mentioned
+5. If positive, naturally include ONE business keyword if it fits
+6. Thank them genuinely but briefly
+7. If negative, apologize and offer to help (keep it short)
+8. NO formal closings like "Warm regards", "Best wishes", "Sincerely", etc.
+9. NO signature lines or "[Your Name]" placeholders
+10. NO business name at the end
+11. End naturally - just finish the message without any sign-off
+12. Make it sound like a quick, friendly message from the business
+13. Keep it conversational and human, not formal
+14. Think: friendly text message, not business letter`;
 
       const response = await fetch(
         `${this.azureEndpoint}openai/deployments/${this.deploymentName}/chat/completions?api-version=${this.apiVersion}`,
