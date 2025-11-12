@@ -184,7 +184,7 @@ const ProfileDetails = () => {
   }
 
   return (
-    <div className="space-y-3 sm:space-y-4 md:space-y-6 animate-fade-in px-2 sm:px-0">
+    <div className="space-y-3 sm:space-y-4 md:space-y-6 animate-fade-in min-w-0 w-full overflow-x-hidden">
       {/* Header */}
       <div className="flex items-center gap-2 sm:gap-4">
         <Link to="/dashboard">
@@ -199,10 +199,10 @@ const ProfileDetails = () => {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-4 md:gap-6">
         {/* Profile Overview */}
         <Card className="shadow-sm">
-          <CardHeader className="p-3 sm:p-4 md:p-6 pb-2 sm:pb-4">
+          <CardHeader>
             <CardTitle className="text-sm sm:text-base md:text-lg">Profile Overview</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-2 sm:space-y-3 md:space-y-4 p-3 sm:p-4 md:p-6 pt-0">
+          <CardContent className="space-y-2 sm:space-y-3 md:space-y-4">
             <div className="flex items-start gap-1.5 sm:gap-2">
               <MapPin className="h-3 w-3 sm:h-4 sm:w-4 mt-0.5 text-muted-foreground flex-shrink-0" />
               <span className="text-[11px] sm:text-xs md:text-sm break-words leading-snug flex-1">
@@ -241,13 +241,13 @@ const ProfileDetails = () => {
         {/* Today's Statistics */}
         {globalStats && (
           <Card className="shadow-sm">
-            <CardHeader className="p-3 sm:p-4 md:p-6 pb-2 sm:pb-4">
+            <CardHeader>
               <CardTitle className="flex items-center gap-1.5 sm:gap-2 text-sm sm:text-base md:text-lg">
                 <BarChart3 className="h-3.5 w-3.5 sm:h-4 sm:w-4 md:h-5 md:w-5" />
                 <span className="text-xs sm:text-sm md:text-base">Today's Statistics</span>
               </CardTitle>
             </CardHeader>
-            <CardContent className="p-3 sm:p-4 md:p-6 pt-0">
+            <CardContent>
               <div className="grid grid-cols-2 gap-2 sm:gap-3 md:gap-4">
                 {/* Successful Posts Box */}
                 <Card className="border border-green-200 bg-green-50">

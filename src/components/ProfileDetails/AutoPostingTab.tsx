@@ -775,98 +775,98 @@ export function AutoPostingTab({ location }: AutoPostingTabProps) {
   }
 
   return (
-    <div className="space-y-4 sm:space-y-6">
+    <div className="space-y-3 sm:space-y-4 md:space-y-6 min-w-0 w-full px-2 sm:px-4 md:px-0">
 
       {/* Auto Posting Configuration */}
-      <Card className="shadow-sm">
-        <CardHeader>
-          <CardTitle className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            <div className="flex items-center gap-2">
-              <Zap className="h-4 w-4 sm:h-5 sm:w-5" />
-              <span className="text-base sm:text-lg">Auto Posting Configuration</span>
+      <Card className="shadow-sm overflow-hidden">
+        <CardHeader className="p-3 sm:p-4 md:p-6">
+          <CardTitle className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-3 max-w-full">
+            <div className="flex items-center gap-1.5 sm:gap-2 min-w-0 flex-1">
+              <Zap className="h-4 w-4 sm:h-5 sm:w-5 flex-shrink-0" />
+              <span className="text-sm sm:text-base md:text-lg break-words">Auto Posting Configuration</span>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-shrink-0">
               <Switch
                 checked={config.enabled}
                 onCheckedChange={handleToggleEnabled}
                 disabled={isSavingToServer}
               />
-              <span className="text-xs sm:text-sm font-medium">
+              <span className="text-xs sm:text-sm font-medium whitespace-nowrap">
                 {isSavingToServer ? (
                   <span className="flex items-center gap-1">
                     <div className="animate-spin h-3 w-3 border-2 border-current border-t-transparent rounded-full" />
-                    <span className="hidden sm:inline">Saving...</span>
+                    <span className="hidden xs:inline">Saving...</span>
                   </span>
                 ) : (
-                  <span className="hidden sm:inline">{config.enabled ? 'Enabled' : 'Disabled'}</span>
+                  <span>{config.enabled ? 'Enabled' : 'Disabled'}</span>
                 )}
               </span>
             </div>
           </CardTitle>
-          <CardDescription className="text-xs sm:text-sm">
+          <CardDescription className="text-xs sm:text-sm break-words mt-1">
             Automatically generate and publish posts for {location.name}
           </CardDescription>
         </CardHeader>
-        <CardContent className="space-y-3 sm:space-y-4">
+        <CardContent className="space-y-3 sm:space-y-4 p-3 sm:p-4 md:p-6">
           {/* Business Information */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
-            <div>
-              <Label className="text-sm sm:text-base">Business Name</Label>
-              <Input value={config.businessName} disabled className="text-sm" />
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-4">
+            <div className="min-w-0">
+              <Label className="text-xs sm:text-sm md:text-base">Business Name</Label>
+              <Input value={config.businessName} disabled className="text-xs sm:text-sm mt-1" />
             </div>
-            <div>
-              <Label className="text-sm sm:text-base">Categories</Label>
-              <div className="flex flex-wrap gap-1 mt-1">
+            <div className="min-w-0">
+              <Label className="text-xs sm:text-sm md:text-base">Categories</Label>
+              <div className="flex flex-wrap gap-1 sm:gap-1.5 mt-1">
                 {config.categories.map((category, index) => (
-                  <Badge key={index} variant="secondary">{category}</Badge>
+                  <Badge key={index} variant="secondary" className="text-xs px-2 py-0.5">{category}</Badge>
                 ))}
                 {config.categories.length === 0 && (
-                  <Badge variant="outline">No categories</Badge>
+                  <Badge variant="outline" className="text-xs">No categories</Badge>
                 )}
               </div>
             </div>
           </div>
 
           {/* Keywords Management */}
-          <div>
-            <Label className="flex items-center gap-2 text-sm sm:text-base">
-              <Hash className="h-3 w-3 sm:h-4 sm:w-4" />
-              Keywords for Content Generation
+          <div className="min-w-0">
+            <Label className="flex items-center gap-1.5 sm:gap-2 text-xs sm:text-sm md:text-base">
+              <Hash className="h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0" />
+              <span>Keywords for Content Generation</span>
             </Label>
-            <div className="space-y-3 sm:space-y-4 mt-2">
+            <div className="space-y-2 sm:space-y-3 mt-2">
               {/* Keywords Display */}
-              <div className="flex flex-wrap gap-1 sm:gap-2 p-3 sm:p-4 bg-gray-50 rounded-lg border min-h-[100px] sm:min-h-[120px]">
+              <div className="flex flex-wrap gap-1 sm:gap-1.5 md:gap-2 p-2 sm:p-3 bg-gray-50 rounded-lg border min-h-[80px] sm:min-h-[100px] md:min-h-[120px] overflow-hidden">
                 {keywords.map((keyword, index) => {
                   const defaultKeywords = generateDefaultKeywords();
                   const isAutoGenerated = defaultKeywords.includes(keyword);
                   
                   return (
-                    <div key={index} className="flex items-center gap-1">
+                    <div key={index} className="flex items-center">
                       <Badge 
                         variant={isAutoGenerated ? "default" : "outline"}
-                        className="flex items-center gap-1 text-xs px-2 py-0.5"
+                        className="flex items-center gap-0.5 sm:gap-1 text-[10px] sm:text-xs px-1.5 sm:px-2 py-0.5 max-w-full"
                       >
-                        {isAutoGenerated && <Hash className="h-3 w-3" />}
-                        <span className="break-all">{keyword}</span>
+                        {isAutoGenerated && <Hash className="h-2.5 w-2.5 sm:h-3 sm:w-3 flex-shrink-0" />}
+                        <span className="break-all truncate max-w-[120px] sm:max-w-[200px]" title={keyword}>{keyword}</span>
                         <button
                           type="button"
                           onClick={() => removeKeyword(keyword)}
                           disabled={!config.enabled}
-                          className="ml-1 hover:bg-red-500 hover:text-white rounded-full p-0.5 transition-colors flex-shrink-0"
+                          className="ml-0.5 sm:ml-1 hover:bg-red-500 hover:text-white rounded-full p-0.5 transition-colors flex-shrink-0"
                         >
-                          <X className="h-3 w-3" />
+                          <X className="h-2.5 w-2.5 sm:h-3 sm:w-3" />
                         </button>
                       </Badge>
                     </div>
                   );
                 })}
                 {keywords.length === 0 && (
-                  <p className="text-muted-foreground text-xs sm:text-sm">No keywords added yet. Click "Generate Keywords" to auto-populate based on your business profile.</p>
+                  <p className="text-muted-foreground text-[10px] sm:text-xs md:text-sm px-1">No keywords added yet. Click "Generate Keywords" to auto-populate based on your business profile.</p>
                 )}
               </div>
 
               {/* Add Custom Keyword */}
-              <div className="flex gap-2">
+              <div className="flex flex-col sm:flex-row gap-2">
                 <Input
                   placeholder="Enter custom keyword..."
                   value={newKeyword}
@@ -878,29 +878,32 @@ export function AutoPostingTab({ location }: AutoPostingTabProps) {
                     }
                   }}
                   disabled={!config.enabled}
+                  className="text-xs sm:text-sm flex-1"
                 />
                 <Button 
                   type="button" 
                   onClick={addKeyword} 
                   size="sm"
                   disabled={!config.enabled || !newKeyword.trim()}
+                  className="w-full sm:w-auto whitespace-nowrap text-xs sm:text-sm"
                 >
-                  <Plus className="h-4 w-4 mr-1" />
-                  Add Keyword
+                  <Plus className="h-3 w-3 sm:h-4 sm:w-4 mr-1" />
+                  <span>Add</span>
                 </Button>
               </div>
 
               {/* Action Buttons */}
-              <div className="flex gap-2">
+              <div className="flex flex-col xs:flex-row gap-2">
                 <Button 
                   type="button" 
                   variant="outline" 
                   size="sm" 
                   onClick={generateAndSetKeywords}
                   disabled={!config.enabled}
+                  className="w-full xs:w-auto text-xs sm:text-sm flex-1 xs:flex-initial"
                 >
-                  <RefreshCw className="h-4 w-4 mr-1" />
-                  Generate Keywords
+                  <RefreshCw className="h-3 w-3 sm:h-4 sm:w-4 mr-1 flex-shrink-0" />
+                  <span className="truncate">Generate</span>
                 </Button>
                 <Button 
                   type="button" 
@@ -908,9 +911,10 @@ export function AutoPostingTab({ location }: AutoPostingTabProps) {
                   size="sm" 
                   onClick={cleanUpGenericKeywords}
                   disabled={!config.enabled}
+                  className="w-full xs:w-auto text-xs sm:text-sm flex-1 xs:flex-initial"
                 >
-                  <Sparkles className="h-4 w-4 mr-1" />
-                  Clean Generic
+                  <Sparkles className="h-3 w-3 sm:h-4 sm:w-4 mr-1 flex-shrink-0" />
+                  <span className="truncate">Clean</span>
                 </Button>
                 <Button 
                   type="button" 
@@ -918,43 +922,44 @@ export function AutoPostingTab({ location }: AutoPostingTabProps) {
                   size="sm" 
                   onClick={() => setKeywords([])}
                   disabled={!config.enabled}
+                  className="w-full xs:w-auto text-xs sm:text-sm flex-1 xs:flex-initial"
                 >
-                  <Trash2 className="h-4 w-4 mr-1" />
-                  Clear All
+                  <Trash2 className="h-3 w-3 sm:h-4 sm:w-4 mr-1 flex-shrink-0" />
+                  <span className="truncate">Clear</span>
                 </Button>
               </div>
 
-              <p className="text-sm text-muted-foreground">
-                Smart keyword generation focuses on your business name ({location.name}), location ({location.address?.locality}, {location.address?.administrativeArea}), and specific categories while filtering out generic terms like "quality service", "professional", etc.
+              <p className="text-[10px] sm:text-xs md:text-sm text-muted-foreground break-words">
+                Smart keyword generation focuses on your business name ({location.name}), location ({location.address?.locality}, {location.address?.administrativeArea}), and specific categories while filtering out generic terms.
               </p>
             </div>
           </div>
 
           {/* Status and Actions */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4 border-t">
-            <div>
-              <Label>Next Post</Label>
-              <div className="mt-1 p-2 bg-muted rounded text-sm">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 pt-3 sm:pt-4 border-t">
+            <div className="min-w-0">
+              <Label className="text-xs sm:text-sm">Next Post</Label>
+              <div className="mt-1 p-2 sm:p-2.5 bg-muted rounded text-xs sm:text-sm break-words">
                 {getNextPostTime()}
               </div>
             </div>
-            <div>
-              <Label>Current Status</Label>
-              <div className="mt-1 flex items-center gap-2">
+            <div className="min-w-0">
+              <Label className="text-xs sm:text-sm">Current Status</Label>
+              <div className="mt-1 flex items-center gap-1.5 sm:gap-2">
                 {config.enabled ? (
                   <>
-                    <Play className="h-4 w-4 text-green-600" />
-                    <span className="text-sm text-green-600">Active (Server-side)</span>
+                    <Play className="h-3 w-3 sm:h-4 sm:w-4 text-green-600 flex-shrink-0" />
+                    <span className="text-xs sm:text-sm text-green-600 break-words">Active (Server-side)</span>
                   </>
                 ) : (
                   <>
-                    <Pause className="h-4 w-4 text-gray-600" />
-                    <span className="text-sm text-gray-600">Paused</span>
+                    <Pause className="h-3 w-3 sm:h-4 sm:w-4 text-gray-600 flex-shrink-0" />
+                    <span className="text-xs sm:text-sm text-gray-600">Paused</span>
                   </>
                 )}
               </div>
               {config.enabled && (
-                <p className="text-xs text-muted-foreground mt-1">
+                <p className="text-[10px] sm:text-xs text-muted-foreground mt-1 break-words">
                   Running on server - continues even when offline
                 </p>
               )}
@@ -962,24 +967,24 @@ export function AutoPostingTab({ location }: AutoPostingTabProps) {
           </div>
 
           {/* Test Button */}
-          <div className="flex gap-2 pt-2">
+          <div className="flex flex-col sm:flex-row gap-2 pt-2">
             <Button
               onClick={handleTestNow}
               disabled={!config.enabled || isTesting || !isConnected}
               variant="outline"
-              className="flex items-center gap-2"
+              className="flex items-center justify-center gap-2 w-full sm:w-auto text-xs sm:text-sm"
               title={!isConnected ? "Connect your Google Business Profile in Settings > Connections first" : ""}
             >
               {isTesting ? (
                 <>
-                  <div className="animate-spin h-4 w-4 border-2 border-current border-t-transparent rounded-full" />
-                  Testing...
+                  <div className="animate-spin h-3 w-3 sm:h-4 sm:w-4 border-2 border-current border-t-transparent rounded-full" />
+                  <span>Testing...</span>
                 </>
               ) : (
                 <>
-                  <TestTube className="h-4 w-4" />
-                  Test & Post Now
-                  {!isConnected && <span className="ml-1 text-xs">(Connect GBP first)</span>}
+                  <TestTube className="h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0" />
+                  <span>Test & Post Now</span>
+                  {!isConnected && <span className="ml-1 text-[10px] sm:text-xs">(Connect GBP)</span>}
                 </>
               )}
             </Button>
@@ -988,17 +993,17 @@ export function AutoPostingTab({ location }: AutoPostingTabProps) {
       </Card>
 
       {/* Post Button Settings */}
-      <Card className="shadow-sm">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Sparkles className="h-5 w-5" />
-            Post Button Settings
+      <Card className="shadow-sm overflow-hidden">
+        <CardHeader className="p-3 sm:p-4 md:p-6">
+          <CardTitle className="flex items-center gap-1.5 sm:gap-2 text-sm sm:text-base md:text-lg">
+            <Sparkles className="h-4 w-4 sm:h-5 sm:w-5 flex-shrink-0" />
+            <span>Post Button Settings</span>
           </CardTitle>
-          <CardDescription>
+          <CardDescription className="text-xs sm:text-sm break-words mt-1">
             Configure call-to-action buttons for your posts
           </CardDescription>
         </CardHeader>
-        <CardContent className="space-y-4">
+        <CardContent className="space-y-3 sm:space-y-4 p-3 sm:p-4 md:p-6">
           <div className="flex items-center space-x-2">
             <Switch
               checked={config.button?.enabled ?? true}
@@ -1012,16 +1017,16 @@ export function AutoPostingTab({ location }: AutoPostingTabProps) {
               })}
               disabled={!config.enabled}
             />
-            <span className="text-sm font-medium">
+            <span className="text-xs sm:text-sm font-medium">
               Add buttons to posts
             </span>
           </div>
           
           {config.button?.enabled && (
-            <div className="space-y-4">
+            <div className="space-y-3 sm:space-y-4">
               {/* Button Type Selection */}
-              <div className="space-y-3">
-                <Label className="text-sm font-medium">Call-to-Action Button Type</Label>
+              <div className="space-y-2 sm:space-y-3">
+                <Label className="text-xs sm:text-sm font-medium">Call-to-Action Button Type</Label>
                 <Select
                   value={config.button?.type || 'auto'}
                   onValueChange={(value) => saveConfiguration({
@@ -1051,24 +1056,24 @@ export function AutoPostingTab({ location }: AutoPostingTabProps) {
 
               {/* Button Configuration based on type */}
               {config.button?.type === 'auto' && (
-                <div className="text-xs text-muted-foreground bg-blue-50 p-3 rounded-lg">
+                <div className="text-[10px] sm:text-xs text-muted-foreground bg-blue-50 p-2 sm:p-3 rounded-lg">
                   <div>
                     <strong>🎯 Smart Selection:</strong> Automatically chooses the best button based on your business category:
-                    <ul className="mt-1 ml-4 list-disc">
+                    <ul className="mt-1 ml-3 sm:ml-4 list-disc space-y-0.5">
                       <li>Restaurants → Order Online</li>
                       <li>Salons/Health → Book Appointment</li>
                       <li>Retail → Shop Now</li>
                       <li>Education → Sign Up</li>
                       <li>Others → Learn More</li>
                     </ul>
-                    <p className="mt-2">All buttons will redirect to your website URL: {config.websiteUrl || 'Not set'}</p>
+                    <p className="mt-2 break-words">All buttons will redirect to your website URL: {config.websiteUrl || 'Not set'}</p>
                   </div>
                 </div>
               )}
 
               {config.button?.type === 'call_now' && (
-                <div className="space-y-3">
-                  <Label htmlFor="phone-number" className="text-sm font-medium">Phone Number</Label>
+                <div className="space-y-2 sm:space-y-3">
+                  <Label htmlFor="phone-number" className="text-xs sm:text-sm font-medium">Phone Number</Label>
                   <Input
                     id="phone-number"
                     type="tel"
@@ -1083,8 +1088,9 @@ export function AutoPostingTab({ location }: AutoPostingTabProps) {
                       }
                     })}
                     disabled={!config.enabled}
+                    className="text-xs sm:text-sm"
                   />
-                  <p className="text-xs text-muted-foreground">
+                  <p className="text-[10px] sm:text-xs text-muted-foreground break-words">
                     {location.phoneNumber ? (
                       !config.button?.phoneNumber ? (
                         <span className="text-green-600">✓ Auto-filled from your Google Business Profile: {location.phoneNumber}</span>
@@ -1099,8 +1105,8 @@ export function AutoPostingTab({ location }: AutoPostingTabProps) {
               )}
 
               {config.button?.type && !['auto', 'none', 'call_now'].includes(config.button.type) && (
-                <div className="space-y-3">
-                  <Label htmlFor="button-url" className="text-sm font-medium">
+                <div className="space-y-2 sm:space-y-3">
+                  <Label htmlFor="button-url" className="text-xs sm:text-sm font-medium">
                     {config.button.type === 'book' && 'Booking URL'}
                     {config.button.type === 'order' && 'Order Online URL'}
                     {config.button.type === 'buy' && 'Purchase URL'}
@@ -1127,8 +1133,9 @@ export function AutoPostingTab({ location }: AutoPostingTabProps) {
                         customUrl: e.target.value
                       }
                     })}
+                    className="text-xs sm:text-sm"
                   />
-                  <p className="text-xs text-muted-foreground">
+                  <p className="text-[10px] sm:text-xs text-muted-foreground break-words">
                     Enter the URL where customers should be directed when they click the button.
                     {!config.button?.customUrl && config.websiteUrl && (
                       <span className="text-blue-600"> Currently using your default website URL.</span>
@@ -1138,7 +1145,7 @@ export function AutoPostingTab({ location }: AutoPostingTabProps) {
               )}
 
               {config.button?.type === 'none' && (
-                <div className="text-xs text-muted-foreground bg-gray-50 p-3 rounded-lg">
+                <div className="text-[10px] sm:text-xs text-muted-foreground bg-gray-50 p-2 sm:p-3 rounded-lg">
                   <p>Posts will be created without any call-to-action buttons.</p>
                 </div>
               )}
@@ -1148,20 +1155,20 @@ export function AutoPostingTab({ location }: AutoPostingTabProps) {
       </Card>
 
       {/* Posting Schedule */}
-      <Card className="shadow-sm">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Calendar className="h-5 w-5" />
-            Posting Schedule
+      <Card className="shadow-sm overflow-hidden">
+        <CardHeader className="p-3 sm:p-4 md:p-6">
+          <CardTitle className="flex items-center gap-1.5 sm:gap-2 text-sm sm:text-base md:text-lg">
+            <Calendar className="h-4 w-4 sm:h-5 sm:w-5 flex-shrink-0" />
+            <span>Posting Schedule</span>
           </CardTitle>
-          <CardDescription>
+          <CardDescription className="text-xs sm:text-sm break-words mt-1">
             Set when and how often to publish posts
           </CardDescription>
         </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <Label htmlFor="frequency">Frequency</Label>
+        <CardContent className="space-y-3 sm:space-y-4 p-3 sm:p-4 md:p-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-4">
+            <div className="min-w-0">
+              <Label htmlFor="frequency" className="text-xs sm:text-sm">Frequency</Label>
               <Select
                 value={config.schedule.frequency}
                 onValueChange={handleFrequencyChange}
@@ -1181,10 +1188,10 @@ export function AutoPostingTab({ location }: AutoPostingTabProps) {
             </div>
 
             {config.schedule.frequency !== 'custom' && config.schedule.frequency !== 'test30s' && (
-              <div>
-                <Label htmlFor="time">
-                  <Clock className="h-4 w-4 inline mr-1" />
-                  Post Time
+              <div className="min-w-0">
+                <Label htmlFor="time" className="text-xs sm:text-sm">
+                  <Clock className="h-3 w-3 sm:h-4 sm:w-4 inline mr-1" />
+                  <span>Post Time</span>
                 </Label>
                 <Input
                   id="time"
@@ -1192,6 +1199,7 @@ export function AutoPostingTab({ location }: AutoPostingTabProps) {
                   value={config.schedule.time}
                   onChange={(e) => handleTimeChange(e.target.value)}
                   disabled={!config.enabled}
+                  className="text-xs sm:text-sm"
                 />
               </div>
             )}
@@ -1199,11 +1207,11 @@ export function AutoPostingTab({ location }: AutoPostingTabProps) {
 
           {/* Custom Times */}
           {config.schedule.frequency === 'custom' && (
-            <div>
-              <Label>Custom Post Times</Label>
+            <div className="min-w-0">
+              <Label className="text-xs sm:text-sm">Custom Post Times</Label>
               <div className="space-y-2 mt-2">
                 {customTimes.map((time, index) => (
-                  <div key={index} className="flex items-center gap-2">
+                  <div key={index} className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
                     <Input
                       type="time"
                       value={time}
@@ -1213,6 +1221,7 @@ export function AutoPostingTab({ location }: AutoPostingTabProps) {
                         handleCustomTimesChange(newTimes);
                       }}
                       disabled={!config.enabled}
+                      className="text-xs sm:text-sm flex-1"
                     />
                     <Button
                       type="button"
@@ -1220,6 +1229,7 @@ export function AutoPostingTab({ location }: AutoPostingTabProps) {
                       size="sm"
                       onClick={() => removeCustomTime(index)}
                       disabled={!config.enabled || customTimes.length <= 1}
+                      className="w-full sm:w-auto text-xs sm:text-sm"
                     >
                       Remove
                     </Button>
@@ -1231,6 +1241,7 @@ export function AutoPostingTab({ location }: AutoPostingTabProps) {
                   size="sm"
                   onClick={addCustomTime}
                   disabled={!config.enabled}
+                  className="w-full sm:w-auto text-xs sm:text-sm"
                 >
                   Add Time
                 </Button>
@@ -1240,12 +1251,12 @@ export function AutoPostingTab({ location }: AutoPostingTabProps) {
 
           {/* Test Mode Warning */}
           {config.schedule.frequency === 'test30s' && (
-            <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
-              <div className="flex items-center gap-2 text-yellow-800">
-                <TestTube className="h-4 w-4" />
-                <strong>Test Mode Active</strong>
+            <div className="p-2 sm:p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+              <div className="flex items-center gap-1.5 sm:gap-2 text-yellow-800">
+                <TestTube className="h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0" />
+                <strong className="text-xs sm:text-sm">Test Mode Active</strong>
               </div>
-              <p className="text-sm text-yellow-700 mt-1">
+              <p className="text-[10px] sm:text-xs md:text-sm text-yellow-700 mt-1 break-words">
                 Posts will be generated every 30 seconds. Remember to switch back to a normal schedule after testing!
               </p>
             </div>

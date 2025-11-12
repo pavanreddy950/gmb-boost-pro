@@ -28,6 +28,7 @@ const AdminLayout = () => {
   const { currentUser, logout } = useAuth();
   const { adminLevel } = useAdmin();
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const handleLogout = async () => {
     await logout();
@@ -120,29 +121,44 @@ const AdminLayout = () => {
 
   return (
     <div className="flex h-screen bg-gray-50">
+      {/* Mobile Overlay */}
+      {mobileMenuOpen && (
+        <div
+          className="fixed inset-0 bg-black/50 z-40 lg:hidden"
+          onClick={() => setMobileMenuOpen(false)}
+        />
+      )}
+
       {/* Sidebar */}
       <aside
         className={`${
           sidebarOpen ? 'w-64' : 'w-20'
-        } bg-white border-r border-gray-200 text-gray-800 transition-all duration-300 flex flex-col shadow-lg`}
+        } ${
+          mobileMenuOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
+        } fixed lg:relative h-full bg-white border-r border-gray-200 text-gray-800 transition-all duration-300 flex flex-col shadow-lg z-50`}
       >
         {/* Logo/Header */}
-        <div className="p-6 flex items-center justify-between">
+        <div className="p-4 sm:p-6 flex items-center justify-between">
           {sidebarOpen ? (
             <div className="flex items-center gap-2">
-              <Shield className="h-8 w-8 text-primary" />
+              <Shield className="h-6 w-6 sm:h-8 sm:w-8 text-primary" />
               <div>
-                <h1 className="text-xl font-bold text-gray-900">Admin Panel</h1>
+                <h1 className="text-lg sm:text-xl font-bold text-gray-900">Admin Panel</h1>
                 <p className="text-xs text-gray-500">LOBAISEO</p>
               </div>
             </div>
           ) : (
-            <Shield className="h-8 w-8 mx-auto text-primary" />
+            <Shield className="h-6 w-6 sm:h-8 sm:w-8 mx-auto text-primary" />
           )}
           <Button
             variant="ghost"
             size="icon"
-            onClick={() => setSidebarOpen(!sidebarOpen)}
+            onClick={() => {
+              setSidebarOpen(!sidebarOpen);
+              if (window.innerWidth < 1024) {
+                setMobileMenuOpen(false);
+              }
+            }}
             className="text-gray-700 hover:bg-primary/10 hover:text-primary"
           >
             {sidebarOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
@@ -155,16 +171,21 @@ const AdminLayout = () => {
             <NavLink
               key={item.name}
               to={item.href}
+              onClick={() => {
+                if (window.innerWidth < 1024) {
+                  setMobileMenuOpen(false);
+                }
+              }}
               className={({ isActive }) =>
-                `flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
+                `flex items-center gap-3 px-3 sm:px-4 py-2 sm:py-3 rounded-lg transition-colors ${
                   isActive
                     ? 'bg-primary text-white font-medium shadow-md'
                     : 'text-gray-700 hover:bg-primary/10 hover:text-primary'
                 }`
               }
             >
-              <item.icon className="h-5 w-5 flex-shrink-0" />
-              {sidebarOpen && <span>{item.name}</span>}
+              <item.icon className="h-4 w-4 sm:h-5 sm:w-5 flex-shrink-0" />
+              {sidebarOpen && <span className="text-sm sm:text-base">{item.name}</span>}
             </NavLink>
           ))}
         </nav>
@@ -202,23 +223,35 @@ const AdminLayout = () => {
       {/* Main Content */}
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* Top Bar */}
-        <header className="bg-white border-b border-gray-200 px-6 py-4">
+        <header className="bg-white border-b border-gray-200 px-4 sm:px-6 py-3 sm:py-4">
           <div className="flex items-center justify-between">
-            <div>
-              <h2 className="text-2xl font-bold text-gray-900">Admin Portal</h2>
-              <p className="text-sm text-gray-500">Manage your LOBAISEO application</p>
+            <div className="flex items-center gap-3">
+              {/* Mobile Menu Button */}
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+                className="lg:hidden"
+              >
+                <Menu className="h-5 w-5" />
+              </Button>
+              <div>
+                <h2 className="text-lg sm:text-xl md:text-2xl font-bold text-gray-900">Admin Portal</h2>
+                <p className="text-xs sm:text-sm text-gray-500 hidden sm:block">Manage your LOBAISEO application</p>
+              </div>
             </div>
-            <div className="flex items-center gap-4">
-              <Badge variant="outline" className="flex items-center gap-2">
+            <div className="flex items-center gap-2 sm:gap-4">
+              <Badge variant="outline" className="flex items-center gap-1 sm:gap-2 text-xs">
                 <Shield className="h-3 w-3" />
-                Administrator Access
+                <span className="hidden sm:inline">Administrator Access</span>
+                <span className="sm:hidden">Admin</span>
               </Badge>
             </div>
           </div>
         </header>
 
         {/* Page Content */}
-        <main className="flex-1 overflow-y-auto bg-gray-50 p-6">
+        <main className="flex-1 overflow-y-auto bg-gray-50 p-3 sm:p-4 md:p-6">
           <Outlet />
         </main>
       </div>

@@ -39,7 +39,7 @@ const DashboardLayout = () => {
         <div className="flex-1 flex flex-col ml-0 lg:ml-64">
           <Topbar onMenuClick={() => setSidebarOpen(true)} />
 
-          <main className="flex-1 p-4 sm:p-6 bg-muted/30">
+          <main className="flex-1 p-1 sm:p-4 md:p-6 bg-muted/30">
             <div className="animate-fade-in">
               <ConditionalSubscriptionGuard>
                 <Outlet />

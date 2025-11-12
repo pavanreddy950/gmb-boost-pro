@@ -3823,6 +3823,71 @@ app.post('/api/email/test-trial-reminder', async (req, res) => {
   }
 });
 
+// 📊 Test Email Endpoint - Send daily activity report
+app.post('/api/email/test-daily-report', async (req, res) => {
+  try {
+    const { userId, email, sendToAll } = req.body;
+
+    if (sendToAll) {
+      console.log(`[DAILY REPORT TEST] Sending daily reports to ALL users...`);
+
+      // Send to all users
+      const result = await dailyActivityScheduler.sendAllDailyReports();
+
+      res.json({
+        success: true,
+        message: 'Daily reports sent to all users',
+        results: result
+      });
+    } else {
+      if (!email) {
+        return res.status(400).json({
+          success: false,
+          error: 'Email address is required (or set sendToAll: true)'
+        });
+      }
+
+      console.log(`[DAILY REPORT TEST] Sending daily report to ${email}`);
+
+      // Create a test subscription object
+      const testSubscription = {
+        userId: userId || 'test-user-id',
+        email: email,
+        status: 'trial',
+        trialEndDate: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString() // 3 days from now
+      };
+
+      // Send to specific user
+      const result = await dailyActivityScheduler.sendUserDailyReport(testSubscription);
+
+      if (result.success) {
+        console.log(`[DAILY REPORT TEST] ✅ Email sent successfully to ${email}`);
+        res.json({
+          success: true,
+          message: `Daily report email sent to ${email}`,
+          result: result
+        });
+      } else {
+        console.error(`[DAILY REPORT TEST] ❌ Failed to send email:`, result.error);
+        res.status(500).json({
+          success: false,
+          error: 'Failed to send email',
+          details: result.error,
+          reason: result.reason
+        });
+      }
+    }
+
+  } catch (error) {
+    console.error('[DAILY REPORT TEST] Error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Internal server error',
+      details: error.message
+    });
+  }
+});
+
 // NOTE: Frontend is hosted separately on Azure Static Web Apps, so we don't serve index.html
 app.get('*', (req, res) => {
   // Always return 404 for unmatched routes since frontend is hosted separately
@@ -3848,7 +3913,8 @@ app.get('*', (req, res) => {
       'GET /api/locations/:locationId/insights',
       'POST /api/automation/test-post-now/:locationId',
       'POST /api/automation/test-review-check/:locationId',
-      'POST /api/email/test-trial-reminder'
+      'POST /api/email/test-trial-reminder',
+      'POST /api/email/test-daily-report'
     ]
   });
 });

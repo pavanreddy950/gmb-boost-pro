@@ -7,7 +7,9 @@ import {
   onAuthStateChanged,
   signInWithPopup,
   GoogleAuthProvider,
-  updateProfile
+  updateProfile,
+  setPersistence,
+  browserLocalPersistence
 } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
 import { useToast } from '@/hooks/use-toast';

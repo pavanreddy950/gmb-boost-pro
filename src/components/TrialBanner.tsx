@@ -5,10 +5,12 @@ import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { useSubscription } from '@/contexts/SubscriptionContext';
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 
 export const TrialBanner: React.FC = () => {
   const { status, daysRemaining, isLoading } = useSubscription();
   const [isDismissed, setIsDismissed] = useState(false);
+  const navigate = useNavigate();
 
   // Don't show banner if loading, dismissed, or not in trial/expired state
   if (isLoading || isDismissed || (status !== 'trial' && status !== 'expired')) {
@@ -104,16 +106,13 @@ export const TrialBanner: React.FC = () => {
             <Button
               variant={style.buttonVariant}
               size="sm"
-              onClick={() => {
-                // Open payment modal or redirect to billing page
-                window.location.href = '/dashboard/billing';
-              }}
+              onClick={() => navigate('/dashboard/billing')}
               className="flex items-center space-x-1"
             >
               <CreditCard className="h-4 w-4" />
               <span>Upgrade Now</span>
             </Button>
-            
+
             {status === 'trial' && (
               <Button
                 variant="ghost"
@@ -134,6 +133,7 @@ export const TrialBanner: React.FC = () => {
 // Compact version for sidebar
 export const TrialBannerCompact: React.FC = () => {
   const { status, daysRemaining, isLoading } = useSubscription();
+  const navigate = useNavigate();
 
   if (isLoading || (status !== 'trial' && status !== 'expired')) {
     return null;
@@ -168,7 +168,7 @@ export const TrialBannerCompact: React.FC = () => {
           variant="ghost"
           size="sm"
           className="h-6 px-2 text-xs"
-          onClick={() => window.location.href = '/dashboard/billing'}
+          onClick={() => navigate('/dashboard/billing')}
         >
           Upgrade
         </Button>

@@ -4,13 +4,13 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import dailyActivityEmailService from './dailyActivityEmailService.js';
 import supabaseTokenStorage from './supabaseTokenStorage.js';
+import supabaseSubscriptionService from './supabaseSubscriptionService.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 class DailyActivityScheduler {
   constructor() {
-    this.subscriptionsPath = path.join(__dirname, '../data/subscriptions.json');
     this.activityLogPath = path.join(__dirname, '../data/daily_activity_log.json');
     this.scheduledJobs = [];
 
@@ -18,15 +18,15 @@ class DailyActivityScheduler {
   }
 
   /**
-   * Load subscriptions data
+   * Load subscriptions data from Supabase
    */
   async loadSubscriptions() {
     try {
-      const data = await fs.readFile(this.subscriptionsPath, 'utf8');
-      const subscriptions = JSON.parse(data).subscriptions || {};
-      return Object.values(subscriptions);
+      const subscriptions = await supabaseSubscriptionService.getAllSubscriptions();
+      console.log(`[DailyActivityScheduler] ✅ Loaded ${subscriptions.length} subscriptions from Supabase`);
+      return subscriptions || [];
     } catch (error) {
-      console.error('[DailyActivityScheduler] Error loading subscriptions:', error);
+      console.error('[DailyActivityScheduler] ❌ Error loading subscriptions from Supabase:', error);
       return [];
     }
   }

@@ -1,16 +1,16 @@
 import PaymentService from './paymentService.js';
-import hybridSubscriptionService from './hybridSubscriptionService.js';
+import supabaseSubscriptionService from './supabaseSubscriptionService.js';
 
 class SubscriptionService {
   constructor() {
     this.paymentService = new PaymentService();
-    this.persistentStorage = hybridSubscriptionService; // Using hybrid storage for cloud + file persistence
+    this.persistentStorage = supabaseSubscriptionService; // Using Supabase PostgreSQL for persistent storage
     this.plans = new Map();
     this.initializePlans();
 
-    // Initialize the hybrid storage
+    // Initialize Supabase storage
     this.persistentStorage.initialize().catch(err => {
-      console.error('[SubscriptionService] Failed to initialize hybrid storage:', err);
+      console.error('[SubscriptionService] Failed to initialize Supabase storage:', err);
     });
   }
 
