@@ -353,9 +353,9 @@ const Billing = () => {
         </TabsList>
 
         <TabsContent value="plans" className="space-y-4">
-          <div className="grid gap-6 md:grid-cols-1 lg:grid-cols-2 mt-6">
+          <div className="grid gap-6 md:grid-cols-1 lg:grid-cols-2 mt-8">
             {plans.map((plan) => (
-              <Card key={plan.id} className={`relative mt-4 ${
+              <Card key={plan.id} className={`relative mt-6 ${
                 currentPlan?.id === plan.id
                   ? 'border-green-500 ring-2 ring-green-200'
                   : plan.popular
@@ -363,13 +363,13 @@ const Billing = () => {
                   : ''
               }`}>
                 {currentPlan?.id === plan.id ? (
-                  <div className="absolute -top-4 left-1/2 transform -translate-x-1/2 z-10">
+                  <div className="absolute -top-3 left-1/2 transform -translate-x-1/2 z-10">
                     <div className="bg-gradient-to-r from-green-600 to-green-700 text-white px-4 py-1.5 rounded-full text-xs font-bold shadow-lg whitespace-nowrap">
                       CURRENT PLAN
                     </div>
                   </div>
                 ) : plan.popular && (
-                  <div className="absolute -top-4 left-1/2 transform -translate-x-1/2 z-10">
+                  <div className="absolute -top-3 left-1/2 transform -translate-x-1/2 z-10">
                     <div className="bg-gradient-to-r from-purple-600 to-blue-600 text-white px-4 py-1.5 rounded-full text-xs font-bold shadow-lg whitespace-nowrap">
                       MOST POPULAR
                     </div>
