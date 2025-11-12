@@ -1,21 +1,24 @@
-import fs from 'fs/promises';
-import path from 'path';
-import { fileURLToPath } from 'url';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+import supabaseSubscriptionService from './supabaseSubscriptionService.js';
 
 class AdminAnalyticsService {
   constructor() {
-    this.subscriptionsPath = path.join(__dirname, '../data/subscriptions.json');
+    // No longer using JSON files - all data comes from Supabase
   }
 
   async loadSubscriptions() {
     try {
-      const data = await fs.readFile(this.subscriptionsPath, 'utf8');
-      return JSON.parse(data).subscriptions || {};
+      // Fetch subscriptions from Supabase database
+      const subscriptionsArray = await supabaseSubscriptionService.getAllSubscriptions();
+
+      // Convert array to object keyed by gbpAccountId for backward compatibility
+      const subscriptionsObj = {};
+      subscriptionsArray.forEach(sub => {
+        subscriptionsObj[sub.gbpAccountId] = sub;
+      });
+
+      return subscriptionsObj;
     } catch (error) {
-      console.error('Error loading subscriptions:', error);
+      console.error('[AdminAnalyticsService] Error loading subscriptions from Supabase:', error);
       return {};
     }
   }

@@ -1,16 +1,11 @@
 import admin from 'firebase-admin';
-import fs from 'fs/promises';
-import path from 'path';
-import { fileURLToPath } from 'url';
 import firebaseConfig from '../config/firebase.js';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+import supabaseSubscriptionService from './supabaseSubscriptionService.js';
+import supabaseUserMappingService from './supabaseUserMappingService.js';
 
 class AdminUserService {
   constructor() {
-    this.subscriptionsPath = path.join(__dirname, '../data/subscriptions.json');
-    this.mappingPath = path.join(__dirname, '../data/userGbpMapping.json');
+    // No longer using JSON files - all data comes from Supabase
   }
 
   async ensureFirebaseInitialized() {
@@ -30,17 +25,22 @@ class AdminUserService {
 
   async loadData() {
     try {
-      const [subscriptionsData, mappingData] = await Promise.all([
-        fs.readFile(this.subscriptionsPath, 'utf8'),
-        fs.readFile(this.mappingPath, 'utf8')
-      ]);
+      // Fetch data from Supabase database
+      const subscriptionsArray = await supabaseSubscriptionService.getAllSubscriptions();
+      const mapping = await supabaseUserMappingService.getAllMappings();
+
+      // Convert subscriptions array to object for backward compatibility
+      const subscriptionsObj = {};
+      subscriptionsArray.forEach(sub => {
+        subscriptionsObj[sub.gbpAccountId] = sub;
+      });
 
       return {
-        subscriptions: JSON.parse(subscriptionsData).subscriptions || {},
-        mapping: JSON.parse(mappingData)
+        subscriptions: subscriptionsObj,
+        mapping: mapping
       };
     } catch (error) {
-      console.error('Error loading data:', error);
+      console.error('[AdminUserService] Error loading data from Supabase:', error);
       return { subscriptions: {}, mapping: { userToGbpMapping: {}, gbpToUserMapping: {} } };
     }
   }
