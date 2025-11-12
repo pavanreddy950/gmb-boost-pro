@@ -17,11 +17,14 @@ import {
   Sparkles,
   Headphones,
   Mail,
-  MessageCircle
+  MessageCircle,
+  Shield,
+  Infinity
 } from 'lucide-react';
 import { useSubscription } from '@/contexts/SubscriptionContext';
 import { PaymentModal } from '@/components/PaymentModal';
 import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/contexts/AuthContext';
 import { format } from 'date-fns';
 
 const Billing = () => {
@@ -29,18 +32,38 @@ const Billing = () => {
   const [paymentHistory, setPaymentHistory] = useState<any[]>([]);
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
   const [showUpgradeSuccess, setShowUpgradeSuccess] = useState(false);
-  
-  const { 
-    subscription, 
-    status, 
-    daysRemaining, 
+  const [isAdmin, setIsAdmin] = useState(false);
+
+  const {
+    subscription,
+    status,
+    daysRemaining,
     plans,
     cancelSubscription,
-    isLoading 
+    isLoading
   } = useSubscription();
-  
+
+  const { currentUser } = useAuth();
   const { toast } = useToast();
   const backendUrl = import.meta.env.VITE_BACKEND_URL || 'https://pavan-client-backend-bxgdaqhvarfdeuhe.canadacentral-01.azurewebsites.net';
+
+  // Check if user is admin
+  useEffect(() => {
+    const checkAdminStatus = async () => {
+      if (currentUser) {
+        try {
+          const token = await currentUser.getIdTokenResult();
+          const adminStatus = token.claims.role === 'admin' || token.claims.adminLevel;
+          setIsAdmin(adminStatus);
+        } catch (error) {
+          console.error('Error checking admin status:', error);
+          setIsAdmin(false);
+        }
+      }
+    };
+
+    checkAdminStatus();
+  }, [currentUser]);
 
   // Fetch payment history and check for recent upgrade
   useEffect(() => {
@@ -146,50 +169,97 @@ const Billing = () => {
       )}
 
       {/* Current Subscription Card */}
-      <Card className={status === 'active' ? 'border-green-500' : ''}>
-        <CardHeader>
-          <CardTitle className="flex items-center space-x-2">
-            <span>Current Subscription</span>
-            {status === 'active' && <CheckCircle className="h-5 w-5 text-green-500" />}
-          </CardTitle>
-          <CardDescription>Your active plan and billing details</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex items-center justify-between">
-            <div className="space-y-1">
-              <div className="flex items-center space-x-2">
-                <span className="font-medium">Status:</span>
-                {getStatusBadge(status)}
+      {isAdmin ? (
+        // Admin View - Show unlimited access
+        <Card className="border-2 border-purple-500 bg-gradient-to-br from-purple-50 to-blue-50">
+          <CardHeader>
+            <CardTitle className="flex items-center space-x-2">
+              <Shield className="h-6 w-6 text-purple-600" />
+              <span>Administrator Account</span>
+              <Badge className="bg-purple-600">Unlimited Access</Badge>
+            </CardTitle>
+            <CardDescription>Full platform access with no restrictions</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="bg-white rounded-lg p-4 shadow-sm">
+                <div className="flex items-center space-x-2 mb-2">
+                  <Infinity className="h-5 w-5 text-purple-600" />
+                  <span className="font-semibold">Profiles</span>
+                </div>
+                <p className="text-2xl font-bold text-purple-600">Unlimited</p>
+                <p className="text-xs text-muted-foreground">No profile limits</p>
               </div>
-              {daysRemaining !== null && status === 'trial' && (
-                <p className="text-sm text-muted-foreground">
-                  {daysRemaining} days remaining in your free trial
-                </p>
-              )}
-              {status === 'active' && subscription?.subscriptionEndDate && (
-                <p className="text-sm text-muted-foreground">
-                  Next billing date: {format(new Date(subscription.subscriptionEndDate), 'MMM dd, yyyy')}
-                </p>
-              )}
+              <div className="bg-white rounded-lg p-4 shadow-sm">
+                <div className="flex items-center space-x-2 mb-2">
+                  <CheckCircle className="h-5 w-5 text-green-600" />
+                  <span className="font-semibold">Status</span>
+                </div>
+                <p className="text-2xl font-bold text-green-600">Active</p>
+                <p className="text-xs text-muted-foreground">Permanent access</p>
+              </div>
+              <div className="bg-white rounded-lg p-4 shadow-sm">
+                <div className="flex items-center space-x-2 mb-2">
+                  <Sparkles className="h-5 w-5 text-blue-600" />
+                  <span className="font-semibold">Features</span>
+                </div>
+                <p className="text-2xl font-bold text-blue-600">All</p>
+                <p className="text-xs text-muted-foreground">Premium access</p>
+              </div>
             </div>
-            
-            {status === 'expired' || status === 'none' ? (
-              <Button onClick={() => setIsPaymentModalOpen(true)}>
-                <CreditCard className="mr-2 h-4 w-4" />
-                Get Started
-              </Button>
-            ) : status === 'trial' ? (
-              <Button variant="outline" onClick={() => setIsPaymentModalOpen(true)}>
-                <CreditCard className="mr-2 h-4 w-4" />
-                Upgrade to Pro
-              </Button>
-            ) : subscription?.profileCount && subscription.profileCount >= 1 ? (
-              <Button variant="outline" onClick={() => setIsPaymentModalOpen(true)}>
-                <CreditCard className="mr-2 h-4 w-4" />
-                Add More Profiles
-              </Button>
-            ) : null}
-          </div>
+            <div className="bg-purple-100 rounded-lg p-4 border-l-4 border-purple-600">
+              <p className="text-sm text-purple-900">
+                <strong>Admin Privileges:</strong> You have full access to all features, unlimited profiles, and administrative controls. No subscription required.
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      ) : (
+        // Regular User View - Show actual subscription
+        <Card className={status === 'active' ? 'border-green-500' : ''}>
+          <CardHeader>
+            <CardTitle className="flex items-center space-x-2">
+              <span>Current Subscription</span>
+              {status === 'active' && <CheckCircle className="h-5 w-5 text-green-500" />}
+            </CardTitle>
+            <CardDescription>Your active plan and billing details</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex items-center justify-between flex-wrap gap-4">
+              <div className="space-y-1">
+                <div className="flex items-center space-x-2">
+                  <span className="font-medium">Status:</span>
+                  {getStatusBadge(status)}
+                </div>
+                {daysRemaining !== null && status === 'trial' && (
+                  <p className="text-sm text-muted-foreground">
+                    {daysRemaining} days remaining in your free trial
+                  </p>
+                )}
+                {status === 'active' && subscription?.subscriptionEndDate && (
+                  <p className="text-sm text-muted-foreground">
+                    Next billing date: {format(new Date(subscription.subscriptionEndDate), 'MMM dd, yyyy')}
+                  </p>
+                )}
+              </div>
+
+              {status === 'expired' || status === 'none' ? (
+                <Button onClick={() => setIsPaymentModalOpen(true)}>
+                  <CreditCard className="mr-2 h-4 w-4" />
+                  Get Started
+                </Button>
+              ) : status === 'trial' ? (
+                <Button variant="outline" onClick={() => setIsPaymentModalOpen(true)}>
+                  <CreditCard className="mr-2 h-4 w-4" />
+                  Upgrade to Pro
+                </Button>
+              ) : status === 'active' ? (
+                <Button variant="outline" onClick={() => setIsPaymentModalOpen(true)}>
+                  <CreditCard className="mr-2 h-4 w-4" />
+                  Add More Profiles
+                </Button>
+              ) : null}
+            </div>
 
           {currentPlan && status === 'active' && (
             <div className="border-t pt-4">
@@ -262,17 +332,18 @@ const Billing = () => {
             </div>
           )}
           
-          {status === 'trial' && currentPlan && (
-            <div className="border-t pt-4">
-              <h4 className="font-medium mb-2">Trial Plan</h4>
-              <p className="text-sm text-muted-foreground mb-3">
-                Enjoying full access during your {daysRemaining}-day trial period
-              </p>
-            </div>
-          )}
+            {status === 'trial' && currentPlan && (
+              <div className="border-t pt-4">
+                <h4 className="font-medium mb-2">Trial Plan</h4>
+                <p className="text-sm text-muted-foreground mb-3">
+                  Enjoying full access during your {daysRemaining}-day trial period
+                </p>
+              </div>
+            )}
 
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Tabs for Plans and History */}
       <Tabs defaultValue="plans" className="space-y-4">
@@ -282,9 +353,9 @@ const Billing = () => {
         </TabsList>
 
         <TabsContent value="plans" className="space-y-4">
-          <div className="grid gap-4 md:grid-cols-1 lg:grid-cols-2">
+          <div className="grid gap-6 md:grid-cols-1 lg:grid-cols-2 mt-6">
             {plans.map((plan) => (
-              <Card key={plan.id} className={`relative ${
+              <Card key={plan.id} className={`relative mt-4 ${
                 currentPlan?.id === plan.id
                   ? 'border-green-500 ring-2 ring-green-200'
                   : plan.popular
@@ -292,14 +363,14 @@ const Billing = () => {
                   : ''
               }`}>
                 {currentPlan?.id === plan.id ? (
-                  <div className="absolute -top-3 left-1/2 transform -translate-x-1/2 z-10">
-                    <div className="bg-gradient-to-r from-green-600 to-green-700 text-white px-3 py-1 rounded-full text-xs font-bold shadow-lg">
+                  <div className="absolute -top-4 left-1/2 transform -translate-x-1/2 z-10">
+                    <div className="bg-gradient-to-r from-green-600 to-green-700 text-white px-4 py-1.5 rounded-full text-xs font-bold shadow-lg whitespace-nowrap">
                       CURRENT PLAN
                     </div>
                   </div>
                 ) : plan.popular && (
-                  <div className="absolute -top-3 left-1/2 transform -translate-x-1/2 z-10">
-                    <div className="bg-gradient-to-r from-purple-600 to-blue-600 text-white px-3 py-1 rounded-full text-xs font-bold shadow-lg">
+                  <div className="absolute -top-4 left-1/2 transform -translate-x-1/2 z-10">
+                    <div className="bg-gradient-to-r from-purple-600 to-blue-600 text-white px-4 py-1.5 rounded-full text-xs font-bold shadow-lg whitespace-nowrap">
                       MOST POPULAR
                     </div>
                   </div>
