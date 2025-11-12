@@ -250,24 +250,11 @@ router.put('/coupons/:code/deactivate', checkAdminLevel(['super', 'moderator']),
 // ============= SUBSCRIPTIONS =============
 router.get('/subscriptions', async (req, res) => {
   try {
-    const subscriptionsData = await adminAnalyticsService.loadSubscriptions();
-    const subscriptions = Object.values(subscriptionsData).map(sub => ({
-      id: sub.id,
-      userId: sub.userId,
-      gbpAccountId: sub.gbpAccountId,
-      email: sub.email,
-      status: sub.status,
-      planId: sub.planId,
-      profileCount: sub.profileCount,
-      trialStartDate: sub.trialStartDate,
-      trialEndDate: sub.trialEndDate,
-      subscriptionStartDate: sub.subscriptionStartDate,
-      subscriptionEndDate: sub.subscriptionEndDate,
-      lastPaymentDate: sub.lastPaymentDate,
-      amount: sub.amount,
-      currency: sub.currency,
-      createdAt: sub.createdAt
-    }));
+    // Import supabaseSubscriptionService to fetch from database
+    const supabaseSubscriptionService = (await import('../services/supabaseSubscriptionService.js')).default;
+
+    // Fetch all subscriptions from Supabase
+    const subscriptions = await supabaseSubscriptionService.getAllSubscriptions();
 
     res.json({ success: true, data: subscriptions });
   } catch (error) {
@@ -280,17 +267,17 @@ router.get('/subscriptions', async (req, res) => {
 router.post('/subscriptions/:gbpAccountId/cancel', checkAdminLevel(['super', 'moderator']), async (req, res) => {
   try {
     const { gbpAccountId } = req.params;
-    const { default: persistentSubscriptionService } = await import('../services/persistentSubscriptionService.js');
+    const supabaseSubscriptionService = (await import('../services/supabaseSubscriptionService.js')).default;
 
     // Get the subscription
-    const subscription = persistentSubscriptionService.getSubscriptionByGBP(gbpAccountId);
+    const subscription = await supabaseSubscriptionService.getSubscriptionByGbpId(gbpAccountId);
 
     if (!subscription) {
       return res.status(404).json({ success: false, error: 'Subscription not found' });
     }
 
     // Update subscription status to cancelled
-    const updatedSubscription = persistentSubscriptionService.updateSubscription(gbpAccountId, {
+    const updatedSubscription = await supabaseSubscriptionService.updateSubscription(gbpAccountId, {
       status: 'cancelled',
       cancelledAt: new Date().toISOString(),
       cancelledBy: req.admin.email
@@ -319,7 +306,7 @@ router.post('/subscriptions/:gbpAccountId/cancel', checkAdminLevel(['super', 'mo
 router.post('/subscriptions/create', checkAdminLevel(['super']), async (req, res) => {
   try {
     const { userId, email, profileCount, durationMonths, planId } = req.body;
-    const { default: persistentSubscriptionService } = await import('../services/persistentSubscriptionService.js');
+    const supabaseSubscriptionService = (await import('../services/supabaseSubscriptionService.js')).default;
 
     if (!userId || !email || !profileCount || !durationMonths) {
       return res.status(400).json({ success: false, error: 'Missing required fields' });
@@ -354,8 +341,8 @@ router.post('/subscriptions/create', checkAdminLevel(['super']), async (req, res
       createdByAdmin: true
     };
 
-    // Save subscription
-    const result = persistentSubscriptionService.createSubscription(subscriptionData);
+    // Save subscription to Supabase
+    const result = await supabaseSubscriptionService.saveSubscription(subscriptionData);
 
     // Log the action
     await auditLogService.log({

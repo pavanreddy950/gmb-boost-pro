@@ -66,6 +66,29 @@ export const SubscriptionProvider: React.FC<SubscriptionProviderProps> = ({ chil
   const checkSubscriptionStatus = async () => {
     console.log('Checking subscription status for GBP:', gbpAccountId, 'User:', currentUser?.uid);
 
+    // Check if user is admin - admins should bypass subscription checks
+    const isAdmin = await currentUser?.getIdTokenResult().then(token => {
+      return token.claims.role === 'admin' || token.claims.adminLevel;
+    }).catch(() => false);
+
+    console.log('Is user admin?', isAdmin);
+
+    // Admin users skip subscription checks entirely
+    if (isAdmin) {
+      console.log('Admin user detected, skipping subscription checks');
+      setStatus('active');
+      setDaysRemaining(null);
+      setSubscription(null);
+      setCanUsePlatform(true);
+      setRequiresPayment(false);
+      setBillingOnly(false);
+      setIsFeatureBlocked(false);
+      setMessage(null);
+      setShowTrialSetup(false);
+      setIsLoading(false);
+      return;
+    }
+
     // First, try to find subscription by user ID even if GBP is not connected
     if (currentUser?.uid && !gbpAccountId) {
       console.log('No GBP connected, checking by user ID:', currentUser.uid);
@@ -125,8 +148,8 @@ export const SubscriptionProvider: React.FC<SubscriptionProviderProps> = ({ chil
         const data = await response.json();
         console.log('Subscription status from backend:', data);
 
-        // If no subscription exists, show trial setup modal
-        if (data.status === 'none' && currentUser && gbpAccountId) {
+        // If no subscription exists, show trial setup modal (but not for admins)
+        if (data.status === 'none' && currentUser && gbpAccountId && !isAdmin) {
           console.log('No subscription found, showing trial setup...');
           setShowTrialSetup(true);
           setStatus('none');
