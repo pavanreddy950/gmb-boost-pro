@@ -355,73 +355,76 @@ const Billing = () => {
         <TabsContent value="plans" className="space-y-4">
           <div className="grid gap-6 md:grid-cols-1 lg:grid-cols-2 mt-8">
             {plans.map((plan) => (
-              <Card key={plan.id} className={`relative mt-6 ${
-                currentPlan?.id === plan.id
-                  ? 'border-green-500 ring-2 ring-green-200'
-                  : plan.popular
-                  ? 'border-primary/50'
-                  : ''
-              }`}>
-                {currentPlan?.id === plan.id ? (
-                  <div className="absolute -top-3 left-1/2 transform -translate-x-1/2 z-10">
+              <div key={plan.id} className="relative pt-4">
+                {currentPlan?.id === plan.id && (
+                  <div className="absolute top-0 left-1/2 transform -translate-x-1/2 z-10">
                     <div className="bg-gradient-to-r from-green-600 to-green-700 text-white px-4 py-1.5 rounded-full text-xs font-bold shadow-lg whitespace-nowrap">
                       CURRENT PLAN
                     </div>
                   </div>
-                ) : plan.popular && (
-                  <div className="absolute -top-3 left-1/2 transform -translate-x-1/2 z-10">
+                )}
+                {plan.popular && currentPlan?.id !== plan.id && (
+                  <div className="absolute top-0 left-1/2 transform -translate-x-1/2 z-10">
                     <div className="bg-gradient-to-r from-purple-600 to-blue-600 text-white px-4 py-1.5 rounded-full text-xs font-bold shadow-lg whitespace-nowrap">
                       MOST POPULAR
                     </div>
                   </div>
                 )}
-                <CardHeader>
-                  <div className="flex items-center justify-between">
-                    <CardTitle className="text-lg">{plan.name}</CardTitle>
-                    {plan.interval === 'yearly' && (
-                      <Badge className="bg-green-100 text-green-800">Save 80%</Badge>
-                    )}
-                  </div>
-                  {plan.id === 'per_profile_yearly' ? (
-                    <div className="mt-2">
-                      <div className="flex items-baseline gap-2">
-                        <span className="text-3xl font-bold text-foreground">$99</span>
-                        <span className="text-xl text-muted-foreground line-through">$499</span>
+                <Card className={`mt-3 ${
+                  currentPlan?.id === plan.id
+                    ? 'border-green-500 ring-2 ring-green-200'
+                    : plan.popular
+                    ? 'border-primary/50'
+                    : ''
+                }`}>
+                  <CardHeader>
+                    <div className="flex items-center justify-between">
+                      <CardTitle className="text-lg">{plan.name}</CardTitle>
+                      {plan.interval === 'yearly' && (
+                        <Badge className="bg-green-100 text-green-800">Save 80%</Badge>
+                      )}
+                    </div>
+                    {plan.id === 'per_profile_yearly' ? (
+                      <div className="mt-2">
+                        <div className="flex items-baseline gap-2">
+                          <span className="text-3xl font-bold text-foreground">$99</span>
+                          <span className="text-xl text-muted-foreground line-through">$499</span>
+                        </div>
+                        <CardDescription className="mt-1">per Google Business Profile/year</CardDescription>
                       </div>
-                      <CardDescription className="mt-1">per Google Business Profile/year</CardDescription>
-                    </div>
-                  ) : (
-                    <CardDescription className="text-2xl font-bold text-foreground mt-2">
-                      ${(plan.amount / 100).toFixed(0)}/{plan.interval}
-                    </CardDescription>
-                  )}
-                </CardHeader>
-                <CardContent>
-                  <ul className="space-y-2">
-                    {plan.features.map((feature, index) => (
-                      <li key={index} className="flex items-start space-x-2">
-                        <CheckCircle className="h-4 w-4 text-green-500 mt-0.5" />
-                        <span className="text-sm">{feature}</span>
-                      </li>
-                    ))}
-                  </ul>
-                  
-                  {currentPlan?.id !== plan.id && (
-                    <Button
-                      className="w-full mt-4"
-                      onClick={() => setIsPaymentModalOpen(true)}
-                    >
-                      {status === 'active' ? 'Access More Profiles' : 'Get Started'}
-                    </Button>
-                  )}
-                  
-                  {currentPlan?.id === plan.id && (
-                    <div className="mt-4 text-center text-sm text-muted-foreground">
-                      Current Plan
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
+                    ) : (
+                      <CardDescription className="text-2xl font-bold text-foreground mt-2">
+                        ${(plan.amount / 100).toFixed(0)}/{plan.interval}
+                      </CardDescription>
+                    )}
+                  </CardHeader>
+                  <CardContent>
+                    <ul className="space-y-2">
+                      {plan.features.map((feature, index) => (
+                        <li key={index} className="flex items-start space-x-2">
+                          <CheckCircle className="h-4 w-4 text-green-500 mt-0.5" />
+                          <span className="text-sm">{feature}</span>
+                        </li>
+                      ))}
+                    </ul>
+                    
+                    {currentPlan?.id !== plan.id && (
+                      <Button
+                        className="w-full mt-4"
+                        onClick={() => setIsPaymentModalOpen(true)}
+                      >
+                        {status === 'active' ? 'Access More Profiles' : 'Get Started'}
+                      </Button>
+                    )}
+                    
+                    {currentPlan?.id === plan.id && (
+                      <div className="mt-4 text-center text-sm text-muted-foreground">
+                        Current Plan
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              </div>
             ))}
 
             {/* Support Card */}
