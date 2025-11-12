@@ -373,11 +373,109 @@ class SupabaseSubscriptionService {
   }
 
   /**
+   * Alias method for compatibility with subscriptionService.js
+   */
+  async getSubscriptionByGBPAccount(gbpAccountId) {
+    return await this.getSubscriptionByGbpId(gbpAccountId);
+  }
+
+  /**
+   * Get subscription by ID
+   */
+  async getSubscriptionById(subscriptionId) {
+    try {
+      await this.initialize();
+
+      const { data: subscription, error } = await this.client
+        .from('subscriptions')
+        .select('*')
+        .eq('id', subscriptionId)
+        .single();
+
+      if (error) {
+        if (error.code === 'PGRST116') {
+          return null;
+        }
+        throw error;
+      }
+
+      if (!subscription) {
+        return null;
+      }
+
+      // Fetch payment history
+      const { data: payments } = await this.client
+        .from('payment_history')
+        .select('*')
+        .eq('subscription_id', subscription.id)
+        .order('created_at', { ascending: false });
+
+      return this.formatSubscription(subscription, payments || []);
+    } catch (error) {
+      console.error('[SupabaseSubscriptionService] Error getting subscription by ID:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Update subscription (generic update method)
+   */
+  async updateSubscription(gbpAccountId, updates) {
+    try {
+      await this.initialize();
+
+      // Map camelCase to snake_case
+      const mappedUpdates = {
+        updated_at: new Date().toISOString()
+      };
+
+      if (updates.status) mappedUpdates.status = updates.status;
+      if (updates.planId) mappedUpdates.plan_id = updates.planId;
+      if (updates.profileCount !== undefined) mappedUpdates.profile_count = updates.profileCount;
+      if (updates.trialStartDate) mappedUpdates.trial_start_date = updates.trialStartDate;
+      if (updates.trialEndDate) mappedUpdates.trial_end_date = updates.trialEndDate;
+      if (updates.subscriptionStartDate) mappedUpdates.subscription_start_date = updates.subscriptionStartDate;
+      if (updates.subscriptionEndDate) mappedUpdates.subscription_end_date = updates.subscriptionEndDate;
+      if (updates.lastPaymentDate) mappedUpdates.last_payment_date = updates.lastPaymentDate;
+      if (updates.razorpayPaymentId) mappedUpdates.razorpay_payment_id = updates.razorpayPaymentId;
+      if (updates.razorpayOrderId) mappedUpdates.razorpay_order_id = updates.razorpayOrderId;
+      if (updates.amount) mappedUpdates.amount = updates.amount;
+      if (updates.currency) mappedUpdates.currency = updates.currency;
+      if (updates.paidAt) mappedUpdates.paid_at = updates.paidAt;
+      if (updates.cancelledAt) mappedUpdates.cancelled_at = updates.cancelledAt;
+      if (updates.cancelledBy) mappedUpdates.cancelled_by = updates.cancelledBy;
+
+      const { data, error } = await this.client
+        .from('subscriptions')
+        .update(mappedUpdates)
+        .eq('gbp_account_id', gbpAccountId)
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      console.log(`[SupabaseSubscriptionService] ✅ Updated subscription: ${gbpAccountId}`);
+
+      // Fetch payment history
+      const { data: payments } = await this.client
+        .from('payment_history')
+        .select('*')
+        .eq('subscription_id', data.id)
+        .order('created_at', { ascending: false});
+
+      return this.formatSubscription(data, payments || []);
+    } catch (error) {
+      console.error('[SupabaseSubscriptionService] Error updating subscription:', error);
+      throw error;
+    }
+  }
+
+  /**
    * Check subscription status
    */
   async checkStatus(gbpAccountId) {
     const subscription = await this.getSubscriptionByGbpId(gbpAccountId);
-    
+
     if (!subscription) {
       return {
         isValid: false,
