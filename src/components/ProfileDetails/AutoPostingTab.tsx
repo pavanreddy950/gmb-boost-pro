@@ -150,10 +150,12 @@ export function AutoPostingTab({ location }: AutoPostingTabProps) {
     };
   }, [location.id]);
 
-  const loadConfiguration = () => {
+  const loadConfiguration = async () => {
     let existingConfig = automationStorage.getConfiguration(location.id);
+    let isNewConfig = false;
 
     if (!existingConfig) {
+      isNewConfig = true;
       existingConfig = automationStorage.createDefaultConfiguration(location.id, location.name);
       existingConfig.categories = location.categories || [];
       existingConfig.locationName = location.name;
@@ -161,6 +163,40 @@ export function AutoPostingTab({ location }: AutoPostingTabProps) {
       // Initialize with default keywords for new configs
       existingConfig.keywords = generateDefaultKeywords();
       automationStorage.saveConfiguration(existingConfig);
+
+      // Auto-sync to server for new configs with enabled=true (default)
+      if (existingConfig.enabled && currentUser?.uid) {
+        console.log('New user detected - syncing default automation settings to server');
+
+        const accountId = localStorage.getItem('google_business_account_id');
+        const addressInfo = location.address ? {
+          fullAddress: location.address.addressLines?.join(', ') || '',
+          city: location.address.locality || '',
+          region: location.address.administrativeArea || '',
+          country: location.address.countryCode || '',
+          postalCode: location.address.postalCode || ''
+        } : {};
+
+        // Sync to server in background (don't block UI)
+        serverAutomationService.enableAutoPosting(
+          location.id,
+          location.name,
+          existingConfig.schedule.time || '09:00',
+          existingConfig.schedule.frequency || 'alternative',
+          location.categories?.[0],
+          existingConfig.keywords.join(', '),
+          location.websiteUri,
+          currentUser.uid,
+          accountId || undefined,
+          addressInfo,
+          location.phoneNumber,
+          existingConfig.button
+        ).then(() => {
+          console.log('✅ Default automation settings synced to server');
+        }).catch(err => {
+          console.error('Failed to sync default automation to server:', err);
+        });
+      }
     } else {
       // Handle migration from string to array format for backward compatibility
       if (typeof existingConfig.keywords === 'string') {
@@ -1011,7 +1047,7 @@ export function AutoPostingTab({ location }: AutoPostingTabProps) {
                 button: {
                   enabled,
                   type: config.button?.type || 'auto',
-                  phoneNumber: config.button?.phoneNumber || location.phoneNumber,
+                  phoneNumber: location.phoneNumber, // Always use phone from Google Business Profile
                   customUrl: config.button?.customUrl
                 }
               })}
@@ -1034,7 +1070,7 @@ export function AutoPostingTab({ location }: AutoPostingTabProps) {
                       ...config.button,
                       enabled: true,
                       type: value as any,
-                      phoneNumber: config.button?.phoneNumber || location.phoneNumber,
+                      phoneNumber: location.phoneNumber, // Always use phone from Google Business Profile
                     }
                   })}
                 >
@@ -1073,34 +1109,25 @@ export function AutoPostingTab({ location }: AutoPostingTabProps) {
 
               {config.button?.type === 'call_now' && (
                 <div className="space-y-2 sm:space-y-3">
-                  <Label htmlFor="phone-number" className="text-xs sm:text-sm font-medium">Phone Number</Label>
-                  <Input
-                    id="phone-number"
-                    type="tel"
-                    placeholder={location.phoneNumber ? `Business phone: ${location.phoneNumber}` : "e.g., +1 (555) 123-4567"}
-                    value={config.button?.phoneNumber || location.phoneNumber || ''}
-                    onChange={(e) => saveConfiguration({
-                      button: {
-                        ...config.button,
-                        enabled: true,
-                        type: config.button?.type || 'call_now',
-                        phoneNumber: e.target.value
+                  <Label htmlFor="phone-number" className="text-xs sm:text-sm font-medium">Business Phone Number</Label>
+                  <div className="p-3 bg-muted rounded-md border border-border">
+                    <p className="text-sm font-medium text-foreground">
+                      {location.phoneNumber || 'No phone number found'}
+                    </p>
+                    <p className="text-[10px] sm:text-xs text-muted-foreground mt-1">
+                      {location.phoneNumber
+                        ? '✅ Automatically fetched from your Google Business Profile'
+                        : '⚠️ No phone number found in your Google Business Profile. Please add one in Google Business Profile settings.'
                       }
-                    })}
-                    disabled={!config.enabled}
-                    className="text-xs sm:text-sm"
-                  />
-                  <p className="text-[10px] sm:text-xs text-muted-foreground break-words">
-                    {location.phoneNumber ? (
-                      !config.button?.phoneNumber ? (
-                        <span className="text-green-600">✓ Auto-filled from your Google Business Profile: {location.phoneNumber}</span>
-                      ) : (
-                        <span>Using custom phone number. Clear to use business profile number: {location.phoneNumber}</span>
-                      )
-                    ) : (
-                      <span className="text-amber-600">⚠ No phone number found in your Google Business Profile. Please add one.</span>
-                    )}
-                  </p>
+                    </p>
+                  </div>
+                  {!location.phoneNumber && (
+                    <div className="p-3 bg-amber-50 dark:bg-amber-950 border border-amber-200 dark:border-amber-800 rounded-md">
+                      <p className="text-[10px] sm:text-xs text-amber-700 dark:text-amber-300">
+                        ⚠️ To use "Call Now" button, please add a phone number to your Google Business Profile first.
+                      </p>
+                    </div>
+                  )}
                 </div>
               )}
 

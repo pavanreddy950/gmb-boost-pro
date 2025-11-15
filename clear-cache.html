@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Clear GBP Cache</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            max-width: 600px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #2563eb;
+            margin-bottom: 20px;
+        }
+        .button {
+            background: #2563eb;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            font-size: 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            width: 100%;
+            margin-top: 20px;
+        }
+        .button:hover {
+            background: #1d4ed8;
+        }
+        .status {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 6px;
+            background: #f0f9ff;
+            border: 1px solid #bae6fd;
+            color: #0369a1;
+            display: none;
+        }
+        .status.show {
+            display: block;
+        }
+        ul {
+            margin-left: 20px;
+            line-height: 1.8;
+        }
+        .warning {
+            background: #fef3c7;
+            border: 1px solid #fcd34d;
+            color: #92400e;
+            padding: 15px;
+            border-radius: 6px;
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🧹 Clear GBP Cache</h1>
+
+        <div class="warning">
+            <strong>⚠️ Important:</strong> This will clear your browser cache for the Google Business Profile application and force a fresh data fetch from the server.
+        </div>
+
+        <p>Click the button below to:</p>
+        <ul>
+            <li>Clear all cached Google Business Profile data</li>
+            <li>Clear localStorage and sessionStorage</li>
+            <li>Force reload fresh data from server</li>
+            <li>This will fetch the latest phone numbers from your Google Business Profile</li>
+        </ul>
+
+        <button class="button" onclick="clearCache()">Clear Cache & Reload</button>
+
+        <div class="status" id="status">
+            <div id="statusText"></div>
+        </div>
+    </div>
+
+    <script>
+        function clearCache() {
+            const status = document.getElementById('status');
+            const statusText = document.getElementById('statusText');
+
+            status.classList.add('show');
+
+            statusText.innerHTML = '🧹 Clearing localStorage...';
+            localStorage.clear();
+
+            setTimeout(() => {
+                statusText.innerHTML = '🧹 Clearing sessionStorage...';
+                sessionStorage.clear();
+            }, 300);
+
+            setTimeout(() => {
+                statusText.innerHTML = '🧹 Clearing cookies...';
+                document.cookie.split(";").forEach(function(c) {
+                    document.cookie = c.replace(/^ +/, "").replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/");
+                });
+            }, 600);
+
+            setTimeout(() => {
+                statusText.innerHTML = '✅ Cache cleared! Redirecting to app...';
+            }, 900);
+
+            setTimeout(() => {
+                // Redirect to the main app
+                const appUrl = window.location.hostname === 'localhost'
+                    ? 'http://localhost:3000'
+                    : window.location.origin;
+                window.location.href = appUrl;
+            }, 1500);
+        }
+    </script>
+</body>
+</html>

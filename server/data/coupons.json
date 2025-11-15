@@ -1,0 +1,19 @@
+{
+  "RAJATEST": {
+    "code": "RAJATEST",
+    "discount": 100,
+    "type": "percentage",
+    "active": true,
+    "isActive": true,
+    "maxUses": 10000,
+    "usedCount": 0,
+    "currentUses": 0,
+    "description": "Internal testing - Pay only ₹1",
+    "validUntil": "2030-12-31T00:00:00.000Z",
+    "expiresAt": "2030-12-31T00:00:00.000Z",
+    "hidden": true,
+    "oneTimePerUser": false,
+    "usedBy": [],
+    "createdAt": "2025-11-15T14:56:46.723Z"
+  }
+}

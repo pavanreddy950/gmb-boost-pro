@@ -1,0 +1,680 @@
+{
+  "activities": [
+    {
+      "locationId": "9282036971530488002",
+      "type": "post_created",
+      "details": {
+        "postId": "accounts/106433552101751461082/locations/9282036971530488002/localPosts/4000479837801856465",
+        "content": "Looking for the perfect weekend getaway in Ajmer? The Ratan Resort & Retreat is your ultimate destination! Nestled near the serene Pushkar Lake, our resort hotel offers an unforgettable blend of comfort and luxury. Whether you're relaxing in one of our elegantly designed rooms or enjoying breathtaking views of the Aravalli hills, every moment feels magical here. With amenities like a sparkling pool, lush gardens, and delicious dining experiences, we ensure your stay is as rejuvenating as possible. Ideal for both couples and families seeking relaxation amidst nature, The Ratan Resort & Retreat makes every Saturday evening truly special.\n\n📍 Address: Vamdev Road, Pushkar, Rajasthan 305022",
+        "timestamp": "2025-11-15T15:23:02.883Z"
+      },
+      "timestamp": "2025-11-15T15:23:02.883Z"
+    },
+    {
+      "locationId": "9282036971530488002",
+      "type": "post_failed",
+      "details": {
+        "error": "No valid tokens available",
+        "timestamp": "2025-11-15T15:26:10.310Z",
+        "reason": "authentication_required",
+        "userId": "default",
+        "diagnostics": {
+          "targetUserId": "default",
+          "legacyStorageUsers": [],
+          "legacyStorageCount": 0
+        }
+      },
+      "timestamp": "2025-11-15T15:26:10.310Z"
+    },
+    {
+      "locationId": "9282036971530488002",
+      "type": "post_failed",
+      "details": {
+        "error": "No valid tokens available",
+        "timestamp": "2025-11-15T15:26:18.504Z",
+        "reason": "authentication_required",
+        "userId": "default",
+        "diagnostics": {
+          "targetUserId": "default",
+          "legacyStorageUsers": [],
+          "legacyStorageCount": 0
+        }
+      },
+      "timestamp": "2025-11-15T15:26:18.504Z"
+    },
+    {
+      "locationId": "9282036971530488002",
+      "type": "post_failed",
+      "details": {
+        "error": "No valid tokens available",
+        "timestamp": "2025-11-15T15:26:27.747Z",
+        "reason": "authentication_required",
+        "userId": "default",
+        "diagnostics": {
+          "targetUserId": "default",
+          "legacyStorageUsers": [],
+          "legacyStorageCount": 0
+        }
+      },
+      "timestamp": "2025-11-15T15:26:27.747Z"
+    },
+    {
+      "locationId": "9282036971530488002",
+      "type": "post_created",
+      "details": {
+        "postId": "accounts/106433552101751461082/locations/9282036971530488002/localPosts/6691726799115892450",
+        "content": "Looking for top-notch service that truly puts customer satisfaction first? Look no further than **Business**, your trusted local expert in delivering quality results. Conveniently located in the heart of the **local area**, we’re proud to serve our community with a commitment to excellence. Whether you’re near [mention a local landmark or neighborhood], or just exploring the vibrant surroundings, Business is here to meet all your business needs with precision and care. \n\nDiscover why so many locals trust us—our dedication to quality service sets us apart from other businesses in the area. Stop by today and experience firsthand what makes Business special!\n\n📍 Address:",
+        "timestamp": "2025-11-15T15:29:21.333Z"
+      },
+      "timestamp": "2025-11-15T15:29:21.334Z"
+    },
+    {
+      "locationId": "3902532824310785738",
+      "type": "review_replied",
+      "details": {
+        "reviewId": "AbFvOqkTtWVHDeEVIutjf5PvZ-6yPd0wYsnvzwcAfM1VuzriL4lsbtnoLph0gtcvaxb1HXy9P_S7PQ",
+        "rating": 5,
+        "reviewerName": "Shyam Chandra",
+        "replyText": "Thank you so much, Shyam! We're thrilled you enjoyed the serene charm and elegance of our villas. Hearing that our design and service stood out means the world to us. Hope to welcome you back to Cozy Nest Cottage Bhimtal for another peaceful escape soon!",
+        "timestamp": "2025-11-15T15:29:42.453Z"
+      },
+      "timestamp": "2025-11-15T15:29:42.453Z"
+    },
+    {
+      "locationId": "3902532824310785738",
+      "type": "post_created",
+      "details": {
+        "postId": "accounts/106433552101751461082/locations/3902532824310785738/localPosts/8198625848121199169",
+        "content": "Looking for top-notch service and unbeatable customer satisfaction this Saturday evening? Look no further than *Business*! As the go-to business in the local area, we pride ourselves on delivering exceptional quality and results tailored to your needs. Whether you’re a resident or just passing through, our expert team is here to provide unparalleled solutions that make a difference. Located conveniently near [insert notable local landmark or neighborhood], we’re proud to be part of this vibrant community. At *Business*, excellence isn’t just what we do – it’s who we are! Stop by today and experience the best in business expertise right here in your local area.\n\n📍 Address:",
+        "timestamp": "2025-11-15T15:29:49.207Z"
+      },
+      "timestamp": "2025-11-15T15:29:49.207Z"
+    },
+    {
+      "locationId": "1497453847846156772",
+      "type": "review_replied",
+      "details": {
+        "reviewId": "AbFvOqmVSx1t85_-aU2x-nbZeoRfnhhuIuEkbSsHSvofX_k2QRsbqOJlVCGOOwFBo7-_N0AAic770w",
+        "rating": 5,
+        "reviewerName": "Jethva Balvantsinh",
+        "replyText": "Thank you so much for the 5-star rating, Jethva! We’re thrilled you enjoyed your time at our resort. NK Desert Camp & Resort is all about creating unforgettable experiences in the beauty of Jaisalmer’s desert. Hope to welcome you back again soon for more magic!",
+        "timestamp": "2025-11-15T15:33:34.284Z"
+      },
+      "timestamp": "2025-11-15T15:33:34.285Z"
+    },
+    {
+      "locationId": "1497453847846156772",
+      "type": "post_created",
+      "details": {
+        "postId": "accounts/106433552101751461082/locations/1497453847846156772/localPosts/7239605174374051921",
+        "content": "Looking for top-notch service and unmatched customer satisfaction this Saturday evening? Look no further than Business! As a trusted business in the local area, we pride ourselves on delivering exceptional quality and expertise to our community. Whether you're exploring the vibrant neighborhood or simply enjoying what makes our local area so unique, Business is here to meet your needs with professionalism and care. We’re passionate about providing solutions that make a difference and ensuring every customer leaves satisfied. Experience the difference of working with a business dedicated to excellence – right here in your community. Stop by today and let us show you why we’re the go-to choice for quality service!\n\n📍 Address:",
+        "timestamp": "2025-11-15T15:33:34.436Z"
+      },
+      "timestamp": "2025-11-15T15:33:34.437Z"
+    },
+    {
+      "locationId": "1497453847846156772",
+      "type": "review_replied",
+      "details": {
+        "reviewId": "AbFvOqknqxt5PoKmKSQxgjQo8tm-2sktAf-SXSiogmP2XUYnOIVbLsufNo-Xgnw3zl9XhMhIKsO-",
+        "rating": 5,
+        "reviewerName": "Sankar Gujriya",
+        "replyText": "Thank you, Sankar! We're thrilled you had a wonderful time at NK Desert Camp. It’s great to hear you enjoyed the luxury experience—we take pride in making every stay unforgettable. Hope to welcome you back to the beauty of Jaisalmer’s desert soon!",
+        "timestamp": "2025-11-15T15:33:47.295Z"
+      },
+      "timestamp": "2025-11-15T15:33:47.295Z"
+    },
+    {
+      "locationId": "1497453847846156772",
+      "type": "post_created",
+      "details": {
+        "postId": "accounts/106433552101751461082/locations/1497453847846156772/localPosts/3899280413984519471",
+        "content": "Looking for quality service you can trust this Saturday evening? Look no further than **Business**, the local favorite in providing top-notch solutions with a focus on **customer satisfaction**! Conveniently located in the heart of our vibrant community, we’re proud to serve neighbors near [mention a well-known landmark or area, like \"Main Street\" or \"Central Park\"].  \n\nAt **Business**, we are dedicated to delivering exceptional results tailored to your needs. Whether you're new to the area or a long-time resident, you can count on us as your go-to local **business**. Let us show you why our expertise and commitment set us apart. Stop by today—we can’t wait to serve you!\n\n📍 Address:",
+        "timestamp": "2025-11-15T15:33:47.427Z"
+      },
+      "timestamp": "2025-11-15T15:33:47.427Z"
+    },
+    {
+      "locationId": "1497453847846156772",
+      "type": "review_replied",
+      "details": {
+        "reviewId": "AbFvOqm8Nhz61Kt4UnGDFz5yILID4asYn1ZjW_w_vG6jXeOq2fbkogMYr2cVyuqEYAZnIc_5eZPq_w",
+        "rating": 5,
+        "reviewerName": "Sidhdharajsinh Parmar",
+        "replyText": "Thank you so much, Sidhdharajsinh! We're thrilled you enjoyed the superb quality during your stay with us. It means a lot to know our efforts to create an amazing experience here in Jaisalmer’s desert are appreciated. Hope to welcome you back soon!",
+        "timestamp": "2025-11-15T15:33:54.523Z"
+      },
+      "timestamp": "2025-11-15T15:33:54.524Z"
+    },
+    {
+      "locationId": "1497453847846156772",
+      "type": "review_replied",
+      "details": {
+        "reviewId": "AbFvOqmR486IYGXg1Vo1zU4xLYF98MO3JqdzXZfePQdzIWqHwr7IX-jSDA9zmthYHATBLQvS9TKn",
+        "rating": 5,
+        "reviewerName": "Virbhadrsinh Jadeja",
+        "replyText": "Thank you, Virbhadrsinh! We're thrilled you enjoyed your stay at NK Desert Camp & Resort Jaisalmer. It's wonderful to hear you loved the clean tents, stunning desert views, and thrilling jeep and camel safaris. We hope to welcome you back for more unforgettable moments!",
+        "timestamp": "2025-11-15T15:34:01.325Z"
+      },
+      "timestamp": "2025-11-15T15:34:01.326Z"
+    },
+    {
+      "locationId": "1497453847846156772",
+      "type": "review_replied",
+      "details": {
+        "reviewId": "AbFvOqnrr0j-BFMyG7p4sSRa01LghBL7TYjqOmVuPjw6vVJroiTIU6yWqYxj9U0DY88whCl0mntp",
+        "rating": 5,
+        "reviewerName": "Ashok Thakor",
+        "replyText": "Thank you so much, Ashok! We're thrilled you had a 5-star experience with us at NK Desert Camp & Resort Jaisalmer. Your support means the world to us, and it’s wonderful knowing we could make your visit special. Hope to welcome you back soon!",
+        "timestamp": "2025-11-15T15:34:08.087Z"
+      },
+      "timestamp": "2025-11-15T15:34:08.087Z"
+    },
+    {
+      "locationId": "1497453847846156772",
+      "type": "review_replied",
+      "details": {
+        "reviewId": "AbFvOqmOdjBkhL2hfA_7Gu-rhLIji14Wt1zGuP_l_IMylvSNNrC5G64-XoMz-6XjwBH4QojepK9fMw",
+        "rating": 5,
+        "reviewerName": "Thakor Balaji",
+        "replyText": "Thank you, Thakor! We're thrilled you loved the beautiful design and luxurious vibe of the camp. Creating a stunning desert retreat in Jaisalmer is what we’re all about, so it means a lot to hear this. Hope to welcome you back again soon!",
+        "timestamp": "2025-11-15T15:34:15.408Z"
+      },
+      "timestamp": "2025-11-15T15:34:15.408Z"
+    },
+    {
+      "locationId": "1497453847846156772",
+      "type": "review_replied",
+      "details": {
+        "reviewId": "AbFvOqnnVDOmq6zqbcrpGN-1PsNSzp-MQmNAQWoYx793yycHqQ7f5Fvob4aq8HBjZyPm4vbaVF-jRw",
+        "rating": 5,
+        "reviewerName": "SANJAY THAKOR",
+        "replyText": "Thank you so much, Sanjay! We're thrilled you found NK Desert Camp & Resort in Jaisalmer to be great value with quality service. Consistency is so important to us, and it’s wonderful to hear you'd return. Looking forward to welcoming you back for another desert escape!",
+        "timestamp": "2025-11-15T15:34:22.051Z"
+      },
+      "timestamp": "2025-11-15T15:34:22.051Z"
+    },
+    {
+      "locationId": "1497453847846156772",
+      "type": "review_replied",
+      "details": {
+        "reviewId": "AbFvOqlxsvW1MTGMlgQN-a8485WDzJqB1VxI_rL_4qawbCv7zLNk_bTa920p-vaMNPsa4tzJWUaPSQ",
+        "rating": 5,
+        "reviewerName": "Kalpesh Thakor",
+        "replyText": "Thank you so much, Kalpesh! We’re thrilled you enjoyed your stay and loved the dinner—our team works hard to make every guest feel special. It means a lot that you recommend NK Desert Camp & Resort Jaisalmer to others. Hope to welcome you back soon!",
+        "timestamp": "2025-11-15T15:34:28.882Z"
+      },
+      "timestamp": "2025-11-15T15:34:28.882Z"
+    },
+    {
+      "locationId": "1497453847846156772",
+      "type": "review_replied",
+      "details": {
+        "reviewId": "AbFvOqlSD8pwnRSY4EshTRbZm_GruOm0coeYt2S_uEgE7fidhcrEtd4eUDT5kTkR78XDEkDzKZEy",
+        "rating": 5,
+        "reviewerName": "Kaluji Thakor",
+        "replyText": "Thank you so much, Kaluji! We're thrilled you loved the delicious food and found our team super supportive. It means a lot to hear you had an amazing experience at NK Desert Camp & Resort Jaisalmer. Can't wait to welcome you back for more desert magic!",
+        "timestamp": "2025-11-15T15:34:35.612Z"
+      },
+      "timestamp": "2025-11-15T15:34:35.612Z"
+    },
+    {
+      "locationId": "1497453847846156772",
+      "type": "review_replied",
+      "details": {
+        "reviewId": "AbFvOqn3tXsXQuldH_irROTvtl3MST9YZe_icnNHxbBQBjwiTTmcjNX9f12a0pJRIJFfEUeQJrzA",
+        "rating": 5,
+        "reviewerName": "Ajitkumar Thakor",
+        "replyText": "Thank you, Ajitkumar! We're thrilled you had an amazing experience at NK Desert Camp & Resort. Hearing that you enjoyed the camp in the heart of Jaisalmer’s desert truly makes our day. We look forward to welcoming you back for more unforgettable moments!",
+        "timestamp": "2025-11-15T15:34:42.504Z"
+      },
+      "timestamp": "2025-11-15T15:34:42.504Z"
+    },
+    {
+      "locationId": "1497453847846156772",
+      "type": "review_replied",
+      "details": {
+        "reviewId": "AbFvOqn7j_GutB6TuwBvkilFq_JFXme7ZNwHCwyZ7XYvVcoONADdzzpFIfZ5gKQmCa245RNnGbvTEw",
+        "rating": 5,
+        "reviewerName": "Jaydeepsinh Vaghela",
+        "replyText": "Thank you so much, Jaydeepsinh! We're thrilled you loved the “jabardast” service and “ek number” food quality. It means a lot to us that you enjoyed your time here at our desert retreat. Hope to welcome you back for more wonderful moments soon!",
+        "timestamp": "2025-11-15T15:34:49.226Z"
+      },
+      "timestamp": "2025-11-15T15:34:49.227Z"
+    },
+    {
+      "locationId": "1497453847846156772",
+      "type": "review_replied",
+      "details": {
+        "reviewId": "AbFvOqm29kmAEf3uOxcJ3MbgT5cj9kcUZ5glthhDuvnXnmNnEd-9f1hfBtOVa4K9Xz5qKbGsYuxwSQ",
+        "rating": 5,
+        "reviewerName": "Krunal Chauhan Anilbhai",
+        "replyText": "Thank you so much, Krunal! We’re thrilled you had a “wonderful experience” with us. It’s great to hear you loved the delicious food and found our team amazing—your kind words mean the world. Hope to welcome you back to our desert camp soon!",
+        "timestamp": "2025-11-15T15:34:55.850Z"
+      },
+      "timestamp": "2025-11-15T15:34:55.851Z"
+    },
+    {
+      "locationId": "1497453847846156772",
+      "type": "review_replied",
+      "details": {
+        "reviewId": "AbFvOqm10HXlrvSqV5Mhdy5c5ty1GZsMJ2S65KYdEDEkoKwETSpMFFwybi8CtbCB1B2e2T3grKkx8Q",
+        "rating": 5,
+        "reviewerName": "Mayur Chavda",
+        "replyText": "Thank you, Mayur! We're so glad you and your family had a great time at NK Desert Camp & Resort. It’s wonderful to hear you enjoyed the food and found our staff polite—your kind words mean a lot. Hope to see you again soon!",
+        "timestamp": "2025-11-15T15:35:02.529Z"
+      },
+      "timestamp": "2025-11-15T15:35:02.530Z"
+    },
+    {
+      "locationId": "1497453847846156772",
+      "type": "review_replied",
+      "details": {
+        "reviewId": "AbFvOqnIl-AkFJ3NlRINP_oRy4Y_8C6PtUyLMMobaNuRas0VyKEXc_pLxLCRWRY_KLu4XLTrFXJRyg",
+        "rating": 5,
+        "reviewerName": "Bhavdipsinhvaghela Harishchandrasinhvaghela",
+        "replyText": "Thank you so much, Bhavdipsinhvaghela! We're thrilled you enjoyed the desert camp experience and found the food delicious—it means a lot to us. Your recommendation is incredibly kind, and we’re so glad NK Desert Camp & Resort Jaisalmer made your stay wonderful. Hope to welcome you back soon!",
+        "timestamp": "2025-11-15T15:35:10.660Z"
+      },
+      "timestamp": "2025-11-15T15:35:10.660Z"
+    },
+    {
+      "locationId": "1497453847846156772",
+      "type": "review_replied",
+      "details": {
+        "reviewId": "AbFvOqmpAmMQ7HzxpR6Pfu6qjnFer-nzEwKXX8Oy9ldjvMDKXIkTaLp7EuWX6YWHyDiPwSYCzQNUBA",
+        "rating": 5,
+        "reviewerName": "Govindsing Vaghela",
+        "replyText": "Thank you so much, Govindsing! We’re thrilled you had a wonderful stay and found it perfect for families and couples. That balance is what we aim for here at our desert resort in Jaisalmer. Hope to welcome you back soon for more special moments!",
+        "timestamp": "2025-11-15T15:35:17.433Z"
+      },
+      "timestamp": "2025-11-15T15:35:17.433Z"
+    },
+    {
+      "locationId": "1497453847846156772",
+      "type": "review_replied",
+      "details": {
+        "reviewId": "AbFvOqk25N2pHyq5WR2qT_TxEHgjdEGCXtbpIB5oxSff4knthwldu0zTFhKJy7lujx6-BlzRqCAJ4Q",
+        "rating": 5,
+        "reviewerName": "Iqbal Rajar",
+        "replyText": "Thanks so much for the 5 stars, Iqbal! We’re thrilled you enjoyed your time with us. It means a lot to know our efforts at NK Desert Camp & Resort made an impression. Hope to welcome you back for another amazing stay in Jaisalmer soon!",
+        "timestamp": "2025-11-15T15:35:25.322Z"
+      },
+      "timestamp": "2025-11-15T15:35:25.323Z"
+    },
+    {
+      "locationId": "1497453847846156772",
+      "type": "review_replied",
+      "details": {
+        "reviewId": "AbFvOqlK1gCz_7rwWg5xENLAdsBeNkylrrpBgz6BIG2vB5wgSnSRIjlgMpSa3mxtGmo-laxnmJJ7Jw",
+        "rating": 5,
+        "reviewerName": "Hitesh Sharma",
+        "replyText": "Thanks so much for the 5 stars, Hitesh! We’re thrilled you enjoyed your time with us at NK Desert Camp & Resort Jaisalmer. It means a lot to know you had a great experience. Hope we’ll see you again for another desert adventure!",
+        "timestamp": "2025-11-15T15:35:32.070Z"
+      },
+      "timestamp": "2025-11-15T15:35:32.071Z"
+    },
+    {
+      "locationId": "1497453847846156772",
+      "type": "review_replied",
+      "details": {
+        "reviewId": "AbFvOqlPKcP48yinCGXUiZyWelfBu1qhIOelM8NA3TeJbmSdn512X10ie4ZOj1MBGNVuWOYkTPaw",
+        "rating": 5,
+        "reviewerName": "Sadik shaikh",
+        "replyText": "Thank you, Sadik! We're thrilled to hear you had a great experience. It means so much to us that our NK Desert Camp & Resort Jaisalmer could be part of your memorable stay. Hope we can welcome you back for more desert adventures soon!",
+        "timestamp": "2025-11-15T15:35:40.143Z"
+      },
+      "timestamp": "2025-11-15T15:35:40.143Z"
+    },
+    {
+      "locationId": "1497453847846156772",
+      "type": "review_replied",
+      "details": {
+        "reviewId": "AbFvOqn-zPZLPRQryhsOyAJIh8UfyvcdepshMW2glnZPNQnvoD3i6w7FGluFy-COvcehT4Ahu2Eq",
+        "rating": 5,
+        "reviewerName": "Pratik Patel",
+        "replyText": "Thank you so much, Pratik! We're thrilled you loved the beautiful rooms and our team. It means a lot to hear such kind words about NK Desert Camp & Resort Jaisalmer. We hope to welcome you back for another amazing stay in the desert soon!",
+        "timestamp": "2025-11-15T15:35:47.033Z"
+      },
+      "timestamp": "2025-11-15T15:35:47.033Z"
+    },
+    {
+      "locationId": "1497453847846156772",
+      "type": "review_replied",
+      "details": {
+        "reviewId": "AbFvOqm9zeemW3pD5lKgAMlavlXqqMfV8k-_ZGQmVQkQDMBfnZcgW0Qd8MpWfwPFYYqtscsE0C2R",
+        "rating": 5,
+        "reviewerName": "Dinesh Waghela",
+        "replyText": "Thanks so much, Dinesh! We're thrilled you enjoyed the VIP rooms and meals—your kind words mean the world to us. The night show in Jaisalmer truly is magical, isn’t it? Hope we can welcome you back to the camp again soon!",
+        "timestamp": "2025-11-15T15:35:53.566Z"
+      },
+      "timestamp": "2025-11-15T15:35:53.566Z"
+    },
+    {
+      "locationId": "14977377147025961194",
+      "type": "post_created",
+      "details": {
+        "postId": "accounts/106433552101751461082/locations/14977377147025961194/localPosts/2294474319708446331",
+        "content": "Looking to boost your business growth in Jalandhar, Punjab? Scale Point Strategy & Business Growth Solutions is here to elevate your brand’s presence with top-tier Internet marketing services. Our expertise lies in crafting strategies that drive measurable results and help businesses scale effectively. Conveniently located near Shehnai Palace, we offer cutting-edge solutions tailored to your needs, from digital advertising to SEO and social media management. Whether you're aiming for more visibility or improved engagement, our team delivers impactful strategies that take your business to new heights. Choose Scale Point Strategy & Business Growth Solutions for unparalleled growth strategies and trusted expertise right here in Jalandhar.\n\n📍 Address: 3204 First Floor Above abhi electrical point near Shehnai palace, Tej Mohan , Nagar, Ashok Nagar, Punjab 144001",
+        "timestamp": "2025-11-15T17:03:19.320Z"
+      },
+      "timestamp": "2025-11-15T17:03:19.320Z"
+    },
+    {
+      "locationId": "14977377147025961194",
+      "type": "post_created",
+      "details": {
+        "postId": "accounts/106433552101751461082/locations/14977377147025961194/localPosts/645832424381146868",
+        "content": "Looking to amplify your brand’s online presence this weekend? Scale Point Strategy & Business Growth Solutions in Jalandhar, Punjab, is here to help! As a trusted internet marketing service provider, we specialize in creating tailored strategies that drive growth and boost visibility. Whether you need SEO optimization, social media campaigns, or data-driven advertising solutions, our expert team is dedicated to delivering measurable results for your business. Located near Shehnai Palace in Ashok Nagar—a vibrant hub of activity—we understand the local market trends that make Jalandhar businesses thrive. Let us be your partner in scaling success with innovative approaches and strategic solutions designed just for you!\n\n📍 Address: 3204 First Floor Above abhi electrical point near Shehnai palace, Tej Mohan , Nagar, Ashok Nagar, Punjab 144001",
+        "timestamp": "2025-11-15T17:04:57.963Z"
+      },
+      "timestamp": "2025-11-15T17:04:57.963Z"
+    },
+    {
+      "locationId": "14977377147025961194",
+      "type": "post_created",
+      "details": {
+        "postId": "accounts/106433552101751461082/locations/14977377147025961194/localPosts/7455402889442794309",
+        "content": "Looking to grow your business effectively? Scale Point Strategy & Business Growth Solutions in Jalandhar, Punjab, is your go-to Internet marketing service! We specialize in crafting tailored strategies that drive growth and take your brand to the next level. Located near Shehnai Palace in the heart of Ashok Nagar, our team combines local expertise with innovative marketing solutions to help businesses scale successfully. From boosting online visibility to creating impactful campaigns, we are dedicated to delivering measurable results for businesses of all sizes. Let us transform your digital presence and unlock new opportunities for success today!\n\n📍 Address: 3204 First Floor Above abhi electrical point near Shehnai palace, Tej Mohan , Nagar, Ashok Nagar, Punjab 144001",
+        "timestamp": "2025-11-15T17:05:52.686Z"
+      },
+      "timestamp": "2025-11-15T17:05:52.686Z"
+    },
+    {
+      "locationId": "14977377147025961194",
+      "type": "post_created",
+      "details": {
+        "postId": "accounts/106433552101751461082/locations/14977377147025961194/localPosts/4082941005214841333",
+        "content": "Looking to grow your business online with innovative strategies? Scale Point Strategy & Business Growth Solutions is your trusted Internet marketing service in Jalandhar, Punjab! Our expert team specializes in creating tailored solutions that help businesses scale effectively and achieve measurable results. Located near Shehnai Palace in the vibrant Tej Mohan Nagar neighborhood, we offer cutting-edge digital tools and personalized marketing strategies designed to transform your business growth journey. Whether you're seeking SEO optimization, social media management, or performance-driven campaigns, we've got you covered! Let Scale Point Strategy & Business Growth Solutions be the key to unlocking your brand’s full potential. Ready to scale up your success? Reach out today!\n\n📍 Address: 3204 First Floor Above abhi electrical point near Shehnai palace, Tej Mohan , Nagar, Ashok Nagar, Punjab 144001",
+        "timestamp": "2025-11-15T17:06:10.491Z"
+      },
+      "timestamp": "2025-11-15T17:06:10.491Z"
+    },
+    {
+      "locationId": "14977377147025961194",
+      "type": "post_created",
+      "details": {
+        "postId": "accounts/106433552101751461082/locations/14977377147025961194/localPosts/3344085352646128636",
+        "content": "Looking to scale your business and achieve measurable growth? Scale Point Strategy & Business Growth Solutions, Jalandhar’s trusted Internet marketing service, is here to transform your digital presence! Located near Shehnai Palace in Tej Mohan Nagar, we specialize in creating tailored strategies that drive results. Whether you need expert SEO solutions, impactful social media management, or cutting-edge marketing campaigns, our team helps businesses like yours thrive online. With deep expertise and a focus on innovation, we help local businesses unlock their full potential and stand out in Punjab’s competitive market. Let us guide your business toward scalable success—reach out today!\n\n📍 Address: 3204 First Floor Above abhi electrical point near Shehnai palace, Tej Mohan , Nagar, Ashok Nagar, Punjab 144001",
+        "timestamp": "2025-11-15T17:09:59.975Z"
+      },
+      "timestamp": "2025-11-15T17:09:59.976Z"
+    },
+    {
+      "locationId": "14977377147025961194",
+      "type": "post_created",
+      "details": {
+        "postId": "accounts/106433552101751461082/locations/14977377147025961194/localPosts/5384178132733828549",
+        "content": "Looking to scale your business in Jalandhar, Punjab? Scale Point Strategy & Business Growth Solutions is here to transform your growth potential! As a leading Internet marketing service, we specialize in crafting effective strategies that drive results. Whether you’re aiming to enhance your digital presence or boost customer engagement, our team is committed to providing expert solutions tailored to your goals. Located near Shehnai Palace in Tej Mohan Nagar, we’re proud to serve the vibrant Ashok Nagar community with cutting-edge marketing insights and dedicated support. Let us help you turn ambition into success—your growth starts here at Scale Point Strategy & Business Growth Solutions!\n\n📍 Address: 3204 First Floor Above abhi electrical point near Shehnai palace, Tej Mohan , Nagar, Ashok Nagar, Punjab 144001",
+        "timestamp": "2025-11-15T17:12:19.065Z"
+      },
+      "timestamp": "2025-11-15T17:12:19.066Z"
+    },
+    {
+      "locationId": "17697790081864925086",
+      "type": "post_created",
+      "details": {
+        "postId": "accounts/106433552101751461082/locations/17697790081864925086/localPosts/5038620995428005336",
+        "content": "Looking for a relaxing stay in the heart of Varanasi? At **SITARAM GUEST HOUSE**, we offer comfortable and cozy accommodations perfect for unwinding after exploring this vibrant city. Located near Maidagin Filling Station, our hotel provides easy access to iconic landmarks like Dashashwamedh Ghat and Kashi Vishwanath Temple. Whether you're here to soak in the spiritual essence of Varanasi or enjoy its bustling local culture, SITARAM GUEST HOUSE ensures a pleasant and peaceful stay. Our well-maintained rooms, friendly staff, and proximity to historic Daranagar make us an ideal choice for travelers seeking convenience and comfort. Come experience unmatched hospitality at SITARAM GUEST HOUSE today!  \n\n📍 Address: K58/66, Daranagar maidagin, Near maidagin filling station, Uttar Pradesh 221001",
+        "timestamp": "2025-11-15T21:17:10.698Z"
+      },
+      "timestamp": "2025-11-15T21:17:10.700Z"
+    },
+    {
+      "locationId": "14977377147025961194",
+      "type": "post_created",
+      "details": {
+        "postId": "accounts/106433552101751461082/locations/14977377147025961194/localPosts/3520709438704784080",
+        "content": "Start your Sunday morning by scaling your business to new heights with **Scale Point Strategy & Business Growth Solutions**! As the leading **Internet marketing service in Jalandhar, Punjab**, we specialize in delivering tailored strategies that help businesses grow effectively. Whether you need expert solutions for SEO, social media management, or overall business strategy, our team combines innovation and proven results to make it happen. Located near Shehnai Palace in Ashok Nagar, we're proud to serve local entrepreneurs and businesses with the tools they need to thrive in today’s digital age. Let's elevate your brand and unlock its full potential together!\n\n📍 Address: 3204 First Floor Above abhi electrical point near Shehnai palace, Tej Mohan , Nagar, Ashok Nagar, Punjab 144001",
+        "timestamp": "2025-11-15T21:17:40.439Z"
+      },
+      "timestamp": "2025-11-15T21:17:40.440Z"
+    },
+    {
+      "locationId": "14977377147025961194",
+      "type": "post_created",
+      "details": {
+        "postId": "accounts/106433552101751461082/locations/14977377147025961194/localPosts/6917641050154023344",
+        "content": "Start your Sunday morning with actionable strategies to grow your business! Scale Point Strategy & Business Growth Solutions is Jalandhar’s trusted Internet marketing service, helping local businesses unlock their true potential. Whether you need tailored digital marketing campaigns, innovative growth solutions, or expert strategy planning, we are here to scale your business to new heights. Conveniently located near Shehnai Palace in Ashok Nagar, we take pride in serving the vibrant community of Jalandhar with personalized services that deliver measurable results. Let us help you turn visions into achievements and points of success into powerful milestones. Reach out today and experience the difference we bring!\n\n📍 Address: 3204 First Floor Above abhi electrical point near Shehnai palace, Tej Mohan , Nagar, Ashok Nagar, Punjab 144001",
+        "timestamp": "2025-11-15T21:19:29.720Z"
+      },
+      "timestamp": "2025-11-15T21:19:29.721Z"
+    },
+    {
+      "locationId": "14977377147025961194",
+      "type": "post_created",
+      "details": {
+        "postId": "accounts/106433552101751461082/locations/14977377147025961194/localPosts/2753794587428409256",
+        "content": "Looking to scale your business in Jalandhar? Scale Point Strategy & Business Growth Solutions is here to help! As a trusted internet marketing service, we specialize in crafting tailored strategies that drive growth and enhance your online presence. From search engine optimization to targeted digital campaigns, our solutions are designed to deliver real results for businesses in Punjab. Conveniently located near Shehnai Palace in Ashok Nagar, we pride ourselves on understanding local market trends while implementing global standards. Let us help you reach new heights with innovative ideas and proven strategies. Your success is just one call away—let’s grow together!\n\n📍 Address: 3204 First Floor Above abhi electrical point near Shehnai palace, Tej Mohan , Nagar, Ashok Nagar, Punjab 144001",
+        "timestamp": "2025-11-15T21:20:56.466Z"
+      },
+      "timestamp": "2025-11-15T21:20:56.467Z"
+    },
+    {
+      "locationId": "14977377147025961194",
+      "type": "post_created",
+      "details": {
+        "postId": "accounts/106433552101751461082/locations/14977377147025961194/localPosts/2085652015789467423",
+        "content": "Kickstart your Sunday morning by unlocking growth opportunities for your business with Scale Point Strategy & Business Growth Solutions! Based in the heart of Jalandhar, Punjab, we specialize in tailored Internet marketing services designed to help you scale effortlessly. Whether you're looking to expand your online presence or strategize for measurable results, our expert solutions ensure your brand stands out. Conveniently located near Shehnai Palace, we combine local insight with cutting-edge techniques to drive success right where it matters most. Let us guide you on the path to achieving impactful growth and reaching new heights — because scaling starts here!\n\n📍 Address: 3204 First Floor Above abhi electrical point near Shehnai palace, Tej Mohan , Nagar, Ashok Nagar, Punjab 144001",
+        "timestamp": "2025-11-15T21:21:58.173Z"
+      },
+      "timestamp": "2025-11-15T21:21:58.173Z"
+    },
+    {
+      "locationId": "14977377147025961194",
+      "type": "post_created",
+      "details": {
+        "postId": "accounts/106433552101751461082/locations/14977377147025961194/localPosts/8901080483485325371",
+        "content": "Kickstart your Sunday morning with results-driven solutions from **Scale Point Strategy & Business Growth Solutions**, your trusted **Internet marketing service** in the heart of Jalandhar, Punjab! We specialize in helping businesses scale and grow with tailored strategies that deliver measurable success. Located near Shehnai Palace in Tej Mohan Nagar, our team combines expertise with innovation to help local businesses thrive online. Whether it’s boosting visibility or driving engagement, we are here to guide you every step of the way. If you're ready to transform your brand’s presence and tap into its full potential, let’s start today!\n\n📍 Address: 3204 First Floor Above abhi electrical point near Shehnai palace, Tej Mohan , Nagar, Ashok Nagar, Punjab 144001",
+        "timestamp": "2025-11-15T21:23:59.917Z"
+      },
+      "timestamp": "2025-11-15T21:23:59.918Z"
+    },
+    {
+      "locationId": "14977377147025961194",
+      "type": "post_created",
+      "details": {
+        "postId": "accounts/106433552101751461082/locations/14977377147025961194/localPosts/2949974591441856264",
+        "content": "Looking to grow your business online? Scale Point Strategy & Business Growth Solutions is your trusted Internet marketing service right here in Jalandhar, Punjab! Whether you’re aiming to scale your brand, optimize strategies, or achieve measurable growth, our team of experts offers tailored solutions designed specifically for businesses in this vibrant city. Conveniently located near Shehnai Palace in Tej Mohan Nagar, we specialize in delivering results-driven marketing strategies that help local businesses thrive in today’s competitive digital landscape. With proven expertise and innovative approaches, Scale Point Strategy & Business Growth Solutions makes scaling simple and effective. Let us help transform your vision into success—your journey starts here!\n\n📍 Address: 3204 First Floor Above abhi electrical point near Shehnai palace, Tej Mohan , Nagar, Ashok Nagar, Punjab 144001",
+        "timestamp": "2025-11-15T21:31:09.089Z"
+      },
+      "timestamp": "2025-11-15T21:31:09.089Z"
+    },
+    {
+      "locationId": "1852324590760696192",
+      "type": "review_replied",
+      "details": {
+        "reviewId": "AbFvOqleCdJCVLtZs212skoDYNQdJTY--a18_ZrQzWgrY6OxjMNKKpnxBLkdFLcx9NzFtaCWe1mTyw",
+        "rating": 5,
+        "reviewerName": "Daksh Bhagat",
+        "replyText": "Thank you, Daksh! Hearing how your uncle transformed and embraced life again means the world to us. We're so glad our team could provide support and joy during his journey, especially on that memorable birthday. Your kind words truly inspire us—sending best wishes to your family!",
+        "timestamp": "2025-11-15T21:31:38.379Z"
+      },
+      "timestamp": "2025-11-15T21:31:38.379Z"
+    },
+    {
+      "locationId": "1852324590760696192",
+      "type": "review_replied",
+      "details": {
+        "reviewId": "AbFvOqmNZjowFQP54rEqTyImZj1k3S7_SG1XQJbpbf1qT7_vyVf89qcA37FpiH6-GF9ynauY0Av5Kg",
+        "rating": 5,
+        "reviewerName": "Nilesh B S",
+        "replyText": "Thank you so much, Nilesh! We're thrilled to hear you appreciated the clean environment and supportive staff. Providing personalized care through individual and group counseling is something we truly take pride in at New Hope Treatment and Rehabilitation Centre. Your kind words mean a lot!",
+        "timestamp": "2025-11-15T21:31:45.889Z"
+      },
+      "timestamp": "2025-11-15T21:31:45.890Z"
+    },
+    {
+      "locationId": "1852324590760696192",
+      "type": "review_replied",
+      "details": {
+        "reviewId": "AbFvOqk28Me8-RCK-ErdT31hpFHrMIZwWnFfZwMjpYbEqhVV7uJC9EpUACK5yKuG69zSsVdsXXrqow",
+        "rating": 5,
+        "reviewerName": "Nishtha Anand",
+        "replyText": "Thank you so much, Nishtha! We’re thrilled you felt the positive environment here—it means everything to us. At New Hope Treatment and Rehabilitation Centre Jalandhar, creating a supportive space is our priority. Your kind words truly brighten our day!",
+        "timestamp": "2025-11-15T21:31:52.693Z"
+      },
+      "timestamp": "2025-11-15T21:31:52.694Z"
+    },
+    {
+      "locationId": "1852324590760696192",
+      "type": "review_replied",
+      "details": {
+        "reviewId": "AbFvOqnN0p-4EBaDTbLNUi7xgO4tfKLzn_299rZUH0C9AT1V11Elj4Se76ukX2l44MDzCF0TBpOt1Q",
+        "rating": 5,
+        "reviewerName": "sanchit Rana",
+        "replyText": "Thank you so much, Sanchit! We're thrilled our peaceful and motivating environment helped with your recovery journey. Personal attention and understanding each patient’s needs are truly at the heart of what we do. Your kind words mean a lot to us!",
+        "timestamp": "2025-11-15T21:31:59.408Z"
+      },
+      "timestamp": "2025-11-15T21:31:59.409Z"
+    },
+    {
+      "locationId": "1852324590760696192",
+      "type": "review_replied",
+      "details": {
+        "reviewId": "AbFvOqkr689cUDEv9Ung24iKJykoK1mngoD590V5QemUMlISjXH2_EXY_M6GnyYYuc-9AStzZOpOww",
+        "rating": 5,
+        "reviewerName": "Tarun Thukral",
+        "replyText": "Thanks so much, Tarun! It means a lot to hear you call us the \"best rehab centre.\" We’re dedicated to providing hope and effective treatment here in Jalandhar, and your feedback truly motivates our team. Wishing you continued success on your journey!",
+        "timestamp": "2025-11-15T21:32:07.524Z"
+      },
+      "timestamp": "2025-11-15T21:32:07.525Z"
+    },
+    {
+      "locationId": "1852324590760696192",
+      "type": "review_replied",
+      "details": {
+        "reviewId": "AbFvOqmKbbFKK2QQ9O0jd0WLrbGPGFLmbrzTEEaz59SvTS97bTlEt2KXQ_JdMNHZQYcUPNi6val9Xg",
+        "rating": 5,
+        "reviewerName": "Ranjeet Singh",
+        "replyText": "Thank you, Ranjeet! We’re so glad you felt cared for by Dr. Shilpa, Jasdeep ma’am, and Shobhna ma’am. Your kind words about their support mean the world to us. Helping without pain is our priority at New Hope treatment and rehabilitation centre! Stay well!",
+        "timestamp": "2025-11-15T21:32:15.094Z"
+      },
+      "timestamp": "2025-11-15T21:32:15.094Z"
+    },
+    {
+      "locationId": "1852324590760696192",
+      "type": "review_replied",
+      "details": {
+        "reviewId": "AbFvOqmLei6rCK2PFkyuuZXrY9GgCNmIMmSt3SM0kDG__A10nrwv50ywK8vFv7O9eACmuvZ1gFU1NA",
+        "rating": 5,
+        "reviewerName": "Prabhjeet Singh",
+        "replyText": "Thank you so much, Prabhjeet! Your kind words mean the world to us. We're thrilled our personalized approach and supportive environment made such a positive impact on your journey. Hearing about the hope we bring truly inspires us to keep doing what we love!",
+        "timestamp": "2025-11-15T21:32:22.178Z"
+      },
+      "timestamp": "2025-11-15T21:32:22.179Z"
+    },
+    {
+      "locationId": "1852324590760696192",
+      "type": "review_replied",
+      "details": {
+        "reviewId": "AbFvOqn7fbws8gJrTYWTwINPGbPm3sn8MBAa-_0g_2YZUd70doq2wge4_q3u5jsHlCelQsYhRfoILw",
+        "rating": 5,
+        "reviewerName": "Kiran Sandhu",
+        "replyText": "Thank you so much, Kiran! Your kind words about our friendly environment, superb medicine facilities, and awesome food mean the world to us. We’re so glad you had a positive experience at New hope treatment and rehabilitation centre Jalandhar. Your recommendations inspire us to keep doing our best!",
+        "timestamp": "2025-11-15T21:32:29.762Z"
+      },
+      "timestamp": "2025-11-15T21:32:29.762Z"
+    },
+    {
+      "locationId": "1852324590760696192",
+      "type": "review_replied",
+      "details": {
+        "reviewId": "AbFvOql_hTp1Fgyebqo8LhgDEzsu1ZGJACEHQX-qbvPZsSUSyfy0XIVf9URaa8f6eQDOPsJ4aVM8",
+        "rating": 5,
+        "reviewerName": "Jaspreet Singh",
+        "replyText": "Jaspreet, thank you for sharing your inspiring journey! It’s wonderful to hear how our team and clean, supportive environment helped you build confidence and tackle triggers. We’re thrilled to see you embrace new hope in life—you’ve come so far! Keep believing in yourself!",
+        "timestamp": "2025-11-15T21:32:36.984Z"
+      },
+      "timestamp": "2025-11-15T21:32:36.984Z"
+    },
+    {
+      "locationId": "1852324590760696192",
+      "type": "review_replied",
+      "details": {
+        "reviewId": "AbFvOqkBu9CxnWaRWeIqdN0YpEN3H5zVIRtt1Goh8dvACQjwR9AwpLGG9wYhYo9hjoNfNNF2jbiRJQ",
+        "rating": 5,
+        "reviewerName": "Manu Malhotra",
+        "replyText": "Thank you so much, Manu! We're thrilled you appreciated our well-qualified staff, disciplined care, and clean environment. Providing a hygienic and nurturing space is our priority, and it’s wonderful to know it stood out to you. Grateful for your kind words and support!",
+        "timestamp": "2025-11-15T21:32:44.037Z"
+      },
+      "timestamp": "2025-11-15T21:32:44.037Z"
+    },
+    {
+      "locationId": "1852324590760696192",
+      "type": "review_replied",
+      "details": {
+        "reviewId": "AbFvOqlAb7IS9PSXFFEQ_uC_TNhvw-_q5plGBGFllidDqVScCszfd93f4NDpW1ij9w1o78OHMaSm",
+        "rating": 5,
+        "reviewerName": "Ashok Kumar",
+        "replyText": "Thank you so much, Ashok! We’re thrilled you felt cared for by our psychiatrist, psychologist, and team. Your kind words about the clean environment and food mean a lot to us. Seeing your improvement is why we do this—stay strong, and thank you for recommending New Hope!",
+        "timestamp": "2025-11-15T21:32:51.219Z"
+      },
+      "timestamp": "2025-11-15T21:32:51.220Z"
+    },
+    {
+      "locationId": "1852324590760696192",
+      "type": "review_replied",
+      "details": {
+        "reviewId": "AbFvOqlX32hHf6tFsM669mCgIF7a-l71o3z0KB3KMlt5IWaBTT_C2Fd8cQ81NWe_vOAH_AqRFtD4Zw",
+        "rating": 5,
+        "reviewerName": "Jasvirkaur",
+        "replyText": "Thank you so much, Jasvirkaur! We’re thrilled you enjoyed the environment, supportive staff, and excellent food during your time here. It means a lot to hear such kind words about the care and services we provide. Wishing you continued wellness and success!",
+        "timestamp": "2025-11-15T21:32:59.078Z"
+      },
+      "timestamp": "2025-11-15T21:32:59.078Z"
+    },
+    {
+      "locationId": "1852324590760696192",
+      "type": "review_replied",
+      "details": {
+        "reviewId": "AbFvOqmDa6R6FP2xmEjDKukRTtthNc-NSlw9n1-GsLdl7q2UXdgpgLStB9kTIJcxwQyTzyl0-AIKTw",
+        "rating": 1,
+        "reviewerName": "Rahul Verma",
+        "replyText": "Hi Rahul, I’m deeply sorry to hear about your brother's experience. Your feedback matters, and we’d love to discuss this further to understand and support better. Please feel free to reach out directly—you deserve answers and assistance beyond expectations. Thank you for sharing your concerns!",
+        "timestamp": "2025-11-15T21:33:06.715Z"
+      },
+      "timestamp": "2025-11-15T21:33:06.716Z"
+    },
+    {
+      "locationId": "1852324590760696192",
+      "type": "post_created",
+      "details": {
+        "postId": "accounts/106433552101751461082/locations/1852324590760696192/localPosts/1692461731992648374",
+        "content": "Looking for trusted health solutions in Jalandhar? Start your Sunday morning by taking a positive step towards better wellness with **New hope treatment and rehabilitation centre**! Conveniently located near Khurla Kingra, our team of dedicated health consultants specializes in guiding you through transformative care and rehabilitation plans tailored to your unique needs. Whether you're seeking expert advice or holistic treatments, we are here to provide new hope and personalized support on your path to recovery. Nestled in the heart of Garden Colony, we aim to inspire healthier living in this vibrant community of Punjab. Let’s work together to build a brighter future—because your well-being is our priority!\n\n📍 Address: 62, Wadala Road, Garden Colony, sudama vihar, Khurla Kingra, Punjab 144003",
+        "timestamp": "2025-11-15T21:33:49.754Z"
+      },
+      "timestamp": "2025-11-15T21:33:49.755Z"
+    },
+    {
+      "locationId": "14977377147025961194",
+      "type": "post_created",
+      "details": {
+        "postId": "accounts/106433552101751461082/locations/14977377147025961194/localPosts/951388851058094302",
+        "content": "Looking to scale your business and dominate the digital space? Scale Point Strategy & Business Growth Solutions in Jalandhar, Punjab, is here to help! As a premier Internet marketing service, we specialize in delivering tailored strategies that drive growth and elevate your brand presence online. Located near Shehnai Palace in Ashok Nagar, we pride ourselves on offering expert solutions to businesses aiming for success. Whether it’s targeted advertising or innovative SEO tactics, our team provides impactful strategies designed to achieve measurable results. Let’s take your business to the next level—reach out today and discover how we can make scaling simple!\n\n📍 Address: 3204 First Floor Above abhi electrical point near Shehnai palace, Tej Mohan , Nagar, Ashok Nagar, Punjab 144001",
+        "timestamp": "2025-11-15T21:35:09.589Z"
+      },
+      "timestamp": "2025-11-15T21:35:09.589Z"
+    },
+    {
+      "locationId": "1852324590760696192",
+      "type": "post_created",
+      "details": {
+        "postId": "accounts/106433552101751461082/locations/1852324590760696192/localPosts/736048395394311148",
+        "content": "Start your Sunday with a renewed sense of hope and health at **New hope treatment and rehabilitation centre**, Jalandhar’s trusted health consultant. Located conveniently near Wadala Road, we specialize in offering personalized solutions for physical and mental well-being. Whether you’re seeking expert guidance or tailored care plans, our dedicated professionals are here to assist every step of the way. At New hope treatment and rehabilitation centre, we focus on empowering lives through recovery, resilience, and holistic wellness—helping individuals regain control and embrace healthier lifestyles. If you’re in Garden Colony or nearby neighborhoods like Sudama Vihar, visit us today to take the first step towards new possibilities!\n\n📍 Address: 62, Wadala Road, Garden Colony, sudama vihar, Khurla Kingra, Punjab 144003",
+        "timestamp": "2025-11-15T21:44:20.817Z"
+      },
+      "timestamp": "2025-11-15T21:44:20.818Z"
+    },
+    {
+      "locationId": "14977377147025961194",
+      "type": "post_created",
+      "details": {
+        "postId": "accounts/106433552101751461082/locations/14977377147025961194/localPosts/4002498373683206258",
+        "content": "Start your Sunday with strategies that grow your business! At Scale Point Strategy & Business Growth Solutions, we specialize in delivering tailored internet marketing services right here in Jalandhar, Punjab. Whether you’re looking to scale up or target the right audience effectively, our expert solutions are designed to maximize results and boost your online presence. Located near Shehnai Palace in Ashok Nagar, our team understands the pulse of local businesses and crafts strategies that connect you with potential customers. From innovative growth tactics to proven marketing techniques, we’re here to help you achieve success step by step. Ready to elevate your business? Let’s make it happen together!\n\n📍 Address: 3204 First Floor Above abhi electrical point near Shehnai palace, Tej Mohan , Nagar, Ashok Nagar, Punjab 144001",
+        "timestamp": "2025-11-15T21:45:44.059Z"
+      },
+      "timestamp": "2025-11-15T21:45:44.059Z"
+    }
+  ]
+}

@@ -31,24 +31,37 @@ export const useProfileLimitations = (): ProfileLimitations => {
   const { accounts, selectedAccount } = useGoogleBusinessProfileContext();
 
   // Check plan types
+  const isAdminPlan = subscription?.planId === 'unlimited'; // Admin users
   const isPerProfilePlan = subscription?.planId === 'per_profile_yearly';
   const isProPlan = subscription?.planId === 'yearly_pro'; // Legacy plan
   const isFreeTrial = subscription?.status === 'trial';
 
   // Calculate max allowed profiles based on plan
-  const maxAllowedProfiles = isPerProfilePlan
+  const maxAllowedProfiles = isAdminPlan
+    ? 999999 // Unlimited for admins
+    : isPerProfilePlan
     ? (subscription?.profileCount || 1)
     : 1; // Trial and legacy pro plans get 1 profile
 
   // Check if user can access multiple profiles
-  const canAccessMultipleProfiles = maxAllowedProfiles > 1;
+  const canAccessMultipleProfiles = isAdminPlan || maxAllowedProfiles > 1;
 
   // Get accessible accounts based on plan limits
+  // Only count ACTIVE profiles (not suspended or duplicates)
   const getAccessibleAccounts = useCallback((allAccounts: BusinessAccount[]): BusinessAccount[] => {
-    if (maxAllowedProfiles >= allAccounts.length) {
-      return allAccounts;
+    // Filter out suspended and duplicate profiles - these shouldn't count toward limits
+    const activeAccounts = allAccounts.filter(account => {
+      const location = account.locations?.[0]; // Each BusinessAccount has one location
+      return !location?.metadata?.suspended && !location?.metadata?.duplicate;
+    });
+
+    // If user's plan covers all active profiles, return all accounts (including suspended for info)
+    if (maxAllowedProfiles >= activeAccounts.length) {
+      return allAccounts; // Return all so user can see suspended ones with locked state
     }
-    return allAccounts.slice(0, maxAllowedProfiles);
+
+    // Otherwise, only return the allowed number of active profiles
+    return activeAccounts.slice(0, maxAllowedProfiles);
   }, [maxAllowedProfiles]);
 
   // Check if specific account is accessible
@@ -56,12 +69,20 @@ export const useProfileLimitations = (): ProfileLimitations => {
     return accountIndex < maxAllowedProfiles;
   }, [maxAllowedProfiles]);
 
-  // Get accessible locations based on plan limits (count all locations across accounts)
+  // Get accessible locations based on plan limits (count only active locations)
   const getAccessibleLocations = useCallback((allLocations: BusinessLocation[]): BusinessLocation[] => {
-    if (maxAllowedProfiles >= allLocations.length) {
-      return allLocations;
+    // Filter out suspended and duplicate locations - these shouldn't count toward limits
+    const activeLocations = allLocations.filter(location => {
+      return !location?.metadata?.suspended && !location?.metadata?.duplicate;
+    });
+
+    // If user's plan covers all active locations, return all (including suspended for info)
+    if (maxAllowedProfiles >= activeLocations.length) {
+      return allLocations; // Return all so user can see suspended ones with locked state
     }
-    return allLocations.slice(0, maxAllowedProfiles);
+
+    // Otherwise, only return the allowed number of active locations
+    return activeLocations.slice(0, maxAllowedProfiles);
   }, [maxAllowedProfiles]);
 
   // Check if specific location is accessible
@@ -71,7 +92,7 @@ export const useProfileLimitations = (): ProfileLimitations => {
 
   // Get message for locked accounts
   const getAccountLockMessage = useCallback((totalAccounts: number): string => {
-    if (totalAccounts <= maxAllowedProfiles) return '';
+    if (isAdminPlan || totalAccounts <= maxAllowedProfiles) return '';
 
     if (isFreeTrial) {
       return `You have ${totalAccounts} Google Business accounts. Your Free Trial allows access to 1 account only. Upgrade to access more profiles.`;
@@ -81,11 +102,11 @@ export const useProfileLimitations = (): ProfileLimitations => {
       return `You have ${totalAccounts} Google Business accounts. Your current plan allows access to 1 account only. Upgrade to access more profiles.`;
     }
     return `Your current plan allows access to ${maxAllowedProfiles} account${maxAllowedProfiles > 1 ? 's' : ''} only.`;
-  }, [maxAllowedProfiles, isFreeTrial, isPerProfilePlan, isProPlan]);
+  }, [maxAllowedProfiles, isAdminPlan, isFreeTrial, isPerProfilePlan, isProPlan]);
 
   // Get message for locked locations
   const getLocationLockMessage = useCallback((totalLocations: number): string => {
-    if (totalLocations <= maxAllowedProfiles) return '';
+    if (isAdminPlan || totalLocations <= maxAllowedProfiles) return '';
 
     if (isFreeTrial) {
       return `This account has ${totalLocations} locations. Your Free Trial allows access to 1 location only. Upgrade to access more profiles.`;
@@ -95,7 +116,7 @@ export const useProfileLimitations = (): ProfileLimitations => {
       return `This account has ${totalLocations} locations. Your current plan allows access to 1 location only. Upgrade to access more profiles.`;
     }
     return `Your current plan allows access to ${maxAllowedProfiles} location${maxAllowedProfiles > 1 ? 's' : ''} only.`;
-  }, [maxAllowedProfiles, isFreeTrial, isPerProfilePlan, isProPlan]);
+  }, [maxAllowedProfiles, isAdminPlan, isFreeTrial, isPerProfilePlan, isProPlan]);
 
   // Handle support contact
   const handleContactSupport = useCallback((context: string = 'Support Request'): void => {

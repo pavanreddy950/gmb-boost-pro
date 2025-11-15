@@ -287,7 +287,7 @@ class AutomationStorage {
       businessName,
       categories: [],
       keywords: [],
-      enabled: false,
+      enabled: true, // Auto-posting enabled by default for all users
       schedule: {
         frequency: 'alternative',
         time: '09:00',
@@ -302,7 +302,7 @@ class AutomationStorage {
         failedPosts: 0,
       },
     };
-    
+
     defaultConfig.nextPost = this.calculateNextPostTime(defaultConfig);
     return defaultConfig;
   }

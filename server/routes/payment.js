@@ -222,6 +222,8 @@ router.post('/coupon/validate', async (req, res) => {
   try {
     const { code, amount, userId } = req.body;
 
+    console.log(`[Payment Route] Validating coupon request - Code: "${code}", Amount: ${amount}, UserId: ${userId}`);
+
     if (!code) {
       return res.status(400).json({ error: 'Coupon code is required' });
     }
@@ -230,6 +232,7 @@ router.post('/coupon/validate', async (req, res) => {
     const validation = couponService.validateCoupon(code, userId);
 
     if (!validation.valid) {
+      console.log(`[Payment Route] Coupon validation failed: ${validation.error}`);
       return res.json({
         success: false,
         error: validation.error,
@@ -873,6 +876,242 @@ router.get('/mandate/status/:gbpAccountId', async (req, res) => {
   } catch (error) {
     console.error('[Mandate Status] Error:', error);
     res.status(500).json({ error: 'Failed to fetch mandate status' });
+  }
+});
+
+// ===== SUBSCRIPTION-BASED PAYMENT WITH AUTO-PAY MANDATE =====
+
+// Create or get Razorpay plan
+router.post('/subscription/create-plan', async (req, res) => {
+  try {
+    const { planName, amount, currency = 'INR', interval = 'yearly', description } = req.body;
+
+    if (!planName || !amount) {
+      return res.status(400).json({ error: 'planName and amount are required' });
+    }
+
+    console.log('[Subscription Plan] Creating plan:', { planName, amount, currency, interval });
+
+    // Create Razorpay plan
+    const plan = await paymentService.createPlan(planName, amount, currency, interval, description);
+
+    res.json({
+      success: true,
+      plan: {
+        id: plan.id,
+        name: planName,
+        amount,
+        currency,
+        interval,
+        razorpayPlanId: plan.id
+      }
+    });
+  } catch (error) {
+    console.error('[Subscription Plan] Error:', error);
+    res.status(500).json({ error: 'Failed to create plan', details: error.message });
+  }
+});
+
+// Create subscription with auto-pay mandate (UPI/Card)
+router.post('/subscription/create-with-mandate', async (req, res) => {
+  try {
+    const { 
+      userId, 
+      email, 
+      name, 
+      contact,
+      planId, 
+      gbpAccountId,
+      profileCount = 1,
+      notes = {}
+    } = req.body;
+
+    if (!userId || !email || !planId) {
+      return res.status(400).json({ error: 'userId, email, and planId are required' });
+    }
+
+    console.log('[Subscription] Creating subscription with mandate:', { userId, email, planId, profileCount });
+
+    // Step 1: Create or get Razorpay customer
+    let customer;
+    try {
+      customer = await paymentService.createCustomer(email, name || email, contact || '');
+      console.log('[Subscription] Customer created/retrieved:', customer.id);
+    } catch (error) {
+      console.error('[Subscription] Customer creation failed:', error);
+      throw new Error('Failed to create customer profile');
+    }
+
+    // Step 2: Create Razorpay subscription with the plan
+    const subscription = await paymentService.createSubscription(
+      planId, 
+      customer.id,
+      {
+        userId,
+        gbpAccountId,
+        profileCount,
+        ...notes
+      },
+      {
+        quantity: profileCount,
+        totalCount: 12, // 12 billing cycles for yearly
+        customerNotify: 1
+      }
+    );
+
+    console.log('[Subscription] Razorpay subscription created:', subscription.id);
+
+    // Store subscription details in local subscription service
+    if (gbpAccountId) {
+      try {
+        const localSubscription = subscriptionService.getSubscriptionByGBPAccount(gbpAccountId);
+        if (localSubscription) {
+          subscriptionService.updateSubscription(localSubscription.id, {
+            razorpaySubscriptionId: subscription.id,
+            razorpayCustomerId: customer.id,
+            profileCount
+          });
+        }
+      } catch (subError) {
+        console.warn('[Subscription] Could not update local subscription:', subError);
+      }
+    }
+
+    res.json({
+      success: true,
+      subscription: {
+        id: subscription.id,
+        status: subscription.status,
+        short_url: subscription.short_url, // Payment link for mandate authorization
+        customerId: customer.id,
+        planId: subscription.plan_id
+      },
+      message: 'Subscription created. Use short_url to authorize payment and set up mandate.'
+    });
+  } catch (error) {
+    console.error('[Subscription] Error:', error);
+    res.status(500).json({ error: 'Failed to create subscription', details: error.message });
+  }
+});
+
+// Verify subscription payment and mandate
+router.post('/subscription/verify-payment', async (req, res) => {
+  try {
+    const {
+      razorpay_subscription_id,
+      razorpay_payment_id,
+      razorpay_signature,
+      gbpAccountId
+    } = req.body;
+
+    if (!razorpay_subscription_id || !razorpay_payment_id || !razorpay_signature) {
+      return res.status(400).json({ error: 'Missing payment verification parameters' });
+    }
+
+    console.log('[Subscription Verify] Verifying subscription payment:', razorpay_subscription_id);
+
+    // Verify signature
+    const isValid = paymentService.verifySubscriptionSignature(
+      razorpay_subscription_id,
+      razorpay_payment_id,
+      razorpay_signature
+    );
+
+    if (!isValid) {
+      return res.status(400).json({ error: 'Invalid payment signature' });
+    }
+
+    // Fetch subscription details
+    const subscription = await paymentService.getSubscription(razorpay_subscription_id);
+    console.log('[Subscription Verify] Subscription status:', subscription.status);
+
+    // Fetch payment details
+    const payment = await paymentService.fetchPaymentDetails(razorpay_payment_id);
+    console.log('[Subscription Verify] Payment details:', {
+      id: payment.id,
+      status: payment.status,
+      method: payment.method
+    });
+
+    // Update local subscription
+    if (gbpAccountId) {
+      const localSubscription = subscriptionService.getSubscriptionByGBPAccount(gbpAccountId);
+      if (localSubscription) {
+        const now = new Date();
+        const endDate = new Date();
+        endDate.setFullYear(endDate.getFullYear() + 1); // 1 year subscription
+
+        subscriptionService.updateSubscription(localSubscription.id, {
+          status: 'active',
+          razorpaySubscriptionId: subscription.id,
+          mandateAuthorized: true,
+          mandateTokenId: payment.token_id || null,
+          mandateAuthDate: now.toISOString(),
+          lastPaymentDate: now.toISOString(),
+          subscriptionEndDate: endDate.toISOString(),
+          razorpayPaymentId: razorpay_payment_id
+        });
+
+        // Add payment record
+        subscriptionService.addPaymentRecord(localSubscription.id, {
+          amount: payment.amount / 100,
+          currency: payment.currency,
+          status: 'success',
+          razorpayPaymentId: razorpay_payment_id,
+          razorpaySubscriptionId: razorpay_subscription_id,
+          description: 'Subscription payment with mandate',
+          paidAt: now.toISOString()
+        });
+      }
+    }
+
+    res.json({
+      success: true,
+      message: 'Subscription activated with auto-pay mandate',
+      subscription: {
+        id: subscription.id,
+        status: subscription.status,
+        mandateAuthorized: true
+      },
+      payment: {
+        id: payment.id,
+        method: payment.method,
+        status: payment.status
+      }
+    });
+  } catch (error) {
+    console.error('[Subscription Verify] Error:', error);
+    res.status(500).json({ error: 'Failed to verify subscription payment', details: error.message });
+  }
+});
+
+// Get subscription details
+router.get('/subscription/details/:subscriptionId', async (req, res) => {
+  try {
+    const { subscriptionId } = req.params;
+
+    console.log('[Subscription Details] Fetching subscription:', subscriptionId);
+
+    const subscription = await paymentService.getSubscription(subscriptionId);
+
+    res.json({
+      success: true,
+      subscription: {
+        id: subscription.id,
+        status: subscription.status,
+        plan_id: subscription.plan_id,
+        customer_id: subscription.customer_id,
+        current_start: subscription.current_start,
+        current_end: subscription.current_end,
+        charge_at: subscription.charge_at,
+        paid_count: subscription.paid_count,
+        remaining_count: subscription.remaining_count,
+        total_count: subscription.total_count
+      }
+    });
+  } catch (error) {
+    console.error('[Subscription Details] Error:', error);
+    res.status(500).json({ error: 'Failed to fetch subscription details' });
   }
 });
 

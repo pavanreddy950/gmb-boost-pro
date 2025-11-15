@@ -167,12 +167,22 @@ class GBPCacheService {
     if (data.accounts) {
       this.cacheAccounts(data.accounts);
     }
-    
+
     if (data.locations) {
       Object.entries(data.locations).forEach(([accountId, locs]) => {
         this.cacheLocations(accountId, locs);
       });
     }
+  }
+
+  // Clear all GBP-related caches (useful for force refresh)
+  clearAllGBPData(): void {
+    this.invalidatePattern('accounts:.*');
+    this.invalidatePattern('locations:.*');
+    this.invalidatePattern('reviews:.*');
+    this.invalidatePattern('posts:.*');
+    console.log('[Cache] Cleared all GBP data caches');
+    this.saveCacheToStorage();
   }
 }
 

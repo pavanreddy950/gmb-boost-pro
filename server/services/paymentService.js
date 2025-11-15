@@ -153,24 +153,55 @@ export class PaymentService {
     }
   }
 
-  async createSubscription(planId, customerId, notes = {}) {
+  async createSubscription(planId, customerId, notes = {}, options = {}) {
     try {
       this._checkConfiguration();
+      
+      const {
+        quantity = 1,
+        totalCount = 12,
+        startAt = null,
+        customerNotify = 1,
+        addons = [],
+        offerIds = []
+      } = options;
+
       const subscriptionOptions = {
         plan_id: planId,
         customer_id: customerId,
-        quantity: 1,
-        total_count: 12, // For monthly plans, 12 months
-        customer_notify: 1,
-        start_at: Math.floor(Date.now() / 1000) + (15 * 24 * 60 * 60), // Start after 15 days trial
+        quantity,
+        total_count: totalCount,
+        customer_notify: customerNotify,
         notes
       };
 
+      // Add start_at only if specified
+      if (startAt) {
+        subscriptionOptions.start_at = startAt;
+      }
+
+      // Add addons if specified
+      if (addons.length > 0) {
+        subscriptionOptions.addons = addons;
+      }
+
+      // Add offer IDs if specified
+      if (offerIds.length > 0) {
+        subscriptionOptions.offer_ids = offerIds;
+      }
+
+      console.log('[PaymentService] 📅 Creating Razorpay subscription with options:', {
+        plan_id: planId,
+        customer_id: customerId,
+        quantity,
+        total_count: totalCount
+      });
+
       const subscription = await this.razorpay.subscriptions.create(subscriptionOptions);
-      console.log('Created Razorpay subscription:', subscription);
+      console.log('[PaymentService] ✅ Created Razorpay subscription:', subscription.id);
       return subscription;
     } catch (error) {
-      console.error('Error creating Razorpay subscription:', error);
+      console.error('[PaymentService] ❌ Error creating Razorpay subscription:', error);
       throw error;
     }
   }
@@ -235,27 +266,58 @@ export class PaymentService {
     }
   }
 
-  async createPlan(name, amount, currency = 'INR', interval = 'monthly') {
+  async createPlan(name, amount, currency = 'INR', interval = 'yearly', description = null) {
     try {
+      this._checkConfiguration();
+
       const planOptions = {
         period: interval === 'monthly' ? 'monthly' : 'yearly',
         interval: 1,
         item: {
           name,
-          amount: amount * 100, // Amount in paise
+          amount: Math.round(amount * 100), // Amount in paise
           currency,
-          description: `${name} subscription plan`
+          description: description || `${name} subscription plan`
         },
         notes: {
           created_at: new Date().toISOString()
         }
       };
 
+      console.log('[PaymentService] 📋 Creating Razorpay plan:', {
+        name,
+        amount: amount,
+        currency,
+        interval
+      });
+
       const plan = await this.razorpay.plans.create(planOptions);
-      console.log('Created Razorpay plan:', plan);
+      console.log('[PaymentService] ✅ Created Razorpay plan:', plan.id);
       return plan;
     } catch (error) {
-      console.error('Error creating Razorpay plan:', error);
+      console.error('[PaymentService] ❌ Error creating Razorpay plan:', error);
+      throw error;
+    }
+  }
+
+  async getPlan(planId) {
+    try {
+      this._checkConfiguration();
+      const plan = await this.razorpay.plans.fetch(planId);
+      return plan;
+    } catch (error) {
+      console.error('[PaymentService] Error fetching plan:', error);
+      throw error;
+    }
+  }
+
+  async getAllPlans(options = {}) {
+    try {
+      this._checkConfiguration();
+      const plans = await this.razorpay.plans.all(options);
+      return plans;
+    } catch (error) {
+      console.error('[PaymentService] Error fetching plans:', error);
       throw error;
     }
   }
@@ -455,6 +517,80 @@ export class PaymentService {
     } catch (error) {
       console.error('[PaymentService] Error creating recurring payment:', error);
       throw error;
+    }
+  }
+
+  async updateSubscription(subscriptionId, updates = {}) {
+    try {
+      this._checkConfiguration();
+      console.log('[PaymentService] Updating subscription:', subscriptionId);
+
+      const subscription = await this.razorpay.subscriptions.update(subscriptionId, updates);
+      console.log('[PaymentService] ✅ Subscription updated:', subscription.id);
+      return subscription;
+    } catch (error) {
+      console.error('[PaymentService] Error updating subscription:', error);
+      throw error;
+    }
+  }
+
+  async pauseSubscription(subscriptionId) {
+    try {
+      this._checkConfiguration();
+      const result = await this.razorpay.subscriptions.pause(subscriptionId);
+      console.log('[PaymentService] ✅ Subscription paused:', subscriptionId);
+      return result;
+    } catch (error) {
+      console.error('[PaymentService] Error pausing subscription:', error);
+      throw error;
+    }
+  }
+
+  async resumeSubscription(subscriptionId) {
+    try {
+      this._checkConfiguration();
+      const result = await this.razorpay.subscriptions.resume(subscriptionId);
+      console.log('[PaymentService] ✅ Subscription resumed:', subscriptionId);
+      return result;
+    } catch (error) {
+      console.error('[PaymentService] Error resuming subscription:', error);
+      throw error;
+    }
+  }
+
+  verifySubscriptionSignature(subscriptionId, paymentId, signature) {
+    try {
+      console.log('[PaymentService] 🔐 Verifying subscription signature...');
+      
+      if (!subscriptionId || !paymentId || !signature) {
+        console.error('[PaymentService] Missing required parameters for signature verification');
+        return false;
+      }
+
+      const keySecret = process.env.RAZORPAY_KEY_SECRET;
+      if (!keySecret) {
+        console.error('[PaymentService] RAZORPAY_KEY_SECRET not configured');
+        return false;
+      }
+
+      const body = subscriptionId + '|' + paymentId;
+      const expectedSignature = crypto
+        .createHmac('sha256', keySecret)
+        .update(body.toString())
+        .digest('hex');
+
+      const isValid = expectedSignature === signature;
+      
+      if (isValid) {
+        console.log('[PaymentService] ✅ Subscription signature verification successful');
+      } else {
+        console.error('[PaymentService] ❌ Subscription signature verification failed');
+      }
+
+      return isValid;
+    } catch (error) {
+      console.error('[PaymentService] Error during subscription signature verification:', error);
+      return false;
     }
   }
 }

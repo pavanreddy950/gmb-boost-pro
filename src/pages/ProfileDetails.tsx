@@ -302,7 +302,20 @@ const ProfileDetails = () => {
             name: location.displayName,
             categories: getCategories(location).map((c: any) => c.name),
             websiteUri: location.websiteUrl,
-            phoneNumber: location.phoneNumber,
+            phoneNumber: (() => {
+              console.log('📞 ProfileDetails - Phone Number Debug:', {
+                phoneNumber: location.phoneNumber,
+                phoneNumbers: location.phoneNumbers,
+                primaryPhone: location.primaryPhone,
+                additionalPhones: location.additionalPhones,
+                _debug_phoneNumbers: location._debug_phoneNumbers,
+                _debug_primaryPhone: location._debug_primaryPhone,
+                _debug_additionalPhones: location._debug_additionalPhones,
+                _debug_firstPhone: location._debug_firstPhone,
+                fullLocation: location
+              });
+              return location.phoneNumber;
+            })(),
             address: location.address
           }} />
         </TabsContent>

@@ -26,7 +26,16 @@ router.post('/settings/:locationId', (req, res) => {
     console.log(`[Automation API] Incoming settings:`, JSON.stringify(settings, null, 2));
     console.log(`[Automation API] Keywords in autoPosting:`, settings.autoPosting?.keywords || 'MISSING');
     console.log(`[Automation API] Keywords in root:`, settings.keywords || 'MISSING');
-    
+    console.log(`[Automation API] 📍 Address info in autoPosting:`, {
+      city: settings.autoPosting?.city,
+      region: settings.autoPosting?.region,
+      country: settings.autoPosting?.country,
+      fullAddress: settings.autoPosting?.fullAddress,
+      postalCode: settings.autoPosting?.postalCode
+    });
+    console.log(`[Automation API] 📞 Phone number:`, settings.autoPosting?.phoneNumber);
+    console.log(`[Automation API] 🔘 Button config:`, settings.autoPosting?.button);
+
     // Ensure both autoPosting and autoReply are configured
     if (!settings.autoPosting) {
       console.log(`[Automation API] No autoPosting object - creating default`);
@@ -37,13 +46,31 @@ router.post('/settings/:locationId', (req, res) => {
         businessName: settings.businessName || 'Business',
         category: settings.category || 'business',
         keywords: settings.keywords || 'quality service, customer satisfaction',
-        userId: settings.userId || 'default'
+        userId: settings.userId || 'default',
+        // Include address fields if they exist in root settings
+        city: settings.city || '',
+        region: settings.region || '',
+        country: settings.country || '',
+        fullAddress: settings.fullAddress || '',
+        postalCode: settings.postalCode || '',
+        phoneNumber: settings.phoneNumber || '',
+        button: settings.button || { enabled: true, type: 'auto' }
       };
     } else {
       console.log(`[Automation API] autoPosting exists - preserving incoming data`);
-      // DO NOT MODIFY the incoming autoPosting object - just ensure userId is set
+      // DO NOT MODIFY the incoming autoPosting object - just ensure userId and accountId are set
       if (!settings.autoPosting.userId) {
         settings.autoPosting.userId = settings.userId || 'default';
+      }
+      if (!settings.autoPosting.accountId) {
+        settings.autoPosting.accountId = settings.accountId || '106433552101751461082';
+      }
+      // Ensure phone number and button config are preserved
+      if (settings.phoneNumber && !settings.autoPosting.phoneNumber) {
+        settings.autoPosting.phoneNumber = settings.phoneNumber;
+      }
+      if (settings.button && !settings.autoPosting.button) {
+        settings.autoPosting.button = settings.button;
       }
     }
     
@@ -70,6 +97,15 @@ router.post('/settings/:locationId', (req, res) => {
     const updatedSettings = automationScheduler.updateAutomationSettings(locationId, settings);
     console.log(`[Automation API] ✅ Settings saved successfully`);
     console.log(`[Automation API] Saved keywords:`, updatedSettings.autoPosting?.keywords || 'NONE');
+    console.log(`[Automation API] 📍 Saved address info:`, {
+      city: updatedSettings.autoPosting?.city,
+      region: updatedSettings.autoPosting?.region,
+      country: updatedSettings.autoPosting?.country,
+      fullAddress: updatedSettings.autoPosting?.fullAddress,
+      postalCode: updatedSettings.autoPosting?.postalCode
+    });
+    console.log(`[Automation API] 📞 Saved phone number:`, updatedSettings.autoPosting?.phoneNumber || 'NONE');
+    console.log(`[Automation API] 🔘 Saved button config:`, updatedSettings.autoPosting?.button || 'NONE');
     console.log(`[Automation API] Full saved settings:`, JSON.stringify(updatedSettings, null, 2));
     console.log(`[Automation API] ========================================`);
     

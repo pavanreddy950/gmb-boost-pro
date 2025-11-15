@@ -48,7 +48,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
   const { Razorpay } = useRazorpay();
   const { currentUser } = useAuth();
   const { subscription, checkSubscriptionStatus } = useSubscription();
-  const { accounts, locations } = useGoogleBusinessProfileContext();
+  const { accounts } = useGoogleBusinessProfileContext();
   const { toast } = useToast();
   const navigate = useNavigate();
   
@@ -170,6 +170,12 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
 
     setIsProcessing(true);
 
+    // USE SUBSCRIPTION-BASED PAYMENT WITH AUTO-PAY MANDATE
+    return handleSubscriptionPayment();
+  };
+
+  const handleSubscriptionPayment = async () => {
+
     try {
       // Show loading toast
       toast({
@@ -177,140 +183,118 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
         description: "Please wait while we set up your payment...",
       });
 
+      toast({
+        title: "Setting up Subscription",
+        description: "Preparing subscription with auto-pay mandate...",
+      });
+
       // Calculate USD amount
       const usdAmount = selectedPlanId === 'per_profile_yearly'
         ? SubscriptionService.calculateTotalPrice(profileCount)
         : selectedPlan.amount;
 
-      // Auto-detect user's currency based on location
-      console.log('[Payment] 🌍 Detecting user currency...');
-      const currencyDetectionResponse = await fetch(`${backendUrl}/api/payment/detect-currency`);
-
-      let paymentExchangeRate = 88.718; // Fallback rate (updated Nov 2025)
-      let targetCurrency = 'INR'; // Default fallback
-      let currencySymbol = '₹';
-
-      if (currencyDetectionResponse.ok) {
-        const currencyData = await currencyDetectionResponse.json();
-        targetCurrency = currencyData.detectedCurrency;
-        paymentExchangeRate = currencyData.exchangeRate || 88.718;
-        currencySymbol = currencyData.currencySymbol;
-        console.log(`[Payment] ✅ Detected: ${currencyData.country} → ${targetCurrency} (${currencySymbol})`);
-        console.log(`[Payment] ✅ Live exchange rate: 1 USD = ${paymentExchangeRate} ${targetCurrency}`);
-      } else {
-        console.warn('[Payment] ⚠️ Currency detection failed, using fallback: INR');
-      }
-
-      // Convert USD to target currency using live rate
+      // Use INR for all payments (Razorpay subscriptions work best with INR)
+      const targetCurrency = 'INR';
       const usdInDollars = usdAmount / 100;
-      const convertedAmount = Math.round(usdInDollars * paymentExchangeRate * 100); // Convert to paise/cents
+      const convertedAmount = Math.round(usdInDollars * exchangeRate); // Convert to INR (whole rupees)
 
-      console.log(`[Payment] 💱 Converting: $${usdInDollars} USD → ${convertedAmount/100} ${targetCurrency} (rate: ${paymentExchangeRate})`);
+      console.log(`[Subscription] 💱 Amount: $${usdInDollars} USD → ₹${convertedAmount} INR (rate: ${exchangeRate})`);
 
-      // Create order in backend with retry logic
-      let orderResponse;
-      let retryCount = 0;
-      const maxRetries = 3;
+      // Step 1: Create Razorpay Plan
+      console.log('[Subscription] 📋 Creating Razorpay plan...');
+      const planResponse = await fetch(`${backendUrl}/api/payment/subscription/create-plan`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          planName: `${selectedPlan.name} - ${profileCount} Profile${profileCount > 1 ? 's' : ''}`,
+          amount: convertedAmount,
+          currency: targetCurrency,
+          interval: 'yearly',
+          description: `${selectedPlan.name} subscription for ${profileCount} profile(s)`
+        })
+      });
 
-      while (retryCount < maxRetries) {
-        try {
-          orderResponse = await fetch(`${backendUrl}/api/payment/order`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-              amount: convertedAmount,
-              currency: targetCurrency,
-              usdAmount: usdInDollars, // Backend will fetch live rate and convert
-              couponCode: couponDetails?.success ? couponCode : undefined,
-              notes: {
-                planId: selectedPlan.id,
-                profileCount: selectedPlanId === 'per_profile_yearly' ? profileCount : undefined,
-                userId: currentUser.uid,
-                email: currentUser.email,
-                gbpAccountId: subscription?.gbpAccountId
-              }
-            })
-          });
+      if (!planResponse.ok) {
+        throw new Error('Failed to create subscription plan');
+      }
 
-          if (orderResponse.ok) {
-            break;
-          } else {
-            throw new Error(`HTTP ${orderResponse.status}: ${orderResponse.statusText}`);
+      const { plan } = await planResponse.json();
+      console.log('[Subscription] ✅ Plan created:', plan.id);
+
+      // Step 2: Create Razorpay Subscription
+      console.log('[Subscription] 📅 Creating subscription...');
+      const subscriptionResponse = await fetch(`${backendUrl}/api/payment/subscription/create-with-mandate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: currentUser.uid,
+          email: currentUser.email,
+          name: currentUser.displayName || currentUser.email,
+          contact: currentUser.phoneNumber || '',
+          planId: plan.razorpayPlanId,
+          gbpAccountId: subscription?.gbpAccountId,
+          profileCount: selectedPlanId === 'per_profile_yearly' ? profileCount : 1,
+          notes: {
+            planId: selectedPlan.id,
+            planName: selectedPlan.name
           }
-        } catch (error) {
-          retryCount++;
-          console.warn(`Order creation attempt ${retryCount} failed:`, error);
+        })
+      });
 
-          if (retryCount >= maxRetries) {
-            throw new Error(`Failed to create order after ${maxRetries} attempts: ${error.message}`);
-          }
-
-          // Wait before retry (exponential backoff)
-          await new Promise(resolve => setTimeout(resolve, 1000 * retryCount));
-        }
+      if (!subscriptionResponse.ok) {
+        const errorData = await subscriptionResponse.json().catch(() => ({}));
+        throw new Error(errorData.details || 'Failed to create subscription');
       }
 
-      if (!orderResponse.ok) {
-        const errorData = await orderResponse.text();
-        throw new Error(`Failed to create order: ${errorData}`);
-      }
+      const { subscription: razorpaySubscription } = await subscriptionResponse.json();
+      console.log('[Subscription] ✅ Subscription created:', razorpaySubscription.id);
 
-      const { order, finalAmount } = await orderResponse.json();
-
-      // Validate order data
-      if (!order || !order.id || !order.amount) {
-        throw new Error('Invalid order data received from server');
-      }
-
-      // Razorpay checkout options with enhanced payment methods
-      const options: RazorpayOrderOptions = {
+      // Step 3: Open Razorpay Checkout for SUBSCRIPTION (with mandate authorization)
+      // NOTE: Using 'as any' because RazorpayOrderOptions is for orders, not subscriptions
+      // Subscriptions use different fields (subscription_id instead of order_id, no amount/currency)
+      const options: any = {
         key: razorpayKeyId,
-        amount: order.amount,
-        currency: order.currency,
+        subscription_id: razorpaySubscription.id, // SUBSCRIPTION ID instead of order_id
         name: 'LOBAISEO',
-        description: selectedPlan.name,
-        order_id: order.id,
-        timeout: 300, // 5 minutes timeout
-        retry: {
-          enabled: true,
-          max_count: 3
-        },
+        description: `${selectedPlan.name} - Auto-pay subscription`,
+        // NOTE: Do NOT send customer_id when using subscription_id - customer is already linked to subscription
+        recurring: 1, // ENABLE RECURRING PAYMENTS / MANDATE
         handler: async (response) => {
           try {
-            // Verify payment on backend
-            const verifyResponse = await fetch(`${backendUrl}/api/payment/verify`, {
+            console.log('[Subscription] 💳 Payment completed, verifying...');
+            // Verify subscription payment on backend
+            const verifyResponse = await fetch(`${backendUrl}/api/payment/subscription/verify-payment`, {
               method: 'POST',
               headers: {
                 'Content-Type': 'application/json'
               },
               body: JSON.stringify({
-                razorpay_order_id: response.razorpay_order_id,
-                razorpay_payment_id: response.razorpay_payment_id,
-                razorpay_signature: response.razorpay_signature,
-                subscriptionId: subscription?.id,
-                gbpAccountId: subscription?.gbpAccountId,
-                planId: selectedPlan.id
+                razorpay_subscription_id: (response as any).razorpay_subscription_id,
+                razorpay_payment_id: (response as any).razorpay_payment_id,
+                razorpay_signature: (response as any).razorpay_signature,
+                gbpAccountId: subscription?.gbpAccountId
               })
             });
 
             if (verifyResponse.ok) {
-              // Close modal first
+              toast({
+                title: "Success!",
+                description: "Subscription activated with auto-pay mandate",
+              });
+
+              // Close modal
               onClose();
 
               // Set flag to indicate we're reloading after payment
               sessionStorage.setItem('post_payment_reload', 'true');
 
-              // Force subscription status refresh with delay to ensure backend is updated
+              // Force subscription status refresh with delay
               setTimeout(async () => {
                 try {
                   await checkSubscriptionStatus();
-                  // Force complete page reload to clear any cached states
                   window.location.reload();
                 } catch (error) {
                   console.error('Failed to refresh subscription status:', error);
-                  // Still reload to clear cache
                   window.location.reload();
                 }
               }, 2000);
@@ -318,13 +302,13 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
               // Navigate to payment success page
               navigate('/payment-success');
             } else {
-              throw new Error('Payment verification failed');
+              throw new Error('Subscription payment verification failed');
             }
           } catch (error) {
-            console.error('Payment handler error:', error);
+            console.error('Subscription payment handler error:', error);
             toast({
               title: "Payment Error",
-              description: "There was an issue processing your payment. Please try again.",
+              description: "There was an issue processing your subscription payment. Please try again.",
               variant: "destructive"
             });
             setIsProcessing(false);
@@ -333,155 +317,83 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
         prefill: {
           name: currentUser.displayName || '',
           email: currentUser.email || '',
-          contact: ''
+          contact: currentUser.phoneNumber || ''
         },
         notes: {
-          address: 'LOBAISEO Corporate Office'
-        },
+          planId: selectedPlan.id,
+          profileCount: selectedPlanId === 'per_profile_yearly' ? profileCount : 1
+        } as any,
         theme: {
           color: '#1E2DCD',
           backdrop_color: 'rgba(0, 0, 0, 0.5)'
         },
-        config: {
-          display: {
-            blocks: {
-              card: {
-                name: 'Credit/Debit Cards',
-                instruments: [
-                  {
-                    method: 'card',
-                    types: ['credit', 'debit'],
-                    issuers: ['VISA', 'MC', 'AMEX', 'RUPAY', 'MAES', 'BAJAJ'],
-                    flows: ['3ds', 'ivr', 'otp', 'pin']
-                  }
-                ]
-              },
-              paypal: {
-                name: 'PayPal',
-                instruments: [
-                  {
-                    method: 'paypal'
-                  }
-                ]
-              },
-              intl_bank_transfer: {
-                name: 'International Bank Transfer',
-                instruments: [
-                  {
-                    method: 'bank_transfer'
-                  }
-                ]
-              },
-              utib: {
-                name: 'UPI (India)',
-                instruments: [
-                  {
-                    method: 'upi'
-                  }
-                ]
-              },
-              banks: {
-                name: 'Net Banking (India)',
-                instruments: [
-                  {
-                    method: 'netbanking',
-                    banks: ['HDFC', 'ICIC', 'SBIN', 'AXIS', 'YESB', 'KKBK', 'PUNB_R']
-                  }
-                ]
-              },
-              wallet: {
-                name: 'Digital Wallets',
-                instruments: [
-                  {
-                    method: 'wallet',
-                    wallets: ['paytm', 'mobikwik', 'phonepe', 'amazonpay', 'freecharge', 'jiomoney', 'paypal', 'airtelmoney', 'jiomoney']
-                  }
-                ]
-              },
-              international: {
-                name: 'International Methods',
-                instruments: [
-                  {
-                    method: 'app',
-                    apps: ['gpay_int', 'paypal', 'phonepe_switch']
-                  }
-                ]
-              }
-            },
-            sequence: ['block.card', 'block.paypal', 'block.international', 'block.intl_bank_transfer', 'block.utib', 'block.banks', 'block.wallet'],
-            preferences: {
-              show_default_blocks: true
-            }
-          }
-        },
+        // Removed custom config - Razorpay Subscriptions will automatically show mandate-compatible payment methods
         modal: {
           ondismiss: () => {
             setIsProcessing(false);
             toast({
-              title: "Payment Cancelled",
-              description: "Your payment was cancelled. You can try again when ready.",
+              title: "Subscription Setup Cancelled",
+              description: "You can set up your subscription later from the dashboard.",
               variant: "default"
             });
-            // Note: Modal is already closed, user can reopen from dashboard if needed
           },
           escape: true,
           backdropclose: false,
           handleback: true,
-          confirm_close: true,
-          animation: true
+          confirm_close: true
         }
       };
 
-      // Create Razorpay instance with error handling
+      // Create Razorpay instance for SUBSCRIPTION
       try {
         const razorpayInstance = new Razorpay(options);
 
         // Listen for payment failure
         razorpayInstance.on('payment.failed', function (response) {
-          console.error('Payment failed:', response.error);
+          console.error('Subscription payment failed:', response.error);
           setIsProcessing(false);
           toast({
-            title: "Payment Failed",
-            description: response.error.description || "Your payment could not be processed. Please try again.",
+            title: "Subscription Setup Failed",
+            description: response.error.description || "Unable to set up auto-pay. Please try again.",
             variant: "destructive"
           });
         });
 
-        // Close the upgrade modal BEFORE opening Razorpay to prevent overlap
+        // Close the upgrade modal BEFORE opening Razorpay
         onClose();
 
-        // Open Razorpay modal after a small delay to ensure smooth transition
+        // Open Razorpay subscription modal
         setTimeout(() => {
           razorpayInstance.open();
 
-          // Show success toast for modal opening
           toast({
-            title: "Payment Gateway Loaded",
-            description: "Choose your preferred payment method to continue.",
+            title: "Subscription Setup",
+            description: "⚠️ Choose UPI or Card to set up auto-pay mandate. You'll authorize recurring payments.",
           });
         }, 100);
 
       } catch (razorpayError) {
-        console.error('Failed to initialize Razorpay:', razorpayError);
-        throw new Error('Failed to initialize payment gateway. Please refresh and try again.');
+        console.error('Failed to initialize Razorpay subscription:', razorpayError);
+        throw new Error('Failed to initialize subscription. Please refresh and try again.');
       }
 
     } catch (error) {
-      console.error('Payment error:', error);
+      console.error('Subscription setup error:', error);
 
-      let errorMessage = "There was an error processing your payment. Please try again.";
+      let errorMessage = "There was an error setting up your subscription. Please try again.";
 
-      // Provide more specific error messages
       if (error.message.includes('network') || error.message.includes('fetch')) {
         errorMessage = "Network error. Please check your internet connection and try again.";
-      } else if (error.message.includes('order')) {
-        errorMessage = "Failed to create payment order. Please try again.";
+      } else if (error.message.includes('plan')) {
+        errorMessage = "Failed to create subscription plan. Please try again.";
+      } else if (error.message.includes('subscription')) {
+        errorMessage = "Failed to create subscription. Please try again.";
       } else if (error.message.includes('Razorpay')) {
         errorMessage = "Payment gateway error. Please refresh the page and try again.";
       }
 
       toast({
-        title: "Payment Failed",
+        title: "Subscription Setup Failed",
         description: errorMessage,
         variant: "destructive"
       });

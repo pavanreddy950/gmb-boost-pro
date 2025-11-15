@@ -31,6 +31,9 @@ export interface BusinessLocation {
     countryCode: string;
   };
   phoneNumber?: string;
+  phoneNumbers?: Array<{ number: string; type?: string }>; // Raw API format
+  primaryPhone?: string; // Google Business Information API v1 field
+  additionalPhones?: string[]; // Alternative phone numbers
   websiteUrl?: string;
   categories: Array<{
     name: string;
@@ -42,6 +45,13 @@ export interface BusinessLocation {
     canDelete?: boolean;
     canUpdate?: boolean;
   };
+  // Debug fields
+  _debug_phoneNumbers?: any;
+  _debug_primaryPhone?: any;
+  _debug_additionalPhones?: any;
+  _debug_hasPhoneNumbers?: boolean;
+  _debug_phoneNumbersLength?: number;
+  _debug_firstPhone?: any;
 }
 
 export interface BusinessAccount {
@@ -752,14 +762,24 @@ class GoogleBusinessProfileService {
     console.log(`🗑️ Cleared cache for ${operationName} after authentication refresh`);
   }
 
+  // Public method to clear all GBP caches
+  clearAllCaches(): void {
+    gbpCache.clearAllGBPData();
+  }
+
   // Get all business accounts via backend to avoid CORS (with timeout)
-  async getBusinessAccounts(): Promise<BusinessAccount[]> {
+  async getBusinessAccounts(forceRefresh: boolean = false): Promise<BusinessAccount[]> {
     try {
-      // Check cache first
-      const cachedAccounts = gbpCache.getCachedAccounts(this.currentUserId);
-      if (cachedAccounts) {
-        console.log('✅ Using cached Google Business Profile accounts');
-        return cachedAccounts;
+      // Check cache first (unless force refresh is requested)
+      if (!forceRefresh) {
+        const cachedAccounts = gbpCache.getCachedAccounts(this.currentUserId);
+        if (cachedAccounts) {
+          console.log('✅ Using cached Google Business Profile accounts');
+          return cachedAccounts;
+        }
+      } else {
+        console.log('🔄 Force refresh requested - bypassing cache');
+        gbpCache.clearAllGBPData();
       }
 
       // Ensure token is valid before making the request
@@ -1077,8 +1097,12 @@ class GoogleBusinessProfileService {
           postalCode: location.storefrontAddress?.postalCode || '',
           countryCode: location.storefrontAddress?.regionCode || '',
         },
-        phoneNumber: location.phoneNumbers?.[0]?.number || '',
+        // Use phoneNumber from backend transformation (already extracted from phoneNumbers.primaryPhone)
+        phoneNumber: location.phoneNumber || location.primaryPhone || location.phoneNumbers?.primaryPhone || '',
         websiteUrl: location.websiteUri,
+        _debug_backendPhoneNumber: location.phoneNumber,
+        _debug_phoneNumbers: location.phoneNumbers,
+        _debug_primaryPhone: location.primaryPhone,
         categoriesFormatted: (location.categories?.primaryCategory ? [location.categories.primaryCategory] : []).concat(location.categories?.additionalCategories || []).map((category: any) => ({
           name: category.displayName || category.name || category,
           categoryId: category.categoryId || category.name || category,

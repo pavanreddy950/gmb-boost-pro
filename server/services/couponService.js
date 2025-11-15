@@ -90,16 +90,31 @@ class CouponService {
     // Reload coupons from file to get latest data
     this.loadCoupons();
 
-    const coupon = this.coupons.get(code.toUpperCase());
+    const upperCode = code.toUpperCase();
+    console.log(`[CouponService] Validating coupon: "${upperCode}" (original: "${code}")`);
+    console.log(`[CouponService] Available coupons:`, Array.from(this.coupons.keys()));
+
+    const coupon = this.coupons.get(upperCode);
 
     if (!coupon) {
+      console.log(`[CouponService] ❌ Coupon "${upperCode}" not found`);
       return {
         valid: false,
         error: 'Invalid coupon code'
       };
     }
 
+    console.log(`[CouponService] Found coupon:`, {
+      code: coupon.code,
+      active: coupon.active,
+      usedCount: coupon.usedCount,
+      maxUses: coupon.maxUses,
+      validUntil: coupon.validUntil,
+      validUntilType: typeof coupon.validUntil
+    });
+
     if (!coupon.active) {
+      console.log(`[CouponService] ❌ Coupon "${upperCode}" is not active`);
       return {
         valid: false,
         error: 'This coupon is no longer active'
@@ -107,6 +122,7 @@ class CouponService {
     }
 
     if (coupon.usedCount >= coupon.maxUses) {
+      console.log(`[CouponService] ❌ Coupon "${upperCode}" has reached usage limit`);
       return {
         valid: false,
         error: 'This coupon has reached its usage limit'
@@ -114,6 +130,7 @@ class CouponService {
     }
 
     if (new Date() > coupon.validUntil) {
+      console.log(`[CouponService] ❌ Coupon "${upperCode}" has expired. Valid until: ${coupon.validUntil}, Now: ${new Date()}`);
       return {
         valid: false,
         error: 'This coupon has expired'
@@ -122,12 +139,14 @@ class CouponService {
 
     // Check if this coupon is one-time per user and user has already used it
     if (coupon.oneTimePerUser && userId && coupon.usedBy && coupon.usedBy.includes(userId)) {
+      console.log(`[CouponService] ❌ User ${userId} has already used coupon "${upperCode}"`);
       return {
         valid: false,
         error: 'You have already used this coupon'
       };
     }
 
+    console.log(`[CouponService] ✅ Coupon "${upperCode}" is valid`);
     return {
       valid: true,
       coupon

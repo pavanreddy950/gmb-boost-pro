@@ -1,0 +1,208 @@
+{
+  "automations": {
+    "9282036971530488002": {
+      "autoPosting": {
+        "enabled": true,
+        "schedule": "09:00",
+        "frequency": "alternative",
+        "businessName": "Business",
+        "category": "business",
+        "keywords": "quality service, customer satisfaction",
+        "userId": "OBm8qZc0jOWcY53x6rQuX4gKKnQ2",
+        "city": "",
+        "region": "",
+        "country": "",
+        "fullAddress": "",
+        "postalCode": "",
+        "lastRun": "2025-11-15T15:29:15.453Z"
+      },
+      "userId": "OBm8qZc0jOWcY53x6rQuX4gKKnQ2",
+      "autoReply": {
+        "enabled": true,
+        "replyToAll": true,
+        "replyToPositive": true,
+        "replyToNegative": true,
+        "replyToNeutral": true,
+        "businessName": "Current Location",
+        "keywords": "The Ratan Resort & Retreat, the, ratan, resort, retreat, Ajmer, The Ratan Resort & Retreat Ajmer",
+        "category": "Resort hotel",
+        "userId": "OBm8qZc0jOWcY53x6rQuX4gKKnQ2",
+        "accountId": "106433552101751461082"
+      },
+      "updatedAt": "2025-11-15T15:29:13.514Z"
+    },
+    "3902532824310785738": {
+      "autoPosting": {
+        "enabled": true,
+        "schedule": "09:00",
+        "frequency": "alternative",
+        "businessName": "Business",
+        "category": "business",
+        "keywords": "quality service, customer satisfaction",
+        "userId": "OBm8qZc0jOWcY53x6rQuX4gKKnQ2",
+        "city": "",
+        "region": "",
+        "country": "",
+        "fullAddress": "",
+        "postalCode": "",
+        "lastRun": "2025-11-15T15:29:44.414Z"
+      },
+      "userId": "OBm8qZc0jOWcY53x6rQuX4gKKnQ2",
+      "autoReply": {
+        "enabled": true,
+        "replyToAll": true,
+        "replyToPositive": true,
+        "replyToNegative": true,
+        "replyToNeutral": true,
+        "businessName": "Current Location",
+        "keywords": "Cozy Nest Cottage, cozy, nest, cottage, Bhimtal, Cozy Nest Cottage Bhimtal",
+        "category": "Villa",
+        "userId": "OBm8qZc0jOWcY53x6rQuX4gKKnQ2",
+        "accountId": "106433552101751461082"
+      },
+      "updatedAt": "2025-11-15T15:29:35.103Z"
+    },
+    "1497453847846156772": {
+      "autoPosting": {
+        "enabled": true,
+        "schedule": "09:00",
+        "frequency": "alternative",
+        "businessName": "Business",
+        "category": "business",
+        "keywords": "quality service, customer satisfaction",
+        "userId": "OBm8qZc0jOWcY53x6rQuX4gKKnQ2",
+        "city": "",
+        "region": "",
+        "country": "",
+        "fullAddress": "",
+        "postalCode": "",
+        "lastRun": "2025-11-15T15:33:41.995Z"
+      },
+      "userId": "OBm8qZc0jOWcY53x6rQuX4gKKnQ2",
+      "autoReply": {
+        "enabled": true,
+        "replyToAll": true,
+        "replyToPositive": true,
+        "replyToNegative": true,
+        "replyToNeutral": true,
+        "businessName": "Current Location",
+        "keywords": "NK Desert Camp & Resort, desert, camp, resort, Jaisalmer, NK Desert Camp & Resort Jaisalmer",
+        "category": "Resort hotel",
+        "userId": "OBm8qZc0jOWcY53x6rQuX4gKKnQ2",
+        "accountId": "106433552101751461082"
+      },
+      "updatedAt": "2025-11-15T15:33:40.041Z"
+    },
+    "14977377147025961194": {
+      "autoPosting": {
+        "enabled": true,
+        "schedule": "09:00",
+        "frequency": "daily",
+        "businessName": "Scale Point Strategy & Business Growth Solutions",
+        "category": "Internet marketing service",
+        "categories": [
+          "Internet marketing service",
+          "Branding agency",
+          "Marketing agency",
+          "Web Designer",
+          "Business development service"
+        ],
+        "keywords": "Scale Point Strategy & Business Growth Solutions, scale, point, strategy, growth, Jalandhar, Scale Point Strategy & Business Growth Solutions Jalandhar",
+        "websiteUrl": "https://www.scalepointstrategy.com/",
+        "timezone": "Asia/Calcutta",
+        "fullAddress": "3204 First Floor Above abhi electrical point near Shehnai palace, Tej Mohan , Nagar, Ashok Nagar",
+        "city": "Jalandhar",
+        "region": "Punjab",
+        "country": "IN",
+        "postalCode": "144001",
+        "phoneNumber": "077197 56319",
+        "button": {
+          "enabled": true,
+          "type": "call_now",
+          "phoneNumber": ""
+        },
+        "userId": "OBm8qZc0jOWcY53x6rQuX4gKKnQ2",
+        "accountId": "106433552101751461082"
+      },
+      "userId": "OBm8qZc0jOWcY53x6rQuX4gKKnQ2",
+      "autoReply": {
+        "enabled": true,
+        "businessName": "Scale Point Strategy & Business Growth Solutions",
+        "category": "Internet marketing service",
+        "keywords": "Scale Point Strategy & Business Growth Solutions, scale, point, strategy, growth, Jalandhar, Scale Point Strategy & Business Growth Solutions Jalandhar",
+        "replyToAll": true,
+        "userId": "OBm8qZc0jOWcY53x6rQuX4gKKnQ2",
+        "accountId": "106433552101751461082"
+      },
+      "updatedAt": "2025-11-15T21:48:38.228Z"
+    },
+    "17697790081864925086": {
+      "autoPosting": {
+        "enabled": true,
+        "schedule": "09:00",
+        "frequency": "alternative",
+        "businessName": "SITARAM GUEST HOUSE",
+        "category": "Hotel",
+        "keywords": "SITARAM GUEST HOUSE, sitaram, guest, house, Varanasi, SITARAM GUEST HOUSE Varanasi",
+        "timezone": "Asia/Calcutta",
+        "fullAddress": "K58/66, Daranagar maidagin, Near maidagin filling station",
+        "city": "Varanasi",
+        "region": "Uttar Pradesh",
+        "country": "IN",
+        "postalCode": "221001",
+        "phoneNumber": "",
+        "button": {
+          "enabled": true,
+          "type": "auto"
+        },
+        "userId": "OBm8qZc0jOWcY53x6rQuX4gKKnQ2",
+        "accountId": "106433552101751461082"
+      },
+      "userId": "OBm8qZc0jOWcY53x6rQuX4gKKnQ2",
+      "autoReply": {
+        "enabled": true,
+        "businessName": "SITARAM GUEST HOUSE",
+        "category": "Hotel",
+        "keywords": "SITARAM GUEST HOUSE, sitaram, guest, house, Varanasi, SITARAM GUEST HOUSE Varanasi",
+        "replyToAll": true,
+        "userId": "OBm8qZc0jOWcY53x6rQuX4gKKnQ2",
+        "accountId": "106433552101751461082"
+      },
+      "updatedAt": "2025-11-15T21:15:03.558Z"
+    },
+    "1852324590760696192": {
+      "autoPosting": {
+        "enabled": true,
+        "schedule": "09:00",
+        "frequency": "alternative",
+        "businessName": "New hope treatment and rehabilitation centre",
+        "category": "Health consultant",
+        "keywords": "New hope treatment and rehabilitation centre, new, hope, treatment, and, rehabilitation, centre, Jalandhar, New hope treatment and rehabilitation centre Jalandhar",
+        "timezone": "Asia/Calcutta",
+        "fullAddress": "62, Wadala Road, Garden Colony, sudama vihar, Khurla Kingra",
+        "city": "Jalandhar",
+        "region": "Punjab",
+        "country": "IN",
+        "postalCode": "144003",
+        "phoneNumber": "",
+        "button": {
+          "enabled": true,
+          "type": "auto"
+        },
+        "userId": "OBm8qZc0jOWcY53x6rQuX4gKKnQ2",
+        "accountId": "106433552101751461082"
+      },
+      "userId": "OBm8qZc0jOWcY53x6rQuX4gKKnQ2",
+      "autoReply": {
+        "enabled": true,
+        "businessName": "New hope treatment and rehabilitation centre",
+        "category": "Health consultant",
+        "keywords": "New hope treatment and rehabilitation centre, new, hope, treatment, and, rehabilitation, centre, Jalandhar, New hope treatment and rehabilitation centre Jalandhar",
+        "replyToAll": true,
+        "userId": "OBm8qZc0jOWcY53x6rQuX4gKKnQ2",
+        "accountId": "106433552101751461082"
+      },
+      "updatedAt": "2025-11-15T21:31:31.233Z"
+    }
+  }
+}

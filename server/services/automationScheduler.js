@@ -594,38 +594,53 @@ class AutomationScheduler {
       category: category
     });
 
-    // If button is not enabled or type is 'none', return null
-    if (!button || !button.enabled || button.type === 'none') {
-      console.log('[AutomationScheduler] ❌ No CTA button configured or button disabled');
+    // If button is explicitly disabled or type is 'none', return null
+    if (button?.enabled === false || button?.type === 'none') {
+      console.log('[AutomationScheduler] ❌ CTA button explicitly disabled or type is "none"');
       console.log('[AutomationScheduler] ========================================');
       return null;
     }
 
-    console.log('[AutomationScheduler] ✅ Button is enabled, generating CTA...');
+    // Default to auto selection if no button config or button enabled
+    const buttonType = button?.type || 'auto';
+    console.log(`[AutomationScheduler] ✅ Button type: ${buttonType}`);
 
     // Handle different button types
     let actionType = 'LEARN_MORE'; // Default
-    let url = button.customUrl || websiteUrl || '';
+    let url = button?.customUrl || websiteUrl || '';
 
-    switch (button.type) {
+    switch (buttonType) {
       case 'call_now':
         // Use phone number from button config first, then from business profile
-        const phone = button.phoneNumber || phoneNumber;
-        console.log('[AutomationScheduler] Call Now button - Phone:', {
-          fromButton: button.phoneNumber,
-          fromProfile: phoneNumber,
-          finalPhone: phone
+        const phone = button?.phoneNumber || phoneNumber;
+        console.log('[AutomationScheduler] 📞 Call Now button - Phone numbers:', {
+          fromButton: button?.phoneNumber || 'NONE',
+          fromProfile: phoneNumber || 'NONE',
+          finalPhone: phone || 'NONE'
         });
         if (!phone) {
-          console.error('[AutomationScheduler] ❌ Call Now button selected but no phone number provided');
+          console.error('[AutomationScheduler] ❌ Call Now button selected but no phone number available');
+          console.error('[AutomationScheduler] ⚠️ Falling back to LEARN_MORE with website URL');
+          if (!url) {
+            console.log('[AutomationScheduler] ========================================');
+            return null;
+          }
+          // Fallback to LEARN_MORE if no phone
+          const fallbackCTA = {
+            actionType: 'LEARN_MORE',
+            url: url
+          };
+          console.log('[AutomationScheduler] ⚠️ Generated fallback CTA:', fallbackCTA);
           console.log('[AutomationScheduler] ========================================');
-          return null;
+          return fallbackCTA;
         }
+        // Google My Business API v4 doesn't accept phoneNumber in callToAction
+        // It automatically uses the phone number from the business profile
         const callCTA = {
-          actionType: 'CALL',
-          phoneNumber: phone
+          actionType: 'CALL'
         };
-        console.log('[AutomationScheduler] ✅ Generated CTA:', callCTA);
+        console.log('[AutomationScheduler] ✅ Generated CALL CTA:', callCTA);
+        console.log('[AutomationScheduler] 📞 Phone number will be automatically used from business profile');
         console.log('[AutomationScheduler] ========================================');
         return callCTA;
 

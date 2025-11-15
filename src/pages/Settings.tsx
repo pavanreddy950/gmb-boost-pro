@@ -32,7 +32,7 @@ const Settings = () => {
     accountAlerts: true,
   });
   const [autoReply, setAutoReply] = useState({
-    enabled: false,
+    enabled: true, // Auto-reply enabled by default
     positiveReviews: true,
     neutralReviews: true,
     negativeReviews: false,

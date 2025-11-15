@@ -15,7 +15,6 @@ import automationRoutes from './routes/automation.js';
 import qrCodesRoutes from './routes/qrCodes.js';
 import adminRoutes from './routes/admin.js';
 import welcomeEmailRoutes from './routes/welcomeEmail.js';
-import rankTrackingRoutes from './routes/rankTracking.js';
 import { checkSubscription, trackTrialStart, addTrialHeaders } from './middleware/subscriptionCheck.js';
 import SubscriptionService from './services/subscriptionService.js';
 import automationScheduler from './services/automationScheduler.js';
@@ -232,7 +231,6 @@ app.use('/api/review-link', reviewLinkRoutes);
 app.use('/api/google-review', googleReviewLinkRoutes);
 app.use('/api/automation', automationRoutes);
 app.use('/api/qr-codes', qrCodesRoutes);
-app.use('/api/rank-tracking', rankTrackingRoutes);
 
 // Admin routes (protected by admin auth middleware)
 app.use('/api/admin', adminRoutes);
@@ -613,16 +611,14 @@ app.post('/api/automation/test-post-now/:locationId', async (req, res) => {
       const buttonType = button.type || 'auto';
 
       if (buttonType === 'call_now') {
-        // Google My Business API v4 doesn't accept phoneNumber in callToAction
-        // It automatically uses the phone number from the business profile
-        callToAction = {
-          actionType: 'CALL'
-        };
-        console.log(`[TEST POST] ✅ Added CALL button (phone number from business profile)`);
         if (button.phoneNumber || phoneNumber) {
-          console.log(`[TEST POST] 📞 Phone number available in profile: ${button.phoneNumber || phoneNumber}`);
+          callToAction = {
+            actionType: 'CALL',
+            phoneNumber: button.phoneNumber || phoneNumber
+          };
+          console.log(`[TEST POST] ✅ Added CALL button with phone: ${callToAction.phoneNumber}`);
         } else {
-          console.warn('[TEST POST] ⚠️ No phone number in profile - CALL button may not work');
+          console.warn('[TEST POST] Call Now button selected but no phone number provided');
         }
       } else {
         // For all other button types, we need a URL
@@ -1502,33 +1498,21 @@ app.get('/api/accounts/:accountName(*)/locations', async (req, res) => {
     const parent = accountName.startsWith('accounts/') ? accountName : `accounts/${accountName}`;
     console.log(`Fetching locations for account: ${parent}`);
     
-    // Use Google Business Information API v1 directly with fetch for better phoneNumbers support
+    // Fetch all locations with pagination
     let allLocations = [];
     let nextPageToken = null;
     
     do {
-      const readMask = 'name,title,storefrontAddress,websiteUri,phoneNumbers,categories,latlng,metadata,profile,regularHours,serviceArea,labels,languageCode,openInfo,specialHours';
-      const url = `https://mybusinessbusinessinformation.googleapis.com/v1/${parent}/locations?readMask=${readMask}&pageSize=100${nextPageToken ? `&pageToken=${nextPageToken}` : ''}`;
-      
-      console.log(`📞 Fetching locations with phoneNumbers from: ${url}`);
-      
-      const response = await fetch(url, {
-        headers: {
-          'Authorization': `Bearer ${accessToken}`,
-          'Content-Type': 'application/json'
-        }
+      const locationsResponse = await mybusiness.accounts.locations.list({
+        parent: parent,
+        pageSize: 100, // Maximum page size to reduce API calls
+        pageToken: nextPageToken,
+        readMask: 'name,title,storefrontAddress,websiteUri,phoneNumbers,categories,latlng,metadata,profile,regularHours,serviceArea,labels,languageCode,openInfo,specialHours'
       });
 
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error(`❌ Failed to fetch locations: ${response.status}`, errorText);
-        throw new Error(`Failed to fetch locations: ${response.status} ${errorText}`);
-      }
-
-      const data = await response.json();
-      const locations = data.locations || [];
+      const locations = locationsResponse.data.locations || [];
       allLocations = allLocations.concat(locations);
-      nextPageToken = data.nextPageToken;
+      nextPageToken = locationsResponse.data.nextPageToken;
       
       console.log(`📄 Fetched ${locations.length} locations (Total: ${allLocations.length})`);
       
@@ -1536,79 +1520,14 @@ app.get('/api/accounts/:accountName(*)/locations', async (req, res) => {
 
     console.log(`✅ Found ${allLocations.length} total locations for account ${accountName}`);
 
-    // Transform phoneNumbers array to phoneNumber string for frontend compatibility
-    const transformedLocations = allLocations.map(location => {
-      // Extract primary phone number from phoneNumbers array
-      let phoneNumber = null;
-
-      console.log('📞 Processing location phone numbers:', {
-        locationName: location.title || location.name,
-        hasPhoneNumbers: !!location.phoneNumbers,
-        phoneNumbersType: typeof location.phoneNumbers,
-        isArray: Array.isArray(location.phoneNumbers),
-        phoneNumbersValue: JSON.stringify(location.phoneNumbers),
-        firstElement: location.phoneNumbers?.[0]
-      });
-
-      if (location.phoneNumbers) {
-        // Check if phoneNumbers is an object with primaryPhone property (most common format)
-        if (typeof location.phoneNumbers === 'object' && !Array.isArray(location.phoneNumbers)) {
-          if (location.phoneNumbers.primaryPhone) {
-            phoneNumber = location.phoneNumbers.primaryPhone;
-            console.log('📞 Extracted phone from phoneNumbers.primaryPhone:', phoneNumber);
-          } else if (location.phoneNumbers.phoneNumber) {
-            phoneNumber = location.phoneNumbers.phoneNumber;
-            console.log('📞 Extracted phone from phoneNumbers.phoneNumber:', phoneNumber);
-          }
-        }
-        // Check if it's an array
-        else if (Array.isArray(location.phoneNumbers) && location.phoneNumbers.length > 0) {
-          // phoneNumbers is an array of phone objects: [{ phoneNumber: "+1234567890" }]
-          const firstPhone = location.phoneNumbers[0];
-
-          // Check if it's an object with phoneNumber property
-          if (typeof firstPhone === 'object' && firstPhone.phoneNumber) {
-            phoneNumber = firstPhone.phoneNumber;
-          }
-          // Or if it's directly a string
-          else if (typeof firstPhone === 'string') {
-            phoneNumber = firstPhone;
-          }
-
-          console.log('📞 Extracted phone from array:', phoneNumber);
-        }
-        // phoneNumbers might be a single string
-        else if (typeof location.phoneNumbers === 'string') {
-          phoneNumber = location.phoneNumbers;
-          console.log('📞 Phone is direct string:', phoneNumber);
-        }
-      }
-
-      // Fallback to primaryPhone if available
-      if (!phoneNumber && location.primaryPhone) {
-        phoneNumber = location.primaryPhone;
-        console.log('📞 Using primaryPhone fallback:', phoneNumber);
-      }
-
-      console.log('📞 Final phoneNumber for location:', phoneNumber);
-
-      return {
-        ...location,
-        phoneNumber // Add phoneNumber field for frontend
-      };
-    });
-
     // Debug: Log fields available in first location
-    if (transformedLocations.length > 0) {
-      console.log('🔍 DEBUG: Fields in first location:', Object.keys(transformedLocations[0]));
-      console.log('🔍 DEBUG: Has profile?', !!transformedLocations[0].profile);
-      console.log('🔍 DEBUG: Has regularHours?', !!transformedLocations[0].regularHours);
-      console.log('📞 DEBUG: phoneNumbers field:', JSON.stringify(transformedLocations[0].phoneNumbers, null, 2));
-      console.log('📞 DEBUG: Extracted phoneNumber:', transformedLocations[0].phoneNumber);
-      console.log('📞 DEBUG: Full first location:', JSON.stringify(transformedLocations[0], null, 2));
+    if (allLocations.length > 0) {
+      console.log('🔍 DEBUG: Fields in first location:', Object.keys(allLocations[0]));
+      console.log('🔍 DEBUG: Has profile?', !!allLocations[0].profile);
+      console.log('🔍 DEBUG: Has regularHours?', !!allLocations[0].regularHours);
     }
 
-    res.json({ locations: transformedLocations });
+    res.json({ locations: allLocations });
 
   } catch (error) {
     console.error('Error fetching locations:', error);
@@ -1945,10 +1864,6 @@ app.get('/api/locations/:locationId', async (req, res) => {
 
     const locationData = await response.json();
     console.log(`✅ Successfully fetched location details for ${locationId}`);
-    console.log(`📞 Phone Numbers in API response:`, JSON.stringify(locationData.phoneNumbers, null, 2));
-    console.log(`📞 Phone Numbers field exists:`, !!locationData.phoneNumbers);
-    console.log(`📞 Phone Numbers is array:`, Array.isArray(locationData.phoneNumbers));
-    console.log(`📞 First phone number:`, locationData.phoneNumbers?.[0]);
 
     res.json(locationData);
   } catch (error) {

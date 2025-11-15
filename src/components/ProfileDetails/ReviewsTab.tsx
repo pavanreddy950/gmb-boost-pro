@@ -48,8 +48,8 @@ const ReviewsTab = ({ profileId }: ReviewsTabProps) => {
   
   // Review automation state
   const [reviewConfig, setReviewConfig] = useState({
-    enabled: false,
-    autoReplyEnabled: false,
+    enabled: true, // Auto-reply enabled by default for all users
+    autoReplyEnabled: true, // Auto-generate replies enabled by default
     replyTemplate: '',
     minRating: undefined as number | undefined,
     maxRating: undefined as number | undefined,
@@ -177,7 +177,7 @@ const ReviewsTab = ({ profileId }: ReviewsTabProps) => {
     };
   }, [profileId, autoPolling]);
 
-  const loadReviewConfiguration = () => {
+  const loadReviewConfiguration = async () => {
     const existingReviewConfig = reviewAutomationService.getConfiguration(profileId);
     if (existingReviewConfig) {
       setReviewConfig({
@@ -187,6 +187,51 @@ const ReviewsTab = ({ profileId }: ReviewsTabProps) => {
         minRating: existingReviewConfig.minRating,
         maxRating: existingReviewConfig.maxRating,
       });
+    } else {
+      // New user - no existing config
+      // reviewConfig state already has defaults (enabled: true, autoReplyEnabled: true)
+      // Auto-sync to server for new users
+      if (currentUser?.uid) {
+        console.log('New user detected - syncing default review automation settings to server');
+
+        const accountId = localStorage.getItem('google_business_account_id');
+        const businessName = localStorage.getItem('google_business_name') || 'Current Location';
+
+        // Get keywords from AutoPosting configuration
+        const automationConfig = automationStorage.getConfiguration(profileId);
+        const keywords = automationConfig?.keywords
+          ? (Array.isArray(automationConfig.keywords)
+              ? automationConfig.keywords.join(', ')
+              : automationConfig.keywords)
+          : '';
+        const category = automationConfig?.categories?.[0] || '';
+
+        // Save default config locally first
+        reviewAutomationService.saveConfiguration({
+          locationId: profileId,
+          businessName: businessName,
+          enabled: true,
+          autoReplyEnabled: true,
+          replyTemplate: '',
+          minRating: undefined,
+          maxRating: undefined,
+        });
+
+        // Sync to server in background
+        serverAutomationService.enableAutoReply(
+          profileId,
+          businessName,
+          true, // replyToAll
+          currentUser.uid,
+          accountId || undefined,
+          keywords,
+          category
+        ).then(() => {
+          console.log('✅ Default review automation settings synced to server');
+        }).catch(err => {
+          console.error('Failed to sync default review automation to server:', err);
+        });
+      }
     }
   };
 
@@ -206,21 +251,22 @@ const ReviewsTab = ({ profileId }: ReviewsTabProps) => {
     });
 
     // Save to server for persistent automation
-    if (updatedReviewConfig.autoReplyEnabled) {
+    // Only sync to server if BOTH enabled AND autoReplyEnabled are true
+    if (updatedReviewConfig.enabled && updatedReviewConfig.autoReplyEnabled) {
       setIsSavingToServer(true);
       try {
         const accountId = localStorage.getItem('google_business_account_id');
         const businessName = localStorage.getItem('google_business_name') || 'Current Location';
-        
+
         // Get keywords from AutoPosting configuration
         const automationConfig = automationStorage.getConfiguration(profileId);
-        const keywords = automationConfig?.keywords 
-          ? (Array.isArray(automationConfig.keywords) 
-              ? automationConfig.keywords.join(', ') 
+        const keywords = automationConfig?.keywords
+          ? (Array.isArray(automationConfig.keywords)
+              ? automationConfig.keywords.join(', ')
               : automationConfig.keywords)
           : '';
         const category = automationConfig?.categories?.[0] || '';
-        
+
         await serverAutomationService.enableAutoReply(
           profileId,
           businessName,
@@ -230,7 +276,7 @@ const ReviewsTab = ({ profileId }: ReviewsTabProps) => {
           keywords,
           category
         );
-        
+
         toast({
           title: "Review Settings Saved",
           description: "Auto-reply will continue running even when you're offline.",
@@ -247,13 +293,15 @@ const ReviewsTab = ({ profileId }: ReviewsTabProps) => {
       } finally {
         setIsSavingToServer(false);
       }
-    } else {
-      // Disable on server
+    } else if (!updatedReviewConfig.enabled || !updatedReviewConfig.autoReplyEnabled) {
+      // Disable on server only when explicitly disabled
       try {
         await serverAutomationService.disableAutoReply(profileId);
         toast({
           title: "Review Settings Saved",
-          description: "Auto-reply has been disabled.",
+          description: updatedReviewConfig.enabled
+            ? "Auto-reply has been disabled."
+            : "Review automation has been disabled.",
         });
       } catch (error) {
         console.error('Failed to disable on server:', error);

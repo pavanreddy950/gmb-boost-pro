@@ -58,10 +58,10 @@ export const useGoogleBusinessProfile = (): UseGoogleBusinessProfileReturn => {
   }, [currentUser]);
 
   // Load business accounts
-  const loadBusinessAccounts = useCallback(async () => {
+  const loadBusinessAccounts = useCallback(async (forceRefresh: boolean = false) => {
     try {
       setIsLoading(true);
-      const businessAccounts = await googleBusinessProfileService.getBusinessAccounts();
+      const businessAccounts = await googleBusinessProfileService.getBusinessAccounts(forceRefresh);
       setAccounts(businessAccounts);
 
       // Save GBP associations for all accounts
@@ -375,10 +375,10 @@ export const useGoogleBusinessProfile = (): UseGoogleBusinessProfileReturn => {
     setSelectedLocation(location);
   }, []);
 
-  // Refresh accounts
-  const refreshAccounts = useCallback(async () => {
+  // Refresh accounts (with optional force refresh to bypass cache)
+  const refreshAccounts = useCallback(async (forceRefresh: boolean = false) => {
     if (isConnected) {
-      await loadBusinessAccounts();
+      await loadBusinessAccounts(forceRefresh);
     }
   }, [isConnected, loadBusinessAccounts]);
 

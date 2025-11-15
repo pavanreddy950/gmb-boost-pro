@@ -75,17 +75,36 @@ export const SubscriptionProvider: React.FC<SubscriptionProviderProps> = ({ chil
 
     // Admin users skip subscription checks entirely
     if (isAdmin) {
-      console.log('Admin user detected, skipping subscription checks');
+      console.log('Admin user detected, granting unlimited access');
       setStatus('active');
       setDaysRemaining(null);
-      setSubscription(null);
+
+      // Create a virtual subscription object for admin with unlimited profiles
+      setSubscription({
+        id: 'admin-unlimited',
+        userId: currentUser?.uid || 'admin',
+        gbpAccountId: gbpAccountId || 'admin',
+        planId: 'unlimited',
+        status: 'active',
+        profileCount: 999999, // Unlimited profiles
+        maxProfiles: 999999,
+        amount: 0,
+        currency: 'usd',
+        interval: 'lifetime',
+        currentPeriodStart: new Date().toISOString(),
+        currentPeriodEnd: new Date(2099, 11, 31).toISOString(), // Far future
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      });
+
       setCanUsePlatform(true);
       setRequiresPayment(false);
       setBillingOnly(false);
       setIsFeatureBlocked(false);
-      setMessage(null);
+      setMessage('Administrator - Unlimited Access');
       setShowTrialSetup(false);
       setIsLoading(false);
+      console.log('✅ Admin access granted: unlimited profiles, all features enabled');
       return;
     }
 
