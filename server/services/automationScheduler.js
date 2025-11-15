@@ -79,7 +79,7 @@ class AutomationScheduler {
   // Initialize all automation schedules
   initializeAutomations() {
     console.log('[AutomationScheduler] Initializing all automations...');
-    
+
     const automations = this.settings.automations || {};
     for (const [locationId, config] of Object.entries(automations)) {
       if (config.autoPosting?.enabled) {
@@ -89,8 +89,146 @@ class AutomationScheduler {
         this.startReviewMonitoring(locationId, config.autoReply);
       }
     }
-    
+
     console.log(`[AutomationScheduler] Initialized ${this.scheduledJobs.size} posting schedules and ${this.reviewCheckIntervals.size} review monitors`);
+
+    // Start catch-up mechanism to handle missed posts
+    this.startMissedPostChecker();
+
+    // Check for missed posts immediately on startup
+    console.log('[AutomationScheduler] Running initial check for missed posts...');
+    this.checkAndCreateMissedPosts();
+  }
+
+  // Start a background checker for missed posts (runs every 5 minutes)
+  startMissedPostChecker() {
+    if (this.missedPostCheckerInterval) {
+      clearInterval(this.missedPostCheckerInterval);
+    }
+
+    console.log('[AutomationScheduler] ⏰ Starting missed post checker (every 5 minutes)');
+
+    // Check every 5 minutes for any posts that should have been created
+    this.missedPostCheckerInterval = setInterval(async () => {
+      console.log('[AutomationScheduler] 🔍 Running periodic check for missed posts...');
+      await this.checkAndCreateMissedPosts();
+    }, 5 * 60 * 1000); // 5 minutes
+  }
+
+  // Check for missed posts and create them
+  async checkAndCreateMissedPosts() {
+    try {
+      const automations = this.settings.automations || {};
+      const now = new Date();
+
+      console.log(`[AutomationScheduler] 📅 Checking ${Object.keys(automations).length} locations for missed posts at ${now.toISOString()}`);
+
+      for (const [locationId, config] of Object.entries(automations)) {
+        if (!config.autoPosting?.enabled) {
+          continue;
+        }
+
+        const autoPosting = config.autoPosting;
+        const lastRun = autoPosting.lastRun ? new Date(autoPosting.lastRun) : null;
+
+        // Calculate when the next post should be created based on schedule
+        const nextScheduledTime = this.calculateNextScheduledTime(autoPosting, lastRun);
+
+        if (!nextScheduledTime) {
+          console.log(`[AutomationScheduler] ⏭️  Skipping ${locationId} - no schedule configured`);
+          continue;
+        }
+
+        console.log(`[AutomationScheduler] 📊 Location ${locationId}:`);
+        console.log(`  - Last run: ${lastRun ? lastRun.toISOString() : 'NEVER'}`);
+        console.log(`  - Next scheduled: ${nextScheduledTime.toISOString()}`);
+        console.log(`  - Current time: ${now.toISOString()}`);
+        console.log(`  - Is overdue: ${now >= nextScheduledTime}`);
+
+        // If we're past the scheduled time and haven't run yet, create the post
+        if (now >= nextScheduledTime) {
+          console.log(`[AutomationScheduler] ⚡ MISSED POST DETECTED for ${locationId}! Creating now...`);
+          console.log(`  - Business: ${autoPosting.businessName}`);
+          console.log(`  - Frequency: ${autoPosting.frequency}`);
+          console.log(`  - Schedule: ${autoPosting.schedule}`);
+
+          // Create the post
+          await this.createAutomatedPost(locationId, autoPosting);
+
+          // Update last run time
+          this.settings.automations[locationId].autoPosting.lastRun = now.toISOString();
+          this.saveSettings();
+
+          console.log(`[AutomationScheduler] ✅ Missed post created and lastRun updated for ${locationId}`);
+        }
+      }
+    } catch (error) {
+      console.error('[AutomationScheduler] ❌ Error checking missed posts:', error);
+    }
+  }
+
+  // Calculate the next scheduled time based on frequency and last run
+  calculateNextScheduledTime(config, lastRun) {
+    if (!config.schedule || !config.frequency) {
+      return null;
+    }
+
+    const [hour, minute] = config.schedule.split(':').map(Number);
+
+    // If never run before, schedule for today (or tomorrow if time has passed)
+    if (!lastRun) {
+      const today = new Date();
+      today.setHours(hour, minute, 0, 0);
+
+      // If scheduled time today has passed, start from tomorrow
+      if (today < new Date()) {
+        return today;
+      } else {
+        today.setDate(today.getDate() + 1);
+        return today;
+      }
+    }
+
+    // Calculate next run based on frequency
+    const nextRun = new Date(lastRun);
+    nextRun.setHours(hour, minute, 0, 0);
+
+    switch (config.frequency) {
+      case 'daily':
+        // Next day at scheduled time
+        nextRun.setDate(nextRun.getDate() + 1);
+        break;
+
+      case 'alternative':
+        // Every 2 days
+        nextRun.setDate(nextRun.getDate() + 2);
+        break;
+
+      case 'weekly':
+        // Next week same day
+        nextRun.setDate(nextRun.getDate() + 7);
+        break;
+
+      case 'twice-weekly':
+        // Next occurrence (3 or 4 days based on current day)
+        const currentDay = nextRun.getDay();
+        if (currentDay === 1) { // Monday -> Thursday
+          nextRun.setDate(nextRun.getDate() + 3);
+        } else { // Thursday -> Monday
+          nextRun.setDate(nextRun.getDate() + 4);
+        }
+        break;
+
+      case 'test30s':
+        // Every 30 seconds
+        nextRun.setSeconds(nextRun.getSeconds() + 30);
+        break;
+
+      default:
+        return null;
+    }
+
+    return nextRun;
   }
 
   // Update automation settings
@@ -401,7 +539,24 @@ class AutomationScheduler {
       console.log(`[AutomationScheduler] ========================================`);
 
       // Use the updated method with better API handling
-      return await this.createAutomatedPostWithToken(locationId, config, userToken.access_token);
+      const result = await this.createAutomatedPostWithToken(locationId, config, userToken.access_token);
+
+      // If post was created successfully, update lastRun timestamp
+      if (result) {
+        console.log(`[AutomationScheduler] ✅ Post created successfully, updating lastRun timestamp`);
+
+        // Update the lastRun time in settings
+        if (this.settings.automations && this.settings.automations[locationId]) {
+          if (!this.settings.automations[locationId].autoPosting) {
+            this.settings.automations[locationId].autoPosting = {};
+          }
+          this.settings.automations[locationId].autoPosting.lastRun = new Date().toISOString();
+          this.saveSettings();
+          console.log(`[AutomationScheduler] ✅ lastRun updated to: ${this.settings.automations[locationId].autoPosting.lastRun}`);
+        }
+      }
+
+      return result;
 
     } catch (error) {
       console.error(`[AutomationScheduler] ❌ Error creating automated post:`, error);
@@ -1114,19 +1269,26 @@ STRICT Requirements:
   // Stop all automations
   stopAllAutomations() {
     console.log('[AutomationScheduler] Stopping all automations...');
-    
+
     // Stop all scheduled posts
     for (const [locationId, job] of this.scheduledJobs) {
       job.stop();
     }
     this.scheduledJobs.clear();
-    
+
     // Stop all review monitors
     for (const [locationId, interval] of this.reviewCheckIntervals) {
       clearInterval(interval);
     }
     this.reviewCheckIntervals.clear();
-    
+
+    // Stop the missed post checker
+    if (this.missedPostCheckerInterval) {
+      clearInterval(this.missedPostCheckerInterval);
+      this.missedPostCheckerInterval = null;
+      console.log('[AutomationScheduler] Stopped missed post checker');
+    }
+
     console.log('[AutomationScheduler] All automations stopped');
   }
 }
