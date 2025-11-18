@@ -3,14 +3,15 @@ import tokenManager from './tokenManager.js';
 import supabaseAutomationService from './supabaseAutomationService.js';
 
 /**
- * Proactive Token Refresh Service
+ * Proactive Token Refresh Service (AGGRESSIVE MODE)
  *
  * Runs in background to keep all user tokens fresh BEFORE they expire.
  * This prevents 401 errors during automation runs.
  *
- * Strategy:
- * - Runs every 45 minutes (tokens expire in 60 minutes)
- * - Refreshes tokens that expire in next 15 minutes
+ * AGGRESSIVE Strategy (for 24/7 reliability):
+ * - Runs every 30 minutes (tokens expire in 60 minutes)
+ * - Refreshes tokens that expire in next 30 minutes (not just expired ones)
+ * - Ensures tokens are ALWAYS fresh before scheduled automations
  * - Tracks refresh success/failure
  * - Logs failures for monitoring
  */
@@ -38,13 +39,15 @@ class TokenRefreshService {
 
     console.log('[TokenRefreshService] ========================================');
     console.log('[TokenRefreshService] 🚀 Starting Proactive Token Refresh Service');
-    console.log('[TokenRefreshService] 📅 Schedule: Every 45 minutes');
+    console.log('[TokenRefreshService] 📅 Schedule: Every 30 minutes (AGGRESSIVE)');
     console.log('[TokenRefreshService] 🎯 Purpose: Keep tokens fresh for 24/7 automation');
+    console.log('[TokenRefreshService] 🎯 Strategy: Refresh at 30 min to prevent ANY expiration');
     console.log('[TokenRefreshService] ========================================');
 
-    // Schedule token refresh every 45 minutes
-    // Tokens expire in 60 minutes, so this gives 15-minute buffer
-    this.refreshJob = cron.schedule('*/45 * * * *', async () => {
+    // Schedule token refresh every 30 minutes (MORE AGGRESSIVE)
+    // Tokens expire in 60 minutes, so this gives 30-minute buffer
+    // This ensures tokens are ALWAYS fresh before automation runs
+    this.refreshJob = cron.schedule('*/30 * * * *', async () => {
       await this.runRefreshCycle();
     }, {
       scheduled: true,
@@ -153,7 +156,7 @@ class TokenRefreshService {
       console.log('[TokenRefreshService] ✅ REFRESH CYCLE COMPLETE');
       console.log(`[TokenRefreshService] 📊 Results: ${successCount} success, ${failCount} failed`);
       console.log(`[TokenRefreshService] ⏱️ Duration: ${duration} seconds`);
-      console.log('[TokenRefreshService] 📅 Next run: In 45 minutes');
+      console.log('[TokenRefreshService] 📅 Next run: In 30 minutes');
       console.log('[TokenRefreshService] ========================================');
 
     } catch (error) {

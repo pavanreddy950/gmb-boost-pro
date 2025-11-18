@@ -346,9 +346,9 @@ class AutomationScheduler {
     try {
       console.log(`[AutomationScheduler] Creating automated post with provided token for location ${locationId}`);
       console.log(`[AutomationScheduler] Config received:`, JSON.stringify(config, null, 2));
-      
+
       // Generate post content using AI
-      const postContent = await this.generatePostContent(config);
+      const postContent = await this.generatePostContent(config, locationId, config.userId);
       
       // Create the post via Google Business Profile API (v4 - current version)
       // v4 requires accountId in the path
@@ -702,22 +702,76 @@ class AutomationScheduler {
     return generatedCTA;
   }
 
+  // Fetch location details from Google API if address is missing
+  async fetchLocationAddress(locationId, userId) {
+    try {
+      const token = await this.getValidTokenForUser(userId);
+      if (!token || !token.access_token) {
+        console.log('[AutomationScheduler] ⚠️ No valid token available to fetch location address');
+        return null;
+      }
+
+      const HARDCODED_ACCOUNT_ID = '106433552101751461082';
+      const url = `https://mybusinessbusinessinformation.googleapis.com/v1/accounts/${HARDCODED_ACCOUNT_ID}/locations/${locationId}?readMask=storefrontAddress,title`;
+
+      const response = await fetch(url, {
+        headers: {
+          'Authorization': `Bearer ${token.access_token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        if (data.storefrontAddress) {
+          return {
+            fullAddress: data.storefrontAddress.addressLines?.join(', ') || '',
+            city: data.storefrontAddress.locality || '',
+            region: data.storefrontAddress.administrativeArea || '',
+            country: data.storefrontAddress.regionCode || '',
+            postalCode: data.storefrontAddress.postalCode || ''
+          };
+        }
+      }
+
+      console.log('[AutomationScheduler] ⚠️ Could not fetch location address from Google API');
+      return null;
+    } catch (error) {
+      console.log('[AutomationScheduler] Error fetching location address:', error.message);
+      return null;
+    }
+  }
+
   // Generate post content using AI ONLY - no templates/mocks
-  async generatePostContent(config) {
+  async generatePostContent(config, locationId, userId) {
     console.log(`[AutomationScheduler] ========================================`);
     console.log(`[AutomationScheduler] 📝 GENERATING POST CONTENT`);
     console.log(`[AutomationScheduler] Config received:`, JSON.stringify(config, null, 2));
-    
+
     // Ensure we have proper business name and details
     const businessName = config.businessName || 'Business';
     const category = config.category || 'service';
     const keywords = config.keywords || 'quality, service, professional';
-    const city = config.city || config.locationName || '';
-    const region = config.region || '';
-    const country = config.country || '';
-    const fullAddress = config.fullAddress || '';
+    let city = config.city || config.locationName || '';
+    let region = config.region || '';
+    let country = config.country || '';
+    let fullAddress = config.fullAddress || '';
     const websiteUrl = config.websiteUrl || '';
-    const postalCode = config.postalCode || config.pinCode || '';
+    let postalCode = config.postalCode || config.pinCode || '';
+
+    // If address is missing, fetch it from Google API
+    if (!fullAddress && !city && locationId && userId) {
+      console.log('[AutomationScheduler] 📍 Address missing in config, fetching from Google API...');
+      const addressData = await this.fetchLocationAddress(locationId, userId);
+      if (addressData) {
+        fullAddress = addressData.fullAddress;
+        city = addressData.city;
+        region = addressData.region;
+        country = addressData.country;
+        postalCode = addressData.postalCode;
+        console.log('[AutomationScheduler] ✅ Fetched address from Google API:', fullAddress);
+      }
+    }
 
     // Build location string prioritizing city
     let locationStr = city;

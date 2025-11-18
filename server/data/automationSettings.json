@@ -14,7 +14,7 @@
         "country": "",
         "fullAddress": "",
         "postalCode": "",
-        "lastRun": "2025-11-15T15:29:15.453Z"
+        "lastRun": "2025-11-18T05:31:58.183Z"
       },
       "userId": "OBm8qZc0jOWcY53x6rQuX4gKKnQ2",
       "autoReply": {
@@ -45,7 +45,7 @@
         "country": "",
         "fullAddress": "",
         "postalCode": "",
-        "lastRun": "2025-11-15T15:29:44.414Z"
+        "lastRun": "2025-11-18T05:32:12.407Z"
       },
       "userId": "OBm8qZc0jOWcY53x6rQuX4gKKnQ2",
       "autoReply": {
@@ -76,7 +76,7 @@
         "country": "",
         "fullAddress": "",
         "postalCode": "",
-        "lastRun": "2025-11-15T15:33:41.995Z"
+        "lastRun": "2025-11-18T05:32:24.339Z"
       },
       "userId": "OBm8qZc0jOWcY53x6rQuX4gKKnQ2",
       "autoReply": {
@@ -122,7 +122,8 @@
           "phoneNumber": ""
         },
         "userId": "OBm8qZc0jOWcY53x6rQuX4gKKnQ2",
-        "accountId": "106433552101751461082"
+        "accountId": "106433552101751461082",
+        "lastRun": "2025-11-18T05:37:53.255Z"
       },
       "userId": "OBm8qZc0jOWcY53x6rQuX4gKKnQ2",
       "autoReply": {
@@ -134,7 +135,7 @@
         "userId": "OBm8qZc0jOWcY53x6rQuX4gKKnQ2",
         "accountId": "106433552101751461082"
       },
-      "updatedAt": "2025-11-15T21:48:38.228Z"
+      "updatedAt": "2025-11-18T05:37:49.404Z"
     },
     "17697790081864925086": {
       "autoPosting": {
@@ -156,7 +157,8 @@
           "type": "auto"
         },
         "userId": "OBm8qZc0jOWcY53x6rQuX4gKKnQ2",
-        "accountId": "106433552101751461082"
+        "accountId": "106433552101751461082",
+        "lastRun": "2025-11-18T05:32:48.119Z"
       },
       "userId": "OBm8qZc0jOWcY53x6rQuX4gKKnQ2",
       "autoReply": {
@@ -190,7 +192,8 @@
           "type": "auto"
         },
         "userId": "OBm8qZc0jOWcY53x6rQuX4gKKnQ2",
-        "accountId": "106433552101751461082"
+        "accountId": "106433552101751461082",
+        "lastRun": "2025-11-18T05:32:59.726Z"
       },
       "userId": "OBm8qZc0jOWcY53x6rQuX4gKKnQ2",
       "autoReply": {
@@ -203,6 +206,44 @@
         "accountId": "106433552101751461082"
       },
       "updatedAt": "2025-11-15T21:31:31.233Z"
+    },
+    "13590844868409001032": {
+      "autoPosting": {
+        "enabled": true,
+        "schedule": "09:00",
+        "frequency": "test30s",
+        "businessName": "SANGMESHWAR TRADING COMPANY",
+        "category": "Agricultural service",
+        "categories": [
+          "Agricultural service"
+        ],
+        "keywords": "SANGMESHWAR TRADING COMPANY, sangmeshwar, trading, udgir, SANGMESHWAR TRADING COMPANY udgir",
+        "timezone": "Asia/Calcutta",
+        "fullAddress": "udgir , monda road",
+        "city": "udgir",
+        "region": "Maharashtra",
+        "country": "IN",
+        "postalCode": "413517",
+        "phoneNumber": "087935 06163",
+        "button": {
+          "enabled": true,
+          "type": "auto"
+        },
+        "userId": "g9nPJnKnjrgScYUVc8Xo1AFRDsu1",
+        "accountId": "106433552101751461082",
+        "lastRun": "2025-11-18T05:56:48.331Z"
+      },
+      "userId": "g9nPJnKnjrgScYUVc8Xo1AFRDsu1",
+      "autoReply": {
+        "enabled": true,
+        "businessName": "SANGMESHWAR TRADING COMPANY",
+        "category": "Agricultural service",
+        "keywords": "SANGMESHWAR TRADING COMPANY, sangmeshwar, trading, udgir, SANGMESHWAR TRADING COMPANY udgir",
+        "replyToAll": true,
+        "userId": "g9nPJnKnjrgScYUVc8Xo1AFRDsu1",
+        "accountId": "106433552101751461082"
+      },
+      "updatedAt": "2025-11-18T05:35:42.210Z"
     }
   }
 }

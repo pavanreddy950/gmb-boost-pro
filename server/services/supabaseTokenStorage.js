@@ -245,12 +245,16 @@ class SupabaseTokenStorage {
         return null;
       }
 
-      // Check if token is expired
+      // Check if token is expired OR will expire soon (AGGRESSIVE REFRESH)
       const now = Date.now();
       const expiryDate = token.expiry_date;
+      const REFRESH_BUFFER_MS = 30 * 60 * 1000; // 30 minutes in milliseconds
+      const timeUntilExpiry = expiryDate - now;
+      const minutesUntilExpiry = Math.round(timeUntilExpiry / 1000 / 60);
 
-      if (expiryDate && expiryDate < now) {
-        console.log(`[SupabaseTokenStorage] 🔄 Token expired, attempting refresh for user ${userId}`);
+      // AGGRESSIVE: Refresh if token expires in less than 30 minutes
+      if (expiryDate && timeUntilExpiry < REFRESH_BUFFER_MS) {
+        console.log(`[SupabaseTokenStorage] 🔄 Token expires soon (${minutesUntilExpiry} min), refreshing proactively for user ${userId}`);
 
         if (!token.refresh_token) {
           console.log(`[SupabaseTokenStorage] ❌ No refresh token available`);
@@ -262,17 +266,19 @@ class SupabaseTokenStorage {
         const refreshedToken = await this.refreshToken(userId, token.refresh_token);
 
         if (refreshedToken) {
-          console.log(`[SupabaseTokenStorage] ✅ Token refreshed successfully`);
+          console.log(`[SupabaseTokenStorage] ✅ Token refreshed successfully (new expiry: 60 min)`);
           console.log(`[SupabaseTokenStorage] ========================================`);
           return refreshedToken;
         } else {
-          console.log(`[SupabaseTokenStorage] ❌ Token refresh failed`);
+          console.log(`[SupabaseTokenStorage] ❌ Token refresh failed - returning existing token`);
+          console.log(`[SupabaseTokenStorage] ⚠️ Warning: Token may expire soon!`);
           console.log(`[SupabaseTokenStorage] ========================================`);
-          return null;
+          // Return existing token even if refresh failed - it might still work
+          return token;
         }
       }
 
-      console.log(`[SupabaseTokenStorage] ✅ Token is valid for user ${userId}`);
+      console.log(`[SupabaseTokenStorage] ✅ Token is valid for user ${userId} (expires in ${minutesUntilExpiry} min)`);
       console.log(`[SupabaseTokenStorage] ========================================`);
       return token;
     } catch (error) {
