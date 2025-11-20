@@ -1,28 +1,25 @@
 import cron from 'node-cron';
-import fs from 'fs';
-import path from 'path';
-import { fileURLToPath } from 'url';
 import fetch from 'node-fetch';
 import supabaseTokenStorage from './supabaseTokenStorage.js';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+import supabaseAutomationService from './supabaseAutomationService.js';
 
 class AutomationScheduler {
   constructor() {
-    this.dataFile = path.join(__dirname, '..', 'data', 'automationSettings.json');
-    this.tokenFile = path.join(__dirname, '..', 'data', 'tokens.json');
-    this.ensureDataFiles();
-    this.loadSettings();
+    // REMOVED: JSON file storage - now using Supabase only
+    this.settings = { automations: {} }; // In-memory cache, loaded from Supabase
     this.scheduledJobs = new Map();
     this.reviewCheckIntervals = new Map();
-    
+
+    // Post creation locks to prevent duplicate posts (fixes 3 posts at same time issue)
+    this.postCreationLocks = new Map(); // locationId -> timestamp of last post creation
+    this.DUPLICATE_POST_WINDOW = 60 * 1000; // 60 seconds - prevent duplicate posts within this window
+
     // Hardcoded Azure OpenAI configuration - no environment variables needed
     this.azureEndpoint = 'https://agentplus.openai.azure.com/';
     this.apiKey = '1TPW16ifwPJccSiQPSHq63nU7IcT6R9DrduIHBYwCm5jbUWiSbkLJQQJ99BDACYeBjFXJ3w3AAABACOG3Yia';
     this.deploymentName = 'gpt-4o';
     this.apiVersion = '2024-02-15-preview';
-    
+
     // Log Azure OpenAI configuration status
     console.log('[AutomationScheduler] ✅ Azure OpenAI Configuration (Hardcoded):');
     console.log(`  - Endpoint: ✅ ${this.azureEndpoint}`);
@@ -31,44 +28,34 @@ class AutomationScheduler {
     console.log(`  - API Version: ✅ ${this.apiVersion}`);
   }
 
-  ensureDataFiles() {
-    const dir = path.dirname(this.dataFile);
-    if (!fs.existsSync(dir)) {
-      fs.mkdirSync(dir, { recursive: true });
-    }
-    if (!fs.existsSync(this.dataFile)) {
-      this.saveSettings({ automations: {} });
-    }
-    if (!fs.existsSync(this.tokenFile)) {
-      fs.writeFileSync(this.tokenFile, JSON.stringify({ tokens: {} }, null, 2));
-    }
-  }
-
-  loadSettings() {
+  // Load settings from Supabase (called on initialization)
+  async loadSettings() {
     try {
-      const data = fs.readFileSync(this.dataFile, 'utf8');
-      this.settings = JSON.parse(data);
-      console.log('[AutomationScheduler] Loaded automation settings');
+      console.log('[AutomationScheduler] 📥 Loading automation settings from Supabase...');
+      const allSettings = await supabaseAutomationService.getAllEnabledAutomations();
+
+      // Convert Supabase format to existing format for compatibility
+      this.settings = { automations: {} };
+      for (const setting of allSettings) {
+        this.settings.automations[setting.location_id] = setting.settings;
+      }
+
+      console.log(`[AutomationScheduler] ✅ Loaded ${Object.keys(this.settings.automations).length} automation(s) from Supabase`);
     } catch (error) {
-      console.error('[AutomationScheduler] Error loading settings:', error);
+      console.error('[AutomationScheduler] ❌ Error loading settings from Supabase:', error);
       this.settings = { automations: {} };
     }
   }
 
-  saveSettings(settings = this.settings) {
+  // Save settings to Supabase (no more JSON files)
+  async saveSettings(settings = this.settings) {
     try {
-      fs.writeFileSync(this.dataFile, JSON.stringify(settings, null, 2));
-      console.log('[AutomationScheduler] Saved automation settings');
+      console.log('[AutomationScheduler] 💾 Automation settings updated in memory cache');
+      // Settings are automatically saved to Supabase via API endpoints
+      // This method now just updates the in-memory cache
     } catch (error) {
-      console.error('[AutomationScheduler] Error saving settings:', error);
+      console.error('[AutomationScheduler] Error updating settings cache:', error);
     }
-  }
-
-  loadTokens() {
-    // Use centralized token storage
-    // Load tokens from Firestore - this is handled differently now
-    // We'll use getValidToken directly instead
-    return {};
   }
 
   // Get valid token for user with automatic refresh
@@ -76,9 +63,12 @@ class AutomationScheduler {
     return await supabaseTokenStorage.getValidToken(userId);
   }
 
-  // Initialize all automation schedules
-  initializeAutomations() {
-    console.log('[AutomationScheduler] Initializing all automations...');
+  // Initialize all automation schedules (now async to load from Supabase)
+  async initializeAutomations() {
+    console.log('[AutomationScheduler] 🚀 Initializing all automations from Supabase...');
+
+    // Load settings from Supabase first
+    await this.loadSettings();
 
     const automations = this.settings.automations || {};
     for (const [locationId, config] of Object.entries(automations)) {
@@ -90,7 +80,7 @@ class AutomationScheduler {
       }
     }
 
-    console.log(`[AutomationScheduler] Initialized ${this.scheduledJobs.size} posting schedules and ${this.reviewCheckIntervals.size} review monitors`);
+    console.log(`[AutomationScheduler] ✅ Initialized ${this.scheduledJobs.size} posting schedules and ${this.reviewCheckIntervals.size} review monitors`);
 
     // Start catch-up mechanism to handle missed posts
     this.startMissedPostChecker();
@@ -100,19 +90,19 @@ class AutomationScheduler {
     this.checkAndCreateMissedPosts();
   }
 
-  // Start a background checker for missed posts (runs every 5 minutes)
+  // Start a background checker for missed posts (runs every 2 minutes for more reliability)
   startMissedPostChecker() {
     if (this.missedPostCheckerInterval) {
       clearInterval(this.missedPostCheckerInterval);
     }
 
-    console.log('[AutomationScheduler] ⏰ Starting missed post checker (every 5 minutes)');
+    console.log('[AutomationScheduler] ⏰ Starting missed post checker (every 2 minutes)');
 
-    // Check every 5 minutes for any posts that should have been created
+    // Check every 2 minutes for any posts that should have been created
     this.missedPostCheckerInterval = setInterval(async () => {
       console.log('[AutomationScheduler] 🔍 Running periodic check for missed posts...');
       await this.checkAndCreateMissedPosts();
-    }, 5 * 60 * 1000); // 5 minutes
+    }, 2 * 60 * 1000); // 2 minutes for more reliable posting
   }
 
   // Check for missed posts and create them
@@ -147,17 +137,18 @@ class AutomationScheduler {
 
         // If we're past the scheduled time and haven't run yet, create the post
         if (now >= nextScheduledTime) {
-          console.log(`[AutomationScheduler] ⚡ MISSED POST DETECTED for ${locationId}! Creating now...`);
+          console.log(`[AutomationScheduler] ⚡ MISSED POST CHECKER TRIGGERED for ${locationId}! Creating now...`);
           console.log(`  - Business: ${autoPosting.businessName}`);
           console.log(`  - Frequency: ${autoPosting.frequency}`);
           console.log(`  - Schedule: ${autoPosting.schedule}`);
+          console.log(`  - 🕐 Checker time: ${new Date().toISOString()}`);
 
-          // Create the post
+          // Create the post (will be prevented by lock if duplicate)
           await this.createAutomatedPost(locationId, autoPosting);
 
-          // Update last run time
+          // Update last run time in cache AND Supabase
           this.settings.automations[locationId].autoPosting.lastRun = now.toISOString();
-          this.saveSettings();
+          await this.updateAutomationSettings(locationId, this.settings.automations[locationId]);
 
           console.log(`[AutomationScheduler] ✅ Missed post created and lastRun updated for ${locationId}`);
         }
@@ -231,22 +222,36 @@ class AutomationScheduler {
     return nextRun;
   }
 
-  // Update automation settings
-  updateAutomationSettings(locationId, settings) {
-    console.log(`[AutomationScheduler] Updating settings for location ${locationId}`);
-    
+  // Update automation settings (now updates Supabase AND in-memory cache)
+  async updateAutomationSettings(locationId, settings) {
+    console.log(`[AutomationScheduler] 💾 Updating settings for location ${locationId}`);
+
     if (!this.settings.automations) {
       this.settings.automations = {};
     }
-    
+
+    // Update in-memory cache
     this.settings.automations[locationId] = {
       ...this.settings.automations[locationId],
       ...settings,
       updatedAt: new Date().toISOString()
     };
-    
-    this.saveSettings();
-    
+
+    // Save to Supabase (not JSON files anymore)
+    try {
+      const userId = settings.userId || settings.autoPosting?.userId || settings.autoReply?.userId;
+      if (userId) {
+        await supabaseAutomationService.saveSettings(userId, locationId, {
+          ...this.settings.automations[locationId],
+          enabled: settings.autoPosting?.enabled || settings.autoReply?.enabled || false,
+          autoReplyEnabled: settings.autoReply?.enabled || false
+        });
+        console.log(`[AutomationScheduler] ✅ Settings saved to Supabase for location ${locationId}`);
+      }
+    } catch (error) {
+      console.error('[AutomationScheduler] ❌ Error saving to Supabase:', error);
+    }
+
     // Restart relevant automations
     if (settings.autoPosting !== undefined) {
       this.stopAutoPosting(locationId);
@@ -254,14 +259,14 @@ class AutomationScheduler {
         this.scheduleAutoPosting(locationId, settings.autoPosting);
       }
     }
-    
+
     if (settings.autoReply !== undefined) {
       this.stopReviewMonitoring(locationId);
       if (settings.autoReply?.enabled) {
         this.startReviewMonitoring(locationId, settings.autoReply);
       }
     }
-    
+
     return this.settings.automations[locationId];
   }
 
@@ -276,28 +281,26 @@ class AutomationScheduler {
     this.stopAutoPosting(locationId);
 
     let cronExpression;
+    const [hour, minute] = config.schedule.split(':');
+
     switch (config.frequency) {
       case 'daily':
         // Daily at specified time (e.g., "09:00")
-        const [hour, minute] = config.schedule.split(':');
         cronExpression = `${minute} ${hour} * * *`;
         break;
       case 'alternative':
-        // Every other day at specified time
-        const [altHour, altMinute] = config.schedule.split(':');
-        // Use */2 for every 2 days
-        cronExpression = `${altMinute} ${altHour} */2 * *`;
+        // For "alternative" (every 2 days), run daily at scheduled time
+        // The createAutomatedPost method will check lastRun and only post if 2 days have passed
+        cronExpression = `${minute} ${hour} * * *`;
         break;
       case 'weekly':
         // Weekly on specified day and time
         const weekDay = config.dayOfWeek || 1; // Default Monday
-        const [wHour, wMinute] = config.schedule.split(':');
-        cronExpression = `${wMinute} ${wHour} * * ${weekDay}`;
+        cronExpression = `${minute} ${hour} * * ${weekDay}`;
         break;
       case 'twice-weekly':
         // Twice weekly (Monday and Thursday)
-        const [twHour, twMinute] = config.schedule.split(':');
-        cronExpression = `${twMinute} ${twHour} * * 1,4`;
+        cronExpression = `${minute} ${hour} * * 1,4`;
         break;
       case 'test30s':
         // Test mode - every 30 seconds
@@ -319,9 +322,25 @@ class AutomationScheduler {
     }
 
     console.log(`[AutomationScheduler] Scheduling auto-posting for location ${locationId} with cron: ${cronExpression}`);
+    console.log(`[AutomationScheduler] 📅 Frequency: ${config.frequency}, Schedule: ${config.schedule}, Timezone: ${config.timezone || 'America/New_York'}`);
 
     const job = cron.schedule(cronExpression, async () => {
-      console.log(`[AutomationScheduler] Running scheduled post for location ${locationId}`);
+      console.log(`[AutomationScheduler] ⏰ CRON TRIGGERED - Running scheduled post for location ${locationId}`);
+      console.log(`[AutomationScheduler] 🕐 Trigger time: ${new Date().toISOString()}`);
+      
+      // For frequencies that need interval checking (like "alternative"), verify it's time to post
+      if (config.frequency === 'alternative') {
+        const lastRun = config.lastRun ? new Date(config.lastRun) : null;
+        const nextScheduledTime = this.calculateNextScheduledTime(config, lastRun);
+        const now = new Date();
+        
+        if (nextScheduledTime && now < nextScheduledTime) {
+          console.log(`[AutomationScheduler] ⏭️  Skipping - Next post scheduled for: ${nextScheduledTime.toISOString()}`);
+          console.log(`[AutomationScheduler] ⏱️  Time remaining: ${Math.floor((nextScheduledTime - now) / 1000 / 60 / 60)} hours`);
+          return; // Skip this run
+        }
+      }
+      
       await this.createAutomatedPost(locationId, config);
     }, {
       scheduled: true,
@@ -329,6 +348,7 @@ class AutomationScheduler {
     });
 
     this.scheduledJobs.set(locationId, job);
+    console.log(`[AutomationScheduler] ✅ Cron job registered. Total active jobs: ${this.scheduledJobs.size}`);
   }
 
   // Stop auto-posting for a location
@@ -385,6 +405,7 @@ class AutomationScheduler {
 
         // Log the post creation
         this.logAutomationActivity(locationId, 'post_created', {
+          userId: config.userId || 'system',
           postId: result.name || result.id,
           content: postContent.content,
           timestamp: new Date().toISOString()
@@ -463,6 +484,26 @@ class AutomationScheduler {
         frequency: config.frequency,
         schedule: config.schedule
       });
+
+      // 🔒 CHECK FOR DUPLICATE POST PREVENTION LOCK
+      const now = Date.now();
+      const lastPostTime = this.postCreationLocks.get(locationId);
+
+      if (lastPostTime) {
+        const timeSinceLastPost = now - lastPostTime;
+        const secondsSinceLastPost = Math.floor(timeSinceLastPost / 1000);
+
+        if (timeSinceLastPost < this.DUPLICATE_POST_WINDOW) {
+          console.log(`[AutomationScheduler] 🔒 DUPLICATE POST PREVENTED for location ${locationId}`);
+          console.log(`[AutomationScheduler] ⏱️  Last post was ${secondsSinceLastPost} seconds ago (within ${this.DUPLICATE_POST_WINDOW / 1000}s window)`);
+          console.log(`[AutomationScheduler] ✅ Skipping this post creation request to prevent duplicates`);
+          return null; // Exit early - don't create duplicate post
+        }
+      }
+
+      // Set lock IMMEDIATELY to prevent race conditions
+      this.postCreationLocks.set(locationId, now);
+      console.log(`[AutomationScheduler] 🔓 Lock acquired for location ${locationId} at ${new Date(now).toISOString()}`);
 
       // Try to get a valid token for the configured user first
       let userToken = null;
@@ -551,8 +592,8 @@ class AutomationScheduler {
             this.settings.automations[locationId].autoPosting = {};
           }
           this.settings.automations[locationId].autoPosting.lastRun = new Date().toISOString();
-          this.saveSettings();
-          console.log(`[AutomationScheduler] ✅ lastRun updated to: ${this.settings.automations[locationId].autoPosting.lastRun}`);
+          await this.updateAutomationSettings(locationId, this.settings.automations[locationId]);
+          console.log(`[AutomationScheduler] ✅ lastRun updated in Supabase: ${this.settings.automations[locationId].autoPosting.lastRun}`);
         }
       }
 
@@ -563,7 +604,9 @@ class AutomationScheduler {
       console.error(`[AutomationScheduler] Error stack:`, error.stack);
 
       // Log the error
+      const targetUserId = config?.userId || config?.autoPosting?.userId || 'system';
       this.logAutomationActivity(locationId, 'post_failed', {
+        userId: targetUserId,
         error: error.message,
         timestamp: new Date().toISOString(),
         reason: 'system_error',
@@ -1124,6 +1167,7 @@ CRITICAL RULES - MUST FOLLOW ALL:
         
         // Log the activity
         this.logAutomationActivity(locationId, 'review_replied', {
+          userId: config.userId || 'system',
           reviewId: reviewId,
           rating: rating,
           reviewerName: reviewerName,
@@ -1135,6 +1179,7 @@ CRITICAL RULES - MUST FOLLOW ALL:
       } else {
         // Log the failure
         this.logAutomationActivity(locationId, 'review_reply_failed', {
+          userId: config.userId || 'system',
           reviewId: reviewId,
           rating: rating,
           reviewerName: reviewerName,
@@ -1147,6 +1192,7 @@ CRITICAL RULES - MUST FOLLOW ALL:
       
       // Log the error
       this.logAutomationActivity(locationId, 'review_reply_failed', {
+        userId: config.userId || 'system',
         reviewId: review.reviewId || review.name,
         error: error.message,
         timestamp: new Date().toISOString()
@@ -1288,31 +1334,43 @@ STRICT Requirements:
     }
   }
 
-  // Log automation activities
-  logAutomationActivity(locationId, type, details) {
-    const logFile = path.join(__dirname, '..', 'data', 'automation_log.json');
-    let log = { activities: [] };
-    
+  // Log automation activities to Supabase
+  async logAutomationActivity(locationId, type, details) {
     try {
-      if (fs.existsSync(logFile)) {
-        log = JSON.parse(fs.readFileSync(logFile, 'utf8'));
+      const userId = details.userId || 'system';
+      const reviewId = details.reviewId || null;
+
+      // Determine status based on type
+      let status = 'success';
+      let errorMessage = null;
+
+      if (type.includes('failed')) {
+        status = 'failed';
+        errorMessage = details.error || 'Unknown error';
       }
-      
-      log.activities.push({
+
+      // Map old type names to action_type for database
+      let actionType = type;
+      if (type === 'post_created') actionType = 'post_created';
+      if (type === 'post_failed') actionType = 'post_failed';
+      if (type === 'review_replied') actionType = 'review_replied';
+      if (type === 'reply_failed') actionType = 'reply_failed';
+
+      // Log to Supabase instead of JSON file
+      await supabaseAutomationService.logActivity(
+        userId,
         locationId,
-        type,
+        actionType,
+        reviewId,
+        status,
         details,
-        timestamp: new Date().toISOString()
-      });
-      
-      // Keep only last 1000 activities
-      if (log.activities.length > 1000) {
-        log.activities = log.activities.slice(-1000);
-      }
-      
-      fs.writeFileSync(logFile, JSON.stringify(log, null, 2));
+        errorMessage
+      );
+
+      console.log(`[AutomationScheduler] ✅ Logged activity: ${actionType} for location ${locationId}`);
     } catch (error) {
-      console.error('[AutomationScheduler] Error logging activity:', error);
+      console.error('[AutomationScheduler] Error logging activity to Supabase:', error);
+      // Don't throw error - logging failure shouldn't stop automation
     }
   }
 
@@ -1365,8 +1423,8 @@ STRICT Requirements:
 // Create singleton instance
 const automationScheduler = new AutomationScheduler();
 
-// Initialize automations on startup
-automationScheduler.initializeAutomations();
+// NO automatic initialization here - server.js will call initializeAutomations() after startup
+// This allows proper async loading from Supabase
 
 // Graceful shutdown
 process.on('SIGINT', () => {

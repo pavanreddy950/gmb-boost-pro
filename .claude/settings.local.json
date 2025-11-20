@@ -17,7 +17,11 @@
       "Bash(npm run dev:*)",
       "Bash(docker tag:*)",
       "Bash(git restore:*)",
-      "Bash(git push:*)"
+      "Bash(git push:*)",
+      "Bash(node -c:*)",
+      "Bash(node test-daily-email.js:*)",
+      "Bash(node:*)",
+      "Bash(dir:*)"
     ],
     "deny": [],
     "ask": []

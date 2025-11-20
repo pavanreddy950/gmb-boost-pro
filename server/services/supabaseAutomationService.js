@@ -180,6 +180,50 @@ class SupabaseAutomationService {
   }
 
   /**
+   * Get activity logs by type and timeframe
+   */
+  async getActivityByType(userId, actionType, startDate, endDate = null) {
+    try {
+      await this.initialize();
+
+      let query = this.client
+        .from('automation_logs')
+        .select('*')
+        .eq('user_id', userId)
+        .eq('action_type', actionType)
+        .eq('status', 'success')
+        .gte('created_at', startDate.toISOString());
+
+      if (endDate) {
+        query = query.lte('created_at', endDate.toISOString());
+      }
+
+      const { data, error } = await query.order('created_at', { ascending: false });
+
+      if (error) throw error;
+
+      return data || [];
+    } catch (error) {
+      console.error('[SupabaseAutomationService] Error getting activity by type:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Get posts created for user within timeframe
+   */
+  async getPostsCreated(userId, startDate, endDate = null) {
+    return this.getActivityByType(userId, 'post_created', startDate, endDate);
+  }
+
+  /**
+   * Get reviews replied for user within timeframe
+   */
+  async getReviewsReplied(userId, startDate, endDate = null) {
+    return this.getActivityByType(userId, 'review_replied', startDate, endDate);
+  }
+
+  /**
    * Format settings from database
    */
   formatSettings(data) {

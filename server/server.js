@@ -28,8 +28,9 @@ import SMSService from './services/smsService.js';
 import WhatsAppService from './services/whatsappService.js';
 import CSVProcessingService from './services/csvProcessingService.js';
 import TrialEmailScheduler from './services/trialEmailScheduler.js';
-import dailyActivityScheduler from './services/dailyActivityScheduler.js';
-import dailyActivityEmailService from './services/dailyActivityEmailService.js';
+import dailyActivityScheduler from './services/newDailyActivityScheduler.js';
+import dynamicDailyActivityScheduler from './services/dynamicDailyActivityScheduler.js';
+import dailyActivityEmailService from './services/newDailyActivityEmailService.js';
 
 // Configuration is now managed by config.js
 // All hardcoded values have been moved to .env files
@@ -3911,17 +3912,17 @@ app.post('/api/email/test-trial-reminder', async (req, res) => {
 // 📊 Test Email Endpoint - Send daily activity report
 app.post('/api/email/test-daily-report', async (req, res) => {
   try {
-    const { userId, email, sendToAll } = req.body;
+    const { userId, email, sendToAll, testType } = req.body;
 
     if (sendToAll) {
-      console.log(`[DAILY REPORT TEST] Sending daily reports to ALL users...`);
+      console.log(`[DAILY REPORT TEST] Sending daily reports to ALL users with real database data...`);
 
-      // Send to all users
-      const result = await dailyActivityScheduler.sendAllDailyReports();
+      // Send to all users using dynamic scheduler
+      const result = await dynamicDailyActivityScheduler.sendAllDailyReports();
 
       res.json({
         success: true,
-        message: 'Daily reports sent to all users',
+        message: 'Daily reports sent to all users with real database data',
         results: result
       });
     } else {
@@ -3932,33 +3933,65 @@ app.post('/api/email/test-daily-report', async (req, res) => {
         });
       }
 
-      console.log(`[DAILY REPORT TEST] Sending daily report to ${email}`);
+      console.log(`[DAILY REPORT TEST] Sending ${testType || 'trial'} email to ${email}`);
 
-      // Create a test subscription object
-      const testSubscription = {
-        userId: userId || 'test-user-id',
-        email: email,
-        status: 'trial',
-        trialEndDate: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString() // 3 days from now
-      };
+      // Create a test subscription object based on test type
+      let testSubscription;
+      
+      switch (testType) {
+        case 'trial_expired':
+          // Trial expired user
+          testSubscription = {
+            userId: userId || 'test-user-id',
+            email: email,
+            status: 'trial',
+            trialEndDate: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString() // Expired yesterday
+          };
+          break;
+        
+        case 'subscribed':
+          // Active subscription user
+          testSubscription = {
+            userId: userId || 'test-user-id',
+            email: email,
+            status: 'active',
+            subscriptionStartDate: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString(),
+            subscriptionEndDate: new Date(Date.now() + 335 * 24 * 60 * 60 * 1000).toISOString()
+          };
+          break;
+        
+        case 'trial_active':
+        default:
+          // Active trial user (default)
+          testSubscription = {
+            userId: userId || 'test-user-id',
+            email: email,
+            status: 'trial',
+            trialEndDate: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString() // 3 days from now
+          };
+          break;
+      }
 
-      // Send to specific user
-      const result = await dailyActivityScheduler.sendUserDailyReport(testSubscription);
+      // Send to specific user using dynamic scheduler
+      const result = await dynamicDailyActivityScheduler.sendUserDailyReport(testSubscription);
 
       if (result.success) {
         console.log(`[DAILY REPORT TEST] ✅ Email sent successfully to ${email}`);
         res.json({
           success: true,
-          message: `Daily report email sent to ${email}`,
+          message: `Daily report email sent to ${email} (type: ${testType || 'trial_active'})`,
+          testType: testType || 'trial_active',
           result: result
         });
       } else {
-        console.error(`[DAILY REPORT TEST] ❌ Failed to send email:`, result.error);
-        res.status(500).json({
+        console.log(`[DAILY REPORT TEST] ⏭️ Email skipped for ${email}: ${result.reason}`);
+        res.json({
           success: false,
-          error: 'Failed to send email',
-          details: result.error,
-          reason: result.reason
+          message: `Email skipped for ${email}`,
+          testType: testType || 'trial_active',
+          reason: result.reason,
+          frequency: result.frequency,
+          details: result.error
         });
       }
     }
@@ -4080,16 +4113,16 @@ initializeServer().then(() => {
   }
 
   // 🚀 CRITICAL: Force restart all automations after server startup
-  console.log('🤖 [AUTOMATION] Restarting all automations after server startup...');
-  setTimeout(() => {
+  console.log('🤖 [AUTOMATION] Restarting all automations after server startup (loading from Supabase)...');
+  setTimeout(async () => {
     try {
       // Stop any existing automations first
       automationScheduler.stopAllAutomations();
 
-      // Reinitialize all automations from saved settings
-      automationScheduler.initializeAutomations();
+      // Reinitialize all automations from Supabase (now async)
+      await automationScheduler.initializeAutomations();
 
-      console.log('✅ [AUTOMATION] All automations restarted successfully! Auto-posting and auto-reply will now work 24/7.');
+      console.log('✅ [AUTOMATION] All automations loaded from Supabase and restarted! Auto-posting and auto-reply will now work 24/7.');
     } catch (error) {
       console.error('❌ [AUTOMATION] Failed to restart automations:', error);
     }
@@ -4107,14 +4140,21 @@ initializeServer().then(() => {
     }
   }, 6000); // Start after automation scheduler
 
-  // 📊 Start Daily Activity Report Scheduler
-  console.log('📊 [REPORTS] Starting daily activity report scheduler...');
+  // 📊 Start Dynamic Daily Activity Report Scheduler (with real database data)
+  console.log('📊 [REPORTS] Starting dynamic daily activity report scheduler...');
   setTimeout(() => {
     try {
-      dailyActivityScheduler.start();
-      console.log('✅ [REPORTS] Daily activity report scheduler started! Reports will be sent daily at 6:00 PM.');
+      dynamicDailyActivityScheduler.start();
+      console.log('✅ [REPORTS] Dynamic daily activity report scheduler started!');
+      console.log('   📧 Email frequencies:');
+      console.log('      - Trial users: Daily emails at 9:00 PM');
+      console.log('      - Subscribed users: Weekly emails at 9:00 PM');
+      console.log('   📊 Features:');
+      console.log('      - Real-time activity data from database');
+      console.log('      - Dynamic audit results');
+      console.log('      - Trial status detection');
     } catch (error) {
-      console.error('❌ [REPORTS] Failed to start daily activity scheduler:', error);
+      console.error('❌ [REPORTS] Failed to start dynamic daily activity scheduler:', error);
     }
   }, 7000); // Start after trial email scheduler
   });

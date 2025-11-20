@@ -94,18 +94,30 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
       fetchExchangeRate();
     }
   }, [isOpen, backendUrl]);
+
+  // Reset coupon when profile count or plan changes (user needs to re-apply)
+  useEffect(() => {
+    if (couponDetails) {
+      setCouponDetails(null);
+    }
+  }, [profileCount, selectedPlanId]);
   
   const validateCoupon = async () => {
     if (!couponCode || !selectedPlan) return;
     
     setIsValidatingCoupon(true);
     try {
+      // Calculate the actual total amount (including profile count for per-profile plans)
+      const actualAmount = selectedPlanId === 'per_profile_yearly'
+        ? SubscriptionService.calculateTotalPrice(profileCount)
+        : selectedPlan.amount;
+      
       const response = await fetch(`${backendUrl}/api/payment/coupon/validate`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           code: couponCode,
-          amount: selectedPlan.amount,
+          amount: actualAmount, // Pass the actual total amount
           userId: currentUser?.uid // Pass userId for one-time per user validation
         })
       });
