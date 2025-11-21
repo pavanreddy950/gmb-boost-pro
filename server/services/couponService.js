@@ -1,10 +1,10 @@
-import fs from 'fs';
-import path from 'path';
-import { fileURLToPath } from 'url';
+import supabaseConfig from '../config/supabase.js';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
+/**
+ * Supabase Coupon Service
+ * Stores coupons in PostgreSQL instead of JSON files
+ * Matches the database schema from server/database/schema.sql
+ */
 class CouponService {
   constructor() {
     // Singleton pattern - return existing instance if it exists
@@ -12,275 +12,380 @@ class CouponService {
       return CouponService.instance;
     }
 
-    this.couponsFile = path.join(__dirname, '../data/coupons.json');
-    this.coupons = new Map();
-    this.loadCoupons();
+    this.client = null;
+    this.initialized = false;
 
     // Store the instance
     CouponService.instance = this;
   }
 
-  loadCoupons() {
+  async initialize() {
+    if (this.initialized && this.client) {
+      return this.client;
+    }
+
     try {
-      if (fs.existsSync(this.couponsFile)) {
-        const data = fs.readFileSync(this.couponsFile, 'utf8');
-        const couponsObj = JSON.parse(data);
-        
-        // Convert validUntil and expiresAt strings back to Date objects
-        Object.entries(couponsObj).forEach(([code, coupon]) => {
-          if (coupon.validUntil) {
-            coupon.validUntil = new Date(coupon.validUntil);
-          }
-          if (coupon.expiresAt) {
-            coupon.expiresAt = new Date(coupon.expiresAt);
-          }
-          this.coupons.set(code, coupon);
-        });
-        
-        console.log(`[CouponService] Loaded ${this.coupons.size} coupons from file`);
-      } else {
-        console.log('[CouponService] No coupons file found, initializing with default coupon');
-        // Initialize with default test coupon
-        const defaultCoupon = {
-          code: 'RAJATEST',
-          discount: 100,
-          type: 'percentage',
-          active: true,
-          isActive: true,
-          maxUses: 10000,
-          usedCount: 0,
-          currentUses: 0,
-          description: 'Internal testing - Pay only ₹1',
-          validUntil: new Date('2030-12-31'),
-          expiresAt: new Date('2030-12-31'),
-          hidden: true,
-          oneTimePerUser: false,
-          usedBy: [],
-          createdAt: new Date().toISOString()
-        };
-        this.coupons.set('RAJATEST', defaultCoupon);
-        this.saveCoupons();
+      this.client = await supabaseConfig.ensureInitialized();
+      this.initialized = true;
+      console.log('[CouponService] ✅ Initialized with Supabase');
+
+      // Ensure default test coupon exists
+      await this.ensureDefaultCoupon();
+
+      return this.client;
+    } catch (error) {
+      console.error('[CouponService] ❌ Initialization failed:', error);
+      throw error;
+    }
+  }
+
+  async ensureDefaultCoupon() {
+    try {
+      // Check if RAJATEST coupon exists
+      const { data: existing } = await this.client
+        .from('coupons')
+        .select('*')
+        .eq('code', 'RAJATEST')
+        .single();
+
+      if (!existing) {
+        // Create default test coupon
+        const { error } = await this.client
+          .from('coupons')
+          .insert({
+            code: 'RAJATEST',
+            discount_type: 'percentage',
+            discount_value: 100,
+            max_uses: 10000,
+            used_count: 0,
+            is_active: true,
+            valid_until: '2030-12-31T23:59:59Z',
+            single_use: false,
+            created_by: 'system'
+          });
+
+        if (error) throw error;
+        console.log('[CouponService] ✅ Created default RAJATEST coupon');
       }
     } catch (error) {
-      console.error('[CouponService] Error loading coupons:', error);
-      // Initialize with empty map on error
-      this.coupons = new Map();
+      console.error('[CouponService] Error ensuring default coupon:', error);
     }
   }
 
-  saveCoupons() {
+  /**
+   * Validate coupon (doesn't increment usage)
+   */
+  async validateCoupon(code, userId = null) {
     try {
-      const couponsObj = {};
-      this.coupons.forEach((coupon, code) => {
-        couponsObj[code] = {
-          ...coupon,
-          validUntil: coupon.validUntil ? coupon.validUntil.toISOString() : null,
-          expiresAt: coupon.expiresAt ? coupon.expiresAt.toISOString() : null
+      await this.initialize();
+
+      const upperCode = code.toUpperCase();
+
+      // Get coupon from database
+      const { data: coupon, error } = await this.client
+        .from('coupons')
+        .select('*')
+        .eq('code', upperCode)
+        .single();
+
+      if (error || !coupon) {
+        return {
+          valid: false,
+          error: 'Coupon code not found'
         };
-      });
-      
-      fs.writeFileSync(this.couponsFile, JSON.stringify(couponsObj, null, 2), 'utf8');
-      console.log(`[CouponService] Saved ${this.coupons.size} coupons to file`);
+      }
+
+      // Check if coupon is active
+      if (!coupon.is_active) {
+        return {
+          valid: false,
+          error: 'This coupon is no longer active'
+        };
+      }
+
+      // Check expiration
+      if (coupon.valid_until) {
+        const expiryDate = new Date(coupon.valid_until);
+        if (expiryDate < new Date()) {
+          return {
+            valid: false,
+            error: 'This coupon has expired'
+          };
+        }
+      }
+
+      // Check usage limit
+      if (coupon.max_uses && coupon.used_count >= coupon.max_uses) {
+        return {
+          valid: false,
+          error: 'This coupon has reached its usage limit'
+        };
+      }
+
+      // Check single use (check coupon_usage table)
+      if (coupon.single_use && userId) {
+        const { data: usage } = await this.client
+          .from('coupon_usage')
+          .select('*')
+          .eq('coupon_code', upperCode)
+          .eq('user_id', userId)
+          .single();
+
+        if (usage) {
+          return {
+            valid: false,
+            error: 'You have already used this coupon'
+          };
+        }
+      }
+
+      return {
+        valid: true,
+        coupon: {
+          code: coupon.code,
+          type: coupon.discount_type,
+          discount: coupon.discount_value,
+          description: `Save ${coupon.discount_type === 'percentage' ? coupon.discount_value + '%' : '₹' + coupon.discount_value}`
+        }
+      };
     } catch (error) {
-      console.error('[CouponService] Error saving coupons:', error);
+      console.error('[CouponService] Error validating coupon:', error);
+      return {
+        valid: false,
+        error: 'Error validating coupon'
+      };
     }
   }
 
-  validateCoupon(code, userId = null) {
-    // Reload coupons from file to get latest data
-    this.loadCoupons();
+  /**
+   * Apply coupon (validates and increments usage)
+   */
+  async applyCoupon(code, amount, userId = null) {
+    try {
+      await this.initialize();
 
-    const upperCode = code.toUpperCase();
-    console.log(`[CouponService] Validating coupon: "${upperCode}" (original: "${code}")`);
-    console.log(`[CouponService] Available coupons:`, Array.from(this.coupons.keys()));
+      const upperCode = code.toUpperCase();
 
-    const coupon = this.coupons.get(upperCode);
-
-    if (!coupon) {
-      console.log(`[CouponService] ❌ Coupon "${upperCode}" not found`);
-      return {
-        valid: false,
-        error: 'Invalid coupon code'
-      };
-    }
-
-    console.log(`[CouponService] Found coupon:`, {
-      code: coupon.code,
-      active: coupon.active,
-      usedCount: coupon.usedCount,
-      maxUses: coupon.maxUses,
-      validUntil: coupon.validUntil,
-      validUntilType: typeof coupon.validUntil
-    });
-
-    if (!coupon.active) {
-      console.log(`[CouponService] ❌ Coupon "${upperCode}" is not active`);
-      return {
-        valid: false,
-        error: 'This coupon is no longer active'
-      };
-    }
-
-    if (coupon.usedCount >= coupon.maxUses) {
-      console.log(`[CouponService] ❌ Coupon "${upperCode}" has reached usage limit`);
-      return {
-        valid: false,
-        error: 'This coupon has reached its usage limit'
-      };
-    }
-
-    if (new Date() > coupon.validUntil) {
-      console.log(`[CouponService] ❌ Coupon "${upperCode}" has expired. Valid until: ${coupon.validUntil}, Now: ${new Date()}`);
-      return {
-        valid: false,
-        error: 'This coupon has expired'
-      };
-    }
-
-    // Check if this coupon is one-time per user and user has already used it
-    if (coupon.oneTimePerUser && userId && coupon.usedBy && coupon.usedBy.includes(userId)) {
-      console.log(`[CouponService] ❌ User ${userId} has already used coupon "${upperCode}"`);
-      return {
-        valid: false,
-        error: 'You have already used this coupon'
-      };
-    }
-
-    console.log(`[CouponService] ✅ Coupon "${upperCode}" is valid`);
-    return {
-      valid: true,
-      coupon
-    };
-  }
-
-  applyCoupon(code, originalAmount, userId = null) {
-    const validation = this.validateCoupon(code, userId);
-    
-    if (!validation.valid) {
-      return {
-        success: false,
-        error: validation.error,
-        originalAmount,
-        finalAmount: originalAmount
-      };
-    }
-
-    const coupon = validation.coupon;
-    let discountAmount = 0;
-    let finalAmount = originalAmount;
-
-    if (coupon.type === 'percentage') {
-      discountAmount = Math.round(originalAmount * (coupon.discount / 100));
-      finalAmount = originalAmount - discountAmount;
-    } else if (coupon.type === 'fixed') {
-      discountAmount = Math.min(coupon.discount, originalAmount);
-      finalAmount = Math.max(0, originalAmount - discountAmount);
-    }
-
-    // For RAJATEST coupon, ensure final amount is exactly Rs. 1 (Razorpay minimum)
-    if (coupon.code === 'RAJATEST') {
-      finalAmount = 1; // Rs. 1 for testing
-    }
-
-    // Increment usage count
-    coupon.usedCount++;
-    coupon.currentUses = coupon.usedCount; // Update currentUses for frontend
-
-    // Track user if one-time per user and userId is provided
-    if (coupon.oneTimePerUser && userId) {
-      if (!coupon.usedBy) {
-        coupon.usedBy = [];
+      // First validate the coupon
+      const validation = await this.validateCoupon(upperCode, userId);
+      if (!validation.valid) {
+        return {
+          success: false,
+          error: validation.error
+        };
       }
-      if (!coupon.usedBy.includes(userId)) {
-        coupon.usedBy.push(userId);
+
+      const coupon = validation.coupon;
+      let discountAmount = 0;
+      let finalAmount = amount;
+
+      // Calculate discount
+      if (coupon.type === 'percentage') {
+        discountAmount = Math.round(amount * (coupon.discount / 100));
+        finalAmount = amount - discountAmount;
+      } else if (coupon.type === 'fixed') {
+        discountAmount = Math.min(coupon.discount, amount);
+        finalAmount = Math.max(0, amount - discountAmount);
       }
-    }
 
-    // Auto-disable if singleUse flag is set
-    if (coupon.singleUse && coupon.usedCount >= 1) {
-      coupon.active = false;
-      coupon.isActive = false;
-      console.log(`[CouponService] 🔒 Auto-disabled single-use coupon: ${coupon.code}`);
-    }
+      // Special handling for RAJATEST - set final amount to exactly ₹1
+      if (upperCode === 'RAJATEST') {
+        finalAmount = 1;
+        discountAmount = amount - 1;
+      }
 
-    // Persist the updated coupon usage
-    this.saveCoupons();
+      // Increment coupon usage in database
+      // First get the current count
+      const { data: currentCoupon } = await this.client
+        .from('coupons')
+        .select('used_count')
+        .eq('code', upperCode)
+        .single();
 
-    console.log(`[CouponService] Applied coupon ${coupon.code}: ${originalAmount} → ${finalAmount} (discount: ${discountAmount})`);
-    return {
-      success: true,
-      couponCode: coupon.code,
-      originalAmount,
-      discountAmount,
-      finalAmount,
-      discountPercentage: Math.round((discountAmount / originalAmount) * 100),
-      description: coupon.description
-    };
-  }
+      if (currentCoupon) {
+        const { error: updateError } = await this.client
+          .from('coupons')
+          .update({ used_count: (currentCoupon.used_count || 0) + 1 })
+          .eq('code', upperCode);
 
-  getAllCoupons() {
-    // Only return non-hidden coupons
-    return Array.from(this.coupons.values()).filter(coupon => !coupon.hidden);
-  }
+        if (updateError) {
+          console.error('[CouponService] Error incrementing usage:', updateError);
+        }
+      }
 
-  createCoupon(couponData) {
-    const code = couponData.code.toUpperCase();
-    
-    if (this.coupons.has(code)) {
+      // Record usage if userId is provided
+      if (userId) {
+        const { error: usageError } = await this.client
+          .from('coupon_usage')
+          .insert({
+            coupon_code: upperCode,
+            user_id: userId
+          });
+
+        if (usageError && !usageError.message?.includes('duplicate')) {
+          console.error('[CouponService] Error recording usage:', usageError);
+        }
+      }
+
+      console.log(`[CouponService] Applied coupon ${upperCode}: ${amount} → ${finalAmount} (discount: ${discountAmount})`);
+
+      return {
+        success: true,
+        originalAmount: amount,
+        discountAmount,
+        finalAmount,
+        discountPercentage: Math.round((discountAmount / amount) * 100),
+        couponCode: upperCode
+      };
+    } catch (error) {
+      console.error('[CouponService] Error applying coupon:', error);
       return {
         success: false,
-        error: 'Coupon code already exists'
+        error: 'Error applying coupon'
       };
     }
-
-    const coupon = {
-      code,
-      discount: couponData.discount,
-      type: couponData.type || 'percentage',
-      active: true,
-      isActive: true, // Add isActive for frontend compatibility
-      maxUses: couponData.maxUses || 100,
-      usedCount: 0,
-      currentUses: 0, // Add currentUses for frontend compatibility
-      description: couponData.description || '',
-      validUntil: couponData.validUntil || new Date('2025-12-31'),
-      expiresAt: couponData.validUntil || new Date('2025-12-31'), // Add expiresAt for frontend compatibility
-      oneTimePerUser: couponData.oneTimePerUser || false,
-      singleUse: couponData.singleUse || false, // Auto-disable after first use
-      usedBy: [], // Track which users have used this coupon
-      createdAt: new Date().toISOString()
-    };
-
-    this.coupons.set(code, coupon);
-    this.saveCoupons(); // Persist to file
-
-    console.log(`[CouponService] Created coupon: ${code}`);
-    return {
-      success: true,
-      coupon
-    };
   }
 
-  deactivateCoupon(code) {
-    const coupon = this.coupons.get(code.toUpperCase());
-    
-    if (!coupon) {
+  /**
+   * Get all coupons (admin view)
+   */
+  async getAllCoupons() {
+    try {
+      await this.initialize();
+
+      const { data: coupons, error } = await this.client
+        .from('coupons')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+
+      // Transform to frontend format
+      return coupons.map(c => ({
+        code: c.code,
+        discountType: c.discount_type,
+        discountValue: c.discount_value,
+        maxUses: c.max_uses,
+        currentUses: c.used_count || 0,
+        isActive: c.is_active,
+        expiresAt: c.valid_until,
+        singleUse: c.single_use,
+        createdAt: c.created_at,
+        description: `${c.discount_type === 'percentage' ? c.discount_value + '% off' : '₹' + c.discount_value + ' off'}`
+      }));
+    } catch (error) {
+      console.error('[CouponService] Error getting all coupons:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Create a new coupon
+   */
+  async createCoupon(couponData) {
+    try {
+      await this.initialize();
+
+      const code = couponData.code.toUpperCase();
+
+      // Check if coupon already exists
+      const { data: existing } = await this.client
+        .from('coupons')
+        .select('code')
+        .eq('code', code)
+        .single();
+
+      if (existing) {
+        return {
+          success: false,
+          error: 'A coupon with this code already exists'
+        };
+      }
+
+      // Insert new coupon
+      const { data: coupon, error } = await this.client
+        .from('coupons')
+        .insert({
+          code,
+          discount_value: couponData.discount,
+          discount_type: couponData.type || 'percentage',
+          is_active: true,
+          max_uses: couponData.maxUses || 100,
+          used_count: 0,
+          valid_until: couponData.validUntil ? new Date(couponData.validUntil).toISOString() : '2025-12-31T23:59:59Z',
+          single_use: couponData.singleUse || false,
+          created_by: 'admin'
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      console.log(`[CouponService] ✅ Created coupon: ${code}`);
+
+      return {
+        success: true,
+        coupon: {
+          code: coupon.code,
+          discountType: coupon.discount_type,
+          discountValue: coupon.discount_value,
+          maxUses: coupon.max_uses,
+          currentUses: coupon.used_count,
+          isActive: coupon.is_active,
+          expiresAt: coupon.valid_until,
+          singleUse: coupon.single_use
+        }
+      };
+    } catch (error) {
+      console.error('[CouponService] Error creating coupon:', error);
       return {
         success: false,
-        error: 'Coupon not found'
+        error: error.message || 'Failed to create coupon'
       };
     }
+  }
 
-    coupon.active = false;
-    coupon.isActive = false; // Update isActive for frontend compatibility
-    this.saveCoupons(); // Persist to file
-    
-    console.log(`[CouponService] Deactivated coupon: ${code}`);
-    return {
-      success: true,
-      message: 'Coupon deactivated successfully'
-    };
+  /**
+   * Deactivate a coupon
+   */
+  async deactivateCoupon(code) {
+    try {
+      await this.initialize();
+
+      const upperCode = code.toUpperCase();
+
+      const { data, error } = await this.client
+        .from('coupons')
+        .update({ is_active: false })
+        .eq('code', upperCode)
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      if (!data) {
+        return {
+          success: false,
+          error: 'Coupon not found'
+        };
+      }
+
+      console.log(`[CouponService] ✅ Deactivated coupon: ${upperCode}`);
+
+      return {
+        success: true,
+        message: 'Coupon deactivated successfully'
+      };
+    } catch (error) {
+      console.error('[CouponService] Error deactivating coupon:', error);
+      return {
+        success: false,
+        error: error.message || 'Failed to deactivate coupon'
+      };
+    }
   }
 }
 
-export default CouponService;
+// Export singleton instance
+const couponService = new CouponService();
+export default couponService;

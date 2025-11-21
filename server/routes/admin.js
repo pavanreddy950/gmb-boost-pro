@@ -167,7 +167,7 @@ router.get('/analytics/payments', async (req, res) => {
 // ============= COUPONS =============
 router.get('/coupons', async (req, res) => {
   try {
-    const coupons = couponService.getAllCoupons();
+    const coupons = await couponService.getAllCoupons();
     res.json({ success: true, data: coupons });
   } catch (error) {
     console.error('Error getting coupons:', error);
@@ -190,8 +190,8 @@ router.post('/coupons', checkAdminLevel(['super', 'moderator']), async (req, res
       usedBy: []
     };
 
-    const result = couponService.createCoupon(couponData);
-    
+    const result = await couponService.createCoupon(couponData);
+
     if (result.success) {
       // Log the action (with defensive checks)
       try {
@@ -220,8 +220,8 @@ router.post('/coupons', checkAdminLevel(['super', 'moderator']), async (req, res
 
 router.put('/coupons/:code/deactivate', checkAdminLevel(['super', 'moderator']), async (req, res) => {
   try {
-    const result = couponService.deactivateCoupon(req.params.code);
-    
+    const result = await couponService.deactivateCoupon(req.params.code);
+
     if (result.success) {
       // Log the action (with defensive checks)
       try {

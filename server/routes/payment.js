@@ -229,7 +229,7 @@ router.post('/coupon/validate', async (req, res) => {
     }
 
     // ONLY validate, don't apply/increment usage yet
-    const validation = couponService.validateCoupon(code, userId);
+    const validation = await couponService.validateCoupon(code, userId);
 
     if (!validation.valid) {
       console.log(`[Payment Route] Coupon validation failed: ${validation.error}`);
@@ -280,7 +280,7 @@ router.post('/coupon/validate', async (req, res) => {
 router.get('/coupons', async (req, res) => {
   try {
     // This will only return public coupons, not hidden ones like RAJATEST
-    const publicCoupons = couponService.getAllCoupons();
+    const publicCoupons = await couponService.getAllCoupons();
     res.json({ coupons: publicCoupons });
   } catch (error) {
     res.status(500).json({ error: 'Failed to fetch coupons' });
@@ -344,7 +344,7 @@ router.post('/order', async (req, res) => {
       console.log('[Payment Route] Applying coupon:', couponCode);
       // Get userId from notes if available for one-time per user validation
       const userId = notes.userId || notes.firebaseUid || null;
-      const couponResult = couponService.applyCoupon(couponCode, finalAmount, userId);
+      const couponResult = await couponService.applyCoupon(couponCode, finalAmount, userId);
       if (couponResult.success) {
         const beforeCoupon = finalAmount;
         finalAmount = couponResult.finalAmount;
