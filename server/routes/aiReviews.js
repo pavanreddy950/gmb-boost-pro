@@ -7,7 +7,7 @@ const aiReviewService = new AIReviewService();
 // Generate AI review suggestions
 router.post('/generate', async (req, res) => {
   try {
-    const { businessName, location, businessType, reviewId } = req.body;
+    const { businessName, location, businessType, reviewId, keywords } = req.body;
 
     if (!businessName || !location) {
       return res.status(400).json({
@@ -16,24 +16,26 @@ router.post('/generate', async (req, res) => {
     }
 
     console.log(`[AI Reviews] Generating suggestions for ${businessName} in ${location}${reviewId ? ` (Review ID: ${reviewId})` : ''}`);
+    console.log(`[AI Reviews] Keywords: ${keywords || 'none provided'}`);
 
     const suggestions = await aiReviewService.generateReviewSuggestions(
       businessName,
       location,
       businessType,
-      reviewId
+      reviewId,
+      keywords // Pass keywords to AI service
     );
-    
-    res.json({ 
+
+    res.json({
       success: true,
       suggestions,
       generatedAt: new Date().toISOString()
     });
   } catch (error) {
     console.error('Error generating review suggestions:', error);
-    res.status(500).json({ 
+    res.status(500).json({
       error: 'Failed to generate review suggestions',
-      message: error.message 
+      message: error.message
     });
   }
 });
@@ -69,7 +71,7 @@ router.post('/review-link', async (req, res) => {
 // Generate reply suggestions for a specific review
 router.post('/reply-suggestions', async (req, res) => {
   try {
-    const { businessName, reviewContent, reviewRating, reviewId } = req.body;
+    const { businessName, reviewContent, reviewRating, reviewId, keywords } = req.body;
 
     if (!businessName || !reviewContent || !reviewRating) {
       return res.status(400).json({
@@ -78,13 +80,15 @@ router.post('/reply-suggestions', async (req, res) => {
     }
 
     console.log(`[AI Reviews] Generating reply suggestions for review ID: ${reviewId}`);
+    console.log(`[AI Reviews] Keywords: ${keywords || 'none provided'}`);
 
-    // Use AI service to generate contextual replies
+    // Use AI service to generate contextual replies with keywords
     const replySuggestions = await aiReviewService.generateReplySuggestions(
       businessName,
       reviewContent,
       reviewRating,
-      reviewId
+      reviewId,
+      keywords // Pass keywords to AI service
     );
 
     res.json({
