@@ -206,9 +206,13 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
         : selectedPlan.amount;
 
       // Apply coupon discount if available
+      console.log('[Subscription] 🔍 Checking coupon:', { couponDetails, hasCouponDetails: !!couponDetails, finalAmount: couponDetails?.finalAmount });
+
       if (couponDetails && couponDetails.finalAmount) {
         usdAmount = couponDetails.finalAmount;
         console.log(`[Subscription] 🎟️ Coupon applied: Original $${(selectedPlanId === 'per_profile_yearly' ? SubscriptionService.calculateTotalPrice(profileCount) : selectedPlan.amount) / 100} → Discounted $${usdAmount / 100}`);
+      } else {
+        console.log('[Subscription] ⚠️ Coupon NOT applied - couponDetails:', couponDetails);
       }
 
       // Use INR for all payments (Razorpay subscriptions work best with INR)
