@@ -1,14 +1,13 @@
 import express from 'express';
 import PaymentService from '../services/paymentService.js';
 import SubscriptionService from '../services/subscriptionService.js';
-import CouponService from '../services/couponService.js';
+import couponService from '../services/supabaseCouponService.js';
 import CurrencyService from '../services/currencyService.js';
 import GeolocationService from '../utils/geolocation.js';
 
 const router = express.Router();
 const paymentService = new PaymentService();
 const subscriptionService = new SubscriptionService();
-const couponService = new CouponService();
 const currencyService = new CurrencyService();
 const geolocationService = new GeolocationService();
 
