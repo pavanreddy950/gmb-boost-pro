@@ -201,9 +201,15 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
       });
 
       // Calculate USD amount
-      const usdAmount = selectedPlanId === 'per_profile_yearly'
+      let usdAmount = selectedPlanId === 'per_profile_yearly'
         ? SubscriptionService.calculateTotalPrice(profileCount)
         : selectedPlan.amount;
+
+      // Apply coupon discount if available
+      if (couponDetails && couponDetails.finalAmount) {
+        usdAmount = couponDetails.finalAmount;
+        console.log(`[Subscription] 🎟️ Coupon applied: Original $${(selectedPlanId === 'per_profile_yearly' ? SubscriptionService.calculateTotalPrice(profileCount) : selectedPlan.amount) / 100} → Discounted $${usdAmount / 100}`);
+      }
 
       // Use INR for all payments (Razorpay subscriptions work best with INR)
       const targetCurrency = 'INR';
@@ -248,7 +254,15 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
           profileCount: selectedPlanId === 'per_profile_yearly' ? profileCount : 1,
           notes: {
             planId: selectedPlan.id,
-            planName: selectedPlan.name
+            planName: selectedPlan.name,
+            ...(couponDetails && couponCode && {
+              couponCode: couponCode,
+              originalAmount: selectedPlanId === 'per_profile_yearly'
+                ? SubscriptionService.calculateTotalPrice(profileCount)
+                : selectedPlan.amount,
+              discountAmount: couponDetails.discountAmount,
+              finalAmount: couponDetails.finalAmount
+            })
           }
         })
       });

@@ -1032,6 +1032,23 @@ router.post('/subscription/verify-payment', async (req, res) => {
       method: payment.method
     });
 
+    // Apply coupon if it was used (stored in subscription notes)
+    if (subscription.notes && subscription.notes.couponCode) {
+      const couponCode = subscription.notes.couponCode;
+      const userId = subscription.notes.userId || null;
+      const originalAmount = subscription.notes.originalAmount || payment.amount;
+
+      console.log(`[Subscription Verify] Applying coupon ${couponCode} for successful payment`);
+
+      try {
+        await couponService.applyCoupon(couponCode, originalAmount, userId);
+        console.log(`[Subscription Verify] ✅ Coupon ${couponCode} usage recorded`);
+      } catch (error) {
+        console.error(`[Subscription Verify] Failed to apply coupon:`, error);
+        // Don't fail the payment if coupon application fails
+      }
+    }
+
     // Update local subscription
     if (gbpAccountId) {
       const localSubscription = subscriptionService.getSubscriptionByGBPAccount(gbpAccountId);
