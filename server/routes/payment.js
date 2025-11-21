@@ -1,7 +1,7 @@
 import express from 'express';
 import PaymentService from '../services/paymentService.js';
 import SubscriptionService from '../services/subscriptionService.js';
-import couponService from '../services/supabaseCouponService.js';
+import couponService from '../services/couponService.js';
 import CurrencyService from '../services/currencyService.js';
 import GeolocationService from '../utils/geolocation.js';
 

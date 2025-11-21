@@ -2,11 +2,10 @@ import express from 'express';
 import { verifyAdmin, checkAdminLevel } from '../middleware/adminAuth.js';
 import adminUserService from '../services/adminUserService.js';
 import adminAnalyticsService from '../services/adminAnalyticsService.js';
-import CouponService from '../services/couponService.js';
+import couponService from '../services/couponService.js';
 import auditLogService from '../services/auditLogService.js';
 
 const router = express.Router();
-const couponService = new CouponService();
 
 // All admin routes require admin authentication
 router.use(verifyAdmin);
