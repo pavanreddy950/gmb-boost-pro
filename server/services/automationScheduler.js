@@ -37,7 +37,24 @@ class AutomationScheduler {
       // Convert Supabase format to existing format for compatibility
       this.settings = { automations: {} };
       for (const setting of allSettings) {
-        this.settings.automations[setting.location_id] = setting.settings;
+        // formatSettings returns camelCase properties: locationId, userId, etc.
+        const locationId = setting.locationId || setting.location_id;
+
+        if (!locationId) {
+          console.error(`[AutomationScheduler] ❌ Skipping setting without location_id:`, setting);
+          continue;
+        }
+
+        // The setting object already has the full settings merged in from formatSettings
+        // Use the setting object directly instead of trying to parse setting.settings
+        this.settings.automations[locationId] = setting;
+
+        console.log(`[AutomationScheduler] ✅ Loaded settings for location ${locationId}:`, {
+          hasAutoPosting: !!setting?.autoPosting,
+          autoPostingEnabled: setting?.autoPosting?.enabled,
+          hasAutoReply: !!setting?.autoReply,
+          autoReplyEnabled: setting?.autoReply?.enabled
+        });
       }
 
       console.log(`[AutomationScheduler] ✅ Loaded ${Object.keys(this.settings.automations).length} automation(s) from Supabase`);

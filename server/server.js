@@ -31,6 +31,7 @@ import TrialEmailScheduler from './services/trialEmailScheduler.js';
 import dailyActivityScheduler from './services/newDailyActivityScheduler.js';
 import dynamicDailyActivityScheduler from './services/dynamicDailyActivityScheduler.js';
 import dailyActivityEmailService from './services/newDailyActivityEmailService.js';
+import keepAliveService from './services/keepAliveService.js';
 
 // Configuration is now managed by config.js
 // All hardcoded values have been moved to .env files
@@ -841,6 +842,29 @@ app.get('/health/token-refresh', (req, res) => {
     res.status(500).json({
       status: 'ERROR',
       service: 'Token Refresh Service',
+      error: error.message,
+      timestamp: new Date().toISOString()
+    });
+  }
+});
+
+// Keep-alive service health endpoint - monitor server wake status
+app.get('/health/keep-alive', (req, res) => {
+  try {
+    const stats = keepAliveService.getStats();
+    res.json({
+      status: 'OK',
+      service: 'Keep-Alive Service',
+      ...stats,
+      message: stats.isRunning ?
+        'Keep-alive service is running - server will stay awake 24/7' :
+        'Keep-alive service is NOT running - server may sleep on Azure!',
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    res.status(500).json({
+      status: 'ERROR',
+      service: 'Keep-Alive Service',
       error: error.message,
       timestamp: new Date().toISOString()
     });
@@ -4157,6 +4181,22 @@ initializeServer().then(() => {
       console.error('❌ [REPORTS] Failed to start dynamic daily activity scheduler:', error);
     }
   }, 7000); // Start after trial email scheduler
+
+  // 🏥 CRITICAL: Start Keep-Alive Service to prevent Azure sleep
+  console.log('🏥 [KEEP-ALIVE] Starting keep-alive service to prevent Azure App Service sleep...');
+  setTimeout(() => {
+    try {
+      keepAliveService.start();
+      console.log('✅ [KEEP-ALIVE] Keep-alive service started!');
+      console.log('   🏓 Server will self-ping every 5 minutes');
+      console.log('   ⏰ This prevents Azure from sleeping and stops automation');
+      console.log('   📊 Monitor status at: /health/keep-alive');
+      console.log('   ⚠️  IMPORTANT: For production, enable "Always On" in Azure App Service settings');
+    } catch (error) {
+      console.error('❌ [KEEP-ALIVE] Failed to start keep-alive service:', error);
+      console.error('   ⚠️  Server may sleep on Azure! Enable "Always On" in Azure App Service.');
+    }
+  }, 8000); // Start after all other services
   });
 }).catch(error => {
   console.error('❌ Failed to initialize server:', error);

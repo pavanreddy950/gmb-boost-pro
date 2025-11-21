@@ -755,6 +755,36 @@ export function AutoPostingTab({ location }: AutoPostingTabProps) {
     }
   };
 
+  // Get timezone with abbreviation (IST, GMT, EST, etc.)
+  const getTimezoneInfo = () => {
+    const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    const date = new Date();
+
+    // Get timezone abbreviation
+    const formatter = new Intl.DateTimeFormat('en-US', {
+      timeZone: timezone,
+      timeZoneName: 'short'
+    });
+
+    const parts = formatter.formatToParts(date);
+    const timeZonePart = parts.find(part => part.type === 'timeZoneName');
+    const abbreviation = timeZonePart?.value || '';
+
+    // Get GMT offset
+    const offset = -date.getTimezoneOffset();
+    const offsetHours = Math.floor(Math.abs(offset) / 60);
+    const offsetMinutes = Math.abs(offset) % 60;
+    const offsetSign = offset >= 0 ? '+' : '-';
+    const gmtOffset = `GMT${offsetSign}${String(offsetHours).padStart(2, '0')}:${String(offsetMinutes).padStart(2, '0')}`;
+
+    return {
+      timezone,
+      abbreviation,
+      gmtOffset,
+      display: `${abbreviation} (${gmtOffset})`
+    };
+  };
+
   // Computed custom keywords for the UI
   const customKeywords = React.useMemo(() => {
     const allDefaultKeywords = generateDefaultKeywords();
@@ -1219,6 +1249,9 @@ export function AutoPostingTab({ location }: AutoPostingTabProps) {
                 <Label htmlFor="time" className="text-xs sm:text-sm">
                   <Clock className="h-3 w-3 sm:h-4 sm:w-4 inline mr-1" />
                   <span>Post Time</span>
+                  <span className="ml-2 text-muted-foreground font-normal">
+                    {getTimezoneInfo().display}
+                  </span>
                 </Label>
                 <Input
                   id="time"
@@ -1228,6 +1261,9 @@ export function AutoPostingTab({ location }: AutoPostingTabProps) {
                   disabled={!config.enabled}
                   className="text-xs sm:text-sm"
                 />
+                <p className="text-[10px] text-muted-foreground mt-1">
+                  Your timezone: {getTimezoneInfo().timezone}
+                </p>
               </div>
             )}
           </div>
@@ -1235,7 +1271,12 @@ export function AutoPostingTab({ location }: AutoPostingTabProps) {
           {/* Custom Times */}
           {config.schedule.frequency === 'custom' && (
             <div className="min-w-0">
-              <Label className="text-xs sm:text-sm">Custom Post Times</Label>
+              <Label className="text-xs sm:text-sm">
+                Custom Post Times
+                <span className="ml-2 text-muted-foreground font-normal">
+                  {getTimezoneInfo().display}
+                </span>
+              </Label>
               <div className="space-y-2 mt-2">
                 {customTimes.map((time, index) => (
                   <div key={index} className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
@@ -1272,6 +1313,9 @@ export function AutoPostingTab({ location }: AutoPostingTabProps) {
                 >
                   Add Time
                 </Button>
+                <p className="text-[10px] text-muted-foreground">
+                  All times are in {getTimezoneInfo().timezone}
+                </p>
               </div>
             </div>
           )}
@@ -1288,6 +1332,20 @@ export function AutoPostingTab({ location }: AutoPostingTabProps) {
               </p>
             </div>
           )}
+
+          {/* Timezone Info */}
+          <div className="p-2 sm:p-3 bg-blue-50 border border-blue-200 rounded-lg">
+            <div className="flex items-start gap-1.5 sm:gap-2">
+              <Clock className="h-3 w-3 sm:h-4 sm:w-4 text-blue-600 flex-shrink-0 mt-0.5" />
+              <div className="flex-1 min-w-0">
+                <strong className="text-xs sm:text-sm text-blue-800 block">Timezone Information</strong>
+                <p className="text-[10px] sm:text-xs text-blue-700 mt-1 break-words">
+                  Your current timezone is <strong>{getTimezoneInfo().timezone}</strong> ({getTimezoneInfo().display}).
+                  All scheduled times will run based on this timezone. Posts will be created automatically at the specified times, even when you're offline.
+                </p>
+              </div>
+            </div>
+          </div>
         </CardContent>
       </Card>
 

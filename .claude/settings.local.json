@@ -21,7 +21,12 @@
       "Bash(node -c:*)",
       "Bash(node test-daily-email.js:*)",
       "Bash(node:*)",
-      "Bash(dir:*)"
+      "Bash(dir:*)",
+      "Bash(docker-compose:*)",
+      "Bash(timeout 30 docker logs:*)",
+      "Bash(docker logs:*)",
+      "Bash(docker images:*)",
+      "Bash(docker ps:*)"
     ],
     "deny": [],
     "ask": []

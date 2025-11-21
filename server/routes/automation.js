@@ -495,4 +495,141 @@ router.post('/test-generate-content/:locationId', async (req, res) => {
   }
 });
 
+// 🔍 DIAGNOSTIC ENDPOINTS - Check what's actually running
+
+// Get all active cron jobs
+router.get('/debug/active-jobs', (req, res) => {
+  try {
+    const activeJobs = [];
+
+    // Get all scheduled jobs from the automation scheduler
+    for (const [locationId, job] of automationScheduler.scheduledJobs.entries()) {
+      const config = automationScheduler.settings.automations?.[locationId]?.autoPosting;
+      activeJobs.push({
+        locationId,
+        businessName: config?.businessName || 'Unknown',
+        frequency: config?.frequency || 'Unknown',
+        schedule: config?.schedule || 'Unknown',
+        lastRun: config?.lastRun || 'Never',
+        isRunning: job ? true : false,
+        timezone: config?.timezone || 'America/New_York'
+      });
+    }
+
+    res.json({
+      success: true,
+      totalActiveJobs: activeJobs.length,
+      activeJobs,
+      reviewMonitors: automationScheduler.reviewCheckIntervals.size,
+      message: activeJobs.length > 0
+        ? `${activeJobs.length} cron job(s) are currently active`
+        : 'No cron jobs are currently active! Automation is NOT running.'
+    });
+  } catch (error) {
+    console.error('Error getting active jobs:', error);
+    res.status(500).json({ error: 'Failed to get active jobs' });
+  }
+});
+
+// Get all automation settings from in-memory cache
+router.get('/debug/settings-cache', (req, res) => {
+  try {
+    const allSettings = automationScheduler.settings.automations || {};
+    const summary = Object.entries(allSettings).map(([locationId, config]) => ({
+      locationId,
+      businessName: config.autoPosting?.businessName || config.autoReply?.businessName || 'Unknown',
+      autoPostingEnabled: config.autoPosting?.enabled || false,
+      autoReplyEnabled: config.autoReply?.enabled || false,
+      schedule: config.autoPosting?.schedule,
+      frequency: config.autoPosting?.frequency,
+      lastRun: config.autoPosting?.lastRun,
+      updatedAt: config.updatedAt
+    }));
+
+    res.json({
+      success: true,
+      totalLocations: summary.length,
+      locationsWithAutoPosting: summary.filter(s => s.autoPostingEnabled).length,
+      locationsWithAutoReply: summary.filter(s => s.autoReplyEnabled).length,
+      settings: summary,
+      message: summary.length > 0
+        ? `Found ${summary.length} location(s) in settings cache`
+        : 'No automation settings in memory cache! Nothing configured.'
+    });
+  } catch (error) {
+    console.error('Error getting settings cache:', error);
+    res.status(500).json({ error: 'Failed to get settings cache' });
+  }
+});
+
+// Force reload all automations from Supabase
+router.post('/debug/reload-automations', async (req, res) => {
+  try {
+    console.log('[Automation API] 🔄 Force reloading all automations from Supabase...');
+
+    // Stop all existing automations
+    automationScheduler.stopAllAutomations();
+
+    // Reinitialize from Supabase
+    await automationScheduler.initializeAutomations();
+
+    const activeJobs = automationScheduler.scheduledJobs.size;
+
+    res.json({
+      success: true,
+      message: `Automations reloaded! ${activeJobs} cron job(s) now active.`,
+      activeJobs,
+      reviewMonitors: automationScheduler.reviewCheckIntervals.size
+    });
+  } catch (error) {
+    console.error('Error reloading automations:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to reload automations',
+      details: error.message
+    });
+  }
+});
+
+// Check scheduler status and statistics
+router.get('/debug/scheduler-status', (req, res) => {
+  try {
+    const stats = {
+      totalScheduledJobs: automationScheduler.scheduledJobs.size,
+      totalReviewMonitors: automationScheduler.reviewCheckIntervals.size,
+      totalLocationsInCache: Object.keys(automationScheduler.settings.automations || {}).length,
+      postCreationLocks: automationScheduler.postCreationLocks.size,
+      missedPostCheckerRunning: automationScheduler.missedPostCheckerInterval ? true : false,
+
+      // List all locations with status
+      locations: Object.entries(automationScheduler.settings.automations || {}).map(([locationId, config]) => ({
+        locationId,
+        businessName: config.autoPosting?.businessName || config.autoReply?.businessName,
+        autoPosting: {
+          enabled: config.autoPosting?.enabled || false,
+          hasCronJob: automationScheduler.scheduledJobs.has(locationId),
+          schedule: config.autoPosting?.schedule,
+          frequency: config.autoPosting?.frequency,
+          lastRun: config.autoPosting?.lastRun
+        },
+        autoReply: {
+          enabled: config.autoReply?.enabled || false,
+          hasMonitor: automationScheduler.reviewCheckIntervals.has(locationId)
+        }
+      }))
+    };
+
+    res.json({
+      success: true,
+      ...stats,
+      message: stats.totalScheduledJobs > 0
+        ? `Scheduler is running with ${stats.totalScheduledJobs} active job(s)`
+        : 'Scheduler is running but NO cron jobs are active! Check your automation settings.'
+    });
+  } catch (error) {
+    console.error('Error getting scheduler status:', error);
+    res.status(500).json({ error: 'Failed to get scheduler status' });
+  }
+});
+
 export default router;
