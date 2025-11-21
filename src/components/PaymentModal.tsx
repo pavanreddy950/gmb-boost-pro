@@ -255,10 +255,13 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
           contact: currentUser.phoneNumber || '',
           planId: plan.razorpayPlanId,
           gbpAccountId: subscription?.gbpAccountId,
-          profileCount: selectedPlanId === 'per_profile_yearly' ? profileCount : 1,
+          // IMPORTANT: When coupon is applied, the plan amount is already the TOTAL (not per-profile)
+          // So quantity should be 1, not profileCount, otherwise Razorpay multiplies the total by profileCount!
+          profileCount: (selectedPlanId === 'per_profile_yearly' && !couponDetails) ? profileCount : 1,
           notes: {
             planId: selectedPlan.id,
             planName: selectedPlan.name,
+            actualProfileCount: profileCount, // Track actual profile count in notes
             ...(couponDetails && couponCode && {
               couponCode: couponCode,
               originalAmount: selectedPlanId === 'per_profile_yearly'
