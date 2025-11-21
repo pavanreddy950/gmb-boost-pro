@@ -1218,6 +1218,7 @@ CRITICAL RULES - MUST FOLLOW ALL:
   }
 
   // Generate review reply using AI ONLY - no templates
+  // Format: "Dear {Client Name}, [AI-generated content] Warm regards, Team {Business Name}"
   async generateReviewReply(review, config) {
     // Convert rating string to number
     const ratingMap = { 'ONE': 1, 'TWO': 2, 'THREE': 3, 'FOUR': 4, 'FIVE': 5 };
@@ -1240,42 +1241,48 @@ CRITICAL RULES - MUST FOLLOW ALL:
 
     try {
       // Parse keywords if string
-      const keywordList = typeof keywords === 'string' 
+      const keywordList = typeof keywords === 'string'
         ? keywords.split(',').map(k => k.trim()).filter(k => k.length > 0)
         : Array.isArray(keywords) ? keywords : [];
-      
+
       // Determine tone based on rating
-      const tone = rating >= 4 ? 'grateful, warm, and enthusiastic' : 
-                   rating <= 2 ? 'empathetic, apologetic, and solution-focused' : 
+      const tone = rating >= 4 ? 'grateful, warm, and enthusiastic' :
+                   rating <= 2 ? 'empathetic, apologetic, and solution-focused' :
                    'appreciative, professional, and encouraging';
-      
-      // Add variety with random elements
+
+      // Add variety with random elements to ensure different content every time
       const randomSeed = Math.random();
       const currentMonth = new Date().toLocaleDateString('en-US', { month: 'long' });
-      
-      const prompt = `Generate a SHORT, natural reply to this Google Business review for "${businessName}" (${category}):
+      const timeOfDay = new Date().getHours() < 12 ? 'morning' : new Date().getHours() < 17 ? 'afternoon' : 'evening';
+
+      const prompt = `Generate ONLY the middle content for a Google Business review reply for "${businessName}" (${category}).
 
 Reviewer Name: ${reviewerName}
 Rating: ${rating}/5 stars
 Review Text: "${reviewText}"
 Business Keywords: ${keywordList.length > 0 ? keywordList.join(', ') : 'quality service, customer satisfaction'}
 Random Seed: ${randomSeed}
+Time Context: ${timeOfDay}
 
-STRICT Requirements:
-1. Write EXACTLY 35-55 words (SHORT and concise!)
+CRITICAL FORMATTING REQUIREMENTS:
+1. Generate ONLY the middle content paragraph - DO NOT include "Dear..." or "Warm regards..." or any greeting/closing
+2. The content will be wrapped with:
+   - Opening: "Dear ${reviewerName},"
+   - Closing: "Warm regards, Team ${businessName}"
+3. So you must write ONLY the middle content between these two parts
+
+CONTENT Requirements:
+1. Write EXACTLY 40-60 words for the middle content
 2. Use a ${tone} tone
-3. Optionally address reviewer by first name if appropriate (keep it casual)
-4. Briefly reference something specific they mentioned
-5. If positive, naturally include ONE business keyword if it fits
-6. Thank them genuinely but briefly
-7. If negative, apologize and offer to help (keep it short)
-8. NO formal closings like "Warm regards", "Best wishes", "Sincerely", etc.
-9. NO signature lines or "[Your Name]" placeholders
-10. NO business name at the end
-11. End naturally - just finish the message without any sign-off
-12. Make it sound like a quick, friendly message from the business
-13. Keep it conversational and human, not formal
-14. Think: friendly text message, not business letter`;
+3. Reference something specific from their review
+4. If positive (${rating >= 4}): thank them and highlight what we do well
+5. If negative (${rating <= 2}): acknowledge concern, apologize sincerely, and offer solution
+6. Make content DIFFERENT every time - vary vocabulary, sentence structure, focus points
+7. Naturally incorporate business strengths/keywords if relevant
+8. Be authentic and personalized to THIS specific review
+9. DO NOT use generic phrases - make it specific to their experience
+
+Return ONLY the middle content paragraph with no greeting or closing.`;
 
       const response = await fetch(
         `${this.azureEndpoint}openai/deployments/${this.deploymentName}/chat/completions?api-version=${this.apiVersion}`,
@@ -1289,7 +1296,7 @@ STRICT Requirements:
             messages: [
               {
                 role: 'system',
-                content: `You are the owner or manager of ${businessName}, a ${category} business, personally responding to customer reviews. Write authentic, heartfelt responses that show you genuinely care about each customer's experience. Naturally incorporate the business's strengths and keywords when relevant, but keep it subtle and appropriate to the context. Never use generic templates. Each response should feel like it was written specifically for this reviewer, while highlighting what makes your business special.`
+                content: `You are a professional content writer for ${businessName}. Generate ONLY the middle content of a review reply. DO NOT include greetings like "Dear..." or closings like "Warm regards" - those will be added automatically. Write authentic, varied content that is different every time. Focus on making each response unique and personalized to the specific review.`
               },
               {
                 role: 'user',
@@ -1297,18 +1304,36 @@ STRICT Requirements:
               }
             ],
             max_tokens: 200,
-            temperature: 0.85,
-            frequency_penalty: 0.6,
-            presence_penalty: 0.4
+            temperature: 0.9, // Higher for more variation
+            frequency_penalty: 0.8, // Prevent repetitive phrases
+            presence_penalty: 0.6 // Encourage new topics/words
           })
         }
       );
 
       if (response.ok) {
         const data = await response.json();
-        const replyText = data.choices[0].message.content.trim();
-        console.log(`[AutomationScheduler] AI generated unique reply (${replyText.split(' ').length} words)`);
-        return replyText;
+        let middleContent = data.choices[0].message.content.trim();
+
+        // Clean up any greeting/closing that AI might have added despite instructions
+        middleContent = middleContent
+          .replace(/^Dear\s+[^,]+,?\s*/i, '') // Remove "Dear..." if present
+          .replace(/\s*(Warm regards|Best regards|Sincerely|Thank you|Thanks),?\s*Team\s+.*/i, '') // Remove closings
+          .replace(/\s*(Warm regards|Best regards|Sincerely|Thank you|Thanks),?\s*$/i, '') // Remove standalone closings
+          .trim();
+
+        // Format the complete reply with proper structure
+        const completeReply = `Dear ${reviewerName},
+
+${middleContent}
+
+Warm regards,
+Team ${businessName}`;
+
+        console.log(`[AutomationScheduler] ✅ AI generated personalized reply for ${reviewerName}`);
+        console.log(`[AutomationScheduler] Reply format: "Dear ${reviewerName}, [${middleContent.split(' ').length} words] Warm regards, Team ${businessName}"`);
+
+        return completeReply;
       } else {
         const errorText = await response.text();
         throw new Error(`Azure OpenAI API error: ${response.status} - ${errorText}`);
