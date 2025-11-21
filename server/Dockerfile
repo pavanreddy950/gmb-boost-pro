@@ -13,9 +13,6 @@ RUN npm ci --only=production
 # Copy server source code
 COPY . .
 
-# Copy environment file for Azure
-COPY .env.azure .env
-
 # Expose port (Azure uses PORT env variable, default to 8080)
 EXPOSE 8080
 
