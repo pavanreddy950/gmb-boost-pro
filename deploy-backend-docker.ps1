@@ -19,7 +19,7 @@ Write-Host ""
 # Step 2: Build Docker image
 Write-Host "Step 2: Building Docker image..." -ForegroundColor Yellow
 Set-Location server
-docker build -t lobaiseo-backend:latest .
+docker build -t pavan-client-backend:latest .
 if ($LASTEXITCODE -ne 0) {
     Write-Host "Docker build failed!" -ForegroundColor Red
     Set-Location ..
@@ -29,7 +29,7 @@ Write-Host ""
 
 # Step 3: Tag for Docker Hub
 Write-Host "Step 3: Tagging image for Docker Hub..." -ForegroundColor Yellow
-docker tag lobaiseo-backend:latest scale112/lobaiseo-backend:latest
+docker tag pavan-client-backend:latest scale112/pavan-client-backend:latest
 if ($LASTEXITCODE -ne 0) {
     Write-Host "Docker tag failed!" -ForegroundColor Red
     Set-Location ..
@@ -52,7 +52,7 @@ Write-Host ""
 
 # Step 5: Push to Docker Hub
 Write-Host "Step 5: Pushing to Docker Hub..." -ForegroundColor Yellow
-docker push scale112/lobaiseo-backend:latest
+docker push scale112/pavan-client-backend:latest
 if ($LASTEXITCODE -ne 0) {
     Write-Host "Docker push failed!" -ForegroundColor Red
     Set-Location ..
@@ -67,8 +67,8 @@ Write-Host "======================================" -ForegroundColor Green
 Write-Host "  Backend Deployment Complete! ✅" -ForegroundColor Green
 Write-Host "======================================" -ForegroundColor Green
 Write-Host ""
-Write-Host "Backend Image: scale112/lobaiseo-backend:latest" -ForegroundColor White
-Write-Host "Docker Hub URL: https://hub.docker.com/r/scale112/lobaiseo-backend" -ForegroundColor White
+Write-Host "Backend Image: scale112/pavan-client-backend:latest" -ForegroundColor White
+Write-Host "Docker Hub URL: https://hub.docker.com/r/scale112/pavan-client-backend" -ForegroundColor White
 Write-Host ""
-Write-Host "To pull on server: docker pull scale112/lobaiseo-backend:latest" -ForegroundColor Gray
+Write-Host "To pull on server: docker pull scale112/pavan-client-backend:latest" -ForegroundColor Gray
 Write-Host ""
