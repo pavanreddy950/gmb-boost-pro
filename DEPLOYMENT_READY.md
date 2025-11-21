@@ -6,7 +6,7 @@
 **Status**: **READY FOR AZURE DEPLOYMENT**
 **Git Commit**: `8274401`
 **Docker Image**: `scale112/pavan-client-backend:latest`
-**Docker Digest**: `sha256:c4f9654fec5b4e1a938bdcdd086dc9d6caeac8adfc20db43a3b280d86731242b`
+**Docker Digest**: `sha256:f8b7a738527efeb25b0b51b3590f92b3a179f9476536f2d357c08976aa516ffb`
 
 ---
 
@@ -353,7 +353,7 @@ After successful deployment, you should see:
 **Status**: 🟢 READY FOR DEPLOYMENT
 **Git Commit**: `8274401`
 **Docker Image**: `scale112/pavan-client-backend:latest`
-**Docker Digest**: `sha256:c4f9654fec5b4e1a938bdcdd086dc9d6caeac8adfc20db43a3b280d86731242b`
+**Docker Digest**: `sha256:f8b7a738527efeb25b0b51b3590f92b3a179f9476536f2d357c08976aa516ffb`
 
 **Action Required**: Deploy to Azure using steps above
 

@@ -10,11 +10,13 @@ Azure App Service is still running an old Docker image despite pushing the lates
 ## Latest Docker Image Details
 
 **Image**: `scale112/pavan-client-backend:latest`
-**Digest**: `sha256:c4f9654fec5b4e1a938bdcdd086dc9d6caeac8adfc20db43a3b280d86731242b`
+**Digest**: `sha256:f8b7a738527efeb25b0b51b3590f92b3a179f9476536f2d357c08976aa516ffb`
 **Built**: November 21, 2025
 **Contains**:
 - ✅ Fixed CouponService imports in payment.js and admin.js
 - ✅ Coupon service using Supabase (singleton pattern)
+- ✅ Fixed coupon discount applied to Razorpay plan amount
+- ✅ Coupon usage tracking in payment verification
 - ✅ All previous auto-posting and timezone fixes
 
 ---
