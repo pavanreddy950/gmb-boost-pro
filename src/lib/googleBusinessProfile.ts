@@ -251,8 +251,9 @@ class GoogleBusinessProfileService {
             this.accessToken = data.access_token || data.refresh_token;
             console.log('✅ Loaded permanent tokens from backend');
 
-            // Start connection monitoring for 24/7 operation
-            this.startConnectionMonitoring();
+            // DISABLED: Connection monitoring now handled by backend
+            // Backend handles token refresh and all automation
+            // this.startConnectionMonitoring();
             return true;
           }
         }
@@ -272,8 +273,9 @@ class GoogleBusinessProfileService {
           // Store in localStorage as cache
           localStorage.setItem('google_business_tokens', JSON.stringify(firebaseTokens));
 
-          // Start connection monitoring for 24/7 operation
-          this.startConnectionMonitoring();
+          // DISABLED: Connection monitoring now handled by backend
+          // Backend handles token refresh and all automation
+          // this.startConnectionMonitoring();
           return true;
         }
       } catch (firebaseError) {
