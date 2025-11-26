@@ -476,18 +476,29 @@ router.post('/verify', async (req, res) => {
     const order = await paymentService.getOrder(razorpay_order_id);
     console.log('[Payment Verify] Order details:', order);
 
-    // Extract profileCount and locationId from order notes (if available)
+    // Extract profileCount, locationId, and userId from order notes (if available)
     const profileCount = order.notes?.profileCount ? parseInt(order.notes.profileCount) : 1;
     const locationId = order.notes?.locationId || order.notes?.profileId || null;
+    const userId = order.notes?.userId || order.notes?.firebaseUid || null;
     console.log('[Payment Verify] Profile count from order notes:', profileCount);
     console.log('[Payment Verify] Location ID from order notes:', locationId);
+    console.log('[Payment Verify] User ID from order notes:', userId);
 
-    // Find subscription by GBP Account ID
+    // Find subscription by GBP Account ID, subscriptionId, OR userId
     let subscription = null;
     if (gbpAccountId) {
+      console.log('[Payment Verify] Looking up subscription by GBP Account ID:', gbpAccountId);
       subscription = await subscriptionService.getSubscriptionByGBPAccount(gbpAccountId);
     } else if (subscriptionId) {
+      console.log('[Payment Verify] Looking up subscription by subscription ID:', subscriptionId);
       subscription = await subscriptionService.getSubscriptionById(subscriptionId);
+    }
+
+    // Fallback: Try to find by userId if not found by gbpAccountId or subscriptionId
+    if (!subscription && userId) {
+      console.log('[Payment Verify] Subscription not found by GBP/ID, trying userId:', userId);
+      subscription = await subscriptionService.getSubscriptionByUserId(userId);
+      console.log('[Payment Verify] Subscription found by userId:', !!subscription);
     }
 
     if (subscription) {
