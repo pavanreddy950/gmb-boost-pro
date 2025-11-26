@@ -62,6 +62,7 @@ interface ReviewLinkModalData {
   isOpen: boolean;
   location: any;
   googleReviewLink: string;
+  keywords: string;
 }
 
 const AskForReviews = () => {
@@ -78,7 +79,8 @@ const AskForReviews = () => {
   const [reviewLinkModalData, setReviewLinkModalData] = useState<ReviewLinkModalData>({
     isOpen: false,
     location: null,
-    googleReviewLink: ""
+    googleReviewLink: "",
+    keywords: ""
   });
   const [loadingQR, setLoadingQR] = useState<string | null>(null);
   const [loadingReviews, setLoadingReviews] = useState(false);
@@ -116,10 +118,13 @@ const AskForReviews = () => {
 
   const openReviewLinkModal = (location: any) => {
     console.log('Opening review link modal for location:', location);
+    // Load existing keywords if QR code exists
+    const existingQR = existingQRCodes.get(location.locationId);
     setReviewLinkModalData({
       isOpen: true,
       location: location,
-      googleReviewLink: ""
+      googleReviewLink: existingQR?.googleReviewLink || "",
+      keywords: existingQR?.keywords || ""
     });
   };
 
@@ -140,7 +145,7 @@ const AskForReviews = () => {
   };
 
   const generateQRCodeWithLink = async () => {
-    const { location, googleReviewLink } = reviewLinkModalData;
+    const { location, googleReviewLink, keywords } = reviewLinkModalData;
     
     if (!googleReviewLink) {
       toast({
@@ -179,17 +184,20 @@ const AskForReviews = () => {
         width: 512
       });
       
-      // Save QR code data to backend for future reference
+      // Save QR code data to backend for future reference (with keywords for AI)
       try {
         const qrData = {
           locationId: location.locationId,
           locationName: location.displayName,
           address: location.address?.locality || location.address?.administrativeArea || 'Location',
           googleReviewLink: googleReviewLink,
+          keywords: keywords, // Pass keywords for AI review generation
           publicReviewUrl: publicReviewUrl,
           qrCodeUrl: qrCodeUrl,
           createdAt: new Date().toISOString()
         };
+
+        console.log('📦 Saving QR code with keywords:', keywords);
         
         await fetch(`${backendUrl}/api/qr-codes`, {
           method: 'POST',
@@ -565,6 +573,25 @@ const AskForReviews = () => {
               />
               <p className="text-xs text-muted-foreground">
                 Format: https://g.page/r/YOUR_PLACE_ID/review
+              </p>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="keywords">
+                SEO Keywords <span className="text-muted-foreground">(optional)</span>
+              </Label>
+              <Input
+                id="keywords"
+                type="text"
+                placeholder="e.g., best pizza, fast delivery, friendly staff"
+                value={reviewLinkModalData.keywords}
+                onChange={(e) => setReviewLinkModalData({
+                  ...reviewLinkModalData,
+                  keywords: e.target.value
+                })}
+              />
+              <p className="text-xs text-muted-foreground">
+                Enter comma-separated keywords to include in AI-generated review suggestions
               </p>
             </div>
             

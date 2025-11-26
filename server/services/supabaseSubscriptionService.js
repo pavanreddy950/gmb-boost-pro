@@ -444,6 +444,12 @@ class SupabaseSubscriptionService {
       if (updates.paidAt) mappedUpdates.paid_at = updates.paidAt;
       if (updates.cancelledAt) mappedUpdates.cancelled_at = updates.cancelledAt;
       if (updates.cancelledBy) mappedUpdates.cancelled_by = updates.cancelledBy;
+      // Razorpay subscription fields for auto-renewal
+      if (updates.razorpaySubscriptionId) mappedUpdates.razorpay_subscription_id = updates.razorpaySubscriptionId;
+      if (updates.razorpayCustomerId) mappedUpdates.razorpay_customer_id = updates.razorpayCustomerId;
+      if (updates.mandateAuthorized !== undefined) mappedUpdates.mandate_authorized = updates.mandateAuthorized;
+      if (updates.mandateTokenId) mappedUpdates.mandate_token_id = updates.mandateTokenId;
+      if (updates.mandateAuthDate) mappedUpdates.mandate_auth_date = updates.mandateAuthDate;
 
       const { data, error } = await this.client
         .from('subscriptions')

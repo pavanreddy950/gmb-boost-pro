@@ -15,7 +15,10 @@ class AutomationService {
   private checkInterval = 15000; // Check every 15 seconds
 
   constructor() {
-    this.start();
+    // DISABLED: Frontend automation is no longer used
+    // Backend automation service handles all posting with persistent token storage
+    // this.start();
+    console.log('ℹ️  Frontend automation disabled - backend automation service is handling all auto-posting');
   }
 
   start(): void {

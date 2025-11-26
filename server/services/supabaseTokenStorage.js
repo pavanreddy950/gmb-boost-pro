@@ -1,10 +1,11 @@
-import supabaseConfig from '../config/supabase.js';
+import connectionPool from '../database/connectionPool.js';
+import cacheManager from '../cache/cacheManager.js';
 import crypto from 'crypto';
 import fetch from 'node-fetch';
 
 /**
  * Supabase Token Storage
- * Replaces FirestoreTokenStorage with PostgreSQL storage via Supabase
+ * Now using centralized connection pool and caching for scalability
  */
 class SupabaseTokenStorage {
   constructor() {
@@ -29,13 +30,13 @@ class SupabaseTokenStorage {
 
   async _doInitialize() {
     try {
-      console.log('[SupabaseTokenStorage] Initializing Supabase connection...');
-      this.client = await supabaseConfig.ensureInitialized();
+      console.log('[SupabaseTokenStorage] Initializing connection from pool...');
+      this.client = await connectionPool.getClient();
       this.initialized = true;
-      console.log('[SupabaseTokenStorage] ✅ Supabase connection established');
+      console.log('[SupabaseTokenStorage] ✅ Using centralized connection pool');
       return this.client;
     } catch (error) {
-      console.error('[SupabaseTokenStorage] ❌ Failed to initialize Supabase:', error.message);
+      console.error('[SupabaseTokenStorage] ❌ Failed to get connection:', error.message);
       this.initialized = false;
       this.client = null;
       throw error;
@@ -51,10 +52,10 @@ class SupabaseTokenStorage {
 
       const iv = crypto.randomBytes(16);
       const cipher = crypto.createCipheriv('aes-256-cbc', Buffer.from(this.encryptionKey.padEnd(32, '0').slice(0, 32)), iv);
-      
+
       let encrypted = cipher.update(text, 'utf8', 'hex');
       encrypted += cipher.final('hex');
-      
+
       return iv.toString('hex') + ':' + encrypted;
     } catch (error) {
       console.error('[SupabaseTokenStorage] Encryption error:', error);
@@ -83,12 +84,12 @@ class SupabaseTokenStorage {
 
       const iv = Buffer.from(parts[0], 'hex');
       const encrypted = parts[1];
-      
+
       const decipher = crypto.createDecipheriv('aes-256-cbc', Buffer.from(this.encryptionKey.padEnd(32, '0').slice(0, 32)), iv);
-      
+
       let decrypted = decipher.update(encrypted, 'hex', 'utf8');
       decrypted += decipher.final('utf8');
-      
+
       return decrypted;
     } catch (error) {
       console.error('[SupabaseTokenStorage] Decryption error:', error);
@@ -115,8 +116,8 @@ class SupabaseTokenStorage {
       const encryptedRefreshToken = tokenData.refresh_token ? this.encrypt(tokenData.refresh_token) : null;
 
       // Calculate expiry timestamp
-      const expiresAt = tokenData.expiry_date 
-        ? new Date(tokenData.expiry_date) 
+      const expiresAt = tokenData.expiry_date
+        ? new Date(tokenData.expiry_date)
         : new Date(Date.now() + (tokenData.expires_in || 3600) * 1000);
 
       // Prepare token record
@@ -147,6 +148,12 @@ class SupabaseTokenStorage {
 
       console.log(`[SupabaseTokenStorage] ✅ Token saved successfully for user ${userId}`);
       console.log(`[SupabaseTokenStorage] Expires at: ${expiresAt.toISOString()}`);
+
+      // Invalidate cache since token was updated
+      const cacheKey = cacheManager.getTokenKey(userId);
+      cacheManager.delete(cacheKey);
+      console.log(`[SupabaseTokenStorage] 🔄 Cache invalidated for user ${userId}`);
+
       console.log(`[SupabaseTokenStorage] ========================================`);
 
       return true;
@@ -158,12 +165,24 @@ class SupabaseTokenStorage {
   }
 
   /**
-   * Get user token from Supabase
+   * Get user token from Supabase (with caching)
    */
   async getUserToken(userId) {
     try {
       console.log(`[SupabaseTokenStorage] ========================================`);
       console.log(`[SupabaseTokenStorage] 🔍 GET USER TOKEN: ${userId}`);
+
+      // Check cache first
+      const cacheKey = cacheManager.getTokenKey(userId);
+      const cached = cacheManager.get(cacheKey);
+
+      if (cached) {
+        console.log(`[SupabaseTokenStorage] ✅ Cache HIT for user ${userId}`);
+        console.log(`[SupabaseTokenStorage] ========================================`);
+        return cached;
+      }
+
+      console.log(`[SupabaseTokenStorage] ❌ Cache MISS for user ${userId}`);
 
       await this.initialize();
 
@@ -217,6 +236,9 @@ class SupabaseTokenStorage {
       } else {
         console.log(`[SupabaseTokenStorage] ✅ Token found for user ${userId}`);
         console.log(`[SupabaseTokenStorage] Expires at: ${new Date(data.expiry_date).toISOString()}`);
+
+        // Cache valid tokens for 2 minutes
+        cacheManager.set(cacheKey, decryptedTokens, 120);
       }
 
       console.log(`[SupabaseTokenStorage] ========================================`);
@@ -316,10 +338,10 @@ class SupabaseTokenStorage {
       if (!response.ok) {
         const error = await response.text();
         console.error(`[SupabaseTokenStorage] Token refresh failed:`, error);
-        
+
         // Log refresh failure
         await this.logTokenFailure(userId, 'refresh_failed', error);
-        
+
         return null;
       }
 
@@ -335,7 +357,7 @@ class SupabaseTokenStorage {
       });
 
       console.log(`[SupabaseTokenStorage] ✅ Token refreshed and saved for user ${userId}`);
-      
+
       return {
         access_token: newTokenData.access_token,
         refresh_token: refreshToken,

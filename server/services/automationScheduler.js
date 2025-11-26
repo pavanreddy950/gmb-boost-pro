@@ -1,7 +1,18 @@
 import cron from 'node-cron';
 import fetch from 'node-fetch';
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
 import supabaseTokenStorage from './supabaseTokenStorage.js';
 import supabaseAutomationService from './supabaseAutomationService.js';
+import appConfig from '../config.js';
+
+// Get __dirname equivalent for ES modules
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+// Default timezone for all scheduled tasks (IST - Indian Standard Time)
+const DEFAULT_TIMEZONE = appConfig.timezone || 'Asia/Kolkata';
 
 class AutomationScheduler {
   constructor() {
@@ -339,7 +350,7 @@ class AutomationScheduler {
     }
 
     console.log(`[AutomationScheduler] Scheduling auto-posting for location ${locationId} with cron: ${cronExpression}`);
-    console.log(`[AutomationScheduler] 📅 Frequency: ${config.frequency}, Schedule: ${config.schedule}, Timezone: ${config.timezone || 'America/New_York'}`);
+    console.log(`[AutomationScheduler] 📅 Frequency: ${config.frequency}, Schedule: ${config.schedule}, Timezone: ${config.timezone || DEFAULT_TIMEZONE}`);
 
     const job = cron.schedule(cronExpression, async () => {
       console.log(`[AutomationScheduler] ⏰ CRON TRIGGERED - Running scheduled post for location ${locationId}`);
@@ -361,7 +372,7 @@ class AutomationScheduler {
       await this.createAutomatedPost(locationId, config);
     }, {
       scheduled: true,
-      timezone: config.timezone || 'America/New_York'
+      timezone: config.timezone || DEFAULT_TIMEZONE
     });
 
     this.scheduledJobs.set(locationId, job);
@@ -384,8 +395,12 @@ class AutomationScheduler {
       console.log(`[AutomationScheduler] Creating automated post with provided token for location ${locationId}`);
       console.log(`[AutomationScheduler] Config received:`, JSON.stringify(config, null, 2));
 
+      // Ensure userId is set for address fetching
+      const userId = config.userId || 'default';
+      console.log(`[AutomationScheduler] Using userId for content generation: ${userId}`);
+
       // Generate post content using AI
-      const postContent = await this.generatePostContent(config, locationId, config.userId);
+      const postContent = await this.generatePostContent(config, locationId, userId);
       
       // Create the post via Google Business Profile API (v4 - current version)
       // v4 requires accountId in the path
@@ -541,19 +556,18 @@ class AutomationScheduler {
       });
 
       if (!userToken) {
-        // Try to find any available token from storage
+        // Try to find any available token from automation settings
         console.log(`[AutomationScheduler] ❌ No token found for ${targetUserId}`);
-        console.log(`[AutomationScheduler] 🔍 Checking all available tokens in legacy storage...`);
-        const tokens = this.loadTokens();
-        const tokenKeys = Object.keys(tokens);
+        console.log(`[AutomationScheduler] 🔍 Checking for tokens from other automation users...`);
 
-        console.log(`[AutomationScheduler] Legacy storage contains ${tokenKeys.length} user(s):`, tokenKeys);
+        // Get unique user IDs from automation settings
+        const userIds = this.getAutomationUserIds();
+        console.log(`[AutomationScheduler] Found ${userIds.length} user(s) with automations:`, userIds);
 
-        if (tokenKeys.length > 0) {
-          console.log(`[AutomationScheduler] Found tokens for users: ${tokenKeys.join(', ')}`);
-
-          // Try each available token
-          for (const userId of tokenKeys) {
+        if (userIds.length > 0) {
+          // Try each available user
+          for (const userId of userIds) {
+            if (userId === targetUserId) continue; // Already tried this one
             console.log(`[AutomationScheduler] 🔄 Trying to get valid token for fallback user: ${userId}`);
             const validToken = await this.getValidTokenForUser(userId);
             if (validToken) {
@@ -565,7 +579,7 @@ class AutomationScheduler {
             }
           }
         } else {
-          console.log(`[AutomationScheduler] ❌ No tokens found in legacy storage`);
+          console.log(`[AutomationScheduler] ❌ No other automation users found`);
         }
 
         if (!userToken) {
@@ -772,9 +786,12 @@ class AutomationScheduler {
       }
 
       const HARDCODED_ACCOUNT_ID = '106433552101751461082';
-      const url = `https://mybusinessbusinessinformation.googleapis.com/v1/accounts/${HARDCODED_ACCOUNT_ID}/locations/${locationId}?readMask=storefrontAddress,title`;
 
-      const response = await fetch(url, {
+      // Try Google My Business API v4 first (same format as posting API)
+      console.log('[AutomationScheduler] 📍 Fetching location address from Google API...');
+      const v4Url = `https://mybusiness.googleapis.com/v4/accounts/${HARDCODED_ACCOUNT_ID}/locations/${locationId}`;
+
+      let response = await fetch(v4Url, {
         headers: {
           'Authorization': `Bearer ${token.access_token}`,
           'Content-Type': 'application/json'
@@ -783,12 +800,59 @@ class AutomationScheduler {
 
       if (response.ok) {
         const data = await response.json();
+        console.log('[AutomationScheduler] 📍 Location data received:', JSON.stringify(data, null, 2).substring(0, 500));
+
+        // Parse address from v4 API response
+        if (data.address || data.storefrontAddress) {
+          const addr = data.address || data.storefrontAddress;
+          const result = {
+            fullAddress: addr.addressLines?.join(', ') || addr.address || '',
+            city: addr.locality || addr.city || '',
+            region: addr.administrativeArea || addr.region || addr.state || '',
+            country: addr.regionCode || addr.country || 'India',
+            postalCode: addr.postalCode || ''
+          };
+          console.log('[AutomationScheduler] ✅ Parsed address:', result);
+          return result;
+        }
+
+        // Try alternate field names
+        if (data.locationName || data.title) {
+          console.log('[AutomationScheduler] 📍 Using location name as fallback:', data.locationName || data.title);
+          return {
+            fullAddress: data.locationName || data.title || '',
+            city: '',
+            region: '',
+            country: 'India',
+            postalCode: ''
+          };
+        }
+      } else {
+        const errorText = await response.text();
+        console.log('[AutomationScheduler] ⚠️ V4 API failed:', response.status, errorText.substring(0, 200));
+      }
+
+      // Try Business Information API v1 as fallback
+      console.log('[AutomationScheduler] 📍 Trying Business Information API v1...');
+      const v1Url = `https://mybusinessbusinessinformation.googleapis.com/v1/locations/${locationId}?readMask=storefrontAddress,title,name`;
+
+      response = await fetch(v1Url, {
+        headers: {
+          'Authorization': `Bearer ${token.access_token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        console.log('[AutomationScheduler] 📍 V1 Location data:', JSON.stringify(data, null, 2).substring(0, 500));
+
         if (data.storefrontAddress) {
           return {
             fullAddress: data.storefrontAddress.addressLines?.join(', ') || '',
             city: data.storefrontAddress.locality || '',
             region: data.storefrontAddress.administrativeArea || '',
-            country: data.storefrontAddress.regionCode || '',
+            country: data.storefrontAddress.regionCode || 'India',
             postalCode: data.storefrontAddress.postalCode || ''
           };
         }
@@ -819,17 +883,37 @@ class AutomationScheduler {
     const websiteUrl = config.websiteUrl || '';
     let postalCode = config.postalCode || config.pinCode || '';
 
+    console.log(`[AutomationScheduler] 📍 INITIAL ADDRESS DATA FROM CONFIG:`);
+    console.log(`   - city: "${city}"`);
+    console.log(`   - region: "${region}"`);
+    console.log(`   - country: "${country}"`);
+    console.log(`   - fullAddress: "${fullAddress}"`);
+    console.log(`   - postalCode: "${postalCode}"`);
+
     // If address is missing, fetch it from Google API
-    if (!fullAddress && !city && locationId && userId) {
-      console.log('[AutomationScheduler] 📍 Address missing in config, fetching from Google API...');
+    if ((!fullAddress || !city) && locationId && userId) {
+      console.log('[AutomationScheduler] 📍 Address incomplete in config, fetching from Google API...');
       const addressData = await this.fetchLocationAddress(locationId, userId);
       if (addressData) {
-        fullAddress = addressData.fullAddress;
-        city = addressData.city;
-        region = addressData.region;
-        country = addressData.country;
-        postalCode = addressData.postalCode;
-        console.log('[AutomationScheduler] ✅ Fetched address from Google API:', fullAddress);
+        // Only update if we got better data
+        if (!fullAddress && addressData.fullAddress) {
+          fullAddress = addressData.fullAddress;
+        }
+        if (!city && addressData.city) {
+          city = addressData.city;
+        }
+        if (!region && addressData.region) {
+          region = addressData.region;
+        }
+        if (!country && addressData.country) {
+          country = addressData.country;
+        }
+        if (!postalCode && addressData.postalCode) {
+          postalCode = addressData.postalCode;
+        }
+        console.log('[AutomationScheduler] ✅ Address data after API fetch:', {
+          fullAddress, city, region, country, postalCode
+        });
       }
     }
 
@@ -842,18 +926,43 @@ class AutomationScheduler {
       locationStr = fullAddress;
     }
 
-    // Build complete address for the footer
+    // Build complete address for the footer - THIS IS CRITICAL FOR THE ADDRESS LINE
     let completeAddress = '';
-    if (fullAddress || city) {
-      completeAddress = fullAddress || city;
-      if (region && !completeAddress.includes(region)) {
+
+    // Priority 1: Use fullAddress if available
+    if (fullAddress) {
+      completeAddress = fullAddress;
+      // Add region if not already included
+      if (region && !completeAddress.toLowerCase().includes(region.toLowerCase())) {
         completeAddress += `, ${region}`;
       }
-      // Only add postal code if it's not already in the fullAddress
-      if (postalCode && !completeAddress.includes(postalCode)) {
-        completeAddress += ` ${postalCode}`;
+    }
+    // Priority 2: Build from city and region
+    else if (city) {
+      completeAddress = city;
+      if (region && !completeAddress.toLowerCase().includes(region.toLowerCase())) {
+        completeAddress += `, ${region}`;
       }
     }
+    // Priority 3: Try to build from locationName in config
+    else if (config.locationName) {
+      completeAddress = config.locationName;
+      if (region) {
+        completeAddress += `, ${region}`;
+      }
+    }
+
+    // Add postal code if we have it and it's not already included
+    if (postalCode && completeAddress && !completeAddress.includes(postalCode)) {
+      completeAddress += ` ${postalCode}`;
+    }
+
+    // Add country if we have it and it's not already included (only for India)
+    if (country && completeAddress && !completeAddress.toLowerCase().includes('india') && country.toLowerCase() === 'india') {
+      completeAddress += `, India`;
+    }
+
+    console.log(`[AutomationScheduler] 📍 FINAL COMPLETE ADDRESS: "${completeAddress}"`)
     
     console.log(`[AutomationScheduler] ========================================`);
     console.log(`[AutomationScheduler] 🎯 POST GENERATION PARAMETERS`);
@@ -1016,13 +1125,13 @@ CRITICAL RULES - MUST FOLLOW ALL:
       let userToken = await this.getValidTokenForUser(targetUserId);
       
       if (!userToken) {
-        // Try to find any available valid token
-        console.log(`[AutomationScheduler] No token for ${targetUserId}, checking all available tokens...`);
-        const tokens = this.loadTokens();
-        const tokenKeys = Object.keys(tokens);
-        
-        if (tokenKeys.length > 0) {
-          for (const userId of tokenKeys) {
+        // Try to find any available valid token from automation users
+        console.log(`[AutomationScheduler] No token for ${targetUserId}, checking other automation users...`);
+        const userIds = this.getAutomationUserIds();
+
+        if (userIds.length > 0) {
+          for (const userId of userIds) {
+            if (userId === targetUserId) continue;
             const validToken = await this.getValidTokenForUser(userId);
             if (validToken) {
               userToken = validToken;
@@ -1031,7 +1140,7 @@ CRITICAL RULES - MUST FOLLOW ALL:
             }
           }
         }
-        
+
         if (!userToken) {
           console.error(`[AutomationScheduler] ⚠️ No valid tokens available. User needs to reconnect to Google Business Profile.`);
           console.log(`[AutomationScheduler] 💡 Token will be saved when user reconnects via Settings > Connections`);
@@ -1414,6 +1523,29 @@ Team ${businessName}`;
       console.error('[AutomationScheduler] Error logging activity to Supabase:', error);
       // Don't throw error - logging failure shouldn't stop automation
     }
+  }
+
+  // Get unique user IDs from all automation settings
+  getAutomationUserIds() {
+    const userIds = new Set();
+    const automations = this.settings.automations || {};
+
+    for (const [locationId, config] of Object.entries(automations)) {
+      if (config.autoPosting?.userId) {
+        userIds.add(config.autoPosting.userId);
+      }
+      if (config.autoReply?.userId) {
+        userIds.add(config.autoReply.userId);
+      }
+      if (config.userId) {
+        userIds.add(config.userId);
+      }
+    }
+
+    // Remove 'default' as it's not a real user
+    userIds.delete('default');
+
+    return Array.from(userIds);
   }
 
   // Get automation status for a location

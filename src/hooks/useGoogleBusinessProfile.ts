@@ -95,13 +95,13 @@ export const useGoogleBusinessProfile = (): UseGoogleBusinessProfileReturn => {
     }
   }, [toast, saveGbpAssociation]);
 
-  // Aggressive automatic token refresh - never let connection die
+  // Automatic token refresh - check periodically to keep connection alive
   useEffect(() => {
     if (!isConnected) return;
 
     let refreshInterval: NodeJS.Timeout;
     let retryCount = 0;
-    const maxRetries = 5; // More retry attempts
+    const maxRetries = 3; // Reduced retries to avoid rate limiting
 
     const performTokenRefresh = async () => {
       try {
@@ -123,8 +123,8 @@ export const useGoogleBusinessProfile = (): UseGoogleBusinessProfileReturn => {
 
         if (retryCount < maxRetries) {
           console.log(`🔄 Retrying token refresh (attempt ${retryCount}/${maxRetries})...`);
-          // Retry with exponential backoff
-          setTimeout(() => performTokenRefresh(), Math.pow(2, retryCount) * 1000);
+          // Retry with exponential backoff (longer delays to avoid rate limits)
+          setTimeout(() => performTokenRefresh(), Math.pow(2, retryCount) * 5000);
         } else {
           console.error('❌ Max retries exceeded, attempting recovery...');
 
@@ -153,34 +153,33 @@ export const useGoogleBusinessProfile = (): UseGoogleBusinessProfileReturn => {
       }
     };
 
-    // Aggressive refresh: Check every 10 minutes to ensure token never expires
-    refreshInterval = setInterval(performTokenRefresh, 10 * 60 * 1000); // 10 minutes
+    // Check every 30 minutes (reduced from 10 to avoid rate limiting)
+    refreshInterval = setInterval(performTokenRefresh, 30 * 60 * 1000); // 30 minutes
 
-    // Immediate check on mount
-    const initialCheck = async () => {
+    // Delayed initial check (avoid immediate rate limit hit on page load)
+    const initialCheckTimeout = setTimeout(async () => {
       try {
-        console.log('🔍 Initial connection check on mount...');
+        console.log('🔍 Initial connection check...');
 
-        // If token is expiring soon, refresh immediately
+        // If token is expiring soon, refresh
         if (googleBusinessProfileService.isTokenExpired()) {
-          console.log('🔄 Token expiring, refreshing immediately...');
+          console.log('🔄 Token expiring, refreshing...');
           await googleBusinessProfileService.refreshAccessToken();
         }
 
-        console.log('✅ Connection verified - permanent connection active');
+        console.log('✅ Connection verified');
       } catch (error) {
         console.error('Initial check failed:', error);
         // Try to recover instead of failing
         await performTokenRefresh();
       }
-    };
-
-    initialCheck();
+    }, 5000); // Wait 5 seconds before first check
 
     return () => {
       if (refreshInterval) {
         clearInterval(refreshInterval);
       }
+      clearTimeout(initialCheckTimeout);
     };
   }, [isConnected, toast]);
 

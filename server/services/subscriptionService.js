@@ -471,30 +471,125 @@ class SubscriptionService {
   }
 
   async handleWebhookEvent(event) {
-    console.log('Processing webhook event:', event.event);
-    
-    switch (event.event) {
-      case 'subscription.authenticated':
-      case 'subscription.activated':
-        // Handle subscription activation
-        const subscription = await this.paymentService.getSubscription(event.payload.subscription.entity.id);
-        // Update subscription status in database
-        break;
-        
-      case 'subscription.charged':
-        // Handle successful payment
-        const payment = event.payload.payment.entity;
-        // Add payment record
-        break;
-        
-      case 'subscription.cancelled':
-      case 'subscription.expired':
-        // Handle subscription cancellation/expiry
-        // Update subscription status
-        break;
-        
-      default:
-        console.log('Unhandled webhook event:', event.event);
+    console.log('[Webhook] Processing event:', event.event);
+
+    try {
+      switch (event.event) {
+        case 'subscription.authenticated':
+        case 'subscription.activated': {
+          // Handle subscription activation
+          console.log('[Webhook] Subscription activated/authenticated');
+          const razorpaySubId = event.payload.subscription?.entity?.id;
+          if (razorpaySubId) {
+            const razorpaySub = await this.paymentService.getSubscription(razorpaySubId);
+            console.log('[Webhook] Razorpay subscription details:', razorpaySub);
+
+            // Find our local subscription by Razorpay subscription ID
+            const allSubs = await this.persistentStorage.getAllSubscriptions();
+            const localSub = allSubs.find(s => s.razorpaySubscriptionId === razorpaySubId);
+
+            if (localSub) {
+              await this.persistentStorage.updateSubscription(localSub.gbpAccountId, {
+                status: 'active',
+                razorpaySubscriptionId: razorpaySubId
+              });
+              console.log('[Webhook] ✅ Subscription activated:', localSub.gbpAccountId);
+            }
+          }
+          break;
+        }
+
+        case 'subscription.charged': {
+          // Handle successful recurring payment - AUTO RENEWAL
+          console.log('[Webhook] 💰 Subscription charged (auto-renewal)');
+          const paymentEntity = event.payload.payment?.entity;
+          const subscriptionEntity = event.payload.subscription?.entity;
+
+          if (paymentEntity && subscriptionEntity) {
+            const razorpaySubId = subscriptionEntity.id;
+
+            // Find local subscription by Razorpay subscription ID
+            const allSubs = await this.persistentStorage.getAllSubscriptions();
+            const localSub = allSubs.find(s => s.razorpaySubscriptionId === razorpaySubId);
+
+            if (localSub) {
+              // Calculate new end date (extend by 1 year for yearly plans)
+              const now = new Date();
+              const newEndDate = new Date();
+
+              // Check plan type and extend accordingly
+              if (localSub.planId?.includes('yearly') || localSub.planId === 'per_profile_yearly') {
+                newEndDate.setFullYear(newEndDate.getFullYear() + 1);
+              } else {
+                newEndDate.setMonth(newEndDate.getMonth() + 1);
+              }
+
+              // Update subscription with new end date
+              await this.persistentStorage.updateSubscription(localSub.gbpAccountId, {
+                status: 'active',
+                subscriptionEndDate: newEndDate.toISOString(),
+                lastPaymentDate: now.toISOString(),
+                razorpayPaymentId: paymentEntity.id
+              });
+
+              // Add payment record
+              await this.addPaymentRecord(localSub.id, {
+                amount: paymentEntity.amount / 100, // Razorpay amounts are in paise
+                currency: paymentEntity.currency,
+                status: 'captured',
+                razorpayPaymentId: paymentEntity.id,
+                razorpayOrderId: paymentEntity.order_id,
+                description: 'Auto-renewal payment',
+                paidAt: now.toISOString()
+              });
+
+              console.log('[Webhook] ✅ Auto-renewal successful for:', localSub.gbpAccountId);
+              console.log('[Webhook] New end date:', newEndDate.toISOString());
+            } else {
+              console.warn('[Webhook] ⚠️ No local subscription found for Razorpay sub:', razorpaySubId);
+            }
+          }
+          break;
+        }
+
+        case 'subscription.cancelled':
+        case 'subscription.expired': {
+          // Handle subscription cancellation/expiry
+          console.log('[Webhook] Subscription cancelled/expired');
+          const razorpaySubId = event.payload.subscription?.entity?.id;
+
+          if (razorpaySubId) {
+            const allSubs = await this.persistentStorage.getAllSubscriptions();
+            const localSub = allSubs.find(s => s.razorpaySubscriptionId === razorpaySubId);
+
+            if (localSub) {
+              const newStatus = event.event === 'subscription.cancelled' ? 'cancelled' : 'expired';
+              await this.persistentStorage.updateSubscription(localSub.gbpAccountId, {
+                status: newStatus,
+                cancelledAt: new Date().toISOString()
+              });
+              console.log(`[Webhook] ✅ Subscription ${newStatus}:`, localSub.gbpAccountId);
+            }
+          }
+          break;
+        }
+
+        case 'payment.captured': {
+          // Handle one-time payment capture
+          console.log('[Webhook] Payment captured');
+          const paymentEntity = event.payload.payment?.entity;
+          if (paymentEntity) {
+            console.log('[Webhook] Payment ID:', paymentEntity.id, 'Amount:', paymentEntity.amount / 100);
+          }
+          break;
+        }
+
+        default:
+          console.log('[Webhook] Unhandled event:', event.event);
+      }
+    } catch (error) {
+      console.error('[Webhook] Error processing event:', error);
+      throw error;
     }
   }
 }

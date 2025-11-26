@@ -208,6 +208,11 @@ class Config {
     return process.env.GOOGLE_REDIRECT_URI || `${this.frontendUrl}/auth/google/callback`;
   }
 
+  get timezone() {
+    // Default timezone for all scheduled tasks (IST - Indian Standard Time)
+    return process.env.TIMEZONE || 'Asia/Kolkata';
+  }
+
   get allowedOrigins() {
     const origins = [];
 

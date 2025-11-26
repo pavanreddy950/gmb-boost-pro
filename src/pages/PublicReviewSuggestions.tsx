@@ -102,34 +102,42 @@ const PublicReviewSuggestions = () => {
   };
 
   useEffect(() => {
-    fetchQRCodeData();
-    fetchAIReviews();
-    
+    // Fetch QR code data first, then AI reviews (so keywords are available)
+    const initializeData = async () => {
+      await fetchQRCodeData();
+      // Small delay to ensure qrCodeData state is updated
+      setTimeout(() => {
+        fetchAIReviews();
+      }, 100);
+    };
+
+    initializeData();
+
     // Hide arrow after user scrolls
     const handleScroll = () => {
       if (window.scrollY > 100) {
         setShowArrow(false);
       }
     };
-    
+
     window.addEventListener('scroll', handleScroll);
     return () => window.removeEventListener('scroll', handleScroll);
   }, [locationId]);
   
   const fetchAIReviews = async () => {
-    // Show fallback reviews immediately for instant loading
-    const fallbackReviews = getFallbackReviews();
-    setAiReviews(fallbackReviews);
-    setLoading(false);
-    
-    // Then try to fetch AI reviews in background to replace fallbacks
+    // Keep loading state while fetching AI reviews
+    setLoading(true);
+
     try {
-      console.log('Loading fallback reviews instantly, fetching AI reviews in background...');
-      
-      // Very short timeout for faster user experience
+      console.log('🤖 Fetching AI-generated reviews from Azure OpenAI...');
+
+      // Get keywords from QR code data if available
+      const keywords = qrCodeData?.keywords || '';
+
+      // Longer timeout to allow Azure OpenAI to generate unique reviews (10 seconds)
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 2000); // 2 second timeout
-      
+      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+
       const response = await fetch(`${backendUrl}/api/ai-reviews/generate`, {
         method: 'POST',
         headers: {
@@ -138,25 +146,29 @@ const PublicReviewSuggestions = () => {
         body: JSON.stringify({
           businessName: decodeURIComponent(businessName),
           location: decodeURIComponent(location),
-          businessType: 'business'
+          businessType: 'business',
+          keywords: keywords, // Pass keywords for AI to use
+          reviewId: `qr_${locationId}_${Date.now()}` // Unique ID for each scan
         }),
         signal: controller.signal
       });
-      
+
       clearTimeout(timeoutId);
-      
+
       if (response.ok) {
         const data = await response.json();
-        console.log('✅ AI reviews loaded, replacing fallback reviews');
-        // Smoothly replace fallback reviews with AI reviews
-        setAiReviews(data.suggestions || fallbackReviews);
+        console.log('✅ AI reviews loaded successfully:', data.suggestions?.length, 'reviews');
+        setAiReviews(data.suggestions || getFallbackReviews());
       } else {
-        console.log('AI reviews failed, keeping fallback reviews');
-        // Keep fallback reviews - no change needed
+        console.log('❌ AI reviews API failed, using fallback');
+        setAiReviews(getFallbackReviews());
       }
-    } catch (error) {
-      console.log('AI reviews timeout/error, keeping fallback reviews:', error.message);
-      // Keep fallback reviews - no change needed
+    } catch (error: any) {
+      console.log('❌ AI reviews error:', error.message);
+      // Only use fallback if AI fails
+      setAiReviews(getFallbackReviews());
+    } finally {
+      setLoading(false);
     }
   };
   

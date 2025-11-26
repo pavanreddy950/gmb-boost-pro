@@ -399,7 +399,7 @@ router.post('/subscription/create', async (req, res) => {
     }
     
     // Get existing subscription
-    const existingSubscription = subscriptionService.getSubscriptionByGBPAccount(gbpAccountId);
+    const existingSubscription = await subscriptionService.getSubscriptionByGBPAccount(gbpAccountId);
     if (!existingSubscription) {
       return res.status(404).json({ error: 'No trial subscription found for this GBP account' });
     }
@@ -577,16 +577,16 @@ router.post('/subscription/cancel', async (req, res) => {
       return res.status(400).json({ error: 'subscriptionId and gbpAccountId are required' });
     }
     
-    const subscription = subscriptionService.getSubscriptionByGBPAccount(gbpAccountId);
+    const subscription = await subscriptionService.getSubscriptionByGBPAccount(gbpAccountId);
     if (!subscription) {
       return res.status(404).json({ error: 'Subscription not found' });
     }
-    
+
     if (subscription.razorpaySubscriptionId) {
       await paymentService.cancelSubscription(subscription.razorpaySubscriptionId);
     }
-    
-    const updatedSubscription = subscriptionService.updateSubscription(subscription.id, {
+
+    const updatedSubscription = await subscriptionService.updateSubscription(subscription.id, {
       status: 'cancelled'
     });
     
@@ -629,7 +629,7 @@ router.get('/subscription/:gbpAccountId/payments', async (req, res) => {
   try {
     const { gbpAccountId } = req.params;
 
-    const subscription = subscriptionService.getSubscriptionByGBPAccount(gbpAccountId);
+    const subscription = await subscriptionService.getSubscriptionByGBPAccount(gbpAccountId);
     if (!subscription) {
       return res.status(404).json({ error: 'Subscription not found' });
     }
@@ -681,7 +681,7 @@ router.post('/mandate/setup', async (req, res) => {
     }
 
     // Check if mandate is already authorized
-    const subscription = subscriptionService.getSubscriptionByGBPAccount(gbpAccountId);
+    const subscription = await subscriptionService.getSubscriptionByGBPAccount(gbpAccountId);
     if (subscription && subscription.mandateAuthorized && subscription.mandateTokenId) {
       console.log('[Mandate Setup] ✅ Mandate already authorized for this account');
       return res.json({
@@ -716,7 +716,7 @@ router.post('/mandate/setup', async (req, res) => {
     try {
       if (subscription) {
         console.log('[Mandate Setup] Found subscription:', subscription.id);
-        subscriptionService.updateSubscription(subscription.id, {
+        await subscriptionService.updateSubscription(subscription.id, {
           razorpayCustomerId: customer.id
         });
         console.log('[Mandate Setup] ✅ Updated subscription with customer ID');
@@ -815,9 +815,9 @@ router.post('/mandate/verify', async (req, res) => {
     }
 
     // Update subscription with mandate details
-    const subscription = subscriptionService.getSubscriptionByGBPAccount(gbpAccountId);
+    const subscription = await subscriptionService.getSubscriptionByGBPAccount(gbpAccountId);
     if (subscription) {
-      subscriptionService.updateSubscription(subscription.id, {
+      await subscriptionService.updateSubscription(subscription.id, {
         razorpayCustomerId: customerId,
         mandateAuthorized: true,
         mandateTokenId: tokenId,
@@ -849,7 +849,7 @@ router.get('/mandate/status/:gbpAccountId', async (req, res) => {
   try {
     const { gbpAccountId } = req.params;
 
-    const subscription = subscriptionService.getSubscriptionByGBPAccount(gbpAccountId);
+    const subscription = await subscriptionService.getSubscriptionByGBPAccount(gbpAccountId);
 
     if (!subscription) {
       return res.status(404).json({ error: 'Subscription not found' });
@@ -963,9 +963,9 @@ router.post('/subscription/create-with-mandate', async (req, res) => {
     // Store subscription details in local subscription service
     if (gbpAccountId) {
       try {
-        const localSubscription = subscriptionService.getSubscriptionByGBPAccount(gbpAccountId);
+        const localSubscription = await subscriptionService.getSubscriptionByGBPAccount(gbpAccountId);
         if (localSubscription) {
-          subscriptionService.updateSubscription(localSubscription.id, {
+          await subscriptionService.updateSubscription(localSubscription.id, {
             razorpaySubscriptionId: subscription.id,
             razorpayCustomerId: customer.id,
             profileCount
@@ -1003,11 +1003,20 @@ router.post('/subscription/verify-payment', async (req, res) => {
       gbpAccountId
     } = req.body;
 
+    console.log('[Subscription Verify] ========================================');
+    console.log('[Subscription Verify] Received verification request:');
+    console.log('[Subscription Verify] - subscription_id:', razorpay_subscription_id);
+    console.log('[Subscription Verify] - payment_id:', razorpay_payment_id);
+    console.log('[Subscription Verify] - signature:', razorpay_signature ? razorpay_signature.substring(0, 20) + '...' : 'MISSING');
+    console.log('[Subscription Verify] - gbpAccountId:', gbpAccountId);
+    console.log('[Subscription Verify] ========================================');
+
     if (!razorpay_subscription_id || !razorpay_payment_id || !razorpay_signature) {
+      console.error('[Subscription Verify] ERROR: Missing required parameters');
       return res.status(400).json({ error: 'Missing payment verification parameters' });
     }
 
-    console.log('[Subscription Verify] Verifying subscription payment:', razorpay_subscription_id);
+    console.log('[Subscription Verify] Step 1: Verifying signature...');
 
     // Verify signature
     const isValid = paymentService.verifySubscriptionSignature(
@@ -1017,16 +1026,22 @@ router.post('/subscription/verify-payment', async (req, res) => {
     );
 
     if (!isValid) {
+      console.error('[Subscription Verify] ERROR: Signature verification FAILED');
       return res.status(400).json({ error: 'Invalid payment signature' });
     }
 
+    console.log('[Subscription Verify] Step 1 PASSED: Signature verified successfully');
+    console.log('[Subscription Verify] Step 2: Fetching subscription details from Razorpay...');
+
     // Fetch subscription details
     const subscription = await paymentService.getSubscription(razorpay_subscription_id);
-    console.log('[Subscription Verify] Subscription status:', subscription.status);
+    console.log('[Subscription Verify] Step 2 PASSED: Subscription status:', subscription.status);
+
+    console.log('[Subscription Verify] Step 3: Fetching payment details from Razorpay...');
 
     // Fetch payment details
     const payment = await paymentService.fetchPaymentDetails(razorpay_payment_id);
-    console.log('[Subscription Verify] Payment details:', {
+    console.log('[Subscription Verify] Step 3 PASSED: Payment details:', {
       id: payment.id,
       status: payment.status,
       method: payment.method
@@ -1049,15 +1064,19 @@ router.post('/subscription/verify-payment', async (req, res) => {
       }
     }
 
+    console.log('[Subscription Verify] Step 4: Updating local subscription...');
+
     // Update local subscription
     if (gbpAccountId) {
-      const localSubscription = subscriptionService.getSubscriptionByGBPAccount(gbpAccountId);
+      const localSubscription = await subscriptionService.getSubscriptionByGBPAccount(gbpAccountId);
+      console.log('[Subscription Verify] Local subscription found:', localSubscription ? localSubscription.id : 'NOT FOUND');
+
       if (localSubscription) {
         const now = new Date();
         const endDate = new Date();
         endDate.setFullYear(endDate.getFullYear() + 1); // 1 year subscription
 
-        subscriptionService.updateSubscription(localSubscription.id, {
+        await subscriptionService.updateSubscription(localSubscription.id, {
           status: 'active',
           razorpaySubscriptionId: subscription.id,
           mandateAuthorized: true,
@@ -1069,7 +1088,7 @@ router.post('/subscription/verify-payment', async (req, res) => {
         });
 
         // Add payment record
-        subscriptionService.addPaymentRecord(localSubscription.id, {
+        await subscriptionService.addPaymentRecord(localSubscription.id, {
           amount: payment.amount / 100,
           currency: payment.currency,
           status: 'success',
@@ -1078,8 +1097,14 @@ router.post('/subscription/verify-payment', async (req, res) => {
           description: 'Subscription payment with mandate',
           paidAt: now.toISOString()
         });
+
+        console.log('[Subscription Verify] Step 4 PASSED: Local subscription updated');
       }
+    } else {
+      console.log('[Subscription Verify] Step 4 SKIPPED: No gbpAccountId provided');
     }
+
+    console.log('[Subscription Verify] ✅ ALL STEPS PASSED - Returning success response');
 
     res.json({
       success: true,
@@ -1096,7 +1121,11 @@ router.post('/subscription/verify-payment', async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('[Subscription Verify] Error:', error);
+    console.error('[Subscription Verify] ========================================');
+    console.error('[Subscription Verify] ERROR during verification:');
+    console.error('[Subscription Verify] Message:', error.message);
+    console.error('[Subscription Verify] Stack:', error.stack);
+    console.error('[Subscription Verify] ========================================');
     res.status(500).json({ error: 'Failed to verify subscription payment', details: error.message });
   }
 });

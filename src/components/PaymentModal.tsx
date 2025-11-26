@@ -335,13 +335,16 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
               // Navigate to payment success page
               navigate('/payment-success');
             } else {
-              throw new Error('Subscription payment verification failed');
+              // Get the actual error from the backend
+              const errorData = await verifyResponse.json().catch(() => ({}));
+              console.error('[Subscription] Verification failed:', verifyResponse.status, errorData);
+              throw new Error(errorData.details || errorData.error || 'Subscription payment verification failed');
             }
           } catch (error) {
             console.error('Subscription payment handler error:', error);
             toast({
               title: "Payment Error",
-              description: "There was an issue processing your subscription payment. Please try again.",
+              description: error.message || "There was an issue processing your subscription payment. Please try again.",
               variant: "destructive"
             });
             setIsProcessing(false);

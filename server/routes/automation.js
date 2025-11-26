@@ -247,7 +247,7 @@ router.post('/test-post-now/:locationId', async (req, res) => {
           keywords: keywords || 'quality service, customer satisfaction, professional',
           websiteUrl: websiteUrl || '',
           locationName: locationName || '',
-          timezone: 'America/New_York',
+          timezone: 'Asia/Kolkata',
           userId: 'default'
         },
         autoReply: {
@@ -512,7 +512,7 @@ router.get('/debug/active-jobs', (req, res) => {
         schedule: config?.schedule || 'Unknown',
         lastRun: config?.lastRun || 'Never',
         isRunning: job ? true : false,
-        timezone: config?.timezone || 'America/New_York'
+        timezone: config?.timezone || 'Asia/Kolkata'
       });
     }
 

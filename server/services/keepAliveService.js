@@ -51,9 +51,9 @@ class KeepAliveService {
     this.healthCheckEndpoint = this.getHealthCheckEndpoint();
 
     if (!this.healthCheckEndpoint) {
-      console.log('[KeepAliveService] ⚠️  No health check endpoint configured, running in local mode');
-      // In local development, we don't need keep-alive
-      return;
+      console.log('[KeepAliveService] ⚠️  No health check endpoint configured');
+      console.log('[KeepAliveService] Using fallback: http://localhost:5000/health');
+      this.healthCheckEndpoint = 'http://localhost:5000/health';
     }
 
     console.log('[KeepAliveService] 🚀 Starting keep-alive service...');
@@ -144,18 +144,20 @@ class KeepAliveService {
       if (!backendUrl && process.env.WEBSITE_SITE_NAME) {
         backendUrl = `https://${process.env.WEBSITE_SITE_NAME}.azurewebsites.net`;
       }
+
+      // Final fallback for Azure
+      if (!backendUrl) {
+        backendUrl = 'https://pavan-client-backend-bxgdaqhvarfdeuhe.canadacentral-01.azurewebsites.net';
+      }
     } else {
       // Local development or other environments
-      backendUrl = config.backendUrl || process.env.BACKEND_URL;
-    }
-
-    if (!backendUrl) {
-      return null;
+      backendUrl = config.backendUrl || process.env.BACKEND_URL || `http://localhost:${config.port || 5000}`;
     }
 
     // Ensure URL doesn't end with slash
     backendUrl = backendUrl.replace(/\/$/, '');
 
+    console.log(`[KeepAliveService] 📍 Detected backend URL: ${backendUrl}`);
     return `${backendUrl}/health`;
   }
 

@@ -37,16 +37,18 @@ router.get('/:locationId', async (req, res) => {
 // Create/Save QR code for location
 router.post('/', async (req, res) => {
   try {
-    const { locationId, locationName, address, placeId, googleReviewLink } = req.body;
-    
+    const { locationId, locationName, address, placeId, googleReviewLink, keywords } = req.body;
+
     if (!locationId || !locationName || !googleReviewLink) {
-      return res.status(400).json({ 
-        error: 'Missing required fields: locationId, locationName, googleReviewLink' 
+      return res.status(400).json({
+        error: 'Missing required fields: locationId, locationName, googleReviewLink'
       });
     }
 
+    console.log(`[QR Codes] Creating QR code for ${locationName} with keywords: ${keywords || 'none'}`);
+
     // Generate public review URL using config
-    const publicReviewUrl = `${config.frontendUrl}/review/${locationId}?` + 
+    const publicReviewUrl = `${config.frontendUrl}/review/${locationId}?` +
       `business=${encodeURIComponent(locationName)}&` +
       `location=${encodeURIComponent(address || '')}&` +
       `placeId=${encodeURIComponent(placeId || '')}&` +
@@ -65,19 +67,20 @@ router.post('/', async (req, res) => {
       width: 512
     });
 
-    // Save to storage
+    // Save to storage with keywords for AI review generation
     const qrCodeData = {
       locationName,
       address: address || '',
       placeId: placeId || '',
       googleReviewLink,
+      keywords: keywords || '', // Store keywords for AI to use
       qrCodeUrl,
       publicReviewUrl
     };
 
     const savedQRCode = await qrStorage.saveQRCode(locationId, qrCodeData);
-    
-    res.json({ 
+
+    res.json({
       success: true,
       qrCode: savedQRCode,
       message: 'QR code created and saved successfully'
@@ -141,6 +144,36 @@ router.patch('/:locationId/review-link', async (req, res) => {
   } catch (error) {
     console.error('Error updating review link:', error);
     res.status(500).json({ error: 'Failed to update review link' });
+  }
+});
+
+// Update keywords for existing QR code
+router.patch('/:locationId/keywords', async (req, res) => {
+  try {
+    const { locationId } = req.params;
+    const { keywords } = req.body;
+
+    console.log(`[QR Codes] Updating keywords for location ${locationId}: ${keywords}`);
+
+    // Get existing QR code
+    const existingQR = await qrStorage.getQRCode(locationId);
+    if (!existingQR) {
+      return res.status(404).json({ error: 'QR code not found for this location' });
+    }
+
+    // Update keywords
+    existingQR.keywords = keywords || '';
+    await qrStorage.saveQRCode(locationId, existingQR);
+
+    res.json({
+      success: true,
+      qrCode: existingQR,
+      message: 'Keywords updated successfully'
+    });
+
+  } catch (error) {
+    console.error('Error updating keywords:', error);
+    res.status(500).json({ error: 'Failed to update keywords' });
   }
 });
 
