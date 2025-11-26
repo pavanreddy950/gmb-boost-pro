@@ -229,12 +229,12 @@ export function tokenStatusRateLimit(req, res, next) {
 
 /**
  * Payment endpoint rate limiting
- * 5 requests per 5 minutes per user
+ * 20 requests per 5 minutes per user (increased for subscription flow with multiple API calls)
  */
 export function paymentRateLimit(req, res, next) {
     const userId = req.body?.userId || req.query?.userId || 'unknown';
     const key = `payment:${userId}`;
-    const result = rateLimiter.checkLimit(key, 5, 300); // 5 per 5 min
+    const result = rateLimiter.checkLimit(key, 20, 300); // 20 per 5 min (was 5)
 
     if (!result.allowed) {
         return res.status(429).json({
