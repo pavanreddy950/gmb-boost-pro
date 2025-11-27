@@ -561,35 +561,55 @@ export class PaymentService {
   verifySubscriptionSignature(subscriptionId, paymentId, signature) {
     try {
       console.log('[PaymentService] 🔐 Verifying subscription signature...');
-      
+      console.log('[PaymentService] Input parameters:');
+      console.log('  - subscriptionId:', subscriptionId);
+      console.log('  - paymentId:', paymentId);
+      console.log('  - signature (first 20 chars):', signature ? signature.substring(0, 20) + '...' : 'MISSING');
+
       if (!subscriptionId || !paymentId || !signature) {
-        console.error('[PaymentService] Missing required parameters for signature verification');
+        console.error('[PaymentService] ❌ Missing required parameters for signature verification');
+        console.error('  - Has subscriptionId?', !!subscriptionId);
+        console.error('  - Has paymentId?', !!paymentId);
+        console.error('  - Has signature?', !!signature);
         return false;
       }
 
       const keySecret = process.env.RAZORPAY_KEY_SECRET;
       if (!keySecret) {
-        console.error('[PaymentService] RAZORPAY_KEY_SECRET not configured');
+        console.error('[PaymentService] ❌ RAZORPAY_KEY_SECRET not configured in environment');
         return false;
       }
 
+      console.log('[PaymentService] Using key secret (first 10 chars):', keySecret.substring(0, 10) + '...');
+
       const body = subscriptionId + '|' + paymentId;
+      console.log('[PaymentService] Signature body:', body);
+
       const expectedSignature = crypto
         .createHmac('sha256', keySecret)
         .update(body.toString())
         .digest('hex');
 
+      console.log('[PaymentService] Expected signature (first 20):', expectedSignature.substring(0, 20) + '...');
+      console.log('[PaymentService] Received signature (first 20):', signature.substring(0, 20) + '...');
+      console.log('[PaymentService] Signatures match?', expectedSignature === signature);
+
       const isValid = expectedSignature === signature;
-      
+
       if (isValid) {
         console.log('[PaymentService] ✅ Subscription signature verification successful');
       } else {
-        console.error('[PaymentService] ❌ Subscription signature verification failed');
+        console.error('[PaymentService] ❌ Subscription signature verification FAILED');
+        console.error('[PaymentService] This usually means:');
+        console.error('  1. RAZORPAY_KEY_SECRET is incorrect in environment variables');
+        console.error('  2. Signature was tampered with during transmission');
+        console.error('  3. subscriptionId or paymentId mismatch');
       }
 
       return isValid;
     } catch (error) {
-      console.error('[PaymentService] Error during subscription signature verification:', error);
+      console.error('[PaymentService] ❌ Error during subscription signature verification:', error);
+      console.error('[PaymentService] Error stack:', error.stack);
       return false;
     }
   }
