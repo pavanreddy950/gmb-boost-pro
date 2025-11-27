@@ -582,8 +582,10 @@ export class PaymentService {
 
       console.log('[PaymentService] Using key secret (first 10 chars):', keySecret.substring(0, 10) + '...');
 
-      const body = subscriptionId + '|' + paymentId;
-      console.log('[PaymentService] Signature body:', body);
+      // CRITICAL: Razorpay subscription signature body MUST be: payment_id + '|' + subscription_id
+      // Reference: https://razorpay.com/docs/payments/subscriptions/integration-guide/
+      const body = paymentId + '|' + subscriptionId;
+      console.log('[PaymentService] Signature body (paymentId|subscriptionId):', body);
 
       const expectedSignature = crypto
         .createHmac('sha256', keySecret)
