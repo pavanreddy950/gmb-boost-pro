@@ -1,13 +1,23 @@
 /**
  * Rate Limiter - In-Memory Request Tracking
- * 
+ *
+ * SCALABILITY NOTES (1000+ Concurrent Users):
+ * - Current implementation: In-memory (single server only)
+ * - For multi-server deployments: Use Redis-backed rate limiter
+ * - Limits are set HIGH for production scale (1000+ users)
+ * - Read-only operations (token status): NO LIMITS
+ * - Write operations (payments, automation): Reasonable per-user limits
+ *
  * Features:
  * - Sliding window rate limiting
  * - Per-IP and per-user limits
  * - Automatic cleanup of old requests
  * - Express middleware integration
- * 
- * Production: Consider Redis-backed rate limiter for multi-server deployments
+ *
+ * Production Recommendations:
+ * - Use Redis for distributed rate limiting across multiple servers
+ * - Implement CloudFlare/WAF for DDoS protection at infrastructure level
+ * - Monitor rate limit hits via metrics/logging
  */
 class RateLimiter {
     constructor() {
@@ -138,11 +148,12 @@ const rateLimiter = new RateLimiter();
 
 /**
  * General API rate limiting
- * 100 requests per minute per IP
+ * 1000 requests per minute per IP (scaled for 1000+ concurrent users)
+ * Note: For multi-server deployments, use Redis-backed rate limiter
  */
 export function apiRateLimit(req, res, next) {
     const key = req.ip || req.connection.remoteAddress || 'unknown';
-    const result = rateLimiter.checkLimit(key, 100, 60); // 100 req/min
+    const result = rateLimiter.checkLimit(key, 1000, 60); // 1000 req/min (was 100)
 
     // Set rate limit headers
     res.setHeader('X-RateLimit-Limit', result.limit);
@@ -161,13 +172,13 @@ export function apiRateLimit(req, res, next) {
 }
 
 /**
- * Stricter rate limiting for automation endpoints
- * 20 requests per hour per user
+ * Automation endpoint rate limiting
+ * 100 requests per hour per user (scaled for active automation management)
  */
 export function automationRateLimit(req, res, next) {
     const userId = req.body?.userId || req.query?.userId || req.headers?.['x-user-id'] || 'unknown';
     const key = `automation:${userId}`;
-    const result = rateLimiter.checkLimit(key, 20, 3600); // 20/hour
+    const result = rateLimiter.checkLimit(key, 100, 3600); // 100/hour (was 20)
 
     res.setHeader('X-RateLimit-Limit', result.limit);
     res.setHeader('X-RateLimit-Remaining', result.remaining);
@@ -185,11 +196,12 @@ export function automationRateLimit(req, res, next) {
 
 /**
  * Auth endpoint rate limiting
- * 30 requests per 15 minutes per IP (increased for production with token refresh)
+ * 500 requests per 15 minutes per IP (scaled for 1000+ concurrent users)
+ * High limit needed for: OAuth flows, token refresh, multi-component initialization
  */
 export function authRateLimit(req, res, next) {
     const key = `auth:${req.ip}`;
-    const result = rateLimiter.checkLimit(key, 30, 900); // 30 per 15 min
+    const result = rateLimiter.checkLimit(key, 500, 900); // 500 per 15 min (was 30)
 
     res.setHeader('X-RateLimit-Limit', result.limit);
     res.setHeader('X-RateLimit-Remaining', result.remaining);
@@ -206,24 +218,13 @@ export function authRateLimit(req, res, next) {
 }
 
 /**
- * Token status check rate limiting (more lenient for read-only operations)
- * 60 requests per 15 minutes per IP
+ * Token status check rate limiting (read-only operation)
+ * NO LIMIT - This is just reading data, unlimited for scalability
+ * For 1000+ users, this needs to be unrestricted
  */
 export function tokenStatusRateLimit(req, res, next) {
-    const key = `token-status:${req.ip}`;
-    const result = rateLimiter.checkLimit(key, 60, 900); // 60 per 15 min
-
-    res.setHeader('X-RateLimit-Limit', result.limit);
-    res.setHeader('X-RateLimit-Remaining', result.remaining);
-
-    if (!result.allowed) {
-        return res.status(429).json({
-            error: 'Too many token status checks',
-            message: `Too many requests. Try again in ${Math.ceil(result.resetIn / 60)} minutes.`,
-            retryAfter: result.resetIn
-        });
-    }
-
+    // No rate limiting for token status checks - it's read-only
+    // If DDoS protection needed, implement at infrastructure level (CloudFlare, etc.)
     next();
 }
 
