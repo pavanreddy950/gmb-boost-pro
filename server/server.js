@@ -15,6 +15,7 @@ import automationRoutes from './routes/automation.js';
 import qrCodesRoutes from './routes/qrCodes.js';
 import adminRoutes from './routes/admin.js';
 import welcomeEmailRoutes from './routes/welcomeEmail.js';
+import emailTestRoutes from './routes/emailTest.js';
 import rankTrackingRoutes from './routes/rankTracking.js';
 import { checkSubscription, trackTrialStart, addTrialHeaders } from './middleware/subscriptionCheck.js';
 import SubscriptionService from './services/subscriptionService.js';
@@ -313,6 +314,9 @@ app.get('/api/health/leader-election', async (req, res) => {
 
 // Welcome email route (public - called after signup)
 app.use('/api/welcome-email', welcomeEmailRoutes);
+
+// Email test route (for debugging email delivery issues)
+app.use('/api/email-test', emailTestRoutes);
 
 // Client Configuration API Endpoints
 app.post('/api/client/config/email', checkSubscription, async (req, res) => {
