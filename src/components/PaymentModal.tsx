@@ -189,6 +189,20 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
   const handleSubscriptionPayment = async () => {
 
     try {
+      // CRITICAL VALIDATION: Ensure profileCount is valid
+      if (!profileCount || profileCount < 1 || isNaN(profileCount)) {
+        console.error('[Payment] ❌ CRITICAL: Invalid profileCount:', profileCount);
+        toast({
+          title: "Profile Count Required",
+          description: "Please select how many Google Business Profiles you want to manage.",
+          variant: "destructive"
+        });
+        setIsProcessing(false);
+        return;
+      }
+
+      console.log('[Payment] ✅ ProfileCount validation passed:', profileCount);
+
       // Show loading toast
       toast({
         title: "Initializing Payment",

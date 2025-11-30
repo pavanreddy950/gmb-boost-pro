@@ -289,7 +289,7 @@ class AutomationStorage {
       keywords: [],
       enabled: true, // Auto-posting enabled by default for all users
       schedule: {
-        frequency: 'alternative',
+        frequency: 'daily', // Default to daily posting instead of alternative
         time: '09:00',
       },
       button: {

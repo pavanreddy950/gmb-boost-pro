@@ -289,7 +289,9 @@ router.get('/coupons', async (req, res) => {
 // Create Razorpay order with dynamic currency conversion
 router.post('/order', async (req, res) => {
   try {
-    console.log('[Payment Route] Creating order with body:', req.body);
+    console.log('[Payment Route] ========================================');
+    console.log('[Payment Route] Creating order with FULL body:', JSON.stringify(req.body, null, 2));
+    console.log('[Payment Route] ========================================');
 
     const {
       amount,
@@ -303,6 +305,24 @@ router.post('/order', async (req, res) => {
       console.log('[Payment Route] Error: Amount is required');
       return res.status(400).json({ error: 'Amount is required' });
     }
+
+    // VALIDATION: Ensure profileCount is in notes (unless it's a trial setup)
+    if (!notes.profileCount && !notes.actualProfileCount && !notes.setupType) {
+      console.error('[Payment Route] ========================================');
+      console.error('[Payment Route] ❌ CRITICAL: profileCount missing from order notes!');
+      console.error('[Payment Route] This will cause issues with subscription profile limits.');
+      console.error('[Payment Route] Notes received:', JSON.stringify(notes, null, 2));
+      console.error('[Payment Route] Full request body:', JSON.stringify(req.body, null, 2));
+      console.error('[Payment Route] ========================================');
+
+      // REJECT the order if profileCount is missing
+      return res.status(400).json({
+        error: 'Profile count is required in order notes',
+        details: 'Please select the number of profiles before making a payment. If you see this error, please contact support.'
+      });
+    }
+
+    console.log('[Payment Route] ✅ ProfileCount validation passed:', notes.profileCount || notes.actualProfileCount || 'trial setup');
 
     // Verify currency is supported by Razorpay
     if (!currencyService.isCurrencySupported(currency)) {
@@ -475,6 +495,18 @@ router.post('/verify', async (req, res) => {
     // Get order details to extract profileCount from notes
     const order = await paymentService.getOrder(razorpay_order_id);
     console.log('[Payment Verify] Order details:', order);
+
+    // VALIDATION: Check if order notes are empty
+    if (!order.notes || Object.keys(order.notes).length === 0 || (!order.notes.profileCount && !order.notes.actualProfileCount)) {
+      console.error('[Payment Verify] ========================================');
+      console.error('[Payment Verify] ❌ CRITICAL: Order has EMPTY or INCOMPLETE notes!');
+      console.error('[Payment Verify] Order ID:', razorpay_order_id);
+      console.error('[Payment Verify] Payment ID:', razorpay_payment_id);
+      console.error('[Payment Verify] Notes received:', JSON.stringify(order.notes, null, 2));
+      console.error('[Payment Verify] This indicates a bug in the payment flow.');
+      console.error('[Payment Verify] Profile count will default to 1.');
+      console.error('[Payment Verify] ========================================');
+    }
 
     // Extract profileCount, locationId, and userId from order notes (if available)
     const profileCount = order.notes?.profileCount ? parseInt(order.notes.profileCount) : 1;
@@ -940,7 +972,20 @@ router.post('/subscription/create-with-mandate', async (req, res) => {
       return res.status(400).json({ error: 'userId, email, and planId are required' });
     }
 
+    // VALIDATION: Ensure profileCount is valid
+    if (!profileCount || profileCount < 1 || isNaN(profileCount)) {
+      console.error('[Subscription] ========================================');
+      console.error('[Subscription] ❌ CRITICAL: Invalid profileCount:', profileCount);
+      console.error('[Subscription] Request body:', JSON.stringify(req.body, null, 2));
+      console.error('[Subscription] ========================================');
+      return res.status(400).json({
+        error: 'Valid profile count is required',
+        details: 'Profile count must be a positive number. Please select how many profiles you want to manage.'
+      });
+    }
+
     console.log('[Subscription] Creating subscription with mandate:', { userId, email, planId, profileCount });
+    console.log('[Subscription] ✅ ProfileCount validated:', profileCount);
 
     // Step 1: Create or get Razorpay customer
     let customer;

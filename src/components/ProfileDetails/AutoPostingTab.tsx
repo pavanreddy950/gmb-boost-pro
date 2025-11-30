@@ -182,7 +182,7 @@ export function AutoPostingTab({ location }: AutoPostingTabProps) {
           location.id,
           location.name,
           existingConfig.schedule.time || '09:00',
-          existingConfig.schedule.frequency || 'alternative',
+          existingConfig.schedule.frequency || 'daily', // Use 'daily' as default instead of 'alternative'
           location.categories?.[0],
           existingConfig.keywords.join(', '),
           location.websiteUri,
