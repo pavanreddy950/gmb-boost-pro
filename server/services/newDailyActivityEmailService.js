@@ -1,4 +1,4 @@
-import sgMail from '@sendgrid/mail';
+import gmailService from './gmailService.js';
 import { format } from 'date-fns';
 import fs from 'fs';
 import path from 'path';
@@ -9,22 +9,20 @@ const __dirname = path.dirname(__filename);
 
 class NewDailyActivityEmailService {
   constructor() {
-    // Initialize SendGrid with API key from environment variable
-    const apiKey = process.env.SENDGRID_API_KEY;
-    if (!apiKey) {
-      console.warn('[NewDailyActivityEmailService] ⚠️ SENDGRID_API_KEY not set - email notifications disabled');
-      this.disabled = true;
-      return;
-    }
-    sgMail.setApiKey(apiKey);
-    this.disabled = false;
+    // Use Gmail SMTP instead of SendGrid
+    this.gmailService = gmailService;
+    this.disabled = gmailService.disabled;
 
-    this.fromEmail = 'support@lobaiseo.com';
+    this.fromEmail = process.env.GMAIL_USER || 'hello.lobaiseo@gmail.com';
     this.fromName = 'LOBAISEO';
     this.websiteUrl = 'https://www.lobaiseo.com';
     this.appUrl = 'https://www.app.lobaiseo.com';
 
-    console.log('[NewDailyActivityEmailService] ✅ Initialized with SendGrid');
+    if (!this.disabled) {
+      console.log('[NewDailyActivityEmailService] ✅ Initialized with Gmail SMTP');
+    } else {
+      console.warn('[NewDailyActivityEmailService] ⚠️ Email service disabled - Gmail credentials not set');
+    }
   }
 
   /**
@@ -471,27 +469,17 @@ Upgrade: ${this.appUrl}/dashboard/billing
         console.warn('[NewDailyActivityEmailService] Could not attach banner images:', err.message);
       }
 
-      const msg = {
+      // Use Gmail SMTP to send email (attachments will be added later if needed)
+      const response = await this.gmailService.sendEmail({
         to: userEmail,
-        from: {
-          email: this.fromEmail,
-          name: this.fromName
-        },
         subject,
-        text,
         html,
-        attachments
-      };
-
-      const response = await sgMail.send(msg);
+        text
+      });
 
       console.log(`[NewDailyActivityEmailService] ✅ Daily report sent to ${userEmail}`);
 
-      return {
-        success: true,
-        messageId: response[0].headers['x-message-id'],
-        statusCode: response[0].statusCode
-      };
+      return response;
     } catch (error) {
       console.error('[NewDailyActivityEmailService] ❌ Error sending daily report:', error);
 

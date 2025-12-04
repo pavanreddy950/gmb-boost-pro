@@ -1,24 +1,22 @@
-import sgMail from '@sendgrid/mail';
+import gmailService from './gmailService.js';
 import { format } from 'date-fns';
 
 class DailyActivityEmailService {
   constructor() {
-    // Initialize SendGrid with API key from environment variable
-    const apiKey = process.env.SENDGRID_API_KEY;
-    if (!apiKey) {
-      console.warn('[DailyActivityEmailService] ⚠️ SENDGRID_API_KEY not set - email notifications disabled');
-      this.disabled = true;
-      return;
-    }
-    sgMail.setApiKey(apiKey);
-    this.disabled = false;
+    // Use Gmail SMTP instead of SendGrid
+    this.gmailService = gmailService;
+    this.disabled = gmailService.disabled;
 
-    this.fromEmail = 'support@lobaiseo.com';
+    this.fromEmail = process.env.GMAIL_USER || 'hello.lobaiseo@gmail.com';
     this.fromName = 'LOBAISEO Daily Report';
     this.websiteUrl = 'https://www.lobaiseo.com';
     this.appUrl = 'https://www.app.lobaiseo.com';
 
-    console.log('[DailyActivityEmailService] ✅ Initialized with SendGrid');
+    if (!this.disabled) {
+      console.log('[DailyActivityEmailService] ✅ Initialized with Gmail SMTP');
+    } else {
+      console.warn('[DailyActivityEmailService] ⚠️ Email service disabled - Gmail credentials not set');
+    }
   }
 
   /**
@@ -432,26 +430,17 @@ Need Help? Reply to this email or visit ${this.websiteUrl}
 
       const { subject, html, text } = this.generateDailyReportEmail(userData, activityData, auditData);
 
-      const msg = {
+      // Use Gmail SMTP to send email
+      const response = await this.gmailService.sendEmail({
         to: userEmail,
-        from: {
-          email: this.fromEmail,
-          name: this.fromName
-        },
         subject,
-        text,
-        html
-      };
-
-      const response = await sgMail.send(msg);
+        html,
+        text
+      });
 
       console.log(`[DailyActivityEmailService] ✅ Daily report sent to ${userEmail}`);
 
-      return {
-        success: true,
-        messageId: response[0].headers['x-message-id'],
-        statusCode: response[0].statusCode
-      };
+      return response;
     } catch (error) {
       console.error('[DailyActivityEmailService] ❌ Error sending daily report:', error);
 
@@ -481,26 +470,17 @@ Need Help? Reply to this email or visit ${this.websiteUrl}
 
       const { subject, html, text } = this.generateWelcomeEmail(userName, userEmail);
 
-      const msg = {
+      // Use Gmail SMTP to send email
+      const response = await this.gmailService.sendEmail({
         to: userEmail,
-        from: {
-          email: this.fromEmail,
-          name: this.fromName
-        },
         subject,
-        text,
-        html
-      };
-
-      const response = await sgMail.send(msg);
+        html,
+        text
+      });
 
       console.log(`[DailyActivityEmailService] ✅ Welcome email sent to ${userEmail}`);
 
-      return {
-        success: true,
-        messageId: response[0].headers['x-message-id'],
-        statusCode: response[0].statusCode
-      };
+      return response;
     } catch (error) {
       console.error('[DailyActivityEmailService] ❌ Error sending welcome email:', error);
 

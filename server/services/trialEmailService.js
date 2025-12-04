@@ -1,23 +1,21 @@
-import sgMail from '@sendgrid/mail';
+import gmailService from './gmailService.js';
 
 class TrialEmailService {
   constructor() {
-    // Initialize SendGrid with API key from environment variable
-    const apiKey = process.env.SENDGRID_API_KEY;
-    if (!apiKey) {
-      console.warn('[TrialEmailService] ⚠️ SENDGRID_API_KEY not set - email notifications disabled');
-      this.disabled = true;
-      return;
-    }
-    sgMail.setApiKey(apiKey);
-    this.disabled = false;
+    // Use Gmail SMTP instead of SendGrid
+    this.gmailService = gmailService;
+    this.disabled = gmailService.disabled;
 
-    this.fromEmail = 'support@lobaiseo.com';
+    this.fromEmail = process.env.GMAIL_USER || 'hello.lobaiseo@gmail.com';
     this.fromName = 'LOBAISEO Support';
     this.websiteUrl = 'https://www.lobaiseo.com';
     this.appUrl = 'https://www.app.lobaiseo.com';
 
-    console.log('[TrialEmailService] ✅ Initialized with SendGrid');
+    if (!this.disabled) {
+      console.log('[TrialEmailService] ✅ Initialized with Gmail SMTP');
+    } else {
+      console.warn('[TrialEmailService] ⚠️ Email service disabled - Gmail credentials not set');
+    }
   }
 
   /**
@@ -175,27 +173,17 @@ class TrialEmailService {
 
       const { subject, html, text } = this.generateEmailTemplate(userName, daysRemaining, trialEndDate, emailType);
 
-      const msg = {
+      // Use Gmail SMTP to send email
+      const response = await this.gmailService.sendEmail({
         to: userEmail,
-        from: {
-          email: this.fromEmail,
-          name: this.fromName
-        },
         subject,
-        text,
-        html
-      };
-
-      const response = await sgMail.send(msg);
+        html,
+        text
+      });
 
       console.log(`[TrialEmailService] ✅ Email sent successfully to ${userEmail}`);
-      console.log(`[TrialEmailService] Response status: ${response[0].statusCode}`);
 
-      return {
-        success: true,
-        messageId: response[0].headers['x-message-id'],
-        statusCode: response[0].statusCode
-      };
+      return response;
     } catch (error) {
       console.error('[TrialEmailService] ❌ Error sending email:', error);
 
@@ -218,12 +206,9 @@ class TrialEmailService {
     try {
       console.log(`[TrialEmailService] 📧 Sending test email to ${userEmail}`);
 
-      const msg = {
+      // Use Gmail SMTP to send test email
+      const response = await this.gmailService.sendEmail({
         to: userEmail,
-        from: {
-          email: this.fromEmail,
-          name: this.fromName
-        },
         subject: '✅ LOBAISEO Email System Test',
         text: 'This is a test email from LOBAISEO trial reminder system. If you received this, the email system is working correctly!',
         html: `
@@ -250,26 +235,20 @@ class TrialEmailService {
     <p>This is a test email from LOBAISEO trial reminder system.</p>
     <p>If you received this email, it means:</p>
     <ul>
-      <li>✅ SendGrid API is configured correctly</li>
-      <li>✅ Sender email (support@lobaiseo.com) is verified</li>
+      <li>✅ Gmail SMTP is configured correctly</li>
+      <li>✅ Sender email (${this.fromEmail}) is working</li>
       <li>✅ Email delivery is working properly</li>
     </ul>
-    <p><strong>Your trial reminder emails will be sent automatically!</strong></p>
+    <p><strong>Your trial reminder emails will be sent automatically 24/7!</strong></p>
   </div>
 </body>
 </html>
         `
-      };
-
-      const response = await sgMail.send(msg);
+      });
 
       console.log(`[TrialEmailService] ✅ Test email sent successfully to ${userEmail}`);
 
-      return {
-        success: true,
-        messageId: response[0].headers['x-message-id'],
-        statusCode: response[0].statusCode
-      };
+      return response;
     } catch (error) {
       console.error('[TrialEmailService] ❌ Error sending test email:', error);
 

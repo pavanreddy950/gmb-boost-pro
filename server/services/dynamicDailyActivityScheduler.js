@@ -384,14 +384,14 @@ class DynamicDailyActivityScheduler {
 
   /**
    * Start the scheduler
-   * Runs daily at 9:00 PM
+   * Runs daily at 6:00 PM
    */
   start() {
     console.log('[DynamicDailyActivityScheduler] 🚀 Starting scheduler...');
 
-    // Schedule daily email batch at 9:00 PM every day
-    const dailyJob = cron.schedule('0 21 * * *', async () => {
-      console.log('[DynamicDailyActivityScheduler] ⏰ Running scheduled email batch (9:00 PM)');
+    // Schedule daily email batch at 6:00 PM every day
+    const dailyJob = cron.schedule('0 18 * * *', async () => {
+      console.log('[DynamicDailyActivityScheduler] ⏰ Running scheduled email batch (6:00 PM)');
       await this.sendAllDailyReports();
     }, {
       timezone: "Asia/Kolkata" // Adjust timezone as needed
@@ -400,7 +400,7 @@ class DynamicDailyActivityScheduler {
     this.scheduledJobs.push(dailyJob);
 
     console.log('[DynamicDailyActivityScheduler] ✅ Scheduler started successfully');
-    console.log('[DynamicDailyActivityScheduler] 📅 Daily emails will be sent at 9:00 PM');
+    console.log('[DynamicDailyActivityScheduler] 📅 Daily emails will be sent at 6:00 PM IST');
     console.log('[DynamicDailyActivityScheduler] 📧 Trial users: Daily emails');
     console.log('[DynamicDailyActivityScheduler] 📧 Subscribed users: Weekly emails');
   }
