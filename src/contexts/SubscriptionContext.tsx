@@ -87,6 +87,7 @@ export const SubscriptionProvider: React.FC<SubscriptionProviderProps> = ({ chil
         planId: 'unlimited',
         status: 'active',
         profileCount: 999999, // Unlimited profiles
+        paidSlots: 999999, // Unlimited paid slots
         maxProfiles: 999999,
         amount: 0,
         currency: 'usd',

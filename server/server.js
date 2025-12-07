@@ -19,6 +19,7 @@ import emailTestRoutes from './routes/emailTest.js';
 import rankTrackingRoutes from './routes/rankTracking.js';
 import { checkSubscription, trackTrialStart, addTrialHeaders } from './middleware/subscriptionCheck.js';
 import SubscriptionService from './services/subscriptionService.js';
+import subscriptionGuard from './services/subscriptionGuard.js';
 import automationScheduler from './services/automationScheduler.js';
 import supabaseTokenStorage from './services/supabaseTokenStorage.js';
 import tokenManager from './services/tokenManager.js';
@@ -4222,6 +4223,15 @@ initializeServer().then(() => {
       console.error('❌ [TOKEN REFRESH] Failed to start token refresh service:', error);
     }
 
+    // 🔒 CRITICAL: Start subscription guard for trial/subscription enforcement
+    console.log('🔒 [SUBSCRIPTION GUARD] Starting subscription enforcement system...');
+    try {
+      subscriptionGuard.startPeriodicChecks();
+      console.log('✅ [SUBSCRIPTION GUARD] Subscription guard started! Will check and disable expired trials/subscriptions every hour.');
+    } catch (error) {
+      console.error('❌ [SUBSCRIPTION GUARD] Failed to start subscription guard:', error);
+    }
+
     // 🚀 CRITICAL: Start Leader Election for Horizontal Scaling
     // Only the LEADER server will run automations (prevents duplicates)
     console.log('👑 [LEADER ELECTION] Starting leader election for horizontal scaling...');
@@ -4291,8 +4301,9 @@ initializeServer().then(() => {
         dynamicDailyActivityScheduler.start();
         console.log('✅ [REPORTS] Dynamic daily activity report scheduler started!');
         console.log('   📧 Email frequencies:');
-        console.log('      - Trial users: Daily emails at 9:00 PM');
-        console.log('      - Subscribed users: Weekly emails at 9:00 PM');
+        console.log('      - ALL users: Daily emails at 6:00 PM IST');
+        console.log('      - Trial users: Show upgrade button');
+        console.log('      - Subscribed users: NO upgrade button');
         console.log('   📊 Features:');
         console.log('      - Real-time activity data from database');
         console.log('      - Dynamic audit results');

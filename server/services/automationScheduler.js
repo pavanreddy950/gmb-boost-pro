@@ -5,6 +5,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import supabaseTokenStorage from './supabaseTokenStorage.js';
 import supabaseAutomationService from './supabaseAutomationService.js';
+import subscriptionGuard from './subscriptionGuard.js';
 import appConfig from '../config.js';
 
 // Get __dirname equivalent for ES modules
@@ -60,11 +61,32 @@ class AutomationScheduler {
         // Use the setting object directly instead of trying to parse setting.settings
         this.settings.automations[locationId] = setting;
 
+        // 🔧 FIX: Ensure autoPosting.enabled is set if database enabled=true
+        // This prevents the double-check from filtering out accounts
+        if (setting.enabled && setting.autoPosting) {
+          if (!setting.autoPosting.enabled) {
+            console.log(`[AutomationScheduler] ⚠️ Fixing autoPosting.enabled for location ${locationId} - setting to true`);
+            setting.autoPosting.enabled = true;
+            this.settings.automations[locationId].autoPosting.enabled = true;
+          }
+        }
+
+        // 🔧 FIX: Ensure autoReply.enabled is set if database autoReplyEnabled=true
+        if (setting.autoReplyEnabled && setting.autoReply) {
+          if (!setting.autoReply.enabled) {
+            console.log(`[AutomationScheduler] ⚠️ Fixing autoReply.enabled for location ${locationId} - setting to true`);
+            setting.autoReply.enabled = true;
+            this.settings.automations[locationId].autoReply.enabled = true;
+          }
+        }
+
         console.log(`[AutomationScheduler] ✅ Loaded settings for location ${locationId}:`, {
+          databaseEnabled: setting.enabled,
           hasAutoPosting: !!setting?.autoPosting,
           autoPostingEnabled: setting?.autoPosting?.enabled,
           hasAutoReply: !!setting?.autoReply,
-          autoReplyEnabled: setting?.autoReply?.enabled
+          autoReplyEnabled: setting?.autoReply?.enabled,
+          userId: setting.userId
         });
       }
 
@@ -99,16 +121,39 @@ class AutomationScheduler {
     await this.loadSettings();
 
     const automations = this.settings.automations || {};
+    console.log(`[AutomationScheduler] 📋 Processing ${Object.keys(automations).length} total automation settings...`);
+
+    let scheduledCount = 0;
+    let skippedCount = 0;
+
     for (const [locationId, config] of Object.entries(automations)) {
+      console.log(`[AutomationScheduler] 📍 Processing location ${locationId}:`, {
+        userId: config.userId,
+        hasAutoPosting: !!config.autoPosting,
+        autoPostingEnabled: config.autoPosting?.enabled,
+        hasAutoReply: !!config.autoReply,
+        autoReplyEnabled: config.autoReply?.enabled
+      });
+
       if (config.autoPosting?.enabled) {
+        console.log(`[AutomationScheduler] ✅ Scheduling auto-posting for location ${locationId}`);
         this.scheduleAutoPosting(locationId, config.autoPosting);
+        scheduledCount++;
+      } else {
+        console.log(`[AutomationScheduler] ⏭️ Skipping auto-posting for location ${locationId} - not enabled`);
+        skippedCount++;
       }
+
       if (config.autoReply?.enabled) {
+        console.log(`[AutomationScheduler] ✅ Starting review monitoring for location ${locationId}`);
         this.startReviewMonitoring(locationId, config.autoReply);
+      } else {
+        console.log(`[AutomationScheduler] ⏭️ Skipping review monitoring for location ${locationId} - not enabled`);
       }
     }
 
     console.log(`[AutomationScheduler] ✅ Initialized ${this.scheduledJobs.size} posting schedules and ${this.reviewCheckIntervals.size} review monitors`);
+    console.log(`[AutomationScheduler] 📊 Summary: ${scheduledCount} scheduled, ${skippedCount} skipped`);
 
     // Start catch-up mechanism to handle missed posts
     this.startMissedPostChecker();
@@ -610,6 +655,32 @@ class AutomationScheduler {
       console.log(`[AutomationScheduler] ✅ Valid token acquired, proceeding with post creation...`);
       console.log(`[AutomationScheduler] ========================================`);
 
+      // 🔒 SUBSCRIPTION CHECK - Verify user has valid trial or active subscription
+      const gbpAccountId = config.gbpAccountId || config.accountId;
+      console.log(`[AutomationScheduler] 🔒 Validating subscription for user ${targetUserId}, GBP Account: ${gbpAccountId}`);
+
+      const validationResult = await subscriptionGuard.validateBeforeAutomation(targetUserId, gbpAccountId, 'auto_posting');
+
+      if (!validationResult.allowed) {
+        console.error(`[AutomationScheduler] ❌ SUBSCRIPTION CHECK FAILED`);
+        console.error(`[AutomationScheduler] Reason: ${validationResult.reason}`);
+        console.error(`[AutomationScheduler] Message: ${validationResult.message}`);
+        console.error(`[AutomationScheduler] 🚫 AUTO-POSTING BLOCKED - Trial/Subscription expired!`);
+
+        // Log this blocked attempt
+        this.logAutomationActivity(locationId, 'post_failed', {
+          userId: targetUserId,
+          error: validationResult.message,
+          reason: validationResult.reason,
+          timestamp: new Date().toISOString(),
+          blockedBy: 'subscription_guard'
+        });
+
+        return null; // Stop - don't create post
+      }
+
+      console.log(`[AutomationScheduler] ✅ Subscription validated - ${validationResult.status} (${validationResult.daysRemaining} days remaining)`);
+
       // Use the updated method with better API handling
       const result = await this.createAutomatedPostWithToken(locationId, config, userToken.access_token);
 
@@ -675,12 +746,12 @@ class AutomationScheduler {
       return null;
     }
 
-    // Default to auto selection if no button config or button enabled
-    const buttonType = button?.type || 'auto';
+    // Default to 'call_now' if no button config specified
+    const buttonType = button?.type || 'call_now';
     console.log(`[AutomationScheduler] ✅ Button type: ${buttonType}`);
 
     // Handle different button types
-    let actionType = 'LEARN_MORE'; // Default
+    let actionType = 'CALL'; // Default to CALL button
     let url = button?.customUrl || websiteUrl || '';
 
     switch (buttonType) {
@@ -1117,10 +1188,36 @@ CRITICAL RULES - MUST FOLLOW ALL:
   async checkAndReplyToReviews(locationId, config) {
     try {
       console.log(`[AutomationScheduler] 🔍 Checking for new reviews to auto-reply for location ${locationId}`);
-      
+
       // Get a valid token using the new token system
       const targetUserId = config.userId || 'default';
       console.log(`[AutomationScheduler] Getting valid token for user: ${targetUserId}`);
+
+      // 🔒 SUBSCRIPTION CHECK - Verify user has valid trial or active subscription before replying
+      const gbpAccountId = config.gbpAccountId || config.accountId;
+      console.log(`[AutomationScheduler] 🔒 Validating subscription for user ${targetUserId}, GBP Account: ${gbpAccountId}`);
+
+      const validationResult = await subscriptionGuard.validateBeforeAutomation(targetUserId, gbpAccountId, 'auto_reply');
+
+      if (!validationResult.allowed) {
+        console.error(`[AutomationScheduler] ❌ SUBSCRIPTION CHECK FAILED`);
+        console.error(`[AutomationScheduler] Reason: ${validationResult.reason}`);
+        console.error(`[AutomationScheduler] Message: ${validationResult.message}`);
+        console.error(`[AutomationScheduler] 🚫 AUTO-REPLY BLOCKED - Trial/Subscription expired!`);
+
+        // Log this blocked attempt
+        this.logAutomationActivity(locationId, 'review_check_failed', {
+          userId: targetUserId,
+          error: validationResult.message,
+          reason: validationResult.reason,
+          timestamp: new Date().toISOString(),
+          blockedBy: 'subscription_guard'
+        });
+
+        return null; // Stop - don't reply to reviews
+      }
+
+      console.log(`[AutomationScheduler] ✅ Subscription validated - ${validationResult.status} (${validationResult.daysRemaining} days remaining)`);
       
       let userToken = await this.getValidTokenForUser(targetUserId);
       

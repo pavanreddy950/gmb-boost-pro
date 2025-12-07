@@ -1,6 +1,7 @@
 import express from 'express';
 import QRCode from 'qrcode';
 import QRCodeStorageService from '../services/qrCodeStorage.js';
+import subscriptionGuard from '../services/subscriptionGuard.js';
 import config from '../config.js';
 
 const router = express.Router();
@@ -37,12 +38,36 @@ router.get('/:locationId', async (req, res) => {
 // Create/Save QR code for location
 router.post('/', async (req, res) => {
   try {
-    const { locationId, locationName, address, placeId, googleReviewLink, keywords } = req.body;
+    const { locationId, locationName, address, placeId, googleReviewLink, keywords, userId, gbpAccountId } = req.body;
 
     if (!locationId || !locationName || !googleReviewLink) {
       return res.status(400).json({
         error: 'Missing required fields: locationId, locationName, googleReviewLink'
       });
+    }
+
+    // 🔒 SUBSCRIPTION CHECK - Verify user has valid trial or active subscription
+    if (userId && gbpAccountId) {
+      console.log(`[QR Codes] 🔒 Validating subscription for user ${userId}, GBP Account: ${gbpAccountId}`);
+
+      const accessCheck = await subscriptionGuard.hasValidAccess(userId, gbpAccountId);
+
+      if (!accessCheck.hasAccess) {
+        console.error(`[QR Codes] ❌ SUBSCRIPTION CHECK FAILED`);
+        console.error(`[QR Codes] Reason: ${accessCheck.reason}`);
+        console.error(`[QR Codes] 🚫 QR CODE CREATION BLOCKED - Trial/Subscription expired!`);
+
+        return res.status(403).json({
+          error: accessCheck.message,
+          reason: accessCheck.reason,
+          requiresPayment: accessCheck.requiresPayment,
+          message: 'Your trial/subscription has expired. Please upgrade to create QR codes.'
+        });
+      }
+
+      console.log(`[QR Codes] ✅ Subscription validated - ${accessCheck.status} (${accessCheck.daysRemaining} days remaining)`);
+    } else {
+      console.warn(`[QR Codes] ⚠️ No userId/gbpAccountId provided - skipping subscription check`);
     }
 
     console.log(`[QR Codes] Creating QR code for ${locationName} with keywords: ${keywords || 'none'}`);

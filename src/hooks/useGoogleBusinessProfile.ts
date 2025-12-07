@@ -57,6 +57,35 @@ export const useGoogleBusinessProfile = (): UseGoogleBusinessProfileReturn => {
     }
   }, [currentUser]);
 
+  // Update profile count in subscription (slot-based system)
+  const updateProfileCount = useCallback(async (gbpAccountId: string, profileCount: number) => {
+    if (!currentUser?.uid) return;
+
+    try {
+      const backendUrl = import.meta.env.VITE_BACKEND_URL || 'https://pavan-client-backend-bxgdaqhvarfdeuhe.canadacentral-01.azurewebsites.net';
+      const response = await fetch(`${backendUrl}/api/payment/subscription/update-profile-count`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          userId: currentUser.uid,
+          gbpAccountId: gbpAccountId,
+          currentProfileCount: profileCount
+        })
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        console.log('[Profile Count] Updated successfully:', data);
+      } else {
+        console.warn('[Profile Count] Failed to update:', await response.text());
+      }
+    } catch (error) {
+      console.error('[Profile Count] Error updating:', error);
+    }
+  }, [currentUser]);
+
   // Load business accounts
   const loadBusinessAccounts = useCallback(async (forceRefresh: boolean = false) => {
     try {
@@ -64,10 +93,17 @@ export const useGoogleBusinessProfile = (): UseGoogleBusinessProfileReturn => {
       const businessAccounts = await googleBusinessProfileService.getBusinessAccounts(forceRefresh);
       setAccounts(businessAccounts);
 
-      // Save GBP associations for all accounts
+      // Save GBP associations and update profile counts for all accounts
       for (const account of businessAccounts) {
         if (account.accountId) {
           await saveGbpAssociation(account.accountId);
+
+          // SLOT-BASED SYSTEM: Update current active profile count
+          const totalLocations = account.locations?.length || 0;
+          if (totalLocations > 0) {
+            await updateProfileCount(account.accountId, totalLocations);
+            console.log(`[Profile Count] Account ${account.accountName}: ${totalLocations} profiles tracked`);
+          }
         }
       }
 
@@ -93,7 +129,7 @@ export const useGoogleBusinessProfile = (): UseGoogleBusinessProfileReturn => {
     } finally {
       setIsLoading(false);
     }
-  }, [toast, saveGbpAssociation]);
+  }, [toast, saveGbpAssociation, updateProfileCount]);
 
   // Automatic token refresh - check periodically to keep connection alive
   useEffect(() => {

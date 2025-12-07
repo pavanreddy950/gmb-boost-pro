@@ -200,6 +200,7 @@ class DynamicDailyActivityScheduler {
 
   /**
    * Check if email should be sent based on frequency
+   * UPDATED: Send to ALL users daily (trial AND subscribed) at 6 PM
    */
   shouldSendEmail(subscription) {
     const userId = subscription.user_id || subscription.userId;
@@ -208,22 +209,23 @@ class DynamicDailyActivityScheduler {
 
     const now = new Date();
 
-    // Trial users: send daily
-    if (status === 'trial') {
-      if (!lastSent) return true;
-
-      const hoursSinceLastEmail = (now - lastSent) / (1000 * 60 * 60);
-      return hoursSinceLastEmail >= 24; // Send daily
+    // 🔧 FIX: Send to EVERYONE daily at 6 PM (trial AND subscribed users)
+    // Check if already sent TODAY (not 24 hours ago)
+    if (!lastSent) {
+      return true; // Never sent before - send now
     }
 
-    // Active subscribed users: send weekly
-    if (status === 'active') {
-      if (!lastSent) return true;
+    // Check if already sent today
+    const today = now.toDateString();
+    const lastSentDate = new Date(lastSent).toDateString();
 
-      const daysSinceLastEmail = (now - lastSent) / (1000 * 60 * 60 * 24);
-      return daysSinceLastEmail >= 7; // Send weekly
+    // If not sent today, send now
+    if (today !== lastSentDate) {
+      return true;
     }
 
+    // Already sent today - skip
+    console.log(`[DynamicDailyActivityScheduler] ⏭️ Already sent today to ${subscription.email}`);
     return false;
   }
 
@@ -236,18 +238,11 @@ class DynamicDailyActivityScheduler {
       const email = subscription.email;
       const gbpAccountId = subscription.gbp_account_id || subscription.gbpAccountId;
 
-      console.log(`[DynamicDailyActivityScheduler] 📧 Processing email for ${email} (Status: ${subscription.status})`);
+      console.log(`[DynamicDailyActivityScheduler] 📧 Sending daily email to ${email} (Status: ${subscription.status})`);
 
-      // Check if email should be sent based on frequency
-      if (!this.shouldSendEmail(subscription)) {
-        const lastSent = this.emailTracking.get(userId);
-        console.log(`[DynamicDailyActivityScheduler] ⏭️ Skipping ${email} - Last sent: ${lastSent}`);
-        return {
-          success: false,
-          reason: 'Email frequency not met',
-          lastSent: lastSent
-        };
-      }
+      // 🔧 REMOVED shouldSendEmail() check - Cron ONLY runs at 6 PM daily
+      // No timing issues - guaranteed to send at EXACTLY 6 PM every day
+      console.log(`[DynamicDailyActivityScheduler] ✅ Email will be sent - no blocking checks`);
 
       // Determine if user is in trial
       const isTrialUser = this.isUserInTrial(subscription);
@@ -298,9 +293,11 @@ class DynamicDailyActivityScheduler {
       );
 
       if (result.success) {
-        // Update email tracking
+        // Update email tracking (for logging only, not for blocking)
         this.emailTracking.set(userId, new Date());
-        console.log(`[DynamicDailyActivityScheduler] ✅ Email sent to ${email}`);
+        console.log(`[DynamicDailyActivityScheduler] ✅ Email successfully sent to ${email} at ${new Date().toLocaleString('en-US', { timeZone: 'Asia/Kolkata' })}`);
+      } else {
+        console.error(`[DynamicDailyActivityScheduler] ❌ Failed to send email to ${email}:`, result.error);
       }
 
       return result;
@@ -353,6 +350,10 @@ class DynamicDailyActivityScheduler {
             result: result.success ? 'sent' : (result.reason ? 'skipped' : 'failed'),
             reason: result.reason || result.error
           });
+
+          // 🔧 Add 500ms delay between emails to avoid Gmail rate limiting
+          await new Promise(resolve => setTimeout(resolve, 500));
+
         } catch (error) {
           console.error(`[DynamicDailyActivityScheduler] Error processing ${email}:`, error);
           results.failed++;
@@ -400,9 +401,9 @@ class DynamicDailyActivityScheduler {
     this.scheduledJobs.push(dailyJob);
 
     console.log('[DynamicDailyActivityScheduler] ✅ Scheduler started successfully');
-    console.log('[DynamicDailyActivityScheduler] 📅 Daily emails will be sent at 6:00 PM IST');
-    console.log('[DynamicDailyActivityScheduler] 📧 Trial users: Daily emails');
-    console.log('[DynamicDailyActivityScheduler] 📧 Subscribed users: Weekly emails');
+    console.log('[DynamicDailyActivityScheduler] 📅 ALL users will receive daily emails at 6:00 PM IST');
+    console.log('[DynamicDailyActivityScheduler] 📧 Trial users: Show "Upgrade" button in email');
+    console.log('[DynamicDailyActivityScheduler] 📧 Subscribed users: NO "Upgrade" button in email');
   }
 
   /**

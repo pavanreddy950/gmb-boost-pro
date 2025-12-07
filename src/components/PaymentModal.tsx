@@ -45,6 +45,11 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
   const [isValidatingCoupon, setIsValidatingCoupon] = useState(false);
   const [exchangeRate, setExchangeRate] = useState(88.718); // Dynamic exchange rate, default fallback
 
+  // Slot-based subscription state
+  const [paidSlots, setPaidSlots] = useState(0);
+  const [additionalProfilesNeeded, setAdditionalProfilesNeeded] = useState(0);
+  const [isCheckingSlots, setIsCheckingSlots] = useState(false);
+
   const { Razorpay } = useRazorpay();
   const { currentUser } = useAuth();
   const { subscription, checkSubscriptionStatus } = useSubscription();
@@ -68,6 +73,59 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
       setProfileCount(Math.max(1, totalConnectedProfiles));
     }
   }, [selectedPlanId, totalConnectedProfiles]);
+
+  // Check slot-based payment requirements when modal opens or profile count changes
+  useEffect(() => {
+    if (isOpen && totalConnectedProfiles > 0) {
+      checkProfilePaymentStatus();
+    }
+  }, [isOpen, totalConnectedProfiles]);
+
+  const checkProfilePaymentStatus = async () => {
+    if (!currentUser) return;
+
+    setIsCheckingSlots(true);
+    try {
+      const response = await fetch(`${backendUrl}/api/payment/subscription/check-profile-payment`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          gbpAccountId: subscription?.gbpAccountId,
+          userId: currentUser.uid,
+          currentProfileCount: totalConnectedProfiles
+        })
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        console.log('[PaymentModal] Slot check result:', data);
+
+        setPaidSlots(data.paidSlots || 0);
+        setAdditionalProfilesNeeded(data.additionalProfilesNeeded || 0);
+
+        if (!data.paymentNeeded) {
+          // User has enough paid slots - show success message and close modal
+          toast({
+            title: "All Profiles Covered",
+            description: data.message,
+          });
+          // Don't close modal automatically - let user see they have slots available
+        } else if (data.additionalProfilesNeeded > 0) {
+          // Set profile count to only the additional profiles needed
+          setProfileCount(data.additionalProfilesNeeded);
+
+          toast({
+            title: "Additional Profiles Detected",
+            description: data.message,
+          });
+        }
+      }
+    } catch (error) {
+      console.error('[PaymentModal] Error checking slot status:', error);
+    } finally {
+      setIsCheckingSlots(false);
+    }
+  };
 
   // Fetch live exchange rate when modal opens
   useEffect(() => {
@@ -457,9 +515,25 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
       <DialogContent className="max-w-3xl h-[90vh] p-0 flex flex-col">
         {/* Fixed Header */}
         <DialogHeader className="flex-shrink-0 bg-background z-20 px-6 pt-6 pb-4 border-b">
-          <DialogTitle>Upgrade Your Profile Access</DialogTitle>
+          <DialogTitle>
+            {additionalProfilesNeeded > 0
+              ? `Pay for ${additionalProfilesNeeded} Additional Profile${additionalProfilesNeeded > 1 ? 's' : ''}`
+              : 'Upgrade Your Profile Access'
+            }
+          </DialogTitle>
           <DialogDescription>
-            Choose how many Google Business Profiles you want to manage. Pay only for what you need at $99 per profile per year.
+            {paidSlots > 0 ? (
+              <div className="space-y-1">
+                <p>You currently have {paidSlots} paid slot{paidSlots !== 1 ? 's' : ''} and {totalConnectedProfiles} profile{totalConnectedProfiles !== 1 ? 's' : ''}.</p>
+                {additionalProfilesNeeded > 0 ? (
+                  <p className="text-primary font-medium">Pay only for {additionalProfilesNeeded} additional profile{additionalProfilesNeeded !== 1 ? 's' : ''} at $99/profile/year.</p>
+                ) : (
+                  <p className="text-green-600 font-medium">All your profiles are covered! You have {paidSlots - totalConnectedProfiles} unused slot{(paidSlots - totalConnectedProfiles) !== 1 ? 's' : ''}.</p>
+                )}
+              </div>
+            ) : (
+              <p>Choose how many Google Business Profiles you want to manage. Pay only for what you need at $99 per profile per year.</p>
+            )}
           </DialogDescription>
         </DialogHeader>
 
@@ -523,6 +597,39 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
               </Card>
             ))}
           </RadioGroup>
+
+          {/* Slot-based Subscription Info Banner */}
+          {paidSlots > 0 && (
+            <div className="mt-6 bg-gradient-to-r from-purple-50 to-blue-50 border border-purple-200 rounded-lg p-4">
+              <div className="space-y-2">
+                <div className="flex items-center space-x-2">
+                  <Shield className="h-5 w-5 text-purple-600" />
+                  <p className="text-sm font-semibold text-purple-900">Your Subscription Slots</p>
+                </div>
+                <div className="grid grid-cols-3 gap-4 text-center">
+                  <div className="bg-white rounded-md p-2 border border-purple-200">
+                    <p className="text-2xl font-bold text-purple-600">{paidSlots}</p>
+                    <p className="text-xs text-gray-600">Paid Slots</p>
+                  </div>
+                  <div className="bg-white rounded-md p-2 border border-blue-200">
+                    <p className="text-2xl font-bold text-blue-600">{totalConnectedProfiles}</p>
+                    <p className="text-xs text-gray-600">Active Profiles</p>
+                  </div>
+                  <div className={`bg-white rounded-md p-2 border ${additionalProfilesNeeded > 0 ? 'border-red-200' : 'border-green-200'}`}>
+                    <p className={`text-2xl font-bold ${additionalProfilesNeeded > 0 ? 'text-red-600' : 'text-green-600'}`}>
+                      {additionalProfilesNeeded > 0 ? additionalProfilesNeeded : (paidSlots - totalConnectedProfiles)}
+                    </p>
+                    <p className="text-xs text-gray-600">
+                      {additionalProfilesNeeded > 0 ? 'Need Payment' : 'Unused Slots'}
+                    </p>
+                  </div>
+                </div>
+                <p className="text-xs text-purple-700 mt-2">
+                  💡 <strong>How it works:</strong> Paid slots never decrease during your subscription year. Add/delete profiles freely - you only pay when you exceed your paid slots!
+                </p>
+              </div>
+            </div>
+          )}
 
           {/* Profile Count Selector for Per-Profile Plan */}
           {selectedPlanId === 'per_profile_yearly' && (

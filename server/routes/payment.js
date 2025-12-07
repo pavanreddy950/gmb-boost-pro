@@ -557,10 +557,12 @@ router.post('/verify', async (req, res) => {
         endDate.setMonth(endDate.getMonth() + 1); // 1 month (default)
       }
 
-      // IMPORTANT: ACCUMULATE profileCount instead of overwriting
-      // Each payment for a new profile should ADD to the count, not replace it
-      const currentProfileCount = subscription.profileCount || 0;
-      const newProfileCount = currentProfileCount + profileCount;
+      // SLOT-BASED SUBSCRIPTION LOGIC
+      // paid_slots = Total slots purchased (NEVER decreases during subscription period)
+      // profileCount = Current active profiles (can increase/decrease as user adds/deletes)
+
+      const currentPaidSlots = subscription.paidSlots || subscription.profileCount || 0;
+      const newPaidSlots = currentPaidSlots + profileCount; // ADD new slots to existing slots
 
       // Track paid location IDs to know which specific profiles are paid for
       const paidLocationIds = subscription.paidLocationIds || [];
@@ -568,17 +570,18 @@ router.post('/verify', async (req, res) => {
         paidLocationIds.push(locationId);
       }
 
-      console.log('[Payment Verify] Profile count update:', {
-        currentCount: currentProfileCount,
-        addingCount: profileCount,
-        newTotal: newProfileCount,
+      console.log('[Payment Verify] Slot-based subscription update:', {
+        currentPaidSlots: currentPaidSlots,
+        newProfilesPurchased: profileCount,
+        newTotalPaidSlots: newPaidSlots,
         locationId: locationId,
         paidLocationIds: paidLocationIds
       });
 
       const updatedSubscription = await subscriptionService.markSubscriptionAsPaid(gbpAccountId || subscription.gbpAccountId, {
         planId: planId || 'yearly_pro',
-        profileCount: newProfileCount, // ACCUMULATE instead of overwrite
+        paidSlots: newPaidSlots, // TOTAL slots purchased (never decreases)
+        profileCount: newPaidSlots, // Update profileCount to match paid slots for now
         paidLocationIds: paidLocationIds, // Track which locations are paid
         lastPaymentDate: now.toISOString(),
         subscriptionEndDate: endDate.toISOString(),
@@ -1213,6 +1216,133 @@ router.get('/subscription/details/:subscriptionId', async (req, res) => {
   } catch (error) {
     console.error('[Subscription Details] Error:', error);
     res.status(500).json({ error: 'Failed to fetch subscription details' });
+  }
+});
+
+// ===== SLOT-BASED PROFILE MANAGEMENT =====
+
+// Check if additional payment is needed based on current profile count
+router.post('/subscription/check-profile-payment', async (req, res) => {
+  try {
+    const { gbpAccountId, userId, currentProfileCount } = req.body;
+
+    console.log('[Profile Payment Check] Request:', { gbpAccountId, userId, currentProfileCount });
+
+    if (!currentProfileCount || currentProfileCount < 1) {
+      return res.status(400).json({ error: 'Current profile count is required' });
+    }
+
+    // Find subscription by GBP account ID or user ID
+    let subscription = null;
+    if (gbpAccountId) {
+      subscription = await subscriptionService.getSubscriptionByGBPAccount(gbpAccountId);
+    } else if (userId) {
+      subscription = await subscriptionService.getSubscriptionByUserId(userId);
+    }
+
+    if (!subscription) {
+      // No subscription found - user needs to pay for all profiles
+      console.log('[Profile Payment Check] No subscription found - payment needed for all profiles');
+      return res.json({
+        paymentNeeded: true,
+        paidSlots: 0,
+        currentProfiles: currentProfileCount,
+        additionalProfilesNeeded: currentProfileCount,
+        message: `You need to pay for ${currentProfileCount} profile${currentProfileCount > 1 ? 's' : ''}`
+      });
+    }
+
+    // Check subscription status
+    const status = await subscriptionService.checkSubscriptionStatus(subscription.gbpAccountId);
+    if (status.status === 'expired' || status.status === 'cancelled') {
+      console.log('[Profile Payment Check] Subscription expired/cancelled - payment needed');
+      return res.json({
+        paymentNeeded: true,
+        paidSlots: subscription.paidSlots || 0,
+        currentProfiles: currentProfileCount,
+        additionalProfilesNeeded: currentProfileCount,
+        subscriptionExpired: true,
+        message: 'Your subscription has expired. Please renew to continue.'
+      });
+    }
+
+    // SLOT-BASED LOGIC
+    const paidSlots = subscription.paidSlots || subscription.profileCount || 0;
+    const additionalProfilesNeeded = Math.max(0, currentProfileCount - paidSlots);
+
+    console.log('[Profile Payment Check] Slot analysis:', {
+      paidSlots,
+      currentProfiles: currentProfileCount,
+      additionalProfilesNeeded,
+      paymentNeeded: additionalProfilesNeeded > 0
+    });
+
+    if (additionalProfilesNeeded > 0) {
+      // User needs to pay for additional profiles
+      return res.json({
+        paymentNeeded: true,
+        paidSlots,
+        currentProfiles: currentProfileCount,
+        additionalProfilesNeeded,
+        message: `You have ${paidSlots} paid slot${paidSlots !== 1 ? 's' : ''} but ${currentProfileCount} profile${currentProfileCount !== 1 ? 's' : ''}. Please pay for ${additionalProfilesNeeded} additional profile${additionalProfilesNeeded !== 1 ? 's' : ''}.`
+      });
+    } else {
+      // User has enough paid slots
+      return res.json({
+        paymentNeeded: false,
+        paidSlots,
+        currentProfiles: currentProfileCount,
+        unusedSlots: paidSlots - currentProfileCount,
+        message: `You have ${paidSlots} paid slot${paidSlots !== 1 ? 's' : ''} and ${currentProfileCount} profile${currentProfileCount !== 1 ? 's' : ''}. No payment needed.`
+      });
+    }
+  } catch (error) {
+    console.error('[Profile Payment Check] Error:', error);
+    res.status(500).json({ error: 'Failed to check profile payment status' });
+  }
+});
+
+// Update current active profile count (called when profiles are added/deleted)
+router.post('/subscription/update-profile-count', async (req, res) => {
+  try {
+    const { gbpAccountId, userId, currentProfileCount } = req.body;
+
+    console.log('[Update Profile Count] Request:', { gbpAccountId, userId, currentProfileCount });
+
+    if (!currentProfileCount || currentProfileCount < 0) {
+      return res.status(400).json({ error: 'Valid profile count is required' });
+    }
+
+    // Find subscription
+    let subscription = null;
+    if (gbpAccountId) {
+      subscription = await subscriptionService.getSubscriptionByGBPAccount(gbpAccountId);
+    } else if (userId) {
+      subscription = await subscriptionService.getSubscriptionByUserId(userId);
+    }
+
+    if (!subscription) {
+      return res.status(404).json({ error: 'Subscription not found' });
+    }
+
+    // Update ONLY the profileCount (current active profiles)
+    // NEVER update paidSlots here - that only changes when payment is made
+    await subscriptionService.updateSubscription(subscription.id, {
+      profileCount: currentProfileCount
+    });
+
+    console.log('[Update Profile Count] Updated profileCount to:', currentProfileCount);
+    console.log('[Update Profile Count] Paid slots remain:', subscription.paidSlots);
+
+    res.json({
+      success: true,
+      profileCount: currentProfileCount,
+      paidSlots: subscription.paidSlots || 0,
+      message: 'Profile count updated successfully'
+    });
+  } catch (error) {
+    console.error('[Update Profile Count] Error:', error);
+    res.status(500).json({ error: 'Failed to update profile count' });
   }
 });
 

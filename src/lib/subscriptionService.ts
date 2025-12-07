@@ -26,7 +26,9 @@ export interface Subscription {
   planName?: string;
   amount?: number;
   currency?: string;
-  profileCount?: number; // Number of profiles included in subscription
+  profileCount?: number; // Current active profile count (can increase/decrease)
+  paidSlots?: number; // Total paid slots (NEVER decreases during subscription period)
+  paidLocationIds?: string[]; // Array of location IDs that have been paid for
   pricePerProfile?: number; // Price per profile (for scaling)
   razorpaySubscriptionId?: string;
   razorpayCustomerId?: string;

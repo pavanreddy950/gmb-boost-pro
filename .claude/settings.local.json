@@ -20,7 +20,9 @@
       "Bash(curl:*)",
       "Bash(netstat:*)",
       "Bash(move:*)",
-      "Bash(del nul)"
+      "Bash(del nul)",
+      "Bash(docker-compose:*)",
+      "Bash(docker tag:*)"
     ],
     "deny": [],
     "ask": []

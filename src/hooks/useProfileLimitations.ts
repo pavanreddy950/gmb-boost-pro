@@ -37,10 +37,13 @@ export const useProfileLimitations = (): ProfileLimitations => {
   const isFreeTrial = subscription?.status === 'trial';
 
   // Calculate max allowed profiles based on plan
+  // IMPORTANT: Use paidSlots (not profileCount) for slot-based subscription
+  // paidSlots = what user paid for (never decreases)
+  // profileCount = current active profiles (can increase/decrease)
   const maxAllowedProfiles = isAdminPlan
     ? 999999 // Unlimited for admins
     : isPerProfilePlan
-    ? (subscription?.profileCount || 1)
+    ? (subscription?.paidSlots || subscription?.profileCount || 1) // Use paidSlots for slot-based system
     : 1; // Trial and legacy pro plans get 1 profile
 
   // Check if user can access multiple profiles
@@ -126,7 +129,8 @@ export const useProfileLimitations = (): ProfileLimitations => {
 I need assistance with my GMB Profile Pulse account.
 
 Current plan: ${subscription?.planName || 'Free Trial'}
-Current profile count: ${subscription?.profileCount || 1}
+Paid slots: ${subscription?.paidSlots || subscription?.profileCount || 1}
+Active profiles: ${subscription?.profileCount || 1}
 Context: ${context}
 
 Please contact me to discuss.
@@ -134,7 +138,7 @@ Please contact me to discuss.
 Best regards,`);
 
     window.open(`mailto:support@gmbprofilepulse.com?subject=${subject}&body=${body}`, '_blank');
-  }, [subscription?.planName, subscription?.profileCount]);
+  }, [subscription?.planName, subscription?.profileCount, subscription?.paidSlots]);
 
   return {
     canAccessMultipleProfiles,
