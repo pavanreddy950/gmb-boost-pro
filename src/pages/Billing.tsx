@@ -267,6 +267,35 @@ const Billing = () => {
                 <h4 className="font-semibold text-green-900 mb-1">{currentPlan.name}</h4>
                 <p className="text-sm text-green-700">Your premium plan is active</p>
               </div>
+              {/* Slot-Based Subscription Display */}
+              {subscription?.paidSlots && subscription.paidSlots > 0 && (
+                <div className="mb-4 bg-gradient-to-r from-purple-50 to-blue-50 border border-purple-200 rounded-lg p-4">
+                  <div className="flex items-center space-x-2 mb-3">
+                    <Shield className="h-5 w-5 text-purple-600" />
+                    <h4 className="font-semibold text-purple-900">Your Subscription Slots</h4>
+                  </div>
+                  <div className="grid grid-cols-3 gap-3 text-center">
+                    <div className="bg-white rounded-md p-3 border border-purple-200">
+                      <p className="text-2xl font-bold text-purple-600">{subscription.paidSlots}</p>
+                      <p className="text-xs text-gray-600">Paid Slots</p>
+                    </div>
+                    <div className="bg-white rounded-md p-3 border border-blue-200">
+                      <p className="text-2xl font-bold text-blue-600">{subscription.profileCount || 0}</p>
+                      <p className="text-xs text-gray-600">Active Profiles</p>
+                    </div>
+                    <div className={`bg-white rounded-md p-3 border ${(subscription.paidSlots - (subscription.profileCount || 0)) > 0 ? 'border-green-200' : 'border-gray-200'}`}>
+                      <p className={`text-2xl font-bold ${(subscription.paidSlots - (subscription.profileCount || 0)) > 0 ? 'text-green-600' : 'text-gray-600'}`}>
+                        {subscription.paidSlots - (subscription.profileCount || 0)}
+                      </p>
+                      <p className="text-xs text-gray-600">Unused Slots</p>
+                    </div>
+                  </div>
+                  <p className="text-xs text-purple-700 mt-3">
+                    💡 Your paid slots stay valid for the entire year. Add/delete profiles freely - you only pay when exceeding your paid slots!
+                  </p>
+                </div>
+              )}
+
               <div className="grid grid-cols-2 gap-4 text-sm">
                 <div>
                   <span className="text-muted-foreground">Billing Amount:</span>
@@ -274,7 +303,7 @@ const Billing = () => {
                     <div>
                       <p className="font-medium text-lg">${(subscription.amount / 100).toFixed(0)}/{currentPlan.interval}</p>
                       <p className="text-sm text-muted-foreground">
-                        {subscription.profileCount} profile{subscription.profileCount > 1 ? 's' : ''} × ${(subscription.pricePerProfile / 100).toFixed(0)}/year
+                        {subscription.paidSlots || subscription.profileCount} slot{(subscription.paidSlots || subscription.profileCount) > 1 ? 's' : ''} × ${(subscription.pricePerProfile / 100).toFixed(0)}/year
                       </p>
                     </div>
                   ) : (

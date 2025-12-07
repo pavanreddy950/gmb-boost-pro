@@ -343,6 +343,8 @@ class SupabaseSubscriptionService {
       status: subscription.status,
       planId: subscription.plan_id,
       profileCount: subscription.profile_count,
+      paidSlots: subscription.paid_slots, // SLOT-BASED SUBSCRIPTION: Total paid slots
+      paidLocationIds: subscription.paid_location_ids, // Track which locations are paid
       trialStartDate: subscription.trial_start_date,
       trialEndDate: subscription.trial_end_date,
       subscriptionStartDate: subscription.subscription_start_date,
