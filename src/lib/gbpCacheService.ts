@@ -11,13 +11,28 @@ class GBPCacheService {
   private cache: Map<string, CacheEntry<any>> = new Map();
   private readonly DEFAULT_TTL = 5 * 60 * 1000; // 5 minutes cache
   private readonly LONG_TTL = 30 * 60 * 1000; // 30 minutes for rarely changing data
-  
+  private readonly CACHE_VERSION = 'gbp_cache_v2'; // Increment to invalidate old cache
+
   constructor() {
+    // Clear old cache versions first
+    this.clearOldCacheVersions();
+
     // Load cache from localStorage on init
     this.loadCacheFromStorage();
-    
+
     // Save cache to localStorage periodically
     setInterval(() => this.saveCacheToStorage(), 30000); // Every 30 seconds
+  }
+
+  // Clear old cache versions to prevent stale data
+  private clearOldCacheVersions(): void {
+    const oldVersions = ['gbp_cache', 'gbp_cache_v1'];
+    oldVersions.forEach(key => {
+      if (localStorage.getItem(key)) {
+        localStorage.removeItem(key);
+        console.log(`[Cache] Cleared old cache version: ${key}`);
+      }
+    });
   }
 
   // Get cached data
@@ -84,19 +99,19 @@ class GBPCacheService {
   // Load cache from localStorage
   private loadCacheFromStorage(): void {
     try {
-      const stored = localStorage.getItem('gbp_cache');
+      const stored = localStorage.getItem(this.CACHE_VERSION);
       if (stored) {
         const data = JSON.parse(stored);
         const now = Date.now();
-        
+
         // Restore non-expired entries
         Object.entries(data).forEach(([key, entry]: [string, any]) => {
           if (entry.expiresAt > now) {
             this.cache.set(key, entry);
           }
         });
-        
-        console.log(`[Cache] Loaded ${this.cache.size} entries from storage`);
+
+        console.log(`[Cache] Loaded ${this.cache.size} entries from storage (${this.CACHE_VERSION})`);
       }
     } catch (error) {
       console.error('[Cache] Failed to load from storage:', error);
@@ -110,9 +125,9 @@ class GBPCacheService {
       this.cache.forEach((entry, key) => {
         data[key] = entry;
       });
-      
-      localStorage.setItem('gbp_cache', JSON.stringify(data));
-      console.log(`[Cache] Saved ${this.cache.size} entries to storage`);
+
+      localStorage.setItem(this.CACHE_VERSION, JSON.stringify(data));
+      console.log(`[Cache] Saved ${this.cache.size} entries to storage (${this.CACHE_VERSION})`);
     } catch (error) {
       console.error('[Cache] Failed to save to storage:', error);
     }

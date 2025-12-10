@@ -17,6 +17,7 @@ import adminRoutes from './routes/admin.js';
 import welcomeEmailRoutes from './routes/welcomeEmail.js';
 import emailTestRoutes from './routes/emailTest.js';
 import rankTrackingRoutes from './routes/rankTracking.js';
+import placesRoutes from './routes/places.js';
 import { checkSubscription, trackTrialStart, addTrialHeaders } from './middleware/subscriptionCheck.js';
 import SubscriptionService from './services/subscriptionService.js';
 import subscriptionGuard from './services/subscriptionGuard.js';
@@ -250,6 +251,7 @@ app.use('/api/google-review', googleReviewLinkRoutes);
 app.use('/api/automation', automationRoutes);
 app.use('/api/qr-codes', qrCodesRoutes);
 app.use('/api/rank-tracking', rankTrackingRoutes);
+app.use('/api/places', placesRoutes);
 
 // Admin routes (protected by admin auth middleware)
 app.use('/api/admin', adminRoutes);

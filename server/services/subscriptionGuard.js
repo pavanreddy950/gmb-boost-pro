@@ -1,10 +1,12 @@
 import supabaseSubscriptionService from './supabaseSubscriptionService.js';
 import supabaseAutomationService from './supabaseAutomationService.js';
+import admin from 'firebase-admin';
 
 /**
  * Subscription Guard Service
  * Enforces feature access based on subscription/trial status
  * Automatically disables features when trial/subscription expires
+ * ADMINS BYPASS ALL CHECKS
  */
 class SubscriptionGuard {
   constructor() {
@@ -13,10 +15,48 @@ class SubscriptionGuard {
   }
 
   /**
+   * Check if user is admin (bypasses subscription checks)
+   */
+  async isAdmin(userId) {
+    try {
+      if (!userId) return false;
+
+      // Get user from Firebase
+      const userRecord = await admin.auth().getUser(userId);
+      
+      // Check custom claims for admin role
+      if (userRecord.customClaims && userRecord.customClaims.role === 'admin') {
+        console.log(`[SubscriptionGuard] ✅ User ${userId} is ADMIN - bypassing subscription checks`);
+        return true;
+      }
+
+      return false;
+    } catch (error) {
+      console.error('[SubscriptionGuard] Error checking admin status:', error);
+      return false;
+    }
+  }
+
+  /**
    * Check if user has valid access (trial or active subscription)
+   * ADMINS ALWAYS HAVE ACCESS
    */
   async hasValidAccess(userId, gbpAccountId) {
     try {
+      // 🔓 ADMIN CHECK - Admins bypass all subscription checks
+      if (userId) {
+        const isAdminUser = await this.isAdmin(userId);
+        if (isAdminUser) {
+          return {
+            hasAccess: true,
+            status: 'admin',
+            daysRemaining: 999999,
+            subscription: null,
+            message: 'Admin access - unlimited'
+          };
+        }
+      }
+
       const subscription = await supabaseSubscriptionService.getSubscriptionByGbpId(gbpAccountId);
 
       if (!subscription) {

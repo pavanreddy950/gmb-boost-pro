@@ -23,6 +23,7 @@ import {
 import { useGoogleBusinessProfile } from "@/hooks/useGoogleBusinessProfile";
 import { useToast } from "@/hooks/use-toast";
 import { useProfileLimitations } from "@/hooks/useProfileLimitations";
+import { googleBusinessProfileService } from "@/lib/googleBusinessProfile";
 import {
   Dialog,
   DialogContent,
@@ -84,10 +85,14 @@ const AskForReviews = () => {
   });
   const [loadingQR, setLoadingQR] = useState<string | null>(null);
   const [loadingReviews, setLoadingReviews] = useState(false);
+  const [fetchingReviewLink, setFetchingReviewLink] = useState(false);
   const [copiedReview, setCopiedReview] = useState<string | null>(null);
   const [existingQRCodes, setExistingQRCodes] = useState<Map<string, any>>(new Map());
-  
-  const backendUrl = import.meta.env.VITE_BACKEND_URL || 'https://pavan-client-backend-bxgdaqhvarfdeuhe.canadacentral-01.azurewebsites.net';
+
+  // Auto-detect backend URL based on environment
+  const backendUrl = window.location.hostname === 'localhost'
+    ? 'http://localhost:5000'
+    : (import.meta.env.VITE_BACKEND_URL || 'https://pavan-client-backend-bxgdaqhvarfdeuhe.canadacentral-01.azurewebsites.net');
 
   // Filter accounts based on subscription limitations - memoize to prevent infinite re-renders
   const accessibleAccounts = useMemo(() => getAccessibleAccounts(accounts), [accounts, getAccessibleAccounts]);
@@ -116,16 +121,297 @@ const AskForReviews = () => {
     }
   };
 
-  const openReviewLinkModal = (location: any) => {
+  const fetchGoogleReviewLink = async (location: any) => {
+    setFetchingReviewLink(true);
+    try {
+      console.log('[AskForReviews] Fetching Google review link for location:', location);
+      console.log('[AskForReviews] Location object keys:', Object.keys(location));
+      console.log('[AskForReviews] Location.name:', location.name);
+      console.log('[AskForReviews] Location.locationId:', location.locationId);
+
+      // Get access token from googleBusinessProfileService
+      const accessToken = googleBusinessProfileService.getAccessToken();
+
+      if (!accessToken) {
+        toast({
+          title: "Authentication Required",
+          description: "Please reconnect your Google Business Profile from Settings.",
+          variant: "destructive"
+        });
+        return null;
+      }
+
+      // Extract accountId and locationId
+      let accountId: string;
+      let locationId: string;
+
+      // First, try to use the accountId that was passed in with the location object
+      if (location.accountId) {
+        accountId = location.accountId;
+        console.log('[AskForReviews] Using passed accountId:', accountId);
+      } else if (location.name && location.name.includes('/')) {
+        // Extract from name (format: accounts/{accountId}/locations/{locationId})
+        const locationNameParts = location.name.split('/');
+        accountId = locationNameParts[1];
+        console.log('[AskForReviews] Extracted accountId from location.name:', accountId);
+      } else {
+        console.error('[AskForReviews] Could not extract accountId from location object');
+        toast({
+          title: "Configuration Error",
+          description: "Could not extract account information. Please try reconnecting your profile.",
+          variant: "destructive"
+        });
+        return null;
+      }
+
+      // Extract locationId
+      if (location.locationId) {
+        locationId = location.locationId;
+        console.log('[AskForReviews] Using location.locationId:', locationId);
+      } else if (location.name && location.name.includes('/')) {
+        // Extract from name (format: accounts/{accountId}/locations/{locationId})
+        const locationNameParts = location.name.split('/');
+        locationId = locationNameParts[3];
+        console.log('[AskForReviews] Extracted locationId from location.name:', locationId);
+      } else {
+        console.error('[AskForReviews] Could not extract locationId from location object');
+        toast({
+          title: "Configuration Error",
+          description: "Could not extract location information. Please try reconnecting your profile.",
+          variant: "destructive"
+        });
+        return null;
+      }
+
+      console.log('[AskForReviews] Final values for API call:', {
+        accountId,
+        locationId,
+        hasAccessToken: !!accessToken
+      });
+
+      // Call backend API to fetch review link
+      const response = await fetch(`${backendUrl}/api/google-review/fetch-google-review-link`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          accountId,
+          locationId,
+          accessToken
+        })
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        console.log('[AskForReviews] Fetched review link:', data);
+
+        if (data.success && data.reviewLink) {
+          toast({
+            title: "Review Link Fetched",
+            description: "Successfully retrieved your Google review link from your business profile.",
+          });
+          return data.reviewLink;
+        } else {
+          toast({
+            title: "Review Link Not Available",
+            description: "Could not automatically fetch review link. Please ensure your business profile is properly set up.",
+            variant: "destructive"
+          });
+          return null;
+        }
+      } else {
+        console.error('[AskForReviews] Failed to fetch review link:', await response.text());
+        toast({
+          title: "Error Fetching Review Link",
+          description: "Failed to retrieve review link from Google. Please try again.",
+          variant: "destructive"
+        });
+        return null;
+      }
+    } catch (error) {
+      console.error('[AskForReviews] Error fetching Google review link:', error);
+      toast({
+        title: "Error",
+        description: "An error occurred while fetching the review link. Please try again.",
+        variant: "destructive"
+      });
+      return null;
+    } finally {
+      setFetchingReviewLink(false);
+    }
+  };
+
+  const openReviewLinkModal = async (location: any, accountId?: string) => {
     console.log('Opening review link modal for location:', location);
+    console.log('Account ID:', accountId);
+
     // Load existing keywords if QR code exists
     const existingQR = existingQRCodes.get(location.locationId);
+
+    // Add accountId to location object for later use
+    const locationWithAccount = { ...location, accountId };
+
+    // Open modal first
     setReviewLinkModalData({
       isOpen: true,
-      location: location,
+      location: locationWithAccount,
       googleReviewLink: existingQR?.googleReviewLink || "",
       keywords: existingQR?.keywords || ""
     });
+
+    // If no existing review link, fetch it automatically from Google
+    if (!existingQR?.googleReviewLink) {
+      const fetchedLink = await fetchGoogleReviewLink(locationWithAccount);
+      if (fetchedLink) {
+        setReviewLinkModalData(prev => ({
+          ...prev,
+          googleReviewLink: fetchedLink
+        }));
+      }
+    }
+  };
+
+  // New simplified function that auto-fetches review link and generates QR code
+  const generateQRCodeDirectly = async (location: any, accountId: string, forceRefresh: boolean = false) => {
+    console.log('[AskForReviews] 🚀 Generating QR code directly for:', location.displayName, forceRefresh ? '(FORCE REFRESH)' : '');
+
+    // If not force refresh, check if QR code already exists
+    if (!forceRefresh) {
+      const existingQR = existingQRCodes.get(location.locationId);
+      if (existingQR) {
+        console.log('[AskForReviews] ♻️ QR code already exists, showing it');
+        showExistingQRCode(location);
+        return;
+      }
+    }
+
+    setLoadingQR(location.locationId);
+
+    try {
+      // Get access token
+      const accessToken = googleBusinessProfileService.getAccessToken();
+      if (!accessToken) {
+        toast({
+          title: "Authentication Required",
+          description: "Please reconnect your Google Business Profile from Settings.",
+          variant: "destructive"
+        });
+        setLoadingQR(null);
+        return;
+      }
+
+      // Get user ID from Firebase auth
+      const userId = googleBusinessProfileService.getUserId();
+
+      console.log('[AskForReviews] 📡 Calling backend at:', `${backendUrl}/api/qr-codes/generate-with-auto-fetch`);
+
+      // Add timeout to fetch request (30 seconds)
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 30000);
+
+      // Call the new backend endpoint that does everything
+      const response = await fetch(`${backendUrl}/api/qr-codes/generate-with-auto-fetch`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          accountId: accountId,
+          locationId: location.locationId,
+          locationName: location.displayName,
+          address: location.address?.locality || location.address?.administrativeArea || '',
+          placeId: location.placeId || '',
+          accessToken: accessToken,
+          keywords: '', // Can be added later via update
+          userId: userId,
+          gbpAccountId: accountId,
+          forceRefresh: forceRefresh // Pass force refresh flag
+        }),
+        signal: controller.signal,
+        mode: 'cors'
+      });
+
+      clearTimeout(timeoutId);
+      console.log('[AskForReviews] 📥 Response status:', response.status);
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        if (response.status === 403) {
+          // Subscription issue
+          toast({
+            title: "Subscription Required",
+            description: errorData.message || "Please upgrade to create QR codes.",
+            variant: "destructive"
+          });
+        } else {
+          throw new Error(errorData.message || 'Failed to generate QR code');
+        }
+        setLoadingQR(null);
+        return;
+      }
+
+      const data = await response.json();
+      
+      if (data.success && data.qrCode) {
+        console.log('[AskForReviews] ✅ QR code generated successfully');
+
+        // Reload existing QR codes
+        await loadExistingQRCodes();
+
+        // Show the QR code modal
+        setQrModalData({
+          isOpen: true,
+          locationName: data.qrCode.locationName,
+          locationId: data.qrCode.locationId,
+          address: data.qrCode.address,
+          placeId: data.qrCode.placeId,
+          qrCodeUrl: data.qrCode.qrCodeUrl,
+          reviewLink: data.qrCode.publicReviewUrl,
+          aiReviews: []
+        });
+
+        toast({
+          title: "QR Code Generated",
+          description: data.cached 
+            ? "Your existing QR code is ready to use."
+            : "QR code generated successfully with review link from Google.",
+        });
+      }
+
+    } catch (error) {
+      console.error('[AskForReviews] ❌ Error generating QR code:', error);
+
+      // Check if error is due to timeout or network issue
+      let errorMessage = "Failed to generate QR code. Please try again.";
+
+      if (error instanceof Error) {
+        if (error.name === 'AbortError') {
+          errorMessage = "Request timed out. The QR code may still be generated - please refresh the page.";
+          console.log('[AskForReviews] ⏱️ Request timed out, but QR code may be created on backend');
+        } else if (error.message === 'Failed to fetch') {
+          errorMessage = "Network error. Please check if the backend is running and refresh the page.";
+          console.log('[AskForReviews] 🌐 Network error - backend might be down or CORS issue');
+        } else {
+          errorMessage = error.message;
+        }
+      }
+
+      toast({
+        title: "Error",
+        description: errorMessage,
+        variant: "destructive"
+      });
+
+      // Try to reload QR codes in case it was actually created
+      setTimeout(() => {
+        console.log('[AskForReviews] 🔄 Reloading QR codes in case it was created...');
+        loadExistingQRCodes();
+      }, 2000);
+
+    } finally {
+      setLoadingQR(null);
+    }
   };
 
   const showExistingQRCode = (location: any) => {
@@ -448,7 +734,9 @@ const AskForReviews = () => {
                           View QR Code
                         </Button>
                         <Button
-                          onClick={() => openReviewLinkModal(location)}
+                          onClick={() => {
+                            generateQRCodeDirectly(location, account.accountId, true); // Force refresh on regenerate
+                          }}
                           variant="outline"
                           className="w-full"
                           disabled={loadingQR === location.locationId}
@@ -460,8 +748,8 @@ const AskForReviews = () => {
                             </>
                           ) : (
                             <>
-                              <Info className="mr-2 h-4 w-4" />
-                              Update Link
+                              <RefreshCw className="mr-2 h-4 w-4" />
+                              Regenerate
                             </>
                           )}
                         </Button>
@@ -469,7 +757,9 @@ const AskForReviews = () => {
                     ) : (
                       // Show generate new QR code option
                       <Button
-                        onClick={() => openReviewLinkModal(location)}
+                        onClick={() => {
+                          generateQRCodeDirectly(location, account.accountId);
+                        }}
                         disabled={loadingQR === location.locationId}
                         className="w-full bg-gradient-to-r from-primary to-blue-600 hover:from-primary/90 hover:to-blue-600/90"
                       >
@@ -481,7 +771,7 @@ const AskForReviews = () => {
                         ) : (
                           <>
                             <QrCode className="mr-2 h-4 w-4" />
-                            Generate QR & Reviews
+                            Generate QR Code
                           </>
                         )}
                       </Button>
@@ -534,45 +824,64 @@ const AskForReviews = () => {
         <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle className="text-2xl flex items-center gap-2">
-              <Link className="h-6 w-6 text-primary" />
-              Enter Google Review Link
+              <Sparkles className="h-6 w-6 text-primary" />
+              Generate QR Code with Review Link
             </DialogTitle>
             <DialogDescription>
-              Please provide your Google review link to generate the QR code
+              {fetchingReviewLink
+                ? "Fetching your Google review link automatically..."
+                : "Your Google review link has been retrieved from your business profile"
+              }
             </DialogDescription>
           </DialogHeader>
-          
+
           <div className="space-y-4">
-            <Alert>
-              <Info className="h-4 w-4" />
-              <AlertDescription>
-                <div className="space-y-2">
-                  <p className="font-semibold">How to get your Google review link:</p>
-                  <ol className="list-decimal list-inside space-y-1 text-sm">
-                    <li>Open Google Business Profile Manager</li>
-                    <li>Select your business location</li>
-                    <li>Click on "Home" or "Get more reviews"</li>
-                    <li>Copy the review link (looks like: g.page/r/...)</li>
-                  </ol>
-                </div>
-              </AlertDescription>
-            </Alert>
-            
+            {fetchingReviewLink && (
+              <Alert className="bg-blue-50 border-blue-200">
+                <RefreshCw className="h-4 w-4 animate-spin text-blue-600" />
+                <AlertDescription>
+                  <div className="space-y-1">
+                    <p className="font-semibold text-blue-900">Fetching Review Link...</p>
+                    <p className="text-sm text-blue-700">
+                      We're automatically retrieving your Google review link from your Business Profile.
+                    </p>
+                  </div>
+                </AlertDescription>
+              </Alert>
+            )}
+
+            {!fetchingReviewLink && reviewLinkModalData.googleReviewLink && (
+              <Alert className="bg-green-50 border-green-200">
+                <Check className="h-4 w-4 text-green-600" />
+                <AlertDescription>
+                  <div className="space-y-1">
+                    <p className="font-semibold text-green-900">Review Link Retrieved Successfully!</p>
+                    <p className="text-sm text-green-700">
+                      Your Google review link has been automatically fetched from your Business Profile.
+                    </p>
+                  </div>
+                </AlertDescription>
+              </Alert>
+            )}
+
             <div className="space-y-2">
-              <Label htmlFor="review-link">Google Review Link</Label>
+              <Label htmlFor="review-link">
+                Google Review Link {fetchingReviewLink && <span className="text-muted-foreground">(Auto-fetching...)</span>}
+              </Label>
               <Input
                 id="review-link"
                 type="url"
-                placeholder="Enter your Google review link"
+                placeholder={fetchingReviewLink ? "Fetching from Google Business Profile..." : "Review link will be fetched automatically"}
                 value={reviewLinkModalData.googleReviewLink}
-                onChange={(e) => setReviewLinkModalData({
-                  ...reviewLinkModalData,
-                  googleReviewLink: e.target.value
-                })}
-                className="font-mono text-sm"
+                disabled={fetchingReviewLink}
+                readOnly
+                className="font-mono text-sm bg-gray-50"
               />
               <p className="text-xs text-muted-foreground">
-                Format: https://g.page/r/YOUR_PLACE_ID/review
+                {fetchingReviewLink
+                  ? "Please wait while we retrieve your review link..."
+                  : "This link was automatically retrieved from your Google Business Profile"
+                }
               </p>
             </div>
 
@@ -600,16 +909,26 @@ const AskForReviews = () => {
                 variant="outline"
                 onClick={() => setReviewLinkModalData({...reviewLinkModalData, isOpen: false})}
                 className="flex-1"
+                disabled={fetchingReviewLink}
               >
                 Cancel
               </Button>
               <Button
                 onClick={generateQRCodeWithLink}
-                disabled={!reviewLinkModalData.googleReviewLink}
+                disabled={!reviewLinkModalData.googleReviewLink || fetchingReviewLink}
                 className="flex-1 bg-gradient-to-r from-primary to-blue-600 hover:from-primary/90 hover:to-blue-600/90"
               >
-                <QrCode className="mr-2 h-4 w-4" />
-                Generate QR Code
+                {fetchingReviewLink ? (
+                  <>
+                    <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+                    Fetching Link...
+                  </>
+                ) : (
+                  <>
+                    <QrCode className="mr-2 h-4 w-4" />
+                    Generate QR Code
+                  </>
+                )}
               </Button>
             </div>
           </div>

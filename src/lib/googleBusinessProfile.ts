@@ -57,6 +57,7 @@ export interface BusinessLocation {
 export interface BusinessAccount {
   name: string;
   accountName: string;
+  accountId?: string; // The actual Google account ID (e.g., "104038611849147411061")
   type: string;
   role: string;
   state: string;
@@ -864,27 +865,31 @@ class GoogleBusinessProfileService {
       
       // Process results
       for (const { account, locations } of accountsWithLocations) {
+        // Extract the actual account ID from account.name (format: "accounts/{accountId}")
+        const accountId = account.name?.split('/')[1] || '';
+
         // Transform each location into a separate BusinessAccount (profile card)
         for (const location of locations) {
           // Check location-specific verification status
           let locationState = 'VERIFIED';
-          
+
           if (location.metadata?.suspended) {
             locationState = 'SUSPENDED';
           } else if (location.metadata?.duplicate) {
             locationState = 'DUPLICATE';
           }
-          
+
           console.log('🔍 DEBUGGING: Location state mapping:', {
             locationName: location.displayName,
             metadata: location.metadata,
             finalState: locationState
           });
-          
+
           // Create a separate BusinessAccount for each location
           businessAccounts.push({
             name: location.name,
             accountName: location.displayName,
+            accountId: accountId, // Store the actual Google account ID
             type: 'BUSINESS',
             role: 'OWNER',
             state: locationState,
@@ -1698,6 +1703,11 @@ class GoogleBusinessProfileService {
   // Get the current access token
   getAccessToken(): string | null {
     return this.accessToken;
+  }
+
+  // Get the current user ID
+  getUserId(): string | null {
+    return this.currentUserId;
   }
 
   // Get photos for a specific location using Backend API

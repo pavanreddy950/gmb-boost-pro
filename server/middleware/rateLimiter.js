@@ -1,12 +1,19 @@
 /**
  * Rate Limiter - In-Memory Request Tracking
  *
- * SCALABILITY NOTES (1000+ Concurrent Users):
+ * SCALABILITY NOTES (10,000+ Concurrent Users):
  * - Current implementation: In-memory (single server only)
  * - For multi-server deployments: Use Redis-backed rate limiter
- * - Limits are set HIGH for production scale (1000+ users)
+ * - Limits are set VERY HIGH for production scale (10,000+ users)
  * - Read-only operations (token status): NO LIMITS
- * - Write operations (payments, automation): Reasonable per-user limits
+ * - Write operations (payments, automation): High per-user limits
+ *
+ * Current Limits (scaled for 10K+ users):
+ * - General API: 10,000 requests/minute per IP
+ * - Auth endpoints: 5,000 requests/15min per IP
+ * - Payment endpoints: 1,000 requests/5min per user
+ * - Automation: 1,000 requests/hour per user
+ * - Token status: UNLIMITED (read-only)
  *
  * Features:
  * - Sliding window rate limiting
@@ -148,12 +155,12 @@ const rateLimiter = new RateLimiter();
 
 /**
  * General API rate limiting
- * 1000 requests per minute per IP (scaled for 1000+ concurrent users)
+ * 10000 requests per minute per IP (scaled for 10,000+ concurrent users)
  * Note: For multi-server deployments, use Redis-backed rate limiter
  */
 export function apiRateLimit(req, res, next) {
     const key = req.ip || req.connection.remoteAddress || 'unknown';
-    const result = rateLimiter.checkLimit(key, 1000, 60); // 1000 req/min (was 100)
+    const result = rateLimiter.checkLimit(key, 10000, 60); // 10000 req/min for 10K users
 
     // Set rate limit headers
     res.setHeader('X-RateLimit-Limit', result.limit);
@@ -173,12 +180,12 @@ export function apiRateLimit(req, res, next) {
 
 /**
  * Automation endpoint rate limiting
- * 100 requests per hour per user (scaled for active automation management)
+ * 1000 requests per hour per user (scaled for active automation management)
  */
 export function automationRateLimit(req, res, next) {
     const userId = req.body?.userId || req.query?.userId || req.headers?.['x-user-id'] || 'unknown';
     const key = `automation:${userId}`;
-    const result = rateLimiter.checkLimit(key, 100, 3600); // 100/hour (was 20)
+    const result = rateLimiter.checkLimit(key, 1000, 3600); // 1000/hour for 10K users
 
     res.setHeader('X-RateLimit-Limit', result.limit);
     res.setHeader('X-RateLimit-Remaining', result.remaining);
@@ -196,12 +203,12 @@ export function automationRateLimit(req, res, next) {
 
 /**
  * Auth endpoint rate limiting
- * 500 requests per 15 minutes per IP (scaled for 1000+ concurrent users)
+ * 5000 requests per 15 minutes per IP (scaled for 10,000+ concurrent users)
  * High limit needed for: OAuth flows, token refresh, multi-component initialization
  */
 export function authRateLimit(req, res, next) {
     const key = `auth:${req.ip}`;
-    const result = rateLimiter.checkLimit(key, 500, 900); // 500 per 15 min (was 30)
+    const result = rateLimiter.checkLimit(key, 5000, 900); // 5000 per 15 min for 10K users
 
     res.setHeader('X-RateLimit-Limit', result.limit);
     res.setHeader('X-RateLimit-Remaining', result.remaining);
@@ -230,12 +237,18 @@ export function tokenStatusRateLimit(req, res, next) {
 
 /**
  * Payment endpoint rate limiting
- * 20 requests per 5 minutes per user (increased for subscription flow with multiple API calls)
+ * 1000 requests per 5 minutes per user (scaled for 10,000+ users with multiple components)
+ * High limit needed for: Subscription checks, GBP associations, billing page, multiple API calls
  */
 export function paymentRateLimit(req, res, next) {
     const userId = req.body?.userId || req.query?.userId || 'unknown';
     const key = `payment:${userId}`;
-    const result = rateLimiter.checkLimit(key, 20, 300); // 20 per 5 min (was 5)
+    const result = rateLimiter.checkLimit(key, 1000, 300); // 1000 per 5 min for 10K users
+
+    // Set rate limit headers for transparency
+    res.setHeader('X-RateLimit-Limit', result.limit);
+    res.setHeader('X-RateLimit-Remaining', result.remaining);
+    res.setHeader('X-RateLimit-Reset', result.resetIn);
 
     if (!result.allowed) {
         return res.status(429).json({

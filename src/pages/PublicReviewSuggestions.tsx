@@ -282,16 +282,230 @@ const PublicReviewSuggestions = () => {
           }
         }
         
-        console.log('🎯 Final Google review link:', finalLink);
+        console.log('🎯 Final Google review link (before processing):', finalLink);
+      
+        // ========================================
+        // CRITICAL FIX: Convert ANY Google Maps link to review format
+        // ========================================
+        
+        // Check if this is a Google Maps location link (not already a review link)
+        const isGoogleMapsLink = finalLink.includes('google.com/maps') || 
+                                 finalLink.includes('maps.google.com') ||
+                                 finalLink.includes('goo.gl/maps');
+        
+        const isAlreadyReviewLink = finalLink.includes('writereview') || 
+                                     (finalLink.includes('g.page/r/') && finalLink.includes('/review'));
+        
+        if (isGoogleMapsLink && !isAlreadyReviewLink) {
+          console.log('🔧 Detected Google Maps location link, converting to review link...');
+          
+          // CRITICAL: Check if this is a generic search link (has no Place ID/CID)
+          if (finalLink.includes('maps/search/?api=1&query=')) {
+            console.log('⚠️ Detected generic search link - checking for Place ID parameter...');
+            
+            // Try to get Place ID from URL parameters
+            const placeIdParam = searchParams.get('placeId');
+            if (placeIdParam && placeIdParam.startsWith('ChIJ')) {
+              finalLink = `https://search.google.com/local/writereview?placeid=${placeIdParam}`;
+              console.log('🔧 Converted search link to writereview using placeId parameter:', finalLink);
+            } else {
+              // No Place ID available - we cannot convert this
+              console.error('❌ Generic search link with no Place ID - cannot convert to review link');
+              console.error('❌ This will open a search page, not a review page');
+              
+              // Show user-friendly error with search link option
+              toast({
+                title: "Review Link Unavailable",
+                description: "The direct review link is not available. Opening Google search instead to find this business.",
+                variant: "default"
+              });
+              
+              // Fallback: Open Google Maps search as best alternative
+              console.log('🔄 Falling back to Google Maps search link:', finalLink);
+              window.open(finalLink, '_blank');
+              return;
+            }
+          } else {
+            // Not a search link, try to extract Place ID or CID from actual maps link
+            const placeIdMatch = finalLink.match(/place\/(ChIJ[A-Za-z0-9_-]+)/);
+            if (placeIdMatch) {
+              const placeId = placeIdMatch[1];
+              finalLink = `https://search.google.com/local/writereview?placeid=${placeId}`;
+              console.log('🔧 Converted using Place ID to writereview format:', finalLink);
+            } 
+            // Try to extract CID
+            else {
+              const cidMatch = finalLink.match(/cid=(\d+)/);
+              if (cidMatch) {
+                const cid = cidMatch[1];
+                console.log('🔧 Found CID in maps link:', cid);
+                
+                // Convert CID to g.page format
+                try {
+                  const hexCid = BigInt(cid).toString(16).toUpperCase();
+                  const paddedHex = hexCid.length % 2 === 0 ? hexCid : '0' + hexCid;
+                  
+                  // Use TextEncoder to convert hex to bytes
+                  const bytes = [];
+                  for (let i = 0; i < paddedHex.length; i += 2) {
+                    bytes.push(parseInt(paddedHex.substr(i, 2), 16));
+                  }
+                  const uint8Array = new Uint8Array(bytes);
+                  
+                  // Convert to base64url
+                  let base64 = btoa(String.fromCharCode.apply(null, Array.from(uint8Array)));
+                  const encodedCid = base64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
+                  
+                  finalLink = `https://g.page/r/${encodedCid}/review`;
+                  console.log('🔧 Converted using CID to g.page format:', finalLink);
+                } catch (e) {
+                  console.error('Failed to convert CID to g.page format:', e);
+                }
+              }
+              // Try to extract from /place/NAME/@LAT,LNG/data=...
+              else {
+                // Extract the business name from the URL
+                const placeNameMatch = finalLink.match(/\/place\/([^/@?]+)/);
+                if (placeNameMatch) {
+                  const placeName = decodeURIComponent(placeNameMatch[1].replace(/\+/g, ' '));
+                  
+                  // Check if there's a data attribute with ftid or CID
+                  const dataMatch = finalLink.match(/data=([^&?#]+)/);
+                  if (dataMatch) {
+                    const dataStr = decodeURIComponent(dataMatch[1]);
+                    // Try to find ftid (feature ID which is often the Place ID)
+                    const ftidMatch = dataStr.match(/!1s(0x[0-9a-f]+:0x[0-9a-f]+)/);
+                    if (ftidMatch) {
+                      const ftid = ftidMatch[1];
+                      console.log('🔧 Extracted FTID from data attribute:', ftid);
+                      
+                      // Call backend to convert FTID to Place ID
+                      // For now, fallback to fetching Place ID via business name
+                      console.log('🔄 FTID found, need to fetch Place ID from backend...');
+                      
+                      // Get business name and location from URL params
+                      const businessName = searchParams.get('business');
+                      const location = searchParams.get('location');
+                      
+                      if (businessName && location) {
+                        console.log(`🔄 Fetching Place ID for: ${businessName}, ${location}`);
+                        
+                        // Show loading toast
+                        toast({
+                          title: "Loading...",
+                          description: "Fetching review link, please wait...",
+                          variant: "default"
+                        });
+                        
+                        // Call backend to get Place ID
+                        fetch(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000'}/api/places/get-place-id?business=${encodeURIComponent(businessName)}&location=${encodeURIComponent(location)}`)
+                          .then(res => res.json())
+                          .then(data => {
+                            if (data.placeId) {
+                              const reviewUrl = `https://search.google.com/local/writereview?placeid=${data.placeId}`;
+                              console.log('✅ Got Place ID from backend:', data.placeId);
+                              console.log('✅ Opening review URL:', reviewUrl);
+                              window.open(reviewUrl, '_blank', 'noopener,noreferrer');
+                            } else {
+                              throw new Error('No Place ID returned');
+                            }
+                          })
+                          .catch(err => {
+                            console.error('❌ Failed to fetch Place ID:', err);
+                            toast({
+                              title: "Error",
+                              description: "Could not fetch review link. Please try again.",
+                              variant: "destructive"
+                            });
+                          });
+                        return; // Exit the function here
+                      }
+                    }
+                  }
+                  
+                  // If we still have a maps link, try using search with place name
+                  if (finalLink.includes('google.com/maps')) {
+                    console.log('⚠️ Could not extract Place ID or CID, using fallback search method');
+                    // Try to get business name and location from URL parameters
+                    const businessName = searchParams.get('business');
+                    const location = searchParams.get('location');
+                    const placeIdParam = searchParams.get('placeId');
+                    
+                    if (placeIdParam && placeIdParam.startsWith('ChIJ')) {
+                      finalLink = `https://search.google.com/local/writereview?placeid=${placeIdParam}`;
+                      console.log('🔧 Using placeId from URL parameters:', finalLink);
+                    } else if (businessName && location) {
+                      // Fetch Place ID from backend API
+                      console.log(`🔄 Fetching Place ID via API for: ${businessName}, ${location}`);
+                      
+                      toast({
+                        title: "Loading...",
+                        description: "Fetching review link, please wait...",
+                        variant: "default"
+                      });
+                      
+                      fetch(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000'}/api/places/get-place-id?business=${encodeURIComponent(businessName)}&location=${encodeURIComponent(location)}`)
+                        .then(res => res.json())
+                        .then(data => {
+                          if (data.placeId) {
+                            const reviewUrl = `https://search.google.com/local/writereview?placeid=${data.placeId}`;
+                            console.log('✅ Got Place ID from backend:', data.placeId);
+                            console.log('✅ Opening review URL:', reviewUrl);
+                            window.open(reviewUrl, '_blank', 'noopener,noreferrer');
+                          } else {
+                            throw new Error('No Place ID returned');
+                          }
+                        })
+                        .catch(err => {
+                          console.error('❌ Failed to fetch Place ID:', err);
+                          toast({
+                            title: "Error",
+                            description: "Could not fetch review link. Please try again.",
+                            variant: "destructive"
+                          });
+                        });
+                      return; // Exit early
+                    } else {
+                      // Show error - we can't convert this link
+                      console.error('❌ Cannot convert Maps link to review link - no Place ID or CID found');
+                      toast({
+                        title: "Invalid Review Link",
+                        description: "This link cannot be converted to a review page. Please regenerate the QR code with a valid review link.",
+                        variant: "destructive"
+                      });
+                      return;
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+        
+        // FIX: Ensure g.page links have /review at the end
+        if (finalLink.includes('g.page/r/')) {
+          if (!finalLink.endsWith('/review')) {
+            const baseMatch = finalLink.match(/(https:\/\/g\.page\/r\/[A-Za-z0-9_-]+)/);
+            if (baseMatch) {
+              finalLink = `${baseMatch[1]}/review`;
+              console.log('🔧 Fixed g.page link to include /review:', finalLink);
+            }
+          }
+        }
+
+        // FIX: Ensure writereview links are properly formatted
+        if (finalLink.includes('writereview') && finalLink.includes('placeid=')) {
+          console.log('✅ Using writereview format (correct)');
+        }
+        
+        console.log('🎯 FINAL processed Google review link:', finalLink);
       
         // Ensure it's a valid Google review URL
-        const isValidGoogleUrl = finalLink.includes('g.page') || 
-                                 finalLink.includes('google.com') || 
-                                 finalLink.includes('maps.app.goo.gl') ||
-                                 finalLink.includes('search.google.com/local/writereview');
+        const isValidReviewUrl = (finalLink.includes('g.page/r/') && finalLink.includes('/review')) || 
+                                  (finalLink.includes('writereview') && finalLink.includes('placeid='));
         
-        if (isValidGoogleUrl && (finalLink.startsWith('http://') || finalLink.startsWith('https://'))) {
-          console.log('✅ Opening Google review link:', finalLink);
+        if (isValidReviewUrl && (finalLink.startsWith('http://') || finalLink.startsWith('https://'))) {
+          console.log('✅ Opening Google REVIEW link:', finalLink);
           // Force new window to prevent any redirects back to our site
           const newWindow = window.open(finalLink, '_blank', 'noopener,noreferrer');
           if (!newWindow) {
@@ -299,10 +513,11 @@ const PublicReviewSuggestions = () => {
             window.location.href = finalLink;
           }
         } else {
-          console.error('❌ Invalid or non-Google URL:', finalLink);
+          console.error('❌ Invalid review URL format:', finalLink);
+          console.error('❌ Link does not contain review endpoint');
         toast({
           title: "Invalid Review Link",
-          description: "The review link format is invalid. Please contact the business.",
+          description: "This link will open Google Maps, not the review page. Please regenerate the QR code.",
           variant: "destructive"
         });
       }
@@ -317,7 +532,7 @@ const PublicReviewSuggestions = () => {
     } else {
       // No review link provided - try to generate one using place ID
       const placeId = searchParams.get('placeId');
-      if (placeId) {
+      if (placeId && placeId.startsWith('ChIJ')) {
         const fallbackUrl = `https://search.google.com/local/writereview?placeid=${placeId}`;
         console.log('🔄 Using fallback Google review URL:', fallbackUrl);
         window.open(fallbackUrl, '_blank', 'noopener,noreferrer');
