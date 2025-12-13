@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Debug Review Link Fetching</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            margin-bottom: 30px;
+        }
+        .form-group {
+            margin-bottom: 20px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            color: #555;
+            font-weight: bold;
+        }
+        input {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 14px;
+        }
+        button {
+            background: #4CAF50;
+            color: white;
+            padding: 12px 30px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            margin-right: 10px;
+        }
+        button:hover {
+            background: #45a049;
+        }
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        .results {
+            margin-top: 30px;
+            padding: 20px;
+            background: #f9f9f9;
+            border-radius: 5px;
+            border: 1px solid #ddd;
+        }
+        .method-result {
+            margin-bottom: 20px;
+            padding: 15px;
+            background: white;
+            border-radius: 5px;
+            border-left: 4px solid #4CAF50;
+        }
+        .method-result.failed {
+            border-left-color: #f44336;
+        }
+        .method-title {
+            font-weight: bold;
+            font-size: 16px;
+            margin-bottom: 10px;
+            color: #333;
+        }
+        .review-link {
+            padding: 10px;
+            background: #e3f2fd;
+            border-radius: 5px;
+            font-family: monospace;
+            word-break: break-all;
+            margin: 10px 0;
+        }
+        .review-link a {
+            color: #1976d2;
+            text-decoration: none;
+        }
+        .review-link a:hover {
+            text-decoration: underline;
+        }
+        pre {
+            background: #f5f5f5;
+            padding: 10px;
+            border-radius: 5px;
+            overflow-x: auto;
+            font-size: 12px;
+        }
+        .success {
+            color: #4CAF50;
+            font-weight: bold;
+        }
+        .error {
+            color: #f44336;
+            font-weight: bold;
+        }
+        .info {
+            background: #fff3cd;
+            border: 1px solid #ffc107;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔍 Debug Review Link Fetching</h1>
+        
+        <div class="info">
+            <strong>Instructions:</strong>
+            <ol>
+                <li>Make sure your backend server is running on localhost:5000</li>
+                <li>Login to your app and connect Google Business Profile</li>
+                <li>Open browser console (F12) and run: <code>googleBusinessProfileService.getAccessToken()</code></li>
+                <li>Copy the access token and paste it below</li>
+                <li>Enter your Account ID and Location ID</li>
+                <li>Click "Test All Methods" to see what Google returns</li>
+            </ol>
+        </div>
+
+        <div class="form-group">
+            <label>Account ID:</label>
+            <input type="text" id="accountId" placeholder="e.g., 106433552101751461082">
+        </div>
+
+        <div class="form-group">
+            <label>Location ID:</label>
+            <input type="text" id="locationId" placeholder="e.g., 14977377147025961194">
+        </div>
+
+        <div class="form-group">
+            <label>Access Token:</label>
+            <input type="text" id="accessToken" placeholder="Paste access token here">
+        </div>
+
+        <button onclick="testReviewLink()" id="testBtn">Test All Methods</button>
+        <button onclick="clearResults()">Clear Results</button>
+
+        <div id="results" class="results" style="display: none;">
+            <h2>Results:</h2>
+            <div id="resultsContent"></div>
+        </div>
+    </div>
+
+    <script>
+        async function testReviewLink() {
+            const accountId = document.getElementById('accountId').value.trim();
+            const locationId = document.getElementById('locationId').value.trim();
+            const accessToken = document.getElementById('accessToken').value.trim();
+
+            if (!accountId || !locationId || !accessToken) {
+                alert('Please fill in all fields');
+                return;
+            }
+
+            const testBtn = document.getElementById('testBtn');
+            testBtn.disabled = true;
+            testBtn.textContent = 'Testing...';
+
+            const resultsDiv = document.getElementById('results');
+            const resultsContent = document.getElementById('resultsContent');
+            resultsDiv.style.display = 'block';
+            resultsContent.innerHTML = '<p>Fetching data from Google APIs...</p>';
+
+            try {
+                const response = await fetch('http://localhost:5000/api/qr-codes/debug-review-link', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        accountId,
+                        locationId,
+                        accessToken
+                    })
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${await response.text()}`);
+                }
+
+                const data = await response.json();
+                displayResults(data.results);
+
+            } catch (error) {
+                resultsContent.innerHTML = `
+                    <div class="method-result failed">
+                        <div class="method-title error">Error</div>
+                        <p>${error.message}</p>
+                        <p>Make sure your backend server is running on localhost:5000</p>
+                    </div>
+                `;
+            } finally {
+                testBtn.disabled = false;
+                testBtn.textContent = 'Test All Methods';
+            }
+        }
+
+        function displayResults(results) {
+            const resultsContent = document.getElementById('resultsContent');
+            let html = '';
+
+            html += `<p><strong>Location ID:</strong> ${results.locationId}</p>`;
+            html += `<p><strong>Account ID:</strong> ${results.accountId}</p>`;
+            html += `<hr>`;
+
+            results.methods.forEach((method, index) => {
+                const className = method.success ? 'method-result' : 'method-result failed';
+                const statusClass = method.success ? 'success' : 'error';
+                
+                html += `<div class="${className}">`;
+                html += `<div class="method-title">${index + 1}. ${method.method}</div>`;
+                html += `<p class="${statusClass}">${method.success ? '✅ SUCCESS' : '❌ FAILED'}</p>`;
+
+                if (method.success) {
+                    if (method.reviewLink) {
+                        html += `<div class="review-link">
+                            <strong>Review Link Found:</strong><br>
+                            <a href="${method.reviewLink}" target="_blank">${method.reviewLink}</a>
+                        </div>`;
+                    }
+
+                    // Show important fields
+                    if (method.data) {
+                        html += '<p><strong>Key Fields:</strong></p>';
+                        html += '<ul>';
+                        
+                        if (method.data.newReviewUrl) {
+                            html += `<li><strong>newReviewUrl:</strong> ${method.data.newReviewUrl}</li>`;
+                        }
+                        if (method.data.newReviewUri) {
+                            html += `<li><strong>newReviewUri:</strong> ${method.data.newReviewUri}</li>`;
+                        }
+                        if (method.data.websiteUri) {
+                            html += `<li><strong>websiteUri:</strong> ${method.data.websiteUri}</li>`;
+                        }
+                        if (method.metadata) {
+                            if (method.metadata.placeId) {
+                                html += `<li><strong>placeId:</strong> ${method.metadata.placeId}</li>`;
+                            }
+                            if (method.metadata.mapsUri) {
+                                html += `<li><strong>mapsUri:</strong> ${method.metadata.mapsUri}</li>`;
+                            }
+                        }
+                        if (method.profile) {
+                            if (method.profile.reviewUri) {
+                                html += `<li><strong>profile.reviewUri:</strong> ${method.profile.reviewUri}</li>`;
+                            }
+                        }
+
+                        html += '</ul>';
+                    }
+
+                    // Show full data
+                    html += '<details>';
+                    html += '<summary><strong>Full API Response (click to expand)</strong></summary>';
+                    html += `<pre>${JSON.stringify(method.data, null, 2)}</pre>`;
+                    html += '</details>';
+                } else {
+                    html += `<p><strong>Error:</strong> ${method.error}</p>`;
+                }
+
+                html += '</div>';
+            });
+
+            resultsContent.innerHTML = html;
+        }
+
+        function clearResults() {
+            document.getElementById('results').style.display = 'none';
+            document.getElementById('resultsContent').innerHTML = '';
+        }
+    </script>
+</body>
+</html>

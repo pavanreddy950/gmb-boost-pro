@@ -7,6 +7,7 @@ import supabaseTokenStorage from './supabaseTokenStorage.js';
 import supabaseAutomationService from './supabaseAutomationService.js';
 import subscriptionGuard from './subscriptionGuard.js';
 import appConfig from '../config.js';
+import { getCategoryMapping, generateCategoryPrompt } from '../config/categoryReviewMapping.js';
 
 // Get __dirname equivalent for ES modules
 const __filename = fileURLToPath(import.meta.url);
@@ -719,12 +720,81 @@ class AutomationScheduler {
     }
   }
 
+  // Smart button type selection based on business category
+  smartSelectButtonType(category, phoneNumber, websiteUrl) {
+    const lowerCategory = (category || '').toLowerCase();
+
+    // Hospitality & Accommodation - prefer BOOK if website, else CALL
+    if (lowerCategory.includes('hotel') || lowerCategory.includes('resort') ||
+        lowerCategory.includes('accommodation') || lowerCategory.includes('inn') ||
+        lowerCategory.includes('motel') || lowerCategory.includes('guest house')) {
+      return websiteUrl ? 'book' : (phoneNumber ? 'call_now' : 'learn_more');
+    }
+
+    // Food & Beverage - prefer ORDER for restaurants, CALL for cafes/bars
+    if (lowerCategory.includes('restaurant') || lowerCategory.includes('food') ||
+        lowerCategory.includes('dining') || lowerCategory.includes('pizza') ||
+        lowerCategory.includes('burger')) {
+      return websiteUrl ? 'order' : (phoneNumber ? 'call_now' : 'learn_more');
+    }
+    if (lowerCategory.includes('cafe') || lowerCategory.includes('coffee') ||
+        lowerCategory.includes('bar') || lowerCategory.includes('pub')) {
+      return phoneNumber ? 'call_now' : 'learn_more';
+    }
+
+    // Health & Wellness - prefer BOOK
+    if (lowerCategory.includes('salon') || lowerCategory.includes('spa') ||
+        lowerCategory.includes('massage') || lowerCategory.includes('wellness') ||
+        lowerCategory.includes('clinic') || lowerCategory.includes('dental') ||
+        lowerCategory.includes('doctor') || lowerCategory.includes('health')) {
+      return websiteUrl ? 'book' : (phoneNumber ? 'call_now' : 'learn_more');
+    }
+
+    // Fitness - prefer SIGN_UP if website, else CALL
+    if (lowerCategory.includes('gym') || lowerCategory.includes('fitness') ||
+        lowerCategory.includes('yoga') || lowerCategory.includes('training')) {
+      return websiteUrl ? 'sign_up' : (phoneNumber ? 'call_now' : 'learn_more');
+    }
+
+    // Retail & Shopping - prefer SHOP
+    if (lowerCategory.includes('shop') || lowerCategory.includes('store') ||
+        lowerCategory.includes('retail') || lowerCategory.includes('boutique') ||
+        lowerCategory.includes('clothing') || lowerCategory.includes('fashion') ||
+        lowerCategory.includes('electronics') || lowerCategory.includes('mobile')) {
+      return websiteUrl ? 'buy' : (phoneNumber ? 'call_now' : 'learn_more');
+    }
+
+    // Education - prefer SIGN_UP
+    if (lowerCategory.includes('school') || lowerCategory.includes('education') ||
+        lowerCategory.includes('coaching') || lowerCategory.includes('training') ||
+        lowerCategory.includes('course') || lowerCategory.includes('tuition')) {
+      return websiteUrl ? 'sign_up' : (phoneNumber ? 'call_now' : 'learn_more');
+    }
+
+    // Services (repair, professional) - prefer CALL
+    if (lowerCategory.includes('repair') || lowerCategory.includes('service') ||
+        lowerCategory.includes('plumber') || lowerCategory.includes('electrician') ||
+        lowerCategory.includes('mechanic') || lowerCategory.includes('lawyer') ||
+        lowerCategory.includes('accountant')) {
+      return phoneNumber ? 'call_now' : 'learn_more';
+    }
+
+    // Real Estate - prefer LEARN_MORE
+    if (lowerCategory.includes('real estate') || lowerCategory.includes('property') ||
+        lowerCategory.includes('estate agent')) {
+      return 'learn_more';
+    }
+
+    // Default: CALL if phone available, otherwise LEARN_MORE
+    return phoneNumber ? 'call_now' : 'learn_more';
+  }
+
   // Generate call-to-action based on button configuration
   generateCallToAction(config) {
     const button = config.button;
     const phoneNumber = config.phoneNumber;
     const websiteUrl = config.websiteUrl;
-    const category = config.category || '';
+    const category = config.businessCategory || config.category || '';
 
     console.log('[AutomationScheduler] ========================================');
     console.log('[AutomationScheduler] 🔘 CTA BUTTON GENERATION');
@@ -736,7 +806,8 @@ class AutomationScheduler {
       profilePhoneNumber: phoneNumber,
       customUrl: button?.customUrl,
       websiteUrl: websiteUrl,
-      category: category
+      category: category,
+      businessCategory: config.businessCategory
     });
 
     // If button is explicitly disabled or type is 'none', return null
@@ -746,9 +817,14 @@ class AutomationScheduler {
       return null;
     }
 
-    // Default to 'call_now' if no button config specified
-    const buttonType = button?.type || 'call_now';
-    console.log(`[AutomationScheduler] ✅ Button type: ${buttonType}`);
+    // Smart default button selection based on business category if no button specified
+    let buttonType = button?.type;
+    if (!buttonType) {
+      buttonType = this.smartSelectButtonType(category, phoneNumber, websiteUrl);
+      console.log(`[AutomationScheduler] 🎯 Smart-selected button type: ${buttonType} for category: ${category}`);
+    } else {
+      console.log(`[AutomationScheduler] ✅ Using configured button type: ${buttonType}`);
+    }
 
     // Handle different button types
     let actionType = 'CALL'; // Default to CALL button
@@ -1059,38 +1135,65 @@ class AutomationScheduler {
       const randomSeed = Math.random();
       const timeOfDay = new Date().getHours() < 12 ? 'morning' : new Date().getHours() < 17 ? 'afternoon' : 'evening';
       const dayOfWeek = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][new Date().getDay()];
-      
-      const prompt = `Create a natural, engaging Google Business Profile post for ${businessName}, a ${category}${locationStr ? ` in ${locationStr}` : ''}.
 
-Business Name: ${businessName}
-Business Type: ${category}
-Location: ${locationStr || 'local area'}
-Complete Address: ${completeAddress}
-Focus areas: ${Array.isArray(keywordList) ? keywordList.slice(0, 3).join(', ') : keywordList}
-Business Categories: ${config.categories ? config.categories.join(', ') : category}
-${websiteUrl ? `Website: ${websiteUrl}` : ''}
+      // Get business category from config and fetch category-specific guidelines
+      const businessCategory = config.businessCategory || category;
+      const categoryMapping = getCategoryMapping(businessCategory);
 
-Context: Write for ${dayOfWeek} ${timeOfDay}
+      console.log(`[AutomationScheduler] 📋 Business Category: ${businessCategory}`);
+      console.log(`[AutomationScheduler] 🎯 Category Focus Areas: ${categoryMapping.focusAreas.join(', ')}`);
 
-CRITICAL RULES - MUST FOLLOW ALL:
-1. Write EXACTLY 100-120 words for the main content
-2. MUST mention the exact business name "${businessName}" prominently
-3. MUST incorporate business categories and keywords naturally
-4. Focus on what this specific ${category} offers in ${locationStr || 'the area'}
-5. Be location-specific - mention local landmarks, neighborhoods, or what makes this location special
-6. For hotels/resorts: mention stays, rooms, amenities, relaxation
-7. For restaurants: mention food, dining, atmosphere
-8. For services: mention solutions, expertise, results
-9. Include relevant business keywords naturally in the content
-10. Write naturally and conversationally
-11. ⚠️ CRITICAL FORMATTING REQUIREMENT ⚠️: ALWAYS end your response with exactly this format:
+      // Build category-specific context
+      const categoryContext = `
+BUSINESS CATEGORY: ${businessCategory}
 
-[Main post content here]
+CATEGORY-SPECIFIC WRITING GUIDELINES:
+- Focus on these aspects: ${categoryMapping.focusAreas.join(', ')}
+- Use natural industry language like: ${categoryMapping.commonPhrases.slice(0, 6).join(', ')}
+- Mention specific details such as: ${categoryMapping.specificAspects.slice(0, 6).join(', ')}
+- Frame from customer perspective: ${categoryMapping.customerExperiences.slice(0, 3).join(', ')}`;
+
+      const prompt = `Create a natural, engaging, HUMAN-LIKE Google Business Profile post for ${businessName}, a ${businessCategory}${locationStr ? ` in ${locationStr}` : ''}.
+
+BUSINESS DETAILS:
+- Business Name: ${businessName}
+- Business Type: ${businessCategory}
+- Location: ${locationStr || 'local area'}
+- Complete Address: ${completeAddress}
+- Keywords to include: ${Array.isArray(keywordList) ? keywordList.join(', ') : keywordList}
+${websiteUrl ? `- Website: ${websiteUrl}` : ''}
+
+${categoryContext}
+
+CRITICAL WRITING RULES - MUST FOLLOW ALL:
+1. Write MAXIMUM 100 words for the main content (not including address line) - KEEP IT SHORT AND CONCISE!
+2. MUST feel like it was written by a human - warm, engaging, conversational tone
+3. MUST mention the exact business name "${businessName}" naturally in the content
+4. MUST incorporate AT LEAST 2 business keywords naturally: ${Array.isArray(keywordList) ? keywordList.slice(0, 2).join(', ') : keywordList}
+5. MUST mention city/area name within the content naturally: ${locationStr}
+6. Talk about the LOCAL AREA - nearby attractions, local landmarks, what makes this location special (BRIEFLY!)
+7. Mention NATURE and WEATHER if relevant (beaches, mountains, deserts) - keep it SHORT
+8. Highlight the business's SPECIAL QUALITIES that make it unique
+9. Write in a storytelling style but KEEP IT BRIEF - make readers FEEL the experience in FEW words
+10. Use category-specific language that sounds authentic to the industry
+11. Be concise and impactful - every word counts!
+
+FORMAT REQUIREMENTS:
+12. Use bullet points (•) or emojis to break up text and improve readability
+13. ⚠️ CRITICAL: ALWAYS end with the address line in EXACTLY this format:
+
+[Main post content here - MAXIMUM 100 words, human-like, brief local focus]
 
 📍 Address: ${completeAddress}
 
-12. The address line is MANDATORY and must be on a separate line with two line breaks before it
-13. DO NOT include the address anywhere else in the post - only at the very end in the specified format`;
+14. The address line is MANDATORY and must be on a separate line with two line breaks before it
+15. DO NOT include the address anywhere else in the post - only at the very end in the specified format
+
+EXAMPLES OF GOOD SHORT POSTS (around 80-100 words):
+- "Bikaner Desert Camp & Resort style experiences in Sam, Jaisalmer. NK Desert Camp & Resort offers luxury tents, desert safaris, and cultural evenings in golden dunes. • Luxury tent accommodations • Desert safari Jaisalmer • Evening cultural programs • Best desert camp. Discover ultimate desert adventure. 📍 Address: [address]"
+- "Looking for Port Blair beach hotels? Kevin's Bed & Breakfast is near the beach with budget-friendly stay. 🌴 Perfect for beach lovers 🌴 Comfortable rooms 🌴 Easy access to attractions. Stay close to the sea. 📍 Address: [address]"
+
+Write naturally, engagingly, but KEEP IT SHORT - maximum 100 words!`;
 
       const response = await fetch(
         `${this.azureEndpoint}openai/deployments/${this.deploymentName}/chat/completions?api-version=${this.apiVersion}`,
@@ -1104,17 +1207,31 @@ CRITICAL RULES - MUST FOLLOW ALL:
             messages: [
               {
                 role: 'system',
-                content: `You are a professional social media content writer for Google Business Profiles. CRITICAL FORMATTING RULE: Every post MUST end with the exact format "📍 Address: [complete address]" on a separate line after two line breaks. This address line is mandatory and must be included in every single post. Write engaging content that incorporates business keywords and location details naturally. Focus on what the business offers while mentioning the business name and incorporating relevant keywords.`
+                content: `You are a professional, creative social media content writer for Google Business Profiles who writes like a LOCAL EXPERT sharing their favorite places.
+
+CRITICAL FORMATTING RULES:
+1. Every post MUST be MAXIMUM 100 words (not including address line) - KEEP IT SHORT & PUNCHY!
+2. Every post MUST end with "📍 Address: [complete address]" on a separate line after two line breaks
+3. Write in a HUMAN, conversational tone - not robotic or corporate
+4. Make readers FEEL the experience through vivid but BRIEF descriptions
+5. Talk about the LOCAL AREA, nearby attractions, nature, weather - but KEEP IT CONCISE
+6. Include category-specific language that sounds authentic to the industry
+7. Use bullet points or emojis naturally to improve readability and save space
+8. Incorporate business keywords naturally without forcing them
+9. Write like you're recommending a place to a friend - warm, genuine, engaging, but BRIEF
+10. Every word counts - be concise and impactful!
+
+Think of yourself as writing a quick, enthusiastic recommendation - SHORT but memorable!`
               },
               {
                 role: 'user',
                 content: prompt
               }
             ],
-            max_tokens: 250,
-            temperature: 0.95,
-            frequency_penalty: 0.7,
-            presence_penalty: 0.5,
+            max_tokens: 200,
+            temperature: 0.9,
+            frequency_penalty: 0.6,
+            presence_penalty: 0.6,
             top_p: 0.95
           })
         }

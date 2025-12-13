@@ -1305,23 +1305,48 @@ router.post('/subscription/check-profile-payment', async (req, res) => {
 // Update current active profile count (called when profiles are added/deleted)
 router.post('/subscription/update-profile-count', async (req, res) => {
   try {
-    const { gbpAccountId, userId, currentProfileCount } = req.body;
+    const { gbpAccountId, userId, currentProfileCount, email } = req.body;
 
-    console.log('[Update Profile Count] Request:', { gbpAccountId, userId, currentProfileCount });
+    console.log('[Update Profile Count] Request:', { gbpAccountId, userId, currentProfileCount, email });
 
     if (!currentProfileCount || currentProfileCount < 0) {
       return res.status(400).json({ error: 'Valid profile count is required' });
     }
 
-    // Find subscription
+    // UNIVERSAL SUBSCRIPTION LOOKUP - Works for ALL users (old, new, upcoming)
+    // Priority: EMAIL > USER_ID > GBP_ACCOUNT_ID
+    // This ensures we find the subscription regardless of account configuration
     let subscription = null;
-    if (gbpAccountId) {
-      subscription = await subscriptionService.getSubscriptionByGBPAccount(gbpAccountId);
-    } else if (userId) {
+
+    // 1. Try by EMAIL first (most reliable - never changes)
+    if (email) {
+      console.log('[Update Profile Count] Looking up by email:', email);
+      subscription = await subscriptionService.persistentStorage.getSubscriptionByEmail?.(email);
+      if (subscription) {
+        console.log('[Update Profile Count] ✅ Found by email');
+      }
+    }
+
+    // 2. Fallback: Try by USER_ID (works for single-account users)
+    if (!subscription && userId) {
+      console.log('[Update Profile Count] Looking up by userId:', userId);
       subscription = await subscriptionService.getSubscriptionByUserId(userId);
+      if (subscription) {
+        console.log('[Update Profile Count] ✅ Found by userId');
+      }
+    }
+
+    // 3. Fallback: Try by GBP_ACCOUNT_ID (legacy support)
+    if (!subscription && gbpAccountId) {
+      console.log('[Update Profile Count] Looking up by gbpAccountId:', gbpAccountId);
+      subscription = await subscriptionService.getSubscriptionByGBPAccount(gbpAccountId);
+      if (subscription) {
+        console.log('[Update Profile Count] ✅ Found by gbpAccountId');
+      }
     }
 
     if (!subscription) {
+      console.error('[Update Profile Count] ❌ Subscription not found with any method');
       return res.status(404).json({ error: 'Subscription not found' });
     }
 

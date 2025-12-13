@@ -22,7 +22,21 @@
       "Bash(move:*)",
       "Bash(del nul)",
       "Bash(docker-compose:*)",
-      "Bash(docker tag:*)"
+      "Bash(docker tag:*)",
+      "Bash(ls -la *.js *.ps1 *.bat *.sh)",
+      "Bash(npm run lint)",
+      "Bash(npm run dev:*)",
+      "Bash(timeout /t 5)",
+      "WebFetch(domain:www.limbu.ai)",
+      "WebFetch(domain:app.limbu.ai)",
+      "Bash(taskkill:*)",
+      "Bash(timeout /t 5 /nobreak)",
+      "Bash(ping:*)",
+      "Bash(node -p:*)",
+      "Bash(pkill:*)",
+      "Bash(node -c:*)",
+      "Bash(ls:*)",
+      "Bash(xargs:*)"
     ],
     "deny": [],
     "ask": []

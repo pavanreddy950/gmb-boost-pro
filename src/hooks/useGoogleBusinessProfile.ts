@@ -35,9 +35,19 @@ export const useGoogleBusinessProfile = (): UseGoogleBusinessProfileReturn => {
   const hasInitialized = useRef(false);
   const lastUserId = useRef<string | null>(null);
 
-  // Save GBP-user association
+  // Track saved associations to prevent repeated saves (SESSION CACHE)
+  const savedAssociations = useRef<Set<string>>(new Set());
+  const savedProfileCounts = useRef<Map<string, number>>(new Map());
+
+  // Save GBP-user association (ONLY ONCE PER SESSION)
   const saveGbpAssociation = useCallback(async (gbpAccountId: string) => {
     if (!currentUser?.uid) return;
+
+    // Skip if already saved in this session
+    const cacheKey = `${currentUser.uid}_${gbpAccountId}`;
+    if (savedAssociations.current.has(cacheKey)) {
+      return; // Already saved, skip
+    }
 
     try {
       const backendUrl = import.meta.env.VITE_BACKEND_URL || 'https://pavan-client-backend-bxgdaqhvarfdeuhe.canadacentral-01.azurewebsites.net';
@@ -51,18 +61,37 @@ export const useGoogleBusinessProfile = (): UseGoogleBusinessProfileReturn => {
           gbpAccountId: gbpAccountId
         })
       });
-      console.log('GBP association saved:', { userId: currentUser.uid, gbpAccountId });
+
+      // Mark as saved
+      savedAssociations.current.add(cacheKey);
     } catch (error) {
-      console.error('Failed to save GBP association:', error);
+      // Silent fail - not critical
     }
   }, [currentUser]);
 
-  // Update profile count in subscription (slot-based system)
+  // Update profile count (ONLY IF CHANGED)
+  // UNIVERSAL: Works for all users - sends email for reliable lookup
   const updateProfileCount = useCallback(async (gbpAccountId: string, profileCount: number) => {
-    if (!currentUser?.uid) return;
+    if (!currentUser?.uid || !currentUser?.email) return;
+
+    // Skip if count hasn't changed (use global key for total count)
+    const cacheKey = 'total_profile_count';
+    const lastCount = savedProfileCounts.current.get(cacheKey);
+    if (lastCount === profileCount) {
+      console.log('[Profile Count] No change detected, skipping update');
+      return; // No change, skip
+    }
 
     try {
       const backendUrl = import.meta.env.VITE_BACKEND_URL || 'https://pavan-client-backend-bxgdaqhvarfdeuhe.canadacentral-01.azurewebsites.net';
+
+      console.log('[Profile Count] Sending update:', {
+        userId: currentUser.uid,
+        email: currentUser.email,
+        gbpAccountId,
+        currentProfileCount: profileCount
+      });
+
       const response = await fetch(`${backendUrl}/api/payment/subscription/update-profile-count`, {
         method: 'POST',
         headers: {
@@ -70,19 +99,23 @@ export const useGoogleBusinessProfile = (): UseGoogleBusinessProfileReturn => {
         },
         body: JSON.stringify({
           userId: currentUser.uid,
+          email: currentUser.email, // CRITICAL: Include email for universal lookup
           gbpAccountId: gbpAccountId,
           currentProfileCount: profileCount
         })
       });
 
       if (response.ok) {
-        const data = await response.json();
-        console.log('[Profile Count] Updated successfully:', data);
+        const result = await response.json();
+        console.log('[Profile Count] ✅ Update successful:', result);
+        // Update cache
+        savedProfileCounts.current.set(cacheKey, profileCount);
       } else {
-        console.warn('[Profile Count] Failed to update:', await response.text());
+        const error = await response.json();
+        console.error('[Profile Count] ❌ Update failed:', error);
       }
     } catch (error) {
-      console.error('[Profile Count] Error updating:', error);
+      console.error('[Profile Count] ❌ Request error:', error);
     }
   }, [currentUser]);
 
@@ -93,18 +126,37 @@ export const useGoogleBusinessProfile = (): UseGoogleBusinessProfileReturn => {
       const businessAccounts = await googleBusinessProfileService.getBusinessAccounts(forceRefresh);
       setAccounts(businessAccounts);
 
-      // Save GBP associations and update profile counts for all accounts
-      for (const account of businessAccounts) {
-        if (account.accountId) {
-          await saveGbpAssociation(account.accountId);
-
-          // SLOT-BASED SYSTEM: Update current active profile count
-          const totalLocations = account.locations?.length || 0;
-          if (totalLocations > 0) {
-            await updateProfileCount(account.accountId, totalLocations);
-            console.log(`[Profile Count] Account ${account.accountName}: ${totalLocations} profiles tracked`);
+      // Save GBP associations for all accounts
+      await Promise.all(
+        businessAccounts.map(async (account) => {
+          if (account.accountId) {
+            await saveGbpAssociation(account.accountId);
           }
-        }
+        })
+      );
+
+      // UNIVERSAL PROFILE COUNT UPDATE - Works for ALL scenarios:
+      // - Single account with 1 location
+      // - Single account with multiple locations
+      // - Multiple accounts with 1 location each
+      // - Multiple accounts with multiple locations each
+      // Calculate TOTAL profiles across ALL accounts
+      const totalProfileCount = businessAccounts.reduce((total, account) => {
+        return total + (account.locations?.length || 0);
+      }, 0);
+
+      console.log('[Profile Count] Total profiles across all accounts:', totalProfileCount);
+      console.log('[Profile Count] Breakdown:', businessAccounts.map(acc => ({
+        account: acc.name,
+        locations: acc.locations?.length || 0
+      })));
+
+      // Send ONE update with total count (not individual updates per account)
+      // Use first account's ID as reference, but include email for lookup
+      if (totalProfileCount > 0 && businessAccounts.length > 0 && currentUser?.email) {
+        const firstAccountId = businessAccounts[0].accountId;
+        console.log('[Profile Count] Updating subscription with total count:', totalProfileCount);
+        await updateProfileCount(firstAccountId, totalProfileCount);
       }
 
       // Auto-select first account if only one exists
@@ -225,21 +277,17 @@ export const useGoogleBusinessProfile = (): UseGoogleBusinessProfileReturn => {
 
     // Skip if already initializing or if user hasn't changed
     if (isInitializing.current || (hasInitialized.current && lastUserId.current === currentUserId)) {
-      console.log('🔍 DEBUGGING: Skipping initialization (already initialized or in progress)');
-      return;
+      return; // Silent skip - no logging spam
     }
 
     const initializeConnection = async () => {
       // Prevent concurrent initializations
       if (isInitializing.current) {
-        console.log('🔍 DEBUGGING: Initialization already in progress, skipping...');
-        return;
+        return; // Silent skip
       }
 
       isInitializing.current = true;
       setIsLoading(true);
-      console.log('🔍 DEBUGGING: Initializing Google Business Profile connection...');
-      console.log('🔍 DEBUGGING: Firebase user:', currentUserId);
 
       try {
         // Set the current user ID in the service for Firestore operations
@@ -248,47 +296,33 @@ export const useGoogleBusinessProfile = (): UseGoogleBusinessProfileReturn => {
         // Check if we just reloaded after payment
         const justReloaded = sessionStorage.getItem('post_payment_reload') === 'true';
         if (justReloaded) {
-          console.log('🔍 DEBUGGING: Just reloaded after payment, waiting before loading profiles...');
           sessionStorage.removeItem('post_payment_reload');
-          // Wait a bit longer for backend to settle and tokens to be saved
           await new Promise(resolve => setTimeout(resolve, 2000));
         }
 
         // Load tokens with Firebase user ID
         const hasValidTokens = await googleBusinessProfileService.loadStoredTokens(currentUserId);
-        console.log('🔍 DEBUGGING: Has valid tokens?', hasValidTokens);
-        console.log('🔍 DEBUGGING: Service isConnected?', googleBusinessProfileService.isConnected());
-
         setIsConnected(hasValidTokens);
 
         if (hasValidTokens) {
-          console.log('🔍 DEBUGGING: Loading business accounts...');
           try {
             await loadBusinessAccounts();
           } catch (loadError) {
-            console.error('❌ DEBUGGING: Failed to load business accounts:', loadError);
-            // Don't set error state if it's just a temporary issue
-            // Let the automatic refresh retry handle it
             if (loadError instanceof Error && loadError.message.includes('Authentication')) {
-              console.log('⚠️ Authentication issue detected, may need to reconnect');
               setError('Authentication expired. Please reconnect your Google Business Profile.');
               setIsConnected(false);
             }
           }
-        } else {
-          console.log('🔍 DEBUGGING: No valid tokens, skipping account load');
         }
 
         // Mark as initialized
         hasInitialized.current = true;
         lastUserId.current = currentUserId;
       } catch (error) {
-        console.error('❌ DEBUGGING: Error initializing Google Business Profile connection:', error);
         setError('Failed to initialize connection');
       } finally {
         setIsLoading(false);
         isInitializing.current = false;
-        console.log('🔍 DEBUGGING: Initialization complete');
       }
     };
 

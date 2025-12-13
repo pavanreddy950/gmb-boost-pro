@@ -33,14 +33,13 @@ interface ProcessedReview {
 class ReviewAutomationService {
   private intervalId: NodeJS.Timeout | null = null;
   private isRunning = false;
-  private checkInterval = 15000; // Check every 15 seconds for real-time response
+  private checkInterval = 600000; // Check every 10 minutes (600000ms) - reduced from 15s to improve performance
   private processedReviews: Map<string, ProcessedReview> = new Map();
   private notificationService: NotificationService | null = null;
 
   constructor() {
     this.loadProcessedReviews();
     // Don't auto-start immediately - wait for Google Business Profile connection
-    console.log('🤖 AUTOMATION: Review automation service initialized');
     this.delayedStart();
   }
 
@@ -54,37 +53,29 @@ class ReviewAutomationService {
 
   // Check if Google Business Profile is connected before starting
   private checkConnectionAndStart(): void {
-    console.log('🔍 AUTOMATION: Checking Google Business Profile connection...');
-    
     const checkConnection = () => {
       const hasToken = !!googleBusinessProfileService.getAccessToken();
       const isGBPConnected = googleBusinessProfileService.isConnected();
-      
-      console.log('🔍 AUTOMATION: Connection check -', { hasToken, isGBPConnected });
-      
+
       if (hasToken && isGBPConnected) {
-        console.log('✅ AUTOMATION: Google Business Profile is connected, starting automation');
         this.start();
       } else {
-        console.log('⏳ AUTOMATION: Waiting for Google Business Profile connection...');
         // Check again in 15 seconds
         setTimeout(checkConnection, 15000);
       }
     };
-    
+
     checkConnection();
   }
 
   // Set the notification service to enable notifications
   setNotificationService(notificationService: NotificationService): void {
     this.notificationService = notificationService;
-    console.log('🔔 Notification service connected to review automation');
   }
 
   start(): void {
     if (this.isRunning) return;
-    
-    console.log('🔄 Starting review automation service...');
+
     this.isRunning = true;
     
     // Run initial check
@@ -98,10 +89,9 @@ class ReviewAutomationService {
 
   stop(): void {
     if (!this.isRunning) return;
-    
-    console.log('⏹️ Stopping review automation service...');
+
     this.isRunning = false;
-    
+
     if (this.intervalId) {
       clearInterval(this.intervalId);
       this.intervalId = null;
@@ -110,35 +100,24 @@ class ReviewAutomationService {
 
   private async checkAndProcessReviews(): Promise<void> {
     try {
-      console.log('🔄 AUTOMATION: Starting review check cycle...');
-      
+      // Reduced logging for performance
+
       // Double check GBP connection
       if (!googleBusinessProfileService.isConnected()) {
-        console.warn('⚠️ AUTOMATION: Google Business Profile connection lost, stopping automation');
         this.stop();
         return;
       }
-      
+
       const enabledConfigs = this.getEnabledConfigurations();
-      
-      console.log(`🔍 AUTOMATION: Found ${enabledConfigs.length} enabled review configurations`);
-      
+
       if (enabledConfigs.length === 0) {
-        console.log('ℹ️ AUTOMATION: No enabled auto-reply configurations found. Make sure you have enabled auto-reply for at least one location.');
         return;
       }
-      
-      // Log details about each config
-      enabledConfigs.forEach(config => {
-        console.log(`📋 AUTOMATION: Config - ${config.businessName} (${config.locationId}) - Auto-reply: ${config.autoReplyEnabled ? 'ON' : 'OFF'}`);
-      });
-      
+
+      // Process reviews silently for performance
       for (const config of enabledConfigs) {
-        console.log(`🎯 AUTOMATION: Processing location: ${config.businessName}`);
         await this.processLocationReviews(config);
       }
-      
-      console.log('✅ AUTOMATION: Review check cycle completed');
     } catch (error) {
       console.error('🚨 AUTOMATION ERROR:', error);
     }
@@ -146,12 +125,9 @@ class ReviewAutomationService {
 
   private async processLocationReviews(config: ReviewReplyConfig): Promise<void> {
     try {
-      console.log(`📝 Processing reviews for ${config.businessName}...`);
-      
       // Get access token
       const accessToken = googleBusinessProfileService.getAccessToken();
       if (!accessToken) {
-        console.warn(`⚠️ No access token available for ${config.businessName}`);
         return;
       }
 
@@ -189,11 +165,7 @@ class ReviewAutomationService {
     try {
       const backendUrl = import.meta.env.VITE_BACKEND_URL || 'https://pavan-client-backend-bxgdaqhvarfdeuhe.canadacentral-01.azurewebsites.net';
       const accessToken = googleBusinessProfileService.getAccessToken();
-      
-      console.log('🔍 REVIEWS DEBUG: Backend URL being used:', backendUrl);
-      console.log('🔍 REVIEWS DEBUG: VITE_BACKEND_URL env var:', import.meta.env.VITE_BACKEND_URL);
-      console.log('🔍 REVIEWS DEBUG: Full URL:', `${backendUrl}/api/locations/${locationId}/reviews`);
-      
+
       const response = await fetch(`${backendUrl}/api/locations/${locationId}/reviews?_t=${Date.now()}`, {
         method: 'GET',
         headers: {

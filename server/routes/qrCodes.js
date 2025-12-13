@@ -582,17 +582,18 @@ async function fetchGoogleReviewLink(accountId, locationId, accessToken, busines
 // New endpoint: Generate QR code with automatic review link fetching
 router.post('/generate-with-auto-fetch', async (req, res) => {
   try {
-    const { 
-      accountId, 
-      locationId, 
-      locationName, 
-      address, 
-      placeId, 
+    const {
+      accountId,
+      locationId,
+      locationName,
+      address,
+      placeId,
       accessToken,
-      keywords, 
-      userId, 
+      keywords,
+      userId,
       gbpAccountId,
-      forceRefresh // NEW: Allow forcing re-fetch of review link
+      forceRefresh, // NEW: Allow forcing re-fetch of review link
+      businessCategory // NEW: Business category from Google Business Profile
     } = req.body;
 
     if (!locationId || !locationName || !accessToken) {
@@ -602,6 +603,42 @@ router.post('/generate-with-auto-fetch', async (req, res) => {
     }
 
     console.log(`[QR Code] 📦 Generating QR code for ${locationName}${forceRefresh ? ' (FORCE REFRESH)' : ''}`);
+    console.log(`[QR Code] 📋 Business Category: ${businessCategory || 'not specified'}`);
+
+    // 🔑 FETCH KEYWORDS FROM AUTOMATION SETTINGS
+    let finalKeywords = keywords || '';
+
+    if (userId) {
+      try {
+        console.log(`[QR Code] 🔍 Fetching automation settings for user ${userId}, location ${locationId} to get keywords...`);
+        const supabaseAutomationService = (await import('../services/supabaseAutomationService.js')).default;
+        const automationSettings = await supabaseAutomationService.getSettings(userId, locationId);
+
+        if (automationSettings) {
+          // Check for keywords in autoPosting settings first (most specific)
+          if (automationSettings.autoPosting && automationSettings.autoPosting.keywords) {
+            finalKeywords = automationSettings.autoPosting.keywords;
+            console.log(`[QR Code] ✅ Found keywords from autoPosting settings: ${finalKeywords}`);
+          }
+          // Fallback to root-level keywords
+          else if (automationSettings.keywords) {
+            finalKeywords = automationSettings.keywords;
+            console.log(`[QR Code] ✅ Found keywords from automation settings: ${finalKeywords}`);
+          } else {
+            console.log(`[QR Code] ⚠️ No keywords found in automation settings for location ${locationId}`);
+          }
+        } else {
+          console.log(`[QR Code] ⚠️ No automation settings found for location ${locationId}`);
+        }
+      } catch (error) {
+        console.error(`[QR Code] ⚠️ Error fetching automation settings:`, error.message);
+        console.log(`[QR Code] Using provided keywords: ${finalKeywords || 'none'}`);
+      }
+    } else {
+      console.log(`[QR Code] ⚠️ No userId provided, cannot fetch automation settings. Using provided keywords: ${finalKeywords || 'none'}`);
+    }
+
+    console.log(`[QR Code] 🔑 Final keywords to use: ${finalKeywords || 'none'}`);
 
     // 🔒 SUBSCRIPTION CHECK
     if (userId && gbpAccountId) {
@@ -671,7 +708,8 @@ router.post('/generate-with-auto-fetch', async (req, res) => {
       `business=${encodeURIComponent(locationName)}&` +
       `location=${encodeURIComponent(address || '')}&` +
       `placeId=${encodeURIComponent(fetchedPlaceId || '')}&` +
-      `googleReviewLink=${encodeURIComponent(googleReviewLink)}`;
+      `googleReviewLink=${encodeURIComponent(googleReviewLink)}` +
+      (businessCategory ? `&category=${encodeURIComponent(businessCategory)}` : '');
 
     // 6. Generate QR code image
     const qrCodeUrl = await QRCode.toDataURL(publicReviewUrl, {
@@ -693,7 +731,8 @@ router.post('/generate-with-auto-fetch', async (req, res) => {
       address: address || '',
       placeId: fetchedPlaceId || '',
       googleReviewLink,
-      keywords: keywords || '',
+      keywords: finalKeywords || '', // Use keywords from automation settings
+      businessCategory: businessCategory || null, // NEW: Store business category for category-specific reviews
       qrCodeUrl,
       publicReviewUrl,
       userId: userId || 'anonymous',
