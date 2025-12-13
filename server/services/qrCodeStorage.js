@@ -43,13 +43,15 @@ class QRCodeStorageService {
 
   async saveQRCode(locationId, qrCodeData) {
     await this.initialize();
-    
+
     const qrInfo = {
       locationId,
       locationName: qrCodeData.locationName,
       address: qrCodeData.address,
       placeId: qrCodeData.placeId,
       googleReviewLink: qrCodeData.googleReviewLink,
+      keywords: qrCodeData.keywords || '', // ✅ SAVE KEYWORDS FOR AI REVIEW GENERATION
+      businessCategory: qrCodeData.businessCategory || null, // ✅ SAVE BUSINESS CATEGORY
       qrCodeUrl: qrCodeData.qrCodeUrl,
       publicReviewUrl: qrCodeData.publicReviewUrl,
       createdAt: new Date().toISOString(),
@@ -58,8 +60,10 @@ class QRCodeStorageService {
 
     this.qrCodes.set(locationId, qrInfo);
     await this.persistToFile();
-    
-    console.log(`[QRCodeStorage] Saved QR code for location: ${locationId} (${qrCodeData.locationName})`);
+
+    console.log(`[QRCodeStorage] ✅ Saved QR code for location: ${locationId} (${qrCodeData.locationName})`);
+    console.log(`[QRCodeStorage] 🔑 Keywords saved: "${qrInfo.keywords || 'NONE'}"`);
+    console.log(`[QRCodeStorage] 📋 Business Category: "${qrInfo.businessCategory || 'NONE'}"`);
     return qrInfo;
   }
 

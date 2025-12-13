@@ -32,6 +32,13 @@ class SupabaseAutomationService {
     try {
       await this.initialize();
 
+      // Log keyword information being saved
+      const autoPostingKeywords = settings.autoPosting?.keywords;
+      const rootKeywords = settings.keywords;
+      console.log(`[SupabaseAutomationService] 💾 Saving settings for userId: ${userId}, locationId: ${locationId}`);
+      console.log(`[SupabaseAutomationService] 🔑 AutoPosting Keywords: "${autoPostingKeywords || 'NOT SET'}"`);
+      console.log(`[SupabaseAutomationService] 🔑 Root Keywords: "${rootKeywords || 'NOT SET'}"`);
+
       const record = {
         user_id: userId,
         location_id: locationId,
@@ -52,7 +59,7 @@ class SupabaseAutomationService {
 
       if (error) throw error;
 
-      console.log(`[SupabaseAutomationService] ✅ Saved settings for location: ${locationId}`);
+      console.log(`[SupabaseAutomationService] ✅ Settings saved successfully for location: ${locationId}`);
       return settings;
     } catch (error) {
       console.error('[SupabaseAutomationService] Error saving settings:', error);
@@ -67,6 +74,8 @@ class SupabaseAutomationService {
     try {
       await this.initialize();
 
+      console.log(`[SupabaseAutomationService] 🔍 Fetching settings for userId: ${userId}, locationId: ${locationId}`);
+
       const { data, error } = await this.client
         .from('automation_settings')
         .select('*')
@@ -75,11 +84,25 @@ class SupabaseAutomationService {
         .single();
 
       if (error) {
-        if (error.code === 'PGRST116') return null;
+        if (error.code === 'PGRST116') {
+          console.log(`[SupabaseAutomationService] ⚠️ No settings found for location: ${locationId}`);
+          return null;
+        }
         throw error;
       }
 
-      return this.formatSettings(data);
+      const formattedSettings = this.formatSettings(data);
+
+      // Log keyword information
+      if (formattedSettings) {
+        const autoPostingKeywords = formattedSettings.autoPosting?.keywords;
+        const rootKeywords = formattedSettings.keywords;
+        console.log(`[SupabaseAutomationService] 📊 Settings retrieved for location: ${locationId}`);
+        console.log(`[SupabaseAutomationService] 🔑 AutoPosting Keywords: "${autoPostingKeywords || 'NOT SET'}"`);
+        console.log(`[SupabaseAutomationService] 🔑 Root Keywords: "${rootKeywords || 'NOT SET'}"`);
+      }
+
+      return formattedSettings;
     } catch (error) {
       console.error('[SupabaseAutomationService] Error getting settings:', error);
       return null;

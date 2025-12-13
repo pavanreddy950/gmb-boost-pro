@@ -57,6 +57,8 @@ interface QRModalData {
   qrCodeUrl?: string;
   reviewLink?: string;
   aiReviews?: AIReview[];
+  businessCategory?: string;
+  keywords?: string;
 }
 
 interface ReviewLinkModalData {
@@ -64,6 +66,7 @@ interface ReviewLinkModalData {
   location: any;
   googleReviewLink: string;
   keywords: string;
+  forceRefresh?: boolean;
 }
 
 const AskForReviews = () => {
@@ -242,9 +245,10 @@ const AskForReviews = () => {
     }
   };
 
-  const openReviewLinkModal = async (location: any, accountId?: string) => {
+  const openReviewLinkModal = async (location: any, accountId?: string, forceRefresh: boolean = false) => {
     console.log('Opening review link modal for location:', location);
     console.log('Account ID:', accountId);
+    console.log('Force Refresh:', forceRefresh);
 
     // Load existing keywords if QR code exists
     const existingQR = existingQRCodes.get(location.locationId);
@@ -257,7 +261,8 @@ const AskForReviews = () => {
       isOpen: true,
       location: locationWithAccount,
       googleReviewLink: existingQR?.googleReviewLink || "",
-      keywords: existingQR?.keywords || ""
+      keywords: existingQR?.keywords || "",
+      forceRefresh: forceRefresh
     });
 
     // If no existing review link, fetch it automatically from Google
@@ -310,6 +315,14 @@ const AskForReviews = () => {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 30000);
 
+      // Extract business category from location object
+      const businessCategory = location.categories?.primaryCategory?.displayName ||
+                               location.categories?.primaryCategory?.name ||
+                               location.primaryCategory ||
+                               null;
+
+      console.log(`[AskForReviews] 📋 Sending business category to QR endpoint: ${businessCategory}`);
+
       // Call the new backend endpoint that does everything
       const response = await fetch(`${backendUrl}/api/qr-codes/generate-with-auto-fetch`, {
         method: 'POST',
@@ -326,7 +339,8 @@ const AskForReviews = () => {
           keywords: '', // Can be added later via update
           userId: userId,
           gbpAccountId: accountId,
-          forceRefresh: forceRefresh // Pass force refresh flag
+          forceRefresh: forceRefresh, // Pass force refresh flag
+          businessCategory: businessCategory // Pass business category for category-specific reviews
         }),
         signal: controller.signal,
         mode: 'cors'
@@ -359,6 +373,14 @@ const AskForReviews = () => {
         // Reload existing QR codes
         await loadExistingQRCodes();
 
+        // Extract business category from location object
+        const businessCategory = location.categories?.primaryCategory?.displayName ||
+                                 location.categories?.primaryCategory?.name ||
+                                 location.primaryCategory ||
+                                 null;
+
+        console.log(`[AskForReviews] 📋 Extracted business category: ${businessCategory}`);
+
         // Show the QR code modal
         setQrModalData({
           isOpen: true,
@@ -368,7 +390,9 @@ const AskForReviews = () => {
           placeId: data.qrCode.placeId,
           qrCodeUrl: data.qrCode.qrCodeUrl,
           reviewLink: data.qrCode.publicReviewUrl,
-          aiReviews: []
+          aiReviews: [],
+          businessCategory: businessCategory,
+          keywords: data.qrCode.keywords || '' // Include keywords from QR code (from autoposting settings)
         });
 
         toast({
@@ -417,6 +441,14 @@ const AskForReviews = () => {
   const showExistingQRCode = (location: any) => {
     const existingQR = existingQRCodes.get(location.locationId);
     if (existingQR) {
+      // Extract business category from location object
+      const businessCategory = location.categories?.primaryCategory?.displayName ||
+                               location.categories?.primaryCategory?.name ||
+                               location.primaryCategory ||
+                               null;
+
+      console.log(`[AskForReviews] 📋 Showing existing QR with category: ${businessCategory}`);
+
       setQrModalData({
         isOpen: true,
         locationName: existingQR.locationName,
@@ -425,13 +457,15 @@ const AskForReviews = () => {
         placeId: existingQR.placeId,
         qrCodeUrl: existingQR.qrCodeUrl,
         reviewLink: existingQR.publicReviewUrl,
-        aiReviews: []
+        aiReviews: [],
+        businessCategory: businessCategory,
+        keywords: existingQR.keywords || '' // Include keywords from existing QR code
       });
     }
   };
 
   const generateQRCodeWithLink = async () => {
-    const { location, googleReviewLink, keywords } = reviewLinkModalData;
+    const { location, googleReviewLink, keywords, forceRefresh } = reviewLinkModalData;
     
     if (!googleReviewLink) {
       toast({
@@ -472,19 +506,29 @@ const AskForReviews = () => {
       
       // Save QR code data to backend for future reference (with keywords for AI)
       try {
+        // Get user ID and account ID from Firebase and location data
+        const userId = googleBusinessProfileService.getUserId();
+        const gbpAccountId = location.accountId;
+
         const qrData = {
           locationId: location.locationId,
           locationName: location.displayName,
           address: location.address?.locality || location.address?.administrativeArea || 'Location',
+          placeId: location.placeId || '',
           googleReviewLink: googleReviewLink,
           keywords: keywords, // Pass keywords for AI review generation
+          userId: userId,
+          gbpAccountId: gbpAccountId,
           publicReviewUrl: publicReviewUrl,
           qrCodeUrl: qrCodeUrl,
+          forceRefresh: forceRefresh || false, // Force update if regenerating
           createdAt: new Date().toISOString()
         };
 
-        console.log('📦 Saving QR code with keywords:', keywords);
-        
+        console.log('📦 Saving QR code for location:', location.locationId);
+        console.log('📦 Keywords:', keywords || 'NONE');
+        console.log('📦 Force Refresh:', forceRefresh ? 'YES' : 'NO');
+
         await fetch(`${backendUrl}/api/qr-codes`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -619,6 +663,13 @@ const AskForReviews = () => {
     setLoadingReviews(true);
     
     try {
+      // Extract business category and keywords from qrModalData if available
+      const businessCategory = qrModalData.businessCategory || null;
+      const keywords = qrModalData.keywords || '';
+
+      console.log(`[AskForReviews] 🎯 Generating AI reviews with category: ${businessCategory || 'default'}`);
+      console.log(`[AskForReviews] 🔑 Using keywords: ${keywords || 'none'}`);
+
       const response = await fetch(`${backendUrl}/api/ai-reviews/generate`, {
         method: 'POST',
         headers: {
@@ -627,7 +678,9 @@ const AskForReviews = () => {
         body: JSON.stringify({
           businessName: qrModalData.locationName,
           location: qrModalData.address,
-          businessType: 'business'
+          businessType: 'business',
+          businessCategory: businessCategory,
+          keywords: keywords // Pass keywords from QR code data (from autoposting settings)
         })
       });
       
@@ -735,7 +788,7 @@ const AskForReviews = () => {
                         </Button>
                         <Button
                           onClick={() => {
-                            generateQRCodeDirectly(location, account.accountId, true); // Force refresh on regenerate
+                            openReviewLinkModal(location, account.accountId, true); // true = forceRefresh
                           }}
                           variant="outline"
                           className="w-full"
@@ -758,7 +811,7 @@ const AskForReviews = () => {
                       // Show generate new QR code option
                       <Button
                         onClick={() => {
-                          generateQRCodeDirectly(location, account.accountId);
+                          openReviewLinkModal(location, account.accountId);
                         }}
                         disabled={loadingQR === location.locationId}
                         className="w-full bg-gradient-to-r from-primary to-blue-600 hover:from-primary/90 hover:to-blue-600/90"
@@ -824,13 +877,19 @@ const AskForReviews = () => {
         <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle className="text-2xl flex items-center gap-2">
-              <Sparkles className="h-6 w-6 text-primary" />
-              Generate QR Code with Review Link
+              {reviewLinkModalData.forceRefresh ? (
+                <RefreshCw className="h-6 w-6 text-primary" />
+              ) : (
+                <Sparkles className="h-6 w-6 text-primary" />
+              )}
+              {reviewLinkModalData.forceRefresh ? 'Regenerate QR Code' : 'Generate QR Code with Review Link'}
             </DialogTitle>
             <DialogDescription>
               {fetchingReviewLink
                 ? "Fetching your Google review link automatically..."
-                : "Your Google review link has been retrieved from your business profile"
+                : reviewLinkModalData.forceRefresh
+                  ? "Update your keywords and regenerate the QR code with new settings"
+                  : "Your Google review link has been retrieved from your business profile"
               }
             </DialogDescription>
           </DialogHeader>
@@ -886,21 +945,23 @@ const AskForReviews = () => {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="keywords">
-                SEO Keywords <span className="text-muted-foreground">(optional)</span>
+              <Label htmlFor="keywords" className="flex items-center gap-2">
+                <Sparkles className="h-4 w-4 text-primary" />
+                Review Keywords <span className="text-primary font-semibold">(Recommended)</span>
               </Label>
               <Input
                 id="keywords"
                 type="text"
-                placeholder="e.g., best pizza, fast delivery, friendly staff"
+                placeholder="e.g., best pizza, fast delivery, friendly staff, authentic Italian"
                 value={reviewLinkModalData.keywords}
                 onChange={(e) => setReviewLinkModalData({
                   ...reviewLinkModalData,
                   keywords: e.target.value
                 })}
+                className="border-primary/50 focus:border-primary"
               />
               <p className="text-xs text-muted-foreground">
-                Enter comma-separated keywords to include in AI-generated review suggestions
+                <strong>Tip:</strong> Add 4-6 keywords that describe your business best. These will appear in AI-generated review suggestions to help customers write better reviews.
               </p>
             </div>
             
@@ -922,6 +983,11 @@ const AskForReviews = () => {
                   <>
                     <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
                     Fetching Link...
+                  </>
+                ) : reviewLinkModalData.forceRefresh ? (
+                  <>
+                    <RefreshCw className="mr-2 h-4 w-4" />
+                    Regenerate QR Code
                   </>
                 ) : (
                   <>

@@ -1,4 +1,5 @@
 import fetch from 'node-fetch';
+import { getCategoryMapping, generateCategoryPrompt } from '../config/categoryReviewMapping.js';
 
 class AIReviewService {
   constructor() {
@@ -15,7 +16,7 @@ class AIReviewService {
     console.log('[AIReviewService] Initialized with hardcoded Azure OpenAI configuration');
   }
 
-  async generateReviewSuggestions(businessName, location, businessType = 'business', reviewId = null, keywords = null) {
+  async generateReviewSuggestions(businessName, location, businessType = 'business', reviewId = null, keywords = null, businessCategory = null) {
     // NO CACHING - Generate completely fresh reviews every time for maximum uniqueness
     console.log('[AI Review Service] 🎲 Generating completely fresh reviews (NO CACHE) for maximum uniqueness');
     
@@ -48,7 +49,7 @@ class AIReviewService {
       const locationPhrase = cleanLocation ? `in ${cleanLocation}` : '';
       
       console.log(`[AI Review Service] Generating AI suggestions for ${businessName} ${locationPhrase}`);
-      
+
       // Parse keywords
       const keywordList = keywords
         ? (typeof keywords === 'string'
@@ -56,7 +57,30 @@ class AIReviewService {
             : keywords)
         : [];
 
-      console.log(`[AI Review Service] 🔑 Keywords to include: ${keywordList.length > 0 ? keywordList.join(', ') : 'none provided'}`);
+      console.log(`\n========================================`);
+      console.log(`[AI Review Service] 🔍 KEYWORD ANALYSIS`);
+      console.log(`========================================`);
+      console.log(`[AI Review Service] 📥 Raw keywords received: "${keywords}"`);
+      console.log(`[AI Review Service] 📊 Keywords type: ${typeof keywords}`);
+      console.log(`[AI Review Service] 🔢 Keywords array length: ${keywordList.length}`);
+      console.log(`[AI Review Service] 🔑 Parsed keywords: ${keywordList.length > 0 ? keywordList.join(', ') : '⚠️ NONE - WILL USE FALLBACK!'}`);
+      console.log(`[AI Review Service] 📋 Business Category: ${businessCategory || 'not specified'}`);
+
+      if (keywordList.length === 0) {
+        console.log(`\n⚠️⚠️⚠️ WARNING: NO KEYWORDS PROVIDED! ⚠️⚠️⚠️`);
+        console.log(`⚠️ Reviews will use generic fallback keywords: "service, quality"`);
+        console.log(`⚠️ This is why reviews are generic and not keyword-specific!`);
+        console.log(`========================================\n`);
+      } else {
+        console.log(`========================================\n`);
+      }
+
+      // Get category-specific prompt additions
+      const categoryPrompt = businessCategory ? generateCategoryPrompt(businessCategory) : '';
+      const categoryMapping = getCategoryMapping(businessCategory);
+
+      console.log(`[AI Review Service] 🎯 Using category-specific guidelines for: ${businessCategory || 'default'}`);
+      console.log(`[AI Review Service] 🎯 Focus areas: ${categoryMapping.focusAreas.join(', ')}`);
 
       // Create highly unique seed with reviewId for completely different content each time
       const timestamp = Date.now();
@@ -80,47 +104,67 @@ class AIReviewService {
       const randomTimeOfDay = timeVariations[(randomIndex + timestamp + 100) % timeVariations.length];
       const randomExperience = experienceTypes[(randomIndex + timestamp + 200) % experienceTypes.length];
 
-      // Enhanced prompt with more variation triggers and keyword integration
+      // Enhanced prompt with MANDATORY keyword integration
       const keywordPrompt = keywordList.length > 0
-        ? `\nBUSINESS KEYWORDS (MUST use naturally in reviews): ${keywordList.join(', ')}\n- Each review should naturally include 2-3 of these keywords`
+        ? `\n🔑 MANDATORY KEYWORDS - MUST USE IN EVERY REVIEW:\n${keywordList.map((kw, i) => `${i + 1}. "${kw}"`).join('\n')}\n\n⚠️ Each review MUST include at least 2-3 of these exact keywords/phrases!`
         : '';
 
-      const prompt = `Generate 5 completely different, unique customer reviews for "${businessName}"${locationPhrase ? ` in ${cleanLocation}` : ''}.
+      const prompt = `⚠️ GENERATE EXACTLY 3 REVIEWS - NO MORE, NO LESS ⚠️
+
+Generate SHORT, realistic customer reviews for "${businessName}" in ${cleanLocation}.
 ${keywordPrompt}
+${categoryPrompt}
 
-CRITICAL: Every generation MUST produce COMPLETELY DIFFERENT reviews - never repeat the same phrasing or structure.
+🔴 CRITICAL MANDATORY RULES - FAILURE TO FOLLOW = REJECTED:
 
-Style Guidelines:
-- Tone: ${randomTone}
-- Customer Type: ${randomCustomerType}
-- Visit Time: ${randomTimeOfDay}
-- Experience Quality: ${randomExperience}
-- Uniqueness Seed: ${uniqueSeed}
-- Variation Level: MAXIMUM (make each review distinctly different)
+1. ✅ MUST GENERATE EXACTLY 3 REVIEWS (NOT 4, NOT 5, EXACTLY 3!)
+2. ✅ MUST include EXACT business name "${businessName}" in EVERY SINGLE review
+3. ✅ MUST include location "${cleanLocation}" in EVERY SINGLE review
+4. ✅ Each review MUST include 2-3 keywords from the list above - USE THEM NATURALLY
+5. ✅ Each review MAXIMUM 40 WORDS - keep it SHORT
+6. ✅ ONLY mention services/features from the keywords - DO NOT invent anything
+7. ✅ Write like REAL people - casual, natural, specific
+8. ✅ Vary the keywords used in each review for diversity
 
-Requirements:
-1. Each review must be unique in style, length, vocabulary, and focus
-2. Naturally include business keywords (${keywordList.length > 0 ? keywordList.join(', ') : 'service, quality'}) throughout reviews
-3. Mention business name "${businessName}" in varied ways
-4. Mix 4-5 star ratings (mostly positive: three 5-star, two 4-star)
-5. Use DIFFERENT vocabulary and sentence structures for each review
-6. Focus areas: service, quality, staff, atmosphere, value, experience, cleanliness, professionalism
-7. Vary review length significantly (some 20 words, some 50+ words)
-8. Include specific details customers would mention
-9. Make reviews sound authentic and personal
-10. Use keywords naturally, not forced
+🎯 REQUIRED FORMAT FOR EACH REVIEW:
+- Include business name: "${businessName}"
+- Include location: "${cleanLocation}"
+- Include 2-3 keywords from: ${keywordList.length > 0 ? keywordList.map(k => `"${k}"`).join(', ') : '"service", "quality"'}
+- Maximum 40 words total
+- Natural, authentic tone
 
-Return ONLY this JSON array (no markdown, no explanation):
+📝 EXAMPLES (FOLLOW THIS STRUCTURE):
+
+Example 1:
+"${businessName} in ${cleanLocation} offers ${keywordList[0] || 'excellent service'}! The ${keywordList[1] || 'quality'} was outstanding, and the ${keywordList[2] || 'experience'} exceeded our expectations. Highly memorable visit!"
+
+Example 2:
+"Had an amazing time at ${businessName} in ${cleanLocation}. The ${keywordList[0] || 'service'} was exceptional with ${keywordList[1] || 'attention to detail'}. Great value for money. Will return!"
+
+Example 3:
+"${businessName} is the ${keywordList[0] || 'best choice'} in ${cleanLocation}! The ${keywordList[1] || 'facilities'} were top-notch and the ${keywordList[2] || 'staff'} made it special. Unforgettable experience!"
+
+🚫 ABSOLUTELY FORBIDDEN:
+- Generic phrases like "great service" or "excellent quality" (unless they're in the keywords)
+- Inventing services not mentioned in keywords
+- Skipping keywords - MUST use them!
+- More than 40 words per review
+
+✅ RETURN EXACTLY 3 REVIEWS IN THIS JSON FORMAT:
 [
-  {"review": "[unique review 1 with keywords]", "rating": 5, "focus": "service"},
-  {"review": "[completely different review 2 with keywords]", "rating": 4, "focus": "quality"},
-  {"review": "[distinct review 3 with keywords]", "rating": 5, "focus": "staff"},
-  {"review": "[varied review 4 with keywords]", "rating": 5, "focus": "atmosphere"},
-  {"review": "[unique review 5 with keywords]", "rating": 4, "focus": "value"}
+  {"review": "Your review text with ${businessName}, ${cleanLocation}, and 2-3 keywords integrated naturally", "rating": 5, "focus": "experience"},
+  {"review": "Your review text with ${businessName}, ${cleanLocation}, and 2-3 keywords integrated naturally", "rating": 4, "focus": "service"},
+  {"review": "Your review text with ${businessName}, ${cleanLocation}, and 2-3 keywords integrated naturally", "rating": 5, "focus": "quality"}
 ]`;
 
+      console.log(`\n📤 SENDING TO AI - PROMPT PREVIEW:`);
+      console.log(`Business: "${businessName}"`);
+      console.log(`Location: "${cleanLocation}"`);
+      console.log(`Keywords in prompt: ${keywordList.length > 0 ? keywordList.join(', ') : '⚠️ NONE - USING FALLBACK'}`);
+      console.log(`Prompt length: ${prompt.length} characters\n`);
+
       const url = `${this.azureEndpoint}openai/deployments/${this.deploymentName}/chat/completions?api-version=${this.apiVersion}`;
-      
+
       const response = await fetch(url, {
         method: 'POST',
         headers: {
@@ -131,18 +175,47 @@ Return ONLY this JSON array (no markdown, no explanation):
           messages: [
             {
               role: 'system',
-              content: 'You are a creative review generator. Every single generation must be completely unique and different. Never repeat the same vocabulary, phrasing, or structure. Return ONLY valid JSON arrays with no markdown formatting.'
+              content: `🤖 ULTRA-STRICT INSTRUCTIONS - MANDATORY COMPLIANCE:
+
+You are a review generator that MUST follow these rules EXACTLY:
+
+1. Generate EXACTLY 3 reviews - NO MORE, NO LESS
+2. ALWAYS include the EXACT business name in EVERY review
+3. ALWAYS include the location in EVERY review
+4. MANDATORY: Each review MUST include 2-3 keywords from the provided keyword list
+5. ONLY mention services/features from the keywords - NEVER invent services
+6. Maximum 40 words per review - BE CONCISE
+7. Write like REAL customers - casual, natural, authentic
+8. NO generic words unless they are in the keywords (no "great service", "excellent quality" unless specified)
+9. Return ONLY valid JSON array - no markdown, no code blocks, no extra text
+
+${keywordList.length > 0 ? `\n🔑 KEYWORDS YOU MUST USE:\n${keywordList.map((kw, i) => `${i + 1}. "${kw}"`).join('\n')}\n\nEach review MUST naturally include 2-3 of these keywords!` : ''}
+
+❌ REJECTION CRITERIA:
+- More/less than 3 reviews
+- Missing business name or location
+- Missing keywords from the provided list
+- Generic phrases not in keywords
+- Invented services not in keywords
+- Reviews over 40 words
+
+✅ SUCCESS CRITERIA:
+- Exactly 3 reviews
+- Business name + location in each
+- 2-3 keywords naturally integrated in each
+- Authentic customer voice
+- Under 40 words each`
             },
             {
               role: 'user',
               content: prompt
             }
           ],
-          max_tokens: 1200, // Increased for more detailed, varied responses
-          temperature: 1.0, // MAXIMUM creativity for maximum variation
-          top_p: 0.98, // Allow most diverse token selection
-          frequency_penalty: 1.0, // MAXIMUM to prevent any repetition
-          presence_penalty: 0.9  // MAXIMUM to ensure completely varied content
+          max_tokens: 350, // Strict limit for exactly 3 reviews of 40 words each
+          temperature: 0.7, // Balanced - creative but follows instructions strictly
+          top_p: 0.92, // Focused token selection for better instruction following
+          frequency_penalty: 0.8, // Prevent repetition but allow natural language
+          presence_penalty: 0.7  // Ensure varied content
         })
       });
 
@@ -221,30 +294,37 @@ Return ONLY this JSON array (no markdown, no explanation):
           throw new Error('AI response contains no reviews');
         }
         
-        // Ensure we have exactly 5 reviews
-        if (reviews.length !== 5) {
-          console.log(`AI returned ${reviews.length} reviews instead of 5, adjusting...`);
-          
-          if (reviews.length > 5) {
-            // Take first 5 if we have more
-            reviews = reviews.slice(0, 5);
-          } else {
-            // Duplicate and modify if we have less
-            while (reviews.length < 5) {
-              const baseReview = reviews[reviews.length % reviews.length];
-              const newReview = {
-                ...baseReview,
-                review: baseReview.review.replace(/\b(great|excellent|amazing|wonderful)\b/gi, (match) => {
-                  const alternatives = ['outstanding', 'fantastic', 'superb', 'exceptional', 'remarkable'];
-                  return alternatives[Math.floor(Math.random() * alternatives.length)];
-                }),
-                focus: ['service', 'quality', 'staff', 'atmosphere', 'value'][reviews.length],
-                rating: Math.random() > 0.3 ? 5 : 4
-              };
-              reviews.push(newReview);
-            }
+        // ⚠️ CRITICAL: Ensure we have EXACTLY 3 reviews
+        if (reviews.length !== 3) {
+          console.error(`❌ AI VIOLATED INSTRUCTION: Generated ${reviews.length} reviews instead of 3!`);
+
+          if (reviews.length > 3) {
+            // Take first 3 if we have more
+            console.log(`🔧 Forcing to 3 reviews by slicing array...`);
+            reviews = reviews.slice(0, 3);
+          } else if (reviews.length < 3) {
+            // Reject if less than 3 - this is a serious error
+            console.error(`❌ CRITICAL ERROR: AI generated only ${reviews.length} reviews. This violates requirements.`);
+            throw new Error(`AI generated insufficient reviews (${reviews.length}/3). Please try again.`);
           }
         }
+
+        // ✅ Validate each review contains business name and location
+        console.log(`🔍 Validating reviews contain business name and location...`);
+        reviews.forEach((review, index) => {
+          const reviewText = review.review || '';
+          const hasBusinessName = reviewText.includes(businessName);
+          const hasLocation = reviewText.includes(cleanLocation);
+
+          if (!hasBusinessName) {
+            console.error(`❌ Review ${index + 1} missing business name "${businessName}"`);
+          }
+          if (!hasLocation && cleanLocation) {
+            console.error(`❌ Review ${index + 1} missing location "${cleanLocation}"`);
+          }
+
+          console.log(`Review ${index + 1}: Business Name=${hasBusinessName ? '✅' : '❌'}, Location=${hasLocation ? '✅' : '❌'}`);
+        });
         
         // Add timestamps and ensure uniqueness - NO CACHING
         const timestamp = Date.now();
@@ -301,7 +381,7 @@ Return ONLY this JSON array (no markdown, no explanation):
   }
 
   // Generate AI-powered reply suggestions for existing reviews
-  async generateReplySuggestions(businessName, reviewContent, reviewRating, reviewId = null, keywords = null) {
+  async generateReplySuggestions(businessName, reviewContent, reviewRating, reviewId = null, keywords = null, businessCategory = null) {
     // NO CACHING - Generate completely fresh replies every time
     console.log('[AI Review Service] 🎲 Generating completely fresh reply suggestions (NO CACHE)');
 
@@ -319,6 +399,11 @@ Return ONLY this JSON array (no markdown, no explanation):
         : [];
 
       console.log(`[AI Review Service] 🔑 Keywords to include: ${keywordList.length > 0 ? keywordList.join(', ') : 'none provided'}`);
+      console.log(`[AI Review Service] 📋 Business Category: ${businessCategory || 'not specified'}`);
+
+      // Get category-specific information for context
+      const categoryMapping = getCategoryMapping(businessCategory);
+      console.log(`[AI Review Service] 🎯 Using category context for replies: ${businessCategory || 'default'}`);
 
       // Create unique seed for maximum variation
       const timestamp = Date.now();
@@ -337,13 +422,18 @@ Return ONLY this JSON array (no markdown, no explanation):
 
       console.log(`[AI Review Service] Generating ${sentiment} reply with ${tone} tone`);
 
-      // Enhanced prompt with keyword integration
+      // Enhanced prompt with keyword integration and category context
       const keywordPrompt = keywordList.length > 0
         ? `\nBUSINESS KEYWORDS (naturally incorporate if relevant): ${keywordList.join(', ')}`
         : '';
 
+      const categoryContext = businessCategory
+        ? `\nBUSINESS TYPE: ${businessCategory}
+INDUSTRY CONTEXT: This is a ${businessCategory} business. Use appropriate industry language and focus on relevant aspects like: ${categoryMapping.focusAreas.slice(0, 4).join(', ')}.`
+        : '';
+
       const prompt = `Generate 3 completely unique, professional business reply suggestions for a ${reviewRating}-star customer review.
-${keywordPrompt}
+${keywordPrompt}${categoryContext}
 
 Business: ${businessName}
 Customer Review: "${reviewContent}"

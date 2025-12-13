@@ -7,7 +7,7 @@ const aiReviewService = new AIReviewService();
 // Generate AI review suggestions
 router.post('/generate', async (req, res) => {
   try {
-    const { businessName, location, businessType, reviewId, keywords } = req.body;
+    const { businessName, location, businessType, reviewId, keywords, businessCategory } = req.body;
 
     if (!businessName || !location) {
       return res.status(400).json({
@@ -15,15 +15,30 @@ router.post('/generate', async (req, res) => {
       });
     }
 
-    console.log(`[AI Reviews] Generating suggestions for ${businessName} in ${location}${reviewId ? ` (Review ID: ${reviewId})` : ''}`);
-    console.log(`[AI Reviews] Keywords: ${keywords || 'none provided'}`);
+    console.log(`\n========================================`);
+    console.log(`[AI Reviews] 🎯 NEW REVIEW GENERATION REQUEST`);
+    console.log(`========================================`);
+    console.log(`[AI Reviews] Business: ${businessName}`);
+    console.log(`[AI Reviews] Location: ${location}`);
+    console.log(`[AI Reviews] Review ID: ${reviewId || 'none'}`);
+    console.log(`[AI Reviews] 🔑 Keywords received: "${keywords || 'NONE'}"`);
+    console.log(`[AI Reviews] 📋 Business Category: ${businessCategory || 'not specified'}`);
+
+    if (!keywords || keywords.trim() === '') {
+      console.warn(`[AI Reviews] ⚠️ WARNING: No keywords provided! Reviews will be generic.`);
+      console.warn(`[AI Reviews] ⚠️ Keywords should be set in autoposting settings and fetched when generating QR code.`);
+    } else {
+      console.log(`[AI Reviews] ✅ Keywords will be used to generate specific reviews`);
+    }
+    console.log(`========================================\n`);
 
     const suggestions = await aiReviewService.generateReviewSuggestions(
       businessName,
       location,
       businessType,
       reviewId,
-      keywords // Pass keywords to AI service
+      keywords, // Pass keywords to AI service
+      businessCategory // Pass business category to AI service
     );
 
     res.json({
@@ -71,7 +86,7 @@ router.post('/review-link', async (req, res) => {
 // Generate reply suggestions for a specific review
 router.post('/reply-suggestions', async (req, res) => {
   try {
-    const { businessName, reviewContent, reviewRating, reviewId, keywords } = req.body;
+    const { businessName, reviewContent, reviewRating, reviewId, keywords, businessCategory } = req.body;
 
     if (!businessName || !reviewContent || !reviewRating) {
       return res.status(400).json({
@@ -81,6 +96,7 @@ router.post('/reply-suggestions', async (req, res) => {
 
     console.log(`[AI Reviews] Generating reply suggestions for review ID: ${reviewId}`);
     console.log(`[AI Reviews] Keywords: ${keywords || 'none provided'}`);
+    console.log(`[AI Reviews] Business Category: ${businessCategory || 'not specified'}`);
 
     // Use AI service to generate contextual replies with keywords
     const replySuggestions = await aiReviewService.generateReplySuggestions(
@@ -88,7 +104,8 @@ router.post('/reply-suggestions', async (req, res) => {
       reviewContent,
       reviewRating,
       reviewId,
-      keywords // Pass keywords to AI service
+      keywords, // Pass keywords to AI service
+      businessCategory // Pass business category to AI service
     );
 
     res.json({

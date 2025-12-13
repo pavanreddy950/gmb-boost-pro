@@ -70,32 +70,35 @@ const PublicReviewSuggestions = () => {
     if (!locationId) {
       console.log('🔍 No location ID provided, using URL parameters only');
       setQrCodeLoading(false);
-      return;
+      return null;
     }
 
     try {
       console.log('🔍 Fetching QR code data for location:', locationId);
-      
+
       // Add timeout for QR code data fetch
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout
-      
+
       const response = await fetch(`${backendUrl}/api/qr-codes/${locationId}`, {
         signal: controller.signal
       });
-      
+
       clearTimeout(timeoutId);
-      
+
       if (response.ok) {
         const data = await response.json();
         console.log('✅ QR code data received:', data);
+        console.log('🔑 Keywords in QR code:', data.qrCode?.keywords || 'NONE');
         setQrCodeData(data.qrCode);
+        return data.qrCode; // Return QR code data
       } else {
         console.log('⚠️ QR code not found, using URL parameters as fallback');
+        return null;
       }
     } catch (error) {
       console.log('⚠️ Error fetching QR code data (using fallback):', error.message);
-      // Don't show error to users, just continue with URL parameters
+      return null;
     } finally {
       setQrCodeLoading(false);
     }
@@ -104,11 +107,9 @@ const PublicReviewSuggestions = () => {
   useEffect(() => {
     // Fetch QR code data first, then AI reviews (so keywords are available)
     const initializeData = async () => {
-      await fetchQRCodeData();
-      // Small delay to ensure qrCodeData state is updated
-      setTimeout(() => {
-        fetchAIReviews();
-      }, 100);
+      const qrData = await fetchQRCodeData();
+      // Pass QR data directly to avoid state timing issues
+      await fetchAIReviews(qrData);
     };
 
     initializeData();
@@ -124,15 +125,36 @@ const PublicReviewSuggestions = () => {
     return () => window.removeEventListener('scroll', handleScroll);
   }, [locationId]);
   
-  const fetchAIReviews = async () => {
+  const fetchAIReviews = async (passedQrData: any = null) => {
     // Keep loading state while fetching AI reviews
     setLoading(true);
 
     try {
       console.log('🤖 Fetching AI-generated reviews from Azure OpenAI...');
 
+      // Use passed QR data or fallback to state (for regenerate button)
+      const dataToUse = passedQrData || qrCodeData;
+
+      console.log('🔍 QR Code Data available:', dataToUse ? 'YES' : 'NO');
+
       // Get keywords from QR code data if available
-      const keywords = qrCodeData?.keywords || '';
+      const keywords = dataToUse?.keywords || '';
+
+      console.log('🔑 KEYWORDS FROM QR CODE DATA:', keywords);
+      console.log('🔍 QR Code Data object:', JSON.stringify(dataToUse, null, 2));
+
+      // Get business category from QR code data or URL parameters
+      const businessCategory = dataToUse?.businessCategory || searchParams.get('category') || null;
+
+      console.log(`🎯 Generating AI reviews with category: ${businessCategory || 'default'}`);
+      console.log(`🔑 Keywords being sent to API: "${keywords}"`);
+
+      if (!keywords || keywords.trim() === '') {
+        console.warn('⚠️ WARNING: No keywords found! Keywords should come from automation settings.');
+        console.warn('⚠️ Make sure you regenerated the QR code after setting up keywords in autoposting.');
+      } else {
+        console.log(`✅ Keywords found and will be used: "${keywords}"`);
+      }
 
       // Longer timeout to allow Azure OpenAI to generate unique reviews (10 seconds)
       const controller = new AbortController();
@@ -148,7 +170,8 @@ const PublicReviewSuggestions = () => {
           location: decodeURIComponent(location),
           businessType: 'business',
           keywords: keywords, // Pass keywords for AI to use
-          reviewId: `qr_${locationId}_${Date.now()}` // Unique ID for each scan
+          reviewId: `qr_${locationId}_${Date.now()}`, // Unique ID for each scan
+          businessCategory: businessCategory // Pass business category for category-specific reviews
         }),
         signal: controller.signal
       });
@@ -173,11 +196,12 @@ const PublicReviewSuggestions = () => {
   };
   
   // Fallback reviews for when AI service is unavailable
+  // ⚠️ CRITICAL: Return EXACTLY 3 reviews to match AI service output
   const getFallbackReviews = (): AIReview[] => {
     const cleanBusinessName = decodeURIComponent(businessName);
     const cleanLocation = decodeURIComponent(location);
     const locationText = cleanLocation && cleanLocation !== 'Location' ? ` in ${cleanLocation}` : '';
-    
+
     return [
       {
         id: 'fallback_1',
@@ -202,22 +226,6 @@ const PublicReviewSuggestions = () => {
         focus: 'staff',
         length: 'medium',
         keywords: ['friendly', 'knowledgeable', 'customer service']
-      },
-      {
-        id: 'fallback_4',
-        review: `Amazing atmosphere at ${cleanBusinessName}! The environment is welcoming and comfortable. Perfect place for what I needed. The overall experience exceeded my expectations completely.`,
-        rating: 5,
-        focus: 'atmosphere',
-        length: 'medium',
-        keywords: ['atmosphere', 'welcoming', 'comfortable']
-      },
-      {
-        id: 'fallback_5',
-        review: `Good value for money at ${cleanBusinessName}${locationText}. Fair pricing and quality service. Would return for their reliable and consistent performance. Definitely worth visiting.`,
-        rating: 4,
-        focus: 'value',
-        length: 'medium',
-        keywords: ['value', 'fair pricing', 'reliable']
       }
     ];
   };
@@ -598,7 +606,7 @@ const PublicReviewSuggestions = () => {
           </CardContent>
         </Card>
       </div>
-      
+
       {/* AI Review Suggestions */}
       <div className="container mx-auto px-4 pb-8">
         <div className="mb-6">
