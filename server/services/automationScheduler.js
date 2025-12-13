@@ -1276,13 +1276,13 @@ Think of yourself as writing a quick, enthusiastic recommendation - SHORT but me
     }
 
     console.log(`[AutomationScheduler] Starting review monitoring for location ${locationId}`);
-    console.log(`[AutomationScheduler] ⚡ Auto-reply is ACTIVE - will check and reply to new reviews every 10 minutes automatically`);
-    
-    // Check for new reviews every 10 minutes for faster response
+    console.log(`[AutomationScheduler] ⚡ Auto-reply is ACTIVE - will check and reply to new reviews every 2 minutes automatically`);
+
+    // Check for new reviews every 2 minutes for faster response
     const interval = setInterval(async () => {
       console.log(`[AutomationScheduler] 🔍 Checking for new reviews to auto-reply...`);
       await this.checkAndReplyToReviews(locationId, config);
-    }, 10 * 60 * 1000); // 10 minutes
+    }, 2 * 60 * 1000); // 2 minutes
 
     this.reviewCheckIntervals.set(locationId, interval);
     

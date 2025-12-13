@@ -33,7 +33,7 @@ interface ProcessedReview {
 class ReviewAutomationService {
   private intervalId: NodeJS.Timeout | null = null;
   private isRunning = false;
-  private checkInterval = 600000; // Check every 10 minutes (600000ms) - reduced from 15s to improve performance
+  private checkInterval = 120000; // Check every 2 minutes (120000ms) for real-time auto-reply
   private processedReviews: Map<string, ProcessedReview> = new Map();
   private notificationService: NotificationService | null = null;
 

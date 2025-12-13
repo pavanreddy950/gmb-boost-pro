@@ -591,6 +591,80 @@ router.post('/debug/reload-automations', async (req, res) => {
   }
 });
 
+// Diagnose auto-reply issues
+router.get('/debug/diagnose-auto-reply', async (req, res) => {
+  try {
+    const supabaseAutomationService = (await import('../services/supabaseAutomationService.js')).default;
+    const supabaseConfig = (await import('../config/supabase.js')).default;
+
+    const diagnosis = {
+      timestamp: new Date().toISOString(),
+      issues: [],
+      recommendations: []
+    };
+
+    // Check 1: Supabase connection
+    try {
+      const client = await supabaseConfig.ensureInitialized();
+      diagnosis.supabaseConnected = true;
+    } catch (error) {
+      diagnosis.supabaseConnected = false;
+      diagnosis.issues.push('Supabase not connected');
+      diagnosis.recommendations.push('Check SUPABASE_URL and SUPABASE_SERVICE_KEY in env');
+      return res.json(diagnosis);
+    }
+
+    // Check 2: Get all automation settings
+    const allSettings = await supabaseAutomationService.getAllEnabledAutomations();
+    diagnosis.totalSettings = allSettings.length;
+    diagnosis.settingsWithAutoReply = allSettings.filter(s => s.autoReply?.enabled).length;
+
+    if (allSettings.length === 0) {
+      diagnosis.issues.push('No automation settings found in database');
+      diagnosis.recommendations.push('User needs to enable automation in Settings page');
+    }
+
+    // Check 3: Review monitors status
+    diagnosis.activeReviewMonitors = automationScheduler.reviewCheckIntervals.size;
+    diagnosis.reviewMonitorsList = [];
+
+    for (const [locationId, config] of Object.entries(automationScheduler.settings.automations || {})) {
+      if (config.autoReply?.enabled) {
+        const hasMonitor = automationScheduler.reviewCheckIntervals.has(locationId);
+        diagnosis.reviewMonitorsList.push({
+          locationId,
+          businessName: config.autoReply.businessName,
+          enabled: config.autoReply.enabled,
+          hasActiveMonitor: hasMonitor
+        });
+
+        if (!hasMonitor) {
+          diagnosis.issues.push(`Auto-reply enabled for ${config.autoReply.businessName} but monitor NOT running`);
+          diagnosis.recommendations.push('Restart backend server to start review monitors');
+        }
+      }
+    }
+
+    // Check 4: Check interval setting
+    diagnosis.checkInterval = '2 minutes (recently fixed from 10 minutes)';
+
+    // Overall status
+    if (diagnosis.issues.length === 0 && diagnosis.activeReviewMonitors > 0) {
+      diagnosis.status = 'HEALTHY - Auto-reply should be working';
+    } else if (diagnosis.settingsWithAutoReply > 0 && diagnosis.activeReviewMonitors === 0) {
+      diagnosis.status = 'BROKEN - Settings exist but monitors not running';
+      diagnosis.recommendations.push('URGENT: Restart backend server immediately');
+    } else {
+      diagnosis.status = 'NOT CONFIGURED - Auto-reply not set up';
+    }
+
+    res.json(diagnosis);
+  } catch (error) {
+    console.error('Error diagnosing auto-reply:', error);
+    res.status(500).json({ error: 'Diagnostic failed', details: error.message });
+  }
+});
+
 // Check scheduler status and statistics
 router.get('/debug/scheduler-status', (req, res) => {
   try {
