@@ -225,6 +225,27 @@ const Billing = () => {
             <CardDescription>Your active plan and billing details</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
+            {/* Subscription Profile Count Header - Prominent Display */}
+            {status === 'active' && subscription?.paidSlots && subscription.paidSlots > 0 && (
+              <div className="bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-xl p-5 mb-4 shadow-lg">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium opacity-90 mb-1">Your Current Subscription</p>
+                    <p className="text-3xl font-bold">
+                      {subscription.paidSlots} Profile{subscription.paidSlots > 1 ? 's' : ''}
+                    </p>
+                    <p className="text-sm mt-2 opacity-90">
+                      {subscription.profileCount || 0} active • {subscription.paidSlots - (subscription.profileCount || 0)} available
+                    </p>
+                  </div>
+                  <div className="bg-white/20 backdrop-blur-sm rounded-lg px-4 py-3 text-center">
+                    <p className="text-2xl font-bold">${((subscription.paidSlots * 99) / 1).toFixed(0)}</p>
+                    <p className="text-xs opacity-90">per year</p>
+                  </div>
+                </div>
+              </div>
+            )}
+
             <div className="flex items-center justify-between flex-wrap gap-4">
               <div className="space-y-1">
                 <div className="flex items-center space-x-2">
