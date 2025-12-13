@@ -166,11 +166,11 @@ router.post('/fetch-google-review-link', async (req, res) => {
       console.error('[Google Review Link] Account Management API error:', error.message);
     }
     
-    // Method 3: Try to get from Business Information API with proper readMask for newReviewUri
+    // Method 3: Try to get from Business Information API with proper readMask for metadata
     try {
-      // First get the location details with readMask to include newReviewUri
+      // First get the location details with readMask to include metadata (which contains newReviewUri)
       const locationName = `locations/${locationId}`;
-      const infoUrl = `https://mybusinessbusinessinformation.googleapis.com/v1/${locationName}?readMask=name,title,newReviewUri,metadata`;
+      const infoUrl = `https://mybusinessbusinessinformation.googleapis.com/v1/${locationName}?readMask=name,title,metadata`;
 
       console.log('[Google Review Link] Method 3: Trying Business Information API...');
       console.log('[Google Review Link] URL:', infoUrl);
@@ -188,16 +188,16 @@ router.post('/fetch-google-review-link', async (req, res) => {
         const data = await response.json();
         console.log('[Google Review Link] Business Info data:', JSON.stringify(data, null, 2));
 
-        // Check for newReviewUri first (this is the official field)
-        if (data.newReviewUri) {
-          console.log('[Google Review Link] Found newReviewUri:', data.newReviewUri);
+        // Check for metadata.newReviewUri first (this is the official field in metadata)
+        if (data.metadata?.newReviewUri) {
+          console.log('[Google Review Link] Found metadata.newReviewUri:', data.metadata.newReviewUri);
           return res.json({
             success: true,
-            reviewLink: data.newReviewUri,
-            source: 'business_info_new_review_uri'
+            reviewLink: data.metadata.newReviewUri,
+            source: 'business_info_metadata_new_review_uri'
           });
         }
-        console.log('[Google Review Link] Business Info API: No newReviewUri found');
+        console.log('[Google Review Link] Business Info API: No metadata.newReviewUri found');
 
         // Check for websiteUri first - it might have the Maps link
         if (data.websiteUri) {
