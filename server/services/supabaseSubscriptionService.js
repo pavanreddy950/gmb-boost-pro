@@ -52,6 +52,8 @@ class SupabaseSubscriptionService {
         status: subscription.status,
         plan_id: subscription.planId,
         profile_count: subscription.profileCount || 0,
+        paid_slots: subscription.paidSlots || 0, // CRITICAL: Total paid slots (never decreases)
+        paid_location_ids: subscription.paidLocationIds || [], // Track which locations are paid
         trial_start_date: subscription.trialStartDate,
         trial_end_date: subscription.trialEndDate,
         subscription_start_date: subscription.subscriptionStartDate,
@@ -426,6 +428,16 @@ class SupabaseSubscriptionService {
     try {
       await this.initialize();
 
+      console.log('[SupabaseSubscriptionService] 🔄 UPDATE REQUEST:', {
+        gbpAccountId,
+        updates: {
+          status: updates.status,
+          paidSlots: updates.paidSlots,
+          profileCount: updates.profileCount,
+          planId: updates.planId
+        }
+      });
+
       // Map camelCase to snake_case
       const mappedUpdates = {
         updated_at: new Date().toISOString()
@@ -434,6 +446,8 @@ class SupabaseSubscriptionService {
       if (updates.status) mappedUpdates.status = updates.status;
       if (updates.planId) mappedUpdates.plan_id = updates.planId;
       if (updates.profileCount !== undefined) mappedUpdates.profile_count = updates.profileCount;
+      if (updates.paidSlots !== undefined) mappedUpdates.paid_slots = updates.paidSlots; // CRITICAL: Paid slots mapping
+      if (updates.paidLocationIds !== undefined) mappedUpdates.paid_location_ids = updates.paidLocationIds; // Track paid locations
       if (updates.trialStartDate) mappedUpdates.trial_start_date = updates.trialStartDate;
       if (updates.trialEndDate) mappedUpdates.trial_end_date = updates.trialEndDate;
       if (updates.subscriptionStartDate) mappedUpdates.subscription_start_date = updates.subscriptionStartDate;
@@ -453,16 +467,67 @@ class SupabaseSubscriptionService {
       if (updates.mandateTokenId) mappedUpdates.mandate_token_id = updates.mandateTokenId;
       if (updates.mandateAuthDate) mappedUpdates.mandate_auth_date = updates.mandateAuthDate;
 
+      console.log('[SupabaseSubscriptionService] 📝 Mapped updates to DB:', mappedUpdates);
+
+      // CRITICAL FIX: Find the correct subscription first (prefer active)
+      // This handles duplicate subscriptions properly
+      const { data: existingSubs, error: findError } = await this.client
+        .from('subscriptions')
+        .select('*')
+        .eq('gbp_account_id', gbpAccountId)
+        .order('status', { ascending: true }) // 'active' before 'expired'
+        .order('updated_at', { ascending: false });
+
+      if (findError) {
+        console.error('[SupabaseSubscriptionService] ❌ FIND FAILED:', findError);
+        throw findError;
+      }
+
+      if (!existingSubs || existingSubs.length === 0) {
+        throw new Error(`No subscription found for gbpAccountId: ${gbpAccountId}`);
+      }
+
+      console.log(`[SupabaseSubscriptionService] Found ${existingSubs.length} subscription(s), updating the first (active) one`);
+
+      // Update the first (active) subscription by ID
+      const targetSub = existingSubs[0];
       const { data, error } = await this.client
         .from('subscriptions')
         .update(mappedUpdates)
-        .eq('gbp_account_id', gbpAccountId)
+        .eq('id', targetSub.id) // Update by ID to ensure we update the right one
         .select()
         .single();
 
-      if (error) throw error;
+      if (error) {
+        console.error('[SupabaseSubscriptionService] ❌ UPDATE FAILED:', error);
+        throw error;
+      }
 
       console.log(`[SupabaseSubscriptionService] ✅ Updated subscription: ${gbpAccountId}`);
+      console.log('[SupabaseSubscriptionService] 📊 Updated data:', {
+        id: data.id,
+        status: data.status,
+        paid_slots: data.paid_slots,
+        profile_count: data.profile_count,
+        plan_id: data.plan_id
+      });
+
+      // CLEANUP: Delete duplicate subscriptions if any exist
+      if (existingSubs.length > 1) {
+        const duplicateIds = existingSubs.slice(1).map(s => s.id);
+        console.log(`[SupabaseSubscriptionService] 🗑️ Cleaning up ${duplicateIds.length} duplicate subscription(s)`);
+
+        const { error: deleteError } = await this.client
+          .from('subscriptions')
+          .delete()
+          .in('id', duplicateIds);
+
+        if (deleteError) {
+          console.error('[SupabaseSubscriptionService] ⚠️ Failed to delete duplicates:', deleteError);
+        } else {
+          console.log('[SupabaseSubscriptionService] ✅ Duplicates removed');
+        }
+      }
 
       // Fetch payment history
       const { data: payments } = await this.client

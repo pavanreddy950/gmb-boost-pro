@@ -42,9 +42,11 @@ export const useProfileLimitations = (): ProfileLimitations => {
   // profileCount = current active profiles (can increase/decrease)
   const maxAllowedProfiles = isAdminPlan
     ? 999999 // Unlimited for admins
-    : isPerProfilePlan
-    ? (subscription?.paidSlots || subscription?.profileCount || 1) // Use paidSlots for slot-based system
-    : 1; // Trial and legacy pro plans get 1 profile
+    : subscription?.paidSlots && subscription.paidSlots > 0
+    ? subscription.paidSlots // FIXED: Use paidSlots for ANY subscription that has paid slots
+    : subscription?.status === 'active' && subscription?.profileCount
+    ? subscription.profileCount // Fallback: Use profileCount for active subscriptions
+    : 1; // Default: Trial users get 1 profile
 
   // Check if user can access multiple profiles
   const canAccessMultipleProfiles = isAdminPlan || maxAllowedProfiles > 1;
