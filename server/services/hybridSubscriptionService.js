@@ -329,6 +329,35 @@ class HybridSubscriptionService {
     return null;
   }
 
+  // Get subscription by email (CRITICAL: prevents duplicates)
+  async getSubscriptionByEmail(email) {
+    await this.ensureInitialized();
+
+    // If using Firestore, delegate to it
+    if (this.useFirestore) {
+      try {
+        const firestoreSubscription = await firestoreSubscriptionService.getSubscriptionByEmail?.(email);
+        if (firestoreSubscription) {
+          return firestoreSubscription;
+        }
+      } catch (error) {
+        console.error('[HybridSubscriptionService] Error reading by email from Firestore:', error.message);
+      }
+    }
+
+    // Fallback: Search all subscriptions in file storage
+    const allSubscriptions = persistentSubscriptionService.getAllSubscriptions();
+    const subscription = allSubscriptions.find(s => s.email === email);
+
+    if (subscription) {
+      console.log(`[HybridSubscriptionService] Found subscription by email: ${email}`);
+      return subscription;
+    }
+
+    console.log(`[HybridSubscriptionService] No subscription found for email: ${email}`);
+    return null;
+  }
+
   // Get subscription by user ID
   async getSubscriptionByUserId(userId) {
     const gbpAccountId = await this.getGbpAccountByUserId(userId);

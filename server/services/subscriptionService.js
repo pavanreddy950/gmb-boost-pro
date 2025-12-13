@@ -71,10 +71,36 @@ class SubscriptionService {
   }
 
   async createTrialSubscription(userId, gbpAccountId, email) {
-    // Check if subscription already exists for this GBP account
-    const existingSubscription = await this.getSubscriptionByGBPAccount(gbpAccountId);
+    // CRITICAL: Check by EMAIL first to prevent duplicate subscriptions
+    // When users add new profiles, gbpAccountId might change, but email stays same
+    console.log('[createTrialSubscription] Checking for existing subscription - email:', email, 'gbpAccountId:', gbpAccountId);
+
+    // Check by email first (one subscription per user)
+    let existingSubscription = await this.persistentStorage.getSubscriptionByEmail?.(email);
+
+    if (!existingSubscription) {
+      // Fallback: Check by GBP account ID
+      existingSubscription = await this.getSubscriptionByGBPAccount(gbpAccountId);
+    }
+
     if (existingSubscription) {
-      console.log('Subscription already exists for GBP account:', gbpAccountId);
+      console.log('[createTrialSubscription] ✅ Subscription already exists:', {
+        id: existingSubscription.id,
+        email: existingSubscription.email,
+        status: existingSubscription.status,
+        paidSlots: existingSubscription.paidSlots,
+        gbpAccountId: existingSubscription.gbpAccountId
+      });
+
+      // Update gbpAccountId if it changed (user reconnected with different account)
+      if (existingSubscription.gbpAccountId !== gbpAccountId) {
+        console.log('[createTrialSubscription] 🔄 Updating gbpAccountId from', existingSubscription.gbpAccountId, 'to', gbpAccountId);
+        await this.persistentStorage.updateSubscription(existingSubscription.gbpAccountId, {
+          gbpAccountId: gbpAccountId
+        });
+        existingSubscription.gbpAccountId = gbpAccountId;
+      }
+
       return existingSubscription;
     }
 

@@ -171,6 +171,45 @@ class SupabaseSubscriptionService {
   }
 
   /**
+   * Get subscription by Email
+   * CRITICAL: Use this to prevent duplicate subscriptions
+   */
+  async getSubscriptionByEmail(email) {
+    try {
+      await this.initialize();
+
+      const { data: subscriptions, error } = await this.client
+        .from('subscriptions')
+        .select('*')
+        .eq('email', email)
+        .order('status', { ascending: true }) // 'active' before 'expired'
+        .order('updated_at', { ascending: false });
+
+      if (error) throw error;
+
+      if (!subscriptions || subscriptions.length === 0) {
+        return null;
+      }
+
+      // Return the most recent active subscription (or first if none active)
+      const activeSubscription = subscriptions.find(s => s.status === 'active' || s.status === 'trial');
+      const targetSubscription = activeSubscription || subscriptions[0];
+
+      // Fetch payment history
+      const { data: payments } = await this.client
+        .from('payment_history')
+        .select('*')
+        .eq('subscription_id', targetSubscription.id)
+        .order('created_at', { ascending: false });
+
+      return this.formatSubscription(targetSubscription, payments || []);
+    } catch (error) {
+      console.error('[SupabaseSubscriptionService] Error getting subscription by email:', error);
+      return null;
+    }
+  }
+
+  /**
    * Get subscription by User ID
    */
   async getSubscriptionByUserId(userId) {
