@@ -13,7 +13,6 @@ import {
   Settings as SettingsIcon, 
   Shield,
   Bell,
-  Mail,
   Globe,
   User,
   LogOut,
@@ -30,12 +29,6 @@ const Settings = () => {
     scheduledPosts: true,
     weeklyReports: false,
     accountAlerts: true,
-  });
-  const [autoReply, setAutoReply] = useState({
-    enabled: true, // Auto-reply enabled by default
-    positiveReviews: true,
-    neutralReviews: true,
-    negativeReviews: false,
   });
   const { toast } = useToast();
   const { currentUser, logout } = useAuth();
@@ -168,73 +161,6 @@ const Settings = () => {
                   />
                 </div>
               </div>
-            </CardContent>
-          </Card>
-
-          {/* Auto Reply Settings */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Mail className="h-5 w-5" />
-                Auto Reply Settings
-              </CardTitle>
-              <CardDescription>
-                Configure automatic responses to customer reviews
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                <div className="space-y-0.5 flex-1">
-                  <Label htmlFor="auto-reply" className="text-sm sm:text-base">Enable Auto Reply</Label>
-                  <p className="text-xs sm:text-sm text-muted-foreground">
-                    Automatically respond to reviews using AI-generated responses
-                  </p>
-                </div>
-                <Switch
-                  id="auto-reply"
-                  checked={autoReply.enabled}
-                  onCheckedChange={(checked) =>
-                    setAutoReply(prev => ({ ...prev, enabled: checked }))
-                  }
-                />
-              </div>
-
-              {autoReply.enabled && (
-                <div className="space-y-4 border-l-2 border-primary/20 pl-4">
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                    <Label htmlFor="positive-reviews" className="text-sm sm:text-base">Positive Reviews (4-5 stars)</Label>
-                    <Switch
-                      id="positive-reviews"
-                      checked={autoReply.positiveReviews}
-                      onCheckedChange={(checked) =>
-                        setAutoReply(prev => ({ ...prev, positiveReviews: checked }))
-                      }
-                    />
-                  </div>
-
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                    <Label htmlFor="neutral-reviews" className="text-sm sm:text-base">Neutral Reviews (3 stars)</Label>
-                    <Switch
-                      id="neutral-reviews"
-                      checked={autoReply.neutralReviews}
-                      onCheckedChange={(checked) =>
-                        setAutoReply(prev => ({ ...prev, neutralReviews: checked }))
-                      }
-                    />
-                  </div>
-
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                    <Label htmlFor="negative-reviews" className="text-sm sm:text-base">Negative Reviews (1-2 stars)</Label>
-                    <Switch
-                      id="negative-reviews"
-                      checked={autoReply.negativeReviews}
-                      onCheckedChange={(checked) =>
-                        setAutoReply(prev => ({ ...prev, negativeReviews: checked }))
-                      }
-                    />
-                  </div>
-                </div>
-              )}
             </CardContent>
           </Card>
         </TabsContent>

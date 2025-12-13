@@ -147,7 +147,17 @@ class AutomationScheduler {
 
       if (config.autoReply?.enabled) {
         console.log(`[AutomationScheduler] ✅ Starting review monitoring for location ${locationId}`);
-        this.startReviewMonitoring(locationId, config.autoReply);
+        // Merge full config with autoReply settings to include businessName, keywords, etc.
+        const fullAutoReplyConfig = {
+          ...config.autoReply,
+          businessName: config.businessName,
+          keywords: config.keywords,
+          category: config.category,
+          userId: config.userId,
+          accountId: config.accountId,
+          gbpAccountId: config.gbpAccountId
+        };
+        this.startReviewMonitoring(locationId, fullAutoReplyConfig);
       } else {
         console.log(`[AutomationScheduler] ⏭️ Skipping review monitoring for location ${locationId} - not enabled`);
       }
@@ -337,7 +347,17 @@ class AutomationScheduler {
     if (settings.autoReply !== undefined) {
       this.stopReviewMonitoring(locationId);
       if (settings.autoReply?.enabled) {
-        this.startReviewMonitoring(locationId, settings.autoReply);
+        // Merge full settings with autoReply config to include businessName, keywords, etc.
+        const fullAutoReplyConfig = {
+          ...settings.autoReply,
+          businessName: settings.businessName,
+          keywords: settings.keywords,
+          category: settings.category,
+          userId: settings.userId,
+          accountId: settings.accountId,
+          gbpAccountId: settings.gbpAccountId
+        };
+        this.startReviewMonitoring(locationId, fullAutoReplyConfig);
       }
     }
 
