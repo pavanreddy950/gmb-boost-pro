@@ -15,6 +15,7 @@ import { useProfileLimitations } from "@/hooks/useProfileLimitations";
 import { BusinessLocation } from "@/lib/googleBusinessProfile";
 import { automationStorage, type AutoPostingStats } from "@/lib/automationStorage";
 import { BarChart3 } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface BusinessProfile {
   id: string;
@@ -39,6 +40,7 @@ const ProfileDetails = () => {
   const [isAccessDenied, setIsAccessDenied] = useState(false);
   const { accounts, isLoading: googleLoading } = useGoogleBusinessProfile();
   const { getAccessibleAccounts } = useProfileLimitations();
+  const { currentUser } = useAuth();
 
   // Helper function to get categories as array
   const getCategories = (location: BusinessLocation) => {
@@ -95,16 +97,47 @@ const ProfileDetails = () => {
       setLoading(false);
     };
 
-    const loadGlobalStats = () => {
-      const stats = automationStorage.getGlobalStats();
-      setGlobalStats(stats);
+    const loadGlobalStats = async () => {
+      // Fetch statistics from API instead of localStorage
+      if (!currentUser) {
+        console.log('[ProfileDetails] No currentUser, using localStorage fallback');
+        const stats = automationStorage.getGlobalStats();
+        setGlobalStats(stats);
+        return;
+      }
+
+      try {
+        const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000';
+        const response = await fetch(`${backendUrl}/api/statistics/${currentUser.uid}?timeframe=today`);
+
+        if (!response.ok) {
+          throw new Error('Failed to fetch statistics');
+        }
+
+        const data = await response.json();
+        console.log('[ProfileDetails] ✅ Fetched statistics from API:', data);
+
+        // Update state with API data
+        setGlobalStats({
+          successfulPostsToday: data.successfulPostsToday || 0,
+          failedPostsToday: data.failedPostsToday || 0,
+          activeConfigurations: data.activeConfigurations || 0,
+          totalPostsToday: data.totalPostsToday || 0,
+          lastUpdated: new Date().toISOString()
+        });
+      } catch (error) {
+        console.error('[ProfileDetails] ❌ Error fetching statistics:', error);
+        // Fallback to localStorage if API fails
+        const stats = automationStorage.getGlobalStats();
+        setGlobalStats(stats);
+      }
     };
 
     if (!googleLoading) {
       findLocation();
       loadGlobalStats();
     }
-  }, [profileId, accounts, googleLoading]);
+  }, [profileId, accounts, googleLoading, currentUser]);
 
   if (loading) {
     return (

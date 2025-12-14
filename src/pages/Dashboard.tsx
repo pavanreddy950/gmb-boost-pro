@@ -99,6 +99,13 @@ const Dashboard = () => {
   // Since each profile now represents one location, totalLocations = totalProfiles
   const totalLocations = totalProfiles;
 
+  // Get last sync time (current time since profiles are real-time)
+  const lastSyncTime = new Date().toLocaleTimeString('en-US', {
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: true
+  });
+
   return (
     <>
       {/* Trial Banner */}
@@ -107,7 +114,7 @@ const Dashboard = () => {
           <TrialBanner />
         </div>
       )}
-      
+
       <div className="space-y-6">
 
       {/* Header with Manage Profiles text and Create Post button */}
@@ -184,8 +191,8 @@ const Dashboard = () => {
             <Star className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">4.8</div>
-            <p className="text-xs text-muted-foreground">Across all locations</p>
+            <div className="text-2xl font-bold">N/A</div>
+            <p className="text-xs text-muted-foreground">Coming soon</p>
           </CardContent>
         </Card>
 
@@ -195,7 +202,7 @@ const Dashboard = () => {
             <Calendar className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">Now</div>
+            <div className="text-2xl font-bold">{lastSyncTime}</div>
             <p className="text-xs text-muted-foreground">Real-time updates</p>
           </CardContent>
         </Card>

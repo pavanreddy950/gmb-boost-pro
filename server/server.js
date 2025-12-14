@@ -876,6 +876,112 @@ app.post('/api/automation/test-review-check/:locationId', async (req, res) => {
   }
 });
 
+// Statistics API endpoint - Get real-time activity statistics
+app.get('/api/statistics/:userId', async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const { timeframe = 'today' } = req.query;
+
+    console.log(`[STATISTICS] Fetching statistics for user ${userId} (${timeframe})`);
+
+    // Initialize Supabase client
+    await supabaseAuditService.initialize();
+
+    // Calculate date range
+    const now = new Date();
+    let startDate;
+
+    if (timeframe === 'today') {
+      startDate = new Date(now.setHours(0, 0, 0, 0));
+    } else if (timeframe === 'week') {
+      startDate = new Date(now.setDate(now.getDate() - 7));
+    } else if (timeframe === 'month') {
+      startDate = new Date(now.setMonth(now.getMonth() - 1));
+    } else {
+      startDate = new Date(now.setHours(0, 0, 0, 0)); // default to today
+    }
+
+    // Fetch posts created from automation_logs table
+    const { data: postsData, error: postsError } = await supabaseAuditService.client
+      .from('automation_logs')
+      .select('*')
+      .eq('user_id', userId)
+      .eq('action_type', 'post_created')
+      .gte('created_at', startDate.toISOString());
+
+    if (postsError) {
+      console.error('[STATISTICS] Error fetching posts:', postsError);
+    }
+
+    // Fetch reviews replied from automation_logs table
+    const { data: reviewsData, error: reviewsError } = await supabaseAuditService.client
+      .from('automation_logs')
+      .select('*')
+      .eq('user_id', userId)
+      .eq('action_type', 'review_replied')
+      .gte('created_at', startDate.toISOString());
+
+    if (reviewsError) {
+      console.error('[STATISTICS] Error fetching reviews:', reviewsError);
+    }
+
+    // Calculate statistics
+    const postsCreated = postsData || [];
+    const reviewsReplied = reviewsData || [];
+
+    const successfulPosts = postsCreated.filter(p => p.status === 'success').length;
+    const failedPosts = postsCreated.filter(p => p.status === 'failed').length;
+    const successfulReviews = reviewsReplied.filter(r => r.status === 'success').length;
+    const failedReviews = reviewsReplied.filter(r => r.status === 'failed').length;
+
+    // Get active configurations count from subscriptions
+    let activeConfigurations = 0;
+    try {
+      const { data: subscriptionsData, error: subsError } = await supabaseAuditService.client
+        .from('subscriptions')
+        .select('profile_count')
+        .eq('user_id', userId)
+        .single();
+
+      if (!subsError && subscriptionsData) {
+        activeConfigurations = subscriptionsData.profile_count || 0;
+      }
+    } catch (error) {
+      console.log('[STATISTICS] Could not fetch active configurations count:', error);
+    }
+
+    const statistics = {
+      timeframe,
+      posts: {
+        total: postsCreated.length,
+        successful: successfulPosts,
+        failed: failedPosts
+      },
+      reviews: {
+        total: reviewsReplied.length,
+        successful: successfulReviews,
+        failed: failedReviews
+      },
+      // For compatibility with ProfileDetails component
+      successfulPostsToday: successfulPosts,
+      failedPostsToday: failedPosts,
+      totalPostsToday: postsCreated.length,
+      totalReviewsToday: reviewsReplied.length,
+      activeConfigurations: activeConfigurations
+    };
+
+    console.log(`[STATISTICS] ✅ Statistics fetched:`, statistics);
+
+    res.json(statistics);
+  } catch (error) {
+    console.error('[STATISTICS] Error fetching statistics:', error);
+    res.status(500).json({
+      error: error.message || 'Failed to fetch statistics',
+      details: error.toString()
+    });
+  }
+});
+
 // Apply subscription check middleware to all routes
 // This will enforce payment after 15-day trial expiry
 app.use((req, res, next) => {

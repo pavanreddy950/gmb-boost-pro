@@ -67,9 +67,10 @@ class GmailService {
    * @param {string} emailOptions.subject - Email subject
    * @param {string} emailOptions.html - HTML body
    * @param {string} [emailOptions.text] - Plain text body (optional)
+   * @param {Array} [emailOptions.attachments] - Email attachments (optional)
    * @returns {Promise<Object>} Send result
    */
-  async sendEmail({ to, subject, html, text }) {
+  async sendEmail({ to, subject, html, text, attachments }) {
     if (this.disabled) {
       console.warn('[GmailService] Email service is disabled - skipping email send');
       return { success: false, error: 'Email service disabled' };
@@ -86,6 +87,17 @@ class GmailService {
         html,
         text: text || this.htmlToText(html)
       };
+
+      // Add attachments if provided
+      if (attachments && attachments.length > 0) {
+        mailOptions.attachments = attachments.map(att => ({
+          filename: att.filename,
+          content: att.content,
+          encoding: 'base64',
+          cid: att.content_id || att.cid
+        }));
+        console.log(`[GmailService] 📎 Including ${attachments.length} attachment(s)`);
+      }
 
       const result = await this.transporter.sendMail(mailOptions);
 

@@ -34,8 +34,10 @@ class NewDailyActivityEmailService {
     const today = format(new Date(), 'MMMM dd, yyyy');
 
     let subject = `📊 Daily Activity Report - ${today}`;
-    
-    // Trial banner for active trial users
+
+    // IMPORTANT: Trial banner ONLY shows for ACTIVE trial users (NOT subscribed or admin users)
+    // isTrialUser is TRUE only if: status === 'trial' AND trial has NOT expired
+    // isTrialExpired is TRUE only if: status === 'trial' AND trial HAS expired
     const trialBanner = isTrialUser && !isTrialExpired ? `
       <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom: 20px;">
         <tr>
@@ -443,38 +445,52 @@ Upgrade: ${this.appUrl}/dashboard/billing
       const bannerDesktopPath = path.join(publicPath, 'banner_desktop.png');
       const bannerMobilePath = path.join(publicPath, 'banner_mobile.png');
 
+      console.log('[NewDailyActivityEmailService] Banner paths:', {
+        publicPath,
+        bannerDesktopPath,
+        bannerMobilePath,
+        desktopExists: fs.existsSync(bannerDesktopPath),
+        mobileExists: fs.existsSync(bannerMobilePath)
+      });
+
       let attachments = [];
       try {
         if (fs.existsSync(bannerDesktopPath)) {
-          const bannerDesktop = fs.readFileSync(bannerDesktopPath).toString('base64');
+          const bannerDesktop = fs.readFileSync(bannerDesktopPath);
           attachments.push({
-            content: bannerDesktop,
             filename: 'banner_desktop.png',
-            type: 'image/png',
-            disposition: 'inline',
-            content_id: 'banner_desktop'
+            content: bannerDesktop,
+            cid: 'banner_desktop'
           });
+          console.log('[NewDailyActivityEmailService] ✅ Banner desktop attached');
+        } else {
+          console.warn('[NewDailyActivityEmailService] ⚠️ Banner desktop not found at:', bannerDesktopPath);
         }
+
         if (fs.existsSync(bannerMobilePath)) {
-          const bannerMobile = fs.readFileSync(bannerMobilePath).toString('base64');
+          const bannerMobile = fs.readFileSync(bannerMobilePath);
           attachments.push({
-            content: bannerMobile,
             filename: 'banner_mobile.png',
-            type: 'image/png',
-            disposition: 'inline',
-            content_id: 'banner_mobile'
+            content: bannerMobile,
+            cid: 'banner_mobile'
           });
+          console.log('[NewDailyActivityEmailService] ✅ Banner mobile attached');
+        } else {
+          console.warn('[NewDailyActivityEmailService] ⚠️ Banner mobile not found at:', bannerMobilePath);
         }
       } catch (err) {
-        console.warn('[NewDailyActivityEmailService] Could not attach banner images:', err.message);
+        console.error('[NewDailyActivityEmailService] ❌ Error attaching banner images:', err.message);
       }
 
-      // Use Gmail SMTP to send email (attachments will be added later if needed)
+      console.log(`[NewDailyActivityEmailService] Sending email with ${attachments.length} attachments`);
+
+      // Use Gmail SMTP to send email with attachments
       const response = await this.gmailService.sendEmail({
         to: userEmail,
         subject,
         html,
-        text
+        text,
+        attachments: attachments
       });
 
       console.log(`[NewDailyActivityEmailService] ✅ Daily report sent to ${userEmail}`);

@@ -251,6 +251,15 @@ class DynamicDailyActivityScheduler {
         subscription.trial_end_date || subscription.trialEndDate
       );
 
+      // 🔍 DEBUG: Log trial status determination
+      console.log(`[DynamicDailyActivityScheduler] 🔍 Trial status for ${email}:`, {
+        subscriptionStatus: subscription.status,
+        isTrialUser: isTrialUser,
+        isTrialExpired: isTrialExpired,
+        trialDaysRemaining: trialDaysRemaining,
+        willShowUpgradeButton: isTrialUser && !isTrialExpired
+      });
+
       // Get user name from email (you could also store this in subscriptions table)
       const userName = email.split('@')[0];
 
