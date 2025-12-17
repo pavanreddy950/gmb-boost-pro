@@ -1,18 +1,20 @@
 import express from 'express';
 import QRCode from 'qrcode';
-import QRCodeStorageService from '../services/qrCodeStorage.js';
 import supabaseQRCodeService from '../services/supabaseQRCodeService.js';
 import subscriptionGuard from '../services/subscriptionGuard.js';
 import config from '../config.js';
 import fetch from 'node-fetch';
 
 const router = express.Router();
-const qrStorage = new QRCodeStorageService();
 
 // Get all QR codes for user
 router.get('/', async (req, res) => {
   try {
-    const qrCodes = await qrStorage.getAllQRCodes();
+    const { userId } = req.query;
+    if (!userId) {
+      return res.status(400).json({ error: 'userId is required' });
+    }
+    const qrCodes = await supabaseQRCodeService.getQRCodesForUser(userId);
     res.json({ qrCodes });
   } catch (error) {
     console.error('Error fetching QR codes:', error);
@@ -24,12 +26,12 @@ router.get('/', async (req, res) => {
 router.get('/:locationId', async (req, res) => {
   try {
     const { locationId } = req.params;
-    const qrCode = await qrStorage.getQRCode(locationId);
-    
+    const qrCode = await supabaseQRCodeService.getQRCode(locationId);
+
     if (!qrCode) {
       return res.status(404).json({ error: 'QR code not found for this location' });
     }
-    
+
     res.json({ qrCode });
   } catch (error) {
     console.error('Error fetching QR code:', error);
@@ -94,18 +96,24 @@ router.post('/', async (req, res) => {
       width: 512
     });
 
-    // Save to storage with keywords for AI review generation
+    // Save to Supabase database with keywords for AI review generation
     const qrCodeData = {
+      code: locationId,
+      locationId: locationId,
       locationName,
       address: address || '',
+      userId: userId || 'anonymous',
       placeId: placeId || '',
-      googleReviewLink,
+      qrDataUrl: qrCodeUrl,
+      reviewLink: googleReviewLink,
+      googleReviewLink: googleReviewLink,
+      publicReviewUrl,
       keywords: keywords || '', // Store keywords for AI to use
-      qrCodeUrl,
-      publicReviewUrl
+      scans: 0,
+      createdAt: new Date().toISOString()
     };
 
-    const savedQRCode = await qrStorage.saveQRCode(locationId, qrCodeData);
+    const savedQRCode = await supabaseQRCodeService.saveQRCode(qrCodeData);
 
     res.json({
       success: true,
@@ -130,13 +138,13 @@ router.patch('/:locationId/review-link', async (req, res) => {
     }
 
     // Get existing QR code
-    const existingQR = await qrStorage.getQRCode(locationId);
+    const existingQR = await supabaseQRCodeService.getQRCode(locationId);
     if (!existingQR) {
       return res.status(404).json({ error: 'QR code not found for this location' });
     }
 
     // Update review link
-    const updatedQR = await qrStorage.updateReviewLink(locationId, googleReviewLink);
+    const updatedQR = await supabaseQRCodeService.updateReviewLink(locationId, googleReviewLink);
     
     // Regenerate public URL and QR code with new link
     const publicReviewUrl = `${config.frontendUrl}/review/${locationId}?` + 
@@ -159,8 +167,10 @@ router.patch('/:locationId/review-link', async (req, res) => {
 
     // Update with new QR code
     updatedQR.qrCodeUrl = qrCodeUrl;
+    updatedQR.qrDataUrl = qrCodeUrl;
     updatedQR.publicReviewUrl = publicReviewUrl;
-    await qrStorage.saveQRCode(locationId, updatedQR);
+    updatedQR.code = locationId;
+    await supabaseQRCodeService.saveQRCode(updatedQR);
 
     res.json({ 
       success: true,
@@ -183,14 +193,15 @@ router.patch('/:locationId/keywords', async (req, res) => {
     console.log(`[QR Codes] Updating keywords for location ${locationId}: ${keywords}`);
 
     // Get existing QR code
-    const existingQR = await qrStorage.getQRCode(locationId);
+    const existingQR = await supabaseQRCodeService.getQRCode(locationId);
     if (!existingQR) {
       return res.status(404).json({ error: 'QR code not found for this location' });
     }
 
     // Update keywords
     existingQR.keywords = keywords || '';
-    await qrStorage.saveQRCode(locationId, existingQR);
+    existingQR.code = locationId;
+    await supabaseQRCodeService.saveQRCode(existingQR);
 
     res.json({
       success: true,
@@ -219,16 +230,16 @@ router.post('/:locationId/refetch-review-link', async (req, res) => {
     console.log(`[QR Code] 🔄 Re-fetching review link for location: ${locationId}`);
 
     // Get existing QR code
-    const existingQR = await qrStorage.getQRCode(locationId);
+    const existingQR = await supabaseQRCodeService.getQRCode(locationId);
     if (!existingQR) {
       return res.status(404).json({ error: 'QR code not found for this location' });
     }
 
     // Try to fetch review link from Google APIs
     const fetchResult = await fetchGoogleReviewLink(accountId, locationId, accessToken, existingQR.locationName, existingQR.address);
-    
+
     let googleReviewLink = null;
-    
+
     if (fetchResult.success) {
       googleReviewLink = fetchResult.reviewLink;
       console.log(`[QR Code] ✅ Successfully fetched review link from ${fetchResult.source}`);
@@ -237,14 +248,14 @@ router.post('/:locationId/refetch-review-link', async (req, res) => {
       googleReviewLink = `https://search.google.com/local/writereview?placeid=${placeId}`;
       console.log(`[QR Code] 🔄 Using fallback: Place ID review link`);
     } else {
-      return res.status(404).json({ 
+      return res.status(404).json({
         error: 'Could not fetch review link from Google',
         message: 'No valid review link or Place ID available'
       });
     }
 
     // Update the QR code with new review link
-    const updatedQR = await qrStorage.updateReviewLink(locationId, googleReviewLink);
+    const updatedQR = await supabaseQRCodeService.updateReviewLink(locationId, googleReviewLink);
 
     // Regenerate public URL with new review link
     const publicReviewUrl = `${config.frontendUrl}/review/${locationId}?` +
@@ -267,8 +278,10 @@ router.post('/:locationId/refetch-review-link', async (req, res) => {
     });
 
     updatedQR.qrCodeUrl = qrCodeUrl;
+    updatedQR.qrDataUrl = qrCodeUrl;
     updatedQR.publicReviewUrl = publicReviewUrl;
-    await qrStorage.saveQRCode(locationId, updatedQR);
+    updatedQR.code = locationId;
+    await supabaseQRCodeService.saveQRCode(updatedQR);
 
     res.json({
       success: true,
@@ -291,7 +304,7 @@ router.post('/:locationId/refetch-review-link', async (req, res) => {
 router.delete('/:locationId', async (req, res) => {
   try {
     const { locationId } = req.params;
-    const deleted = await qrStorage.deleteQRCode(locationId);
+    const deleted = await supabaseQRCodeService.deleteQRCode(locationId);
     
     if (!deleted) {
       return res.status(404).json({ error: 'QR code not found for this location' });
@@ -317,7 +330,7 @@ router.post('/statuses', async (req, res) => {
       return res.status(400).json({ error: 'locationIds must be an array' });
     }
 
-    const statuses = await qrStorage.getQRCodeStatuses(locationIds);
+    const statuses = await supabaseQRCodeService.getQRCodeStatuses(locationIds);
     res.json({ statuses });
 
   } catch (error) {
@@ -655,7 +668,7 @@ router.post('/generate-with-auto-fetch', async (req, res) => {
     }
 
     // 1. Check if QR code already exists in database
-    const existingQR = await qrStorage.getQRCode(locationId);
+    const existingQR = await supabaseQRCodeService.getQRCode(locationId);
     if (existingQR && existingQR.googleReviewLink && !forceRefresh) {
       console.log(`[QR Code] ♻️ Found existing QR code for ${locationName}, reusing it`);
       return res.json({
@@ -739,25 +752,27 @@ router.post('/generate-with-auto-fetch', async (req, res) => {
       createdAt: new Date().toISOString()
     };
 
-    // Save to JSON file storage
-    await qrStorage.saveQRCode(locationId, qrCodeData);
-
-    // Save to Supabase database
+    // Save to Supabase database only (no JSON files)
     try {
       await supabaseQRCodeService.saveQRCode({
         code: locationId,
         locationId: locationId,
+        locationName: locationName,
+        address: address || '',
         userId: userId || 'anonymous',
         placeId: fetchedPlaceId || '',
         qrDataUrl: qrCodeUrl,
         reviewLink: googleReviewLink,
+        publicReviewUrl: publicReviewUrl,
+        keywords: finalKeywords || '',
+        businessCategory: businessCategory || null,
         scans: 0,
         createdAt: new Date().toISOString()
       });
-      console.log(`[QR Code] ✅ Saved to Supabase database`);
+      console.log(`[QR Code] ✅ Saved to Supabase database with keywords: ${finalKeywords || 'none'}`);
     } catch (dbError) {
       console.error(`[QR Code] ⚠️ Failed to save to Supabase:`, dbError.message);
-      // Don't fail the request if Supabase save fails
+      throw dbError; // Fail the request if database save fails
     }
 
     console.log(`[QR Code] ✅ QR code generated successfully for ${locationName}`);

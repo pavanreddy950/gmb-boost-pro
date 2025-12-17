@@ -35,13 +35,19 @@ class SupabaseQRCodeService {
       const record = {
         code: qrCodeData.code,
         location_id: qrCodeData.locationId,
+        location_name: qrCodeData.locationName || null,
+        address: qrCodeData.address || null,
         user_id: qrCodeData.userId,
-        place_id: qrCodeData.placeId,
-        qr_data_url: qrCodeData.qrDataUrl,
-        review_link: qrCodeData.reviewLink,
+        place_id: qrCodeData.placeId || null,
+        qr_data_url: qrCodeData.qrDataUrl || null,
+        review_link: qrCodeData.reviewLink || null,
+        public_review_url: qrCodeData.publicReviewUrl || null,
+        keywords: qrCodeData.keywords || null,
+        business_category: qrCodeData.businessCategory || null,
         scans: qrCodeData.scans || 0,
-        last_scanned_at: qrCodeData.lastScannedAt,
-        created_at: qrCodeData.createdAt || new Date().toISOString()
+        last_scanned_at: qrCodeData.lastScannedAt || null,
+        created_at: qrCodeData.createdAt || new Date().toISOString(),
+        updated_at: new Date().toISOString()
       };
 
       const { error } = await this.client
@@ -50,7 +56,7 @@ class SupabaseQRCodeService {
 
       if (error) throw error;
 
-      console.log(`[SupabaseQRCodeService] ✅ Saved QR code: ${qrCodeData.code}`);
+      console.log(`[SupabaseQRCodeService] ✅ Saved QR code: ${qrCodeData.code} (${qrCodeData.locationName || 'Unknown'}) with keywords: ${qrCodeData.keywords || 'none'}`);
       return qrCodeData;
     } catch (error) {
       console.error('[SupabaseQRCodeService] Error saving QR code:', error);
@@ -138,6 +144,87 @@ class SupabaseQRCodeService {
   }
 
   /**
+   * Update review link for existing QR code
+   */
+  async updateReviewLink(locationId, googleReviewLink) {
+    try {
+      await this.initialize();
+
+      const { data, error } = await this.client
+        .from('qr_codes')
+        .update({
+          review_link: googleReviewLink,
+          updated_at: new Date().toISOString()
+        })
+        .eq('code', locationId)
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      console.log(`[SupabaseQRCodeService] ✅ Updated review link for: ${locationId}`);
+      return this.formatQRCode(data);
+    } catch (error) {
+      console.error('[SupabaseQRCodeService] Error updating review link:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Delete QR code by code
+   */
+  async deleteQRCode(code) {
+    try {
+      await this.initialize();
+
+      const { error } = await this.client
+        .from('qr_codes')
+        .delete()
+        .eq('code', code);
+
+      if (error) throw error;
+
+      console.log(`[SupabaseQRCodeService] ✅ Deleted QR code: ${code}`);
+      return true;
+    } catch (error) {
+      console.error('[SupabaseQRCodeService] Error deleting QR code:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Get QR code statuses for multiple locations
+   */
+  async getQRCodeStatuses(locationIds) {
+    try {
+      await this.initialize();
+
+      const { data, error } = await this.client
+        .from('qr_codes')
+        .select('code, location_id, review_link, created_at')
+        .in('code', locationIds);
+
+      if (error) throw error;
+
+      const statuses = {};
+      locationIds.forEach(locationId => {
+        const qrData = data?.find(qr => qr.code === locationId);
+        statuses[locationId] = {
+          hasQRCode: !!qrData,
+          hasReviewLink: !!(qrData?.review_link),
+          createdAt: qrData?.created_at || null,
+          locationName: qrData?.location_id || null
+        };
+      });
+
+      return statuses;
+    } catch (error) {
+      console.error('[SupabaseQRCodeService] Error getting QR code statuses:', error);
+      return {};
+    }
+  }
+
+  /**
    * Format QR code from database
    */
   formatQRCode(qr) {
@@ -146,13 +233,21 @@ class SupabaseQRCodeService {
     return {
       code: qr.code,
       locationId: qr.location_id,
+      locationName: qr.location_name || '',
+      address: qr.address || '',
       userId: qr.user_id,
-      placeId: qr.place_id,
-      qrDataUrl: qr.qr_data_url,
-      reviewLink: qr.review_link,
-      scans: qr.scans,
+      placeId: qr.place_id || '',
+      qrCodeUrl: qr.qr_data_url || '',
+      qrDataUrl: qr.qr_data_url || '', // Keep both for compatibility
+      googleReviewLink: qr.review_link || '',
+      reviewLink: qr.review_link || '', // Keep both for compatibility
+      publicReviewUrl: qr.public_review_url || '',
+      keywords: qr.keywords || '',
+      businessCategory: qr.business_category || null,
+      scans: qr.scans || 0,
       lastScannedAt: qr.last_scanned_at,
-      createdAt: qr.created_at
+      createdAt: qr.created_at,
+      updatedAt: qr.updated_at
     };
   }
 }

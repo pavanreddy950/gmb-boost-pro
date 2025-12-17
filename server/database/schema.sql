@@ -196,13 +196,19 @@ CREATE TABLE IF NOT EXISTS qr_codes (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   code TEXT UNIQUE NOT NULL,
   location_id TEXT NOT NULL,
+  location_name TEXT,
+  address TEXT,
   user_id TEXT NOT NULL,
   place_id TEXT,
   qr_data_url TEXT,
   review_link TEXT,
+  public_review_url TEXT,
+  keywords TEXT,
+  business_category TEXT,
   scans INTEGER DEFAULT 0,
   last_scanned_at TIMESTAMP WITH TIME ZONE,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
 -- Indexes
