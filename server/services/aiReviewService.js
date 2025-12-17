@@ -111,7 +111,7 @@ class AIReviewService {
 
       const prompt = `⚠️ GENERATE EXACTLY 3 REVIEWS - NO MORE, NO LESS ⚠️
 
-Generate SHORT, realistic customer reviews for "${businessName}" in ${cleanLocation}.
+Generate realistic customer reviews for "${businessName}" in ${cleanLocation}.
 ${keywordPrompt}
 ${categoryPrompt}
 
@@ -121,7 +121,7 @@ ${categoryPrompt}
 2. ✅ MUST include EXACT business name "${businessName}" in EVERY SINGLE review
 3. ✅ MUST include location "${cleanLocation}" in EVERY SINGLE review
 4. ✅ Each review MUST include 2-3 keywords from the list above - USE THEM NATURALLY
-5. ✅ Each review MAXIMUM 40 WORDS - keep it SHORT
+5. ✅ Each review MUST be 40-50 WORDS (MINIMUM 40 words, MAXIMUM 50 words)
 6. ✅ ONLY mention services/features from the keywords - DO NOT invent anything
 7. ✅ Write like REAL people - casual, natural, specific
 8. ✅ Vary the keywords used in each review for diversity
@@ -130,7 +130,7 @@ ${categoryPrompt}
 - Include business name: "${businessName}"
 - Include location: "${cleanLocation}"
 - Include 2-3 keywords from: ${keywordList.length > 0 ? keywordList.map(k => `"${k}"`).join(', ') : '"service", "quality"'}
-- Maximum 40 words total
+- 40-50 words total (MINIMUM 40, MAXIMUM 50)
 - Natural, authentic tone
 
 📝 EXAMPLES (FOLLOW THIS STRUCTURE):
