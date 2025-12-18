@@ -42,34 +42,44 @@ router.get('/:locationId', async (req, res) => {
 
         if (automationSettings) {
           // Check for keywords in autoPosting settings first (most specific)
+          // IMPORTANT: Don't fallback to qrCode.keywords - always use automation settings as source of truth
           const latestKeywords = automationSettings.autoPosting?.keywords ||
                                   automationSettings.keywords ||
-                                  qrCode.keywords || '';
+                                  '';
 
-          if (latestKeywords !== qrCode.keywords) {
-            console.log(`[QR Code] 🔄 Keywords updated: "${qrCode.keywords}" → "${latestKeywords}"`);
-            qrCode.keywords = latestKeywords;
+          console.log(`[QR Code] 🔑 Automation keywords: "${latestKeywords}", Cached keywords: "${qrCode.keywords || 'none'}"`);
 
-            // Update QR code in database with latest keywords
+          // Store original keywords before updating
+          const originalKeywords = qrCode.keywords || '';
+
+          // ALWAYS update qrCode object with latest keywords from automation settings
+          // This ensures the response always has the latest keywords
+          qrCode.keywords = latestKeywords;
+
+          // Only save to database if keywords actually changed
+          if (latestKeywords !== originalKeywords) {
+            console.log(`[QR Code] 💾 Keywords changed, updating database: "${originalKeywords}" → "${latestKeywords}"`);
             await supabaseQRCodeService.saveQRCode({
               ...qrCode,
               code: locationId,
               locationId: locationId,
               keywords: latestKeywords
             });
-            console.log(`[QR Code] ✅ Updated QR code in database with latest keywords`);
           } else {
-            console.log(`[QR Code] ✅ Keywords are up to date: "${latestKeywords}"`);
+            console.log(`[QR Code] ✅ Keywords unchanged, no database update needed`);
           }
         } else {
-          console.log(`[QR Code] ⚠️ No automation settings found for location ${locationId}`);
+          console.log(`[QR Code] ⚠️ No automation settings found for location ${locationId}, using cached keywords: "${qrCode.keywords || 'none'}"`);
         }
       } catch (error) {
         console.error(`[QR Code] ⚠️ Error fetching automation settings, using cached keywords:`, error.message);
         // Continue with cached keywords if automation settings fetch fails
       }
+    } else {
+      console.log(`[QR Code] ⚠️ No userId or anonymous user, using cached keywords: "${qrCode.keywords || 'none'}"`);
     }
 
+    console.log(`[QR Code] 📤 Returning QR code with keywords: "${qrCode.keywords || 'none'}"`);
     res.json({ qrCode });
   } catch (error) {
     console.error('Error fetching QR code:', error);
