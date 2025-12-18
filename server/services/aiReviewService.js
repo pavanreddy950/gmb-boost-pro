@@ -105,9 +105,10 @@ class AIReviewService {
       const randomExperience = experienceTypes[(randomIndex + timestamp + 200) % experienceTypes.length];
 
       // Enhanced prompt with MANDATORY keyword integration
+      // ⚠️ CRITICAL: If no keywords provided, reviews should be generic WITHOUT specific services
       const keywordPrompt = keywordList.length > 0
         ? `\n🔑 MANDATORY KEYWORDS - MUST USE IN EVERY REVIEW:\n${keywordList.map((kw, i) => `${i + 1}. "${kw}"`).join('\n')}\n\n⚠️ Each review MUST include at least 2-3 of these exact keywords/phrases!`
-        : '';
+        : '\n⚠️ NO KEYWORDS PROVIDED - DO NOT mention ANY specific services or features!\nWrite generic positive reviews about the overall experience WITHOUT mentioning any specific services.';
 
       const prompt = `⚠️ GENERATE EXACTLY 3 REVIEWS - NO MORE, NO LESS ⚠️
 
@@ -120,29 +121,36 @@ ${categoryPrompt}
 1. ✅ MUST GENERATE EXACTLY 3 REVIEWS (NOT 4, NOT 5, EXACTLY 3!)
 2. ✅ MUST include EXACT business name "${businessName}" in EVERY SINGLE review
 3. ✅ MUST include location "${cleanLocation}" in EVERY SINGLE review
-4. ✅ Each review MUST include 2-3 keywords from the list above - USE THEM NATURALLY
+4. ${keywordList.length > 0 ? '✅ Each review MUST include 2-3 keywords from the list above - USE THEM NATURALLY' : '❌ NO KEYWORDS - DO NOT mention ANY specific services or features'}
 5. ✅ Each review MUST be 40-50 WORDS (MINIMUM 40 words, MAXIMUM 50 words)
-6. ✅ ONLY mention services/features from the keywords - DO NOT invent anything
+6. ${keywordList.length > 0 ? '✅ ONLY mention services/features from the keywords - DO NOT invent anything' : '✅ DO NOT mention ANY specific services - only generic positive experience'}
 7. ✅ Write like REAL people - casual, natural, specific
-8. ✅ Vary the keywords used in each review for diversity
+8. ✅ Vary the ${keywordList.length > 0 ? 'keywords' : 'phrases'} used in each review for diversity
 
 🎯 REQUIRED FORMAT FOR EACH REVIEW:
 - Include business name: "${businessName}"
 - Include location: "${cleanLocation}"
-- Include 2-3 keywords from: ${keywordList.length > 0 ? keywordList.map(k => `"${k}"`).join(', ') : '"service", "quality"'}
+- ${keywordList.length > 0 ? `Include 2-3 keywords from: ${keywordList.map(k => `"${k}"`).join(', ')}` : 'DO NOT mention specific services - only overall experience'}
 - 40-50 words total (MINIMUM 40, MAXIMUM 50)
 - Natural, authentic tone
 
 📝 EXAMPLES (FOLLOW THIS STRUCTURE):
 
-Example 1:
-"${businessName} in ${cleanLocation} offers ${keywordList[0] || 'excellent service'}! The ${keywordList[1] || 'quality'} was outstanding, and the ${keywordList[2] || 'experience'} exceeded our expectations. Highly memorable visit!"
+${keywordList.length > 0 ? `Example 1:
+"${businessName} in ${cleanLocation} offers ${keywordList[0]}! The ${keywordList[1]} was outstanding, and the ${keywordList[2]} exceeded our expectations. Highly memorable visit!"
 
 Example 2:
-"Had an amazing time at ${businessName} in ${cleanLocation}. The ${keywordList[0] || 'service'} was exceptional with ${keywordList[1] || 'attention to detail'}. Great value for money. Will return!"
+"Had an amazing time at ${businessName} in ${cleanLocation}. The ${keywordList[0]} was exceptional with ${keywordList[1]}. Great value for money. Will return!"
 
 Example 3:
-"${businessName} is the ${keywordList[0] || 'best choice'} in ${cleanLocation}! The ${keywordList[1] || 'facilities'} were top-notch and the ${keywordList[2] || 'staff'} made it special. Unforgettable experience!"
+"${businessName} is the best choice in ${cleanLocation}! The ${keywordList[0]} were top-notch and the ${keywordList[1]} made it special. Unforgettable experience!"` : `Example 1:
+"${businessName} in ${cleanLocation} was absolutely wonderful! Had such a great time and the overall experience exceeded all expectations. Highly recommend visiting!"
+
+Example 2:
+"Amazing experience at ${businessName} in ${cleanLocation}. Everything was perfect and we had a fantastic time. Will definitely be returning soon!"
+
+Example 3:
+"${businessName} in ${cleanLocation} is the best! Had an incredible visit and everything was just perfect. Can't wait to come back!"`}
 
 🚫 ABSOLUTELY FORBIDDEN:
 - Generic phrases like "great service" or "excellent quality" (unless they're in the keywords)
@@ -182,27 +190,25 @@ You are a review generator that MUST follow these rules EXACTLY:
 1. Generate EXACTLY 3 reviews - NO MORE, NO LESS
 2. ALWAYS include the EXACT business name in EVERY review
 3. ALWAYS include the location in EVERY review
-4. MANDATORY: Each review MUST include 2-3 keywords from the provided keyword list
-5. ONLY mention services/features from the keywords - NEVER invent services
+4. ${keywordList.length > 0 ? 'MANDATORY: Each review MUST include 2-3 keywords from the provided keyword list' : 'NO KEYWORDS PROVIDED: DO NOT mention ANY specific services or features'}
+5. ${keywordList.length > 0 ? 'ONLY mention services/features from the keywords - NEVER invent services' : 'Write generic positive reviews WITHOUT mentioning specific services'}
 6. Maximum 40 words per review - BE CONCISE
 7. Write like REAL customers - casual, natural, authentic
-8. NO generic words unless they are in the keywords (no "great service", "excellent quality" unless specified)
+8. ${keywordList.length > 0 ? 'NO generic words unless they are in the keywords (no "great service", "excellent quality" unless specified)' : 'Keep reviews generic and positive WITHOUT specific service mentions'}
 9. Return ONLY valid JSON array - no markdown, no code blocks, no extra text
 
-${keywordList.length > 0 ? `\n🔑 KEYWORDS YOU MUST USE:\n${keywordList.map((kw, i) => `${i + 1}. "${kw}"`).join('\n')}\n\nEach review MUST naturally include 2-3 of these keywords!` : ''}
+${keywordList.length > 0 ? `\n🔑 KEYWORDS YOU MUST USE:\n${keywordList.map((kw, i) => `${i + 1}. "${kw}"`).join('\n')}\n\nEach review MUST naturally include 2-3 of these keywords!` : '\n⚠️ NO KEYWORDS PROVIDED:\n- DO NOT mention "service", "quality", "professional", or ANY specific services\n- Write only about the overall positive experience\n- Keep it generic and enthusiastic'}
 
 ❌ REJECTION CRITERIA:
 - More/less than 3 reviews
 - Missing business name or location
-- Missing keywords from the provided list
-- Generic phrases not in keywords
-- Invented services not in keywords
+${keywordList.length > 0 ? '- Missing keywords from the provided list\n- Generic phrases not in keywords\n- Invented services not in keywords' : '- Mentioning specific services when no keywords provided'}
 - Reviews over 40 words
 
 ✅ SUCCESS CRITERIA:
 - Exactly 3 reviews
 - Business name + location in each
-- 2-3 keywords naturally integrated in each
+${keywordList.length > 0 ? '- 2-3 keywords naturally integrated in each' : '- Generic positive experience without specific services'}
 - Authentic customer voice
 - Under 40 words each`
             },
@@ -425,7 +431,7 @@ ${keywordList.length > 0 ? `\n🔑 KEYWORDS YOU MUST USE:\n${keywordList.map((kw
       // Enhanced prompt with keyword integration and category context
       const keywordPrompt = keywordList.length > 0
         ? `\nBUSINESS KEYWORDS (naturally incorporate if relevant): ${keywordList.join(', ')}`
-        : '';
+        : '\n⚠️ NO KEYWORDS PROVIDED - DO NOT mention any specific services or features';
 
       const categoryContext = businessCategory
         ? `\nBUSINESS TYPE: ${businessCategory}
@@ -448,7 +454,7 @@ Guidelines:
 - Each reply must be unique in style, vocabulary, and approach
 - Keep replies professional but ${tone}
 - Acknowledge the customer's feedback specifically
-- Naturally include business keywords (${keywordList.length > 0 ? keywordList.join(', ') : 'service, quality'}) if appropriate
+${keywordList.length > 0 ? `- Naturally include business keywords (${keywordList.join(', ')}) if appropriate` : '- DO NOT mention any specific services or features - keep reply generic'}
 - Include business name "${businessName}" naturally
 - Vary length and structure significantly
 - For positive reviews: express gratitude, highlight strengths, invite return
