@@ -11,10 +11,29 @@ export const PaymentSuccess: React.FC = () => {
   const [redirectTimer, setRedirectTimer] = useState<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
-    // Refresh subscription status
-    checkSubscriptionStatus();
+    // Aggressively refresh subscription status to ensure paid slots are loaded
+    console.log('[Payment Success] 🔄 Force refreshing subscription status...');
+    
+    const refreshSubscription = async () => {
+      // Refresh multiple times to ensure data is loaded
+      await checkSubscriptionStatus();
+      
+      // Second refresh after 1 second to ensure backend has updated
+      setTimeout(async () => {
+        console.log('[Payment Success] 🔄 Second refresh...');
+        await checkSubscriptionStatus();
+      }, 1000);
+      
+      // Third refresh after 2 seconds for good measure
+      setTimeout(async () => {
+        console.log('[Payment Success] 🔄 Third refresh...');
+        await checkSubscriptionStatus();
+      }, 2000);
+    };
+    
+    refreshSubscription();
 
-    // Show mandate setup modal after 2 seconds for yearly plan users
+    // Show mandate setup modal after 3 seconds for yearly plan users
     const mandateTimer = setTimeout(() => {
       // Check if user purchased a yearly plan (₹99)
       if (subscription?.planId?.includes('yearly')) {
@@ -27,13 +46,13 @@ export const PaymentSuccess: React.FC = () => {
         }, 1000);
         setRedirectTimer(timer);
       }
-    }, 2000);
+    }, 3000);
 
     return () => {
       clearTimeout(mandateTimer);
       if (redirectTimer) clearTimeout(redirectTimer);
     };
-  }, [navigate, checkSubscriptionStatus, subscription?.planId]);
+  }, [navigate, checkSubscriptionStatus]);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center">
@@ -54,6 +73,16 @@ export const PaymentSuccess: React.FC = () => {
           <p className="text-green-800 font-medium">
             ✨ All premium features are now unlocked
           </p>
+          {subscription?.paidSlots && subscription.paidSlots > 0 && (
+            <div className="mt-3 pt-3 border-t border-green-200">
+              <p className="text-2xl font-bold text-green-700">
+                {subscription.paidSlots} Profile{subscription.paidSlots > 1 ? 's' : ''}
+              </p>
+              <p className="text-sm text-green-600 mt-1">
+                Ready to manage
+              </p>
+            </div>
+          )}
         </div>
         
         <p className="text-sm text-gray-500">

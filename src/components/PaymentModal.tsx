@@ -382,6 +382,9 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
             });
 
             if (verifyResponse.ok) {
+              const verifyData = await verifyResponse.json();
+              console.log('[Subscription] ✅ Payment verified successfully:', verifyData);
+
               toast({
                 title: "Success!",
                 description: "Subscription activated with auto-pay mandate",
@@ -393,19 +396,15 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
               // Set flag to indicate we're reloading after payment
               sessionStorage.setItem('post_payment_reload', 'true');
 
-              // Force subscription status refresh with delay
-              setTimeout(async () => {
-                try {
-                  await checkSubscriptionStatus();
-                  window.location.reload();
-                } catch (error) {
-                  console.error('Failed to refresh subscription status:', error);
-                  window.location.reload();
-                }
-              }, 2000);
-
-              // Navigate to payment success page
-              navigate('/payment-success');
+              // Force subscription status refresh IMMEDIATELY before navigation
+              console.log('[Subscription] 🔄 Refreshing subscription status...');
+              await checkSubscriptionStatus();
+              
+              // Small delay to ensure state updates, then navigate
+              setTimeout(() => {
+                console.log('[Subscription] ✅ Navigating to payment success page');
+                navigate('/payment-success');
+              }, 500);
             } else {
               // Get the actual error from the backend
               const errorData = await verifyResponse.json().catch(() => ({}));

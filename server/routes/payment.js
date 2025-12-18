@@ -1125,6 +1125,15 @@ router.post('/subscription/verify-payment', async (req, res) => {
 
     console.log('[Subscription Verify] Step 4: Updating local subscription...');
 
+    // CRITICAL: Extract profileCount from subscription notes
+    const profileCountFromNotes = subscription.notes?.actualProfileCount || subscription.notes?.profileCount || subscription.quantity || 1;
+    console.log('[Subscription Verify] 📊 Profile count from subscription:', {
+      actualProfileCount: subscription.notes?.actualProfileCount,
+      profileCount: subscription.notes?.profileCount,
+      quantity: subscription.quantity,
+      finalProfileCount: profileCountFromNotes
+    });
+
     // Update local subscription
     if (gbpAccountId) {
       const localSubscription = await subscriptionService.getSubscriptionByGBPAccount(gbpAccountId);
@@ -1135,6 +1144,16 @@ router.post('/subscription/verify-payment', async (req, res) => {
         const endDate = new Date();
         endDate.setFullYear(endDate.getFullYear() + 1); // 1 year subscription
 
+        // Calculate new paid slots (ADD to existing slots, don't replace)
+        const currentPaidSlots = localSubscription.paidSlots || localSubscription.profileCount || 0;
+        const newPaidSlots = currentPaidSlots + profileCountFromNotes;
+        
+        console.log('[Subscription Verify] 💰 Slot update:', {
+          currentPaidSlots,
+          newProfilesPurchased: profileCountFromNotes,
+          totalPaidSlots: newPaidSlots
+        });
+
         await subscriptionService.updateSubscription(localSubscription.id, {
           status: 'active',
           razorpaySubscriptionId: subscription.id,
@@ -1143,21 +1162,26 @@ router.post('/subscription/verify-payment', async (req, res) => {
           mandateAuthDate: now.toISOString(),
           lastPaymentDate: now.toISOString(),
           subscriptionEndDate: endDate.toISOString(),
-          razorpayPaymentId: razorpay_payment_id
+          razorpayPaymentId: razorpay_payment_id,
+          paidSlots: newPaidSlots,
+          profileCount: newPaidSlots
         });
 
-        // Add payment record
+        // Add payment record with profile count info
         await subscriptionService.addPaymentRecord(localSubscription.id, {
           amount: payment.amount / 100,
           currency: payment.currency,
           status: 'success',
           razorpayPaymentId: razorpay_payment_id,
           razorpaySubscriptionId: razorpay_subscription_id,
-          description: 'Subscription payment with mandate',
-          paidAt: now.toISOString()
+          description: `Subscription payment for ${profileCountFromNotes} profile${profileCountFromNotes > 1 ? 's' : ''}`,
+          paidAt: now.toISOString(),
+          profileCount: profileCountFromNotes
         });
 
-        console.log('[Subscription Verify] Step 4 PASSED: Local subscription updated');
+        console.log('[Subscription Verify] Step 4 PASSED: Local subscription updated with', newPaidSlots, 'paid slots');
+      } else {
+        console.warn('[Subscription Verify] ⚠️ Local subscription not found for gbpAccountId:', gbpAccountId);
       }
     } else {
       console.log('[Subscription Verify] Step 4 SKIPPED: No gbpAccountId provided');
@@ -1165,13 +1189,21 @@ router.post('/subscription/verify-payment', async (req, res) => {
 
     console.log('[Subscription Verify] ✅ ALL STEPS PASSED - Returning success response');
 
+    // Get the updated subscription to return to frontend
+    let updatedLocalSub = null;
+    if (gbpAccountId) {
+      updatedLocalSub = await subscriptionService.getSubscriptionByGBPAccount(gbpAccountId);
+    }
+
     res.json({
       success: true,
       message: 'Subscription activated with auto-pay mandate',
       subscription: {
         id: subscription.id,
         status: subscription.status,
-        mandateAuthorized: true
+        mandateAuthorized: true,
+        paidSlots: updatedLocalSub?.paidSlots || profileCountFromNotes,
+        profileCount: updatedLocalSub?.profileCount || profileCountFromNotes
       },
       payment: {
         id: payment.id,
