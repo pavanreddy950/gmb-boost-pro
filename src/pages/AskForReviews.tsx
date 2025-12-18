@@ -109,7 +109,17 @@ const AskForReviews = () => {
 
   const loadExistingQRCodes = async () => {
     try {
-      const response = await fetch(`${backendUrl}/api/qr-codes`);
+      // Get user ID from Firebase auth
+      const userId = googleBusinessProfileService.getUserId();
+
+      if (!userId) {
+        console.log('[AskForReviews] No userId available, skipping QR code load');
+        return;
+      }
+
+      console.log(`[AskForReviews] 🔍 Loading existing QR codes for user: ${userId}`);
+      const response = await fetch(`${backendUrl}/api/qr-codes?userId=${encodeURIComponent(userId)}`);
+
       if (response.ok) {
         const { qrCodes } = await response.json();
         const qrMap = new Map();
@@ -117,10 +127,12 @@ const AskForReviews = () => {
           qrMap.set(qr.locationId, qr);
         });
         setExistingQRCodes(qrMap);
-        console.log(`[AskForReviews] Loaded ${qrCodes.length} existing QR codes`);
+        console.log(`[AskForReviews] ✅ Loaded ${qrCodes.length} existing QR codes`);
+      } else {
+        console.error('[AskForReviews] ❌ Failed to load QR codes:', await response.text());
       }
     } catch (error) {
-      console.error('Error loading existing QR codes:', error);
+      console.error('[AskForReviews] ❌ Error loading existing QR codes:', error);
     }
   };
 

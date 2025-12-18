@@ -32,6 +32,44 @@ router.get('/:locationId', async (req, res) => {
       return res.status(404).json({ error: 'QR code not found for this location' });
     }
 
+    // 🔑 CRITICAL FIX: Always fetch latest keywords from automation settings
+    // This ensures the public review page uses current keywords, not cached ones
+    if (qrCode.userId && qrCode.userId !== 'anonymous') {
+      try {
+        console.log(`[QR Code] 🔄 Fetching latest keywords from automation settings for user ${qrCode.userId}, location ${locationId}`);
+        const supabaseAutomationService = (await import('../services/supabaseAutomationService.js')).default;
+        const automationSettings = await supabaseAutomationService.getSettings(qrCode.userId, locationId);
+
+        if (automationSettings) {
+          // Check for keywords in autoPosting settings first (most specific)
+          const latestKeywords = automationSettings.autoPosting?.keywords ||
+                                  automationSettings.keywords ||
+                                  qrCode.keywords || '';
+
+          if (latestKeywords !== qrCode.keywords) {
+            console.log(`[QR Code] 🔄 Keywords updated: "${qrCode.keywords}" → "${latestKeywords}"`);
+            qrCode.keywords = latestKeywords;
+
+            // Update QR code in database with latest keywords
+            await supabaseQRCodeService.saveQRCode({
+              ...qrCode,
+              code: locationId,
+              locationId: locationId,
+              keywords: latestKeywords
+            });
+            console.log(`[QR Code] ✅ Updated QR code in database with latest keywords`);
+          } else {
+            console.log(`[QR Code] ✅ Keywords are up to date: "${latestKeywords}"`);
+          }
+        } else {
+          console.log(`[QR Code] ⚠️ No automation settings found for location ${locationId}`);
+        }
+      } catch (error) {
+        console.error(`[QR Code] ⚠️ Error fetching automation settings, using cached keywords:`, error.message);
+        // Continue with cached keywords if automation settings fetch fails
+      }
+    }
+
     res.json({ qrCode });
   } catch (error) {
     console.error('Error fetching QR code:', error);
@@ -42,7 +80,7 @@ router.get('/:locationId', async (req, res) => {
 // Create/Save QR code for location
 router.post('/', async (req, res) => {
   try {
-    const { locationId, locationName, address, placeId, googleReviewLink, keywords, userId, gbpAccountId } = req.body;
+    const { locationId, locationName, address, placeId, googleReviewLink, keywords, userId, gbpAccountId, forceRefresh } = req.body;
 
     if (!locationId || !locationName || !googleReviewLink) {
       return res.status(400).json({
@@ -74,7 +112,31 @@ router.post('/', async (req, res) => {
       console.warn(`[QR Codes] ⚠️ No userId/gbpAccountId provided - skipping subscription check`);
     }
 
-    console.log(`[QR Codes] Creating QR code for ${locationName} with keywords: ${keywords || 'none'}`);
+    // 🔍 Check if QR code already exists (unless forceRefresh is true)
+    const existingQR = await supabaseQRCodeService.getQRCode(locationId);
+    if (existingQR && !forceRefresh) {
+      console.log(`[QR Codes] ♻️ QR code already exists for ${locationName}, updating keywords only`);
+
+      // Update only the keywords and other changed fields
+      existingQR.keywords = keywords || '';
+      existingQR.googleReviewLink = googleReviewLink;
+      existingQR.reviewLink = googleReviewLink;
+      existingQR.locationName = locationName;
+      existingQR.address = address || '';
+      existingQR.placeId = placeId || '';
+      existingQR.code = locationId;
+
+      await supabaseQRCodeService.saveQRCode(existingQR);
+
+      return res.json({
+        success: true,
+        qrCode: existingQR,
+        message: 'QR code updated successfully',
+        cached: true
+      });
+    }
+
+    console.log(`[QR Codes] ${forceRefresh ? '🔄 Regenerating' : '📦 Creating'} QR code for ${locationName} with keywords: ${keywords || 'none'}`);
 
     // Generate public review URL using config
     const publicReviewUrl = `${config.frontendUrl}/review/${locationId}?` +
@@ -109,8 +171,8 @@ router.post('/', async (req, res) => {
       googleReviewLink: googleReviewLink,
       publicReviewUrl,
       keywords: keywords || '', // Store keywords for AI to use
-      scans: 0,
-      createdAt: new Date().toISOString()
+      scans: existingQR?.scans || 0, // Preserve scan count if updating
+      createdAt: existingQR?.createdAt || new Date().toISOString()
     };
 
     const savedQRCode = await supabaseQRCodeService.saveQRCode(qrCodeData);
@@ -118,7 +180,8 @@ router.post('/', async (req, res) => {
     res.json({
       success: true,
       qrCode: savedQRCode,
-      message: 'QR code created and saved successfully'
+      message: forceRefresh ? 'QR code regenerated successfully' : 'QR code created and saved successfully',
+      cached: false
     });
 
   } catch (error) {
