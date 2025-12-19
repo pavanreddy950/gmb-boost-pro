@@ -9,28 +9,44 @@ export const PaymentSuccess: React.FC = () => {
   const { checkSubscriptionStatus, subscription } = useSubscription();
   const [showMandateSetup, setShowMandateSetup] = useState(false);
   const [redirectTimer, setRedirectTimer] = useState<NodeJS.Timeout | null>(null);
+  const [verifiedSubscription, setVerifiedSubscription] = useState<any>(null);
 
   useEffect(() => {
+    // CRITICAL: Load verified subscription from sessionStorage first
+    const verifiedSubData = sessionStorage.getItem('verified_subscription');
+    if (verifiedSubData) {
+      try {
+        const parsedSub = JSON.parse(verifiedSubData);
+        console.log('[Payment Success] 💾 Loaded verified subscription from sessionStorage:', parsedSub);
+        setVerifiedSubscription(parsedSub);
+        // Clear after loading to prevent stale data
+        sessionStorage.removeItem('verified_subscription');
+      } catch (error) {
+        console.error('[Payment Success] Failed to parse verified subscription:', error);
+      }
+    }
+
     // Aggressively refresh subscription status to ensure paid slots are loaded
     console.log('[Payment Success] 🔄 Force refreshing subscription status...');
-    
+
     const refreshSubscription = async () => {
-      // Refresh multiple times to ensure data is loaded
+      // First immediate refresh
+      console.log('[Payment Success] 🔄 First refresh...');
       await checkSubscriptionStatus();
-      
+
       // Second refresh after 1 second to ensure backend has updated
       setTimeout(async () => {
         console.log('[Payment Success] 🔄 Second refresh...');
         await checkSubscriptionStatus();
       }, 1000);
-      
+
       // Third refresh after 2 seconds for good measure
       setTimeout(async () => {
         console.log('[Payment Success] 🔄 Third refresh...');
         await checkSubscriptionStatus();
       }, 2000);
     };
-    
+
     refreshSubscription();
 
     // Show mandate setup modal after 3 seconds for yearly plan users
@@ -73,13 +89,23 @@ export const PaymentSuccess: React.FC = () => {
           <p className="text-green-800 font-medium">
             ✨ All premium features are now unlocked
           </p>
-          {subscription?.paidSlots && subscription.paidSlots > 0 && (
+          {/* Show paid slots from verified subscription OR context subscription */}
+          {((verifiedSubscription?.paidSlots && verifiedSubscription.paidSlots > 0) ||
+            (subscription?.paidSlots && subscription.paidSlots > 0)) && (
             <div className="mt-3 pt-3 border-t border-green-200">
               <p className="text-2xl font-bold text-green-700">
-                {subscription.paidSlots} Profile{subscription.paidSlots > 1 ? 's' : ''}
+                {verifiedSubscription?.paidSlots || subscription?.paidSlots} Profile{(verifiedSubscription?.paidSlots || subscription?.paidSlots) > 1 ? 's' : ''}
               </p>
               <p className="text-sm text-green-600 mt-1">
                 Ready to manage
+              </p>
+            </div>
+          )}
+          {/* Fallback: If no paid slots info available yet, show generic message */}
+          {!verifiedSubscription?.paidSlots && !subscription?.paidSlots && (
+            <div className="mt-3 pt-3 border-t border-green-200">
+              <p className="text-sm text-green-600">
+                Loading your profile information...
               </p>
             </div>
           )}

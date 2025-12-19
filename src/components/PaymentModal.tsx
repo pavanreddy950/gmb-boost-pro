@@ -384,6 +384,18 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
             if (verifyResponse.ok) {
               const verifyData = await verifyResponse.json();
               console.log('[Subscription] ✅ Payment verified successfully:', verifyData);
+              console.log('[Subscription] 📊 Received subscription data:', {
+                id: verifyData.subscription?.id,
+                status: verifyData.subscription?.status,
+                paidSlots: verifyData.subscription?.paidSlots,
+                profileCount: verifyData.subscription?.profileCount
+              });
+
+              // CRITICAL: Store the updated subscription data for immediate access
+              if (verifyData.subscription) {
+                sessionStorage.setItem('verified_subscription', JSON.stringify(verifyData.subscription));
+                console.log('[Subscription] 💾 Stored verified subscription in sessionStorage');
+              }
 
               toast({
                 title: "Success!",
@@ -399,7 +411,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
               // Force subscription status refresh IMMEDIATELY before navigation
               console.log('[Subscription] 🔄 Refreshing subscription status...');
               await checkSubscriptionStatus();
-              
+
               // Small delay to ensure state updates, then navigate
               setTimeout(() => {
                 console.log('[Subscription] ✅ Navigating to payment success page');

@@ -561,22 +561,48 @@ router.post('/verify', async (req, res) => {
       // paid_slots = Total slots purchased (NEVER decreases during subscription period)
       // profileCount = Current active profiles (can increase/decrease as user adds/deletes)
 
-      const currentPaidSlots = subscription.paidSlots || subscription.profileCount || 0;
-      const newPaidSlots = currentPaidSlots + profileCount; // ADD new slots to existing slots
+      // CRITICAL FIX: Distinguish between trial->paid transition and top-up payments
+      const isFirstPayment = subscription.status === 'trial' || !subscription.paidSlots;
+
+      // CRITICAL: Convert to integers to prevent string concatenation!
+      const currentPaidSlots = parseInt(subscription.paidSlots) || 0; // ONLY use paidSlots, NOT profileCount
+      const profileCountInt = parseInt(profileCount); // Ensure this is a number!
+
+      console.log('[Payment Verify] 🔢 TYPE CHECK:', {
+        currentPaidSlots: { value: currentPaidSlots, type: typeof currentPaidSlots },
+        profileCount: { value: profileCountInt, type: typeof profileCountInt },
+        subscriptionPaidSlots: { value: subscription.paidSlots, type: typeof subscription.paidSlots }
+      });
+
+      let newPaidSlots;
+      if (isFirstPayment) {
+        // First payment: SET paid slots to what user just purchased
+        newPaidSlots = profileCountInt;
+        console.log('[Payment Verify] 💰 FIRST PAYMENT - Setting paidSlots:', {
+          previousStatus: subscription.status,
+          currentPaidSlots: currentPaidSlots,
+          profilesPurchased: profileCountInt,
+          newPaidSlots: newPaidSlots,
+          action: 'SET (not add)'
+        });
+      } else {
+        // Top-up payment: ADD to existing paid slots
+        newPaidSlots = currentPaidSlots + profileCountInt; // Both are integers now!
+        console.log('[Payment Verify] 💰 TOP-UP PAYMENT - Adding to paidSlots:', {
+          previousStatus: subscription.status,
+          currentPaidSlots: currentPaidSlots,
+          additionalProfilesPurchased: profileCountInt,
+          newPaidSlots: newPaidSlots,
+          action: 'ADD',
+          calculation: `${currentPaidSlots} + ${profileCountInt} = ${newPaidSlots}`
+        });
+      }
 
       // Track paid location IDs to know which specific profiles are paid for
       const paidLocationIds = subscription.paidLocationIds || [];
       if (locationId && !paidLocationIds.includes(locationId)) {
         paidLocationIds.push(locationId);
       }
-
-      console.log('[Payment Verify] Slot-based subscription update:', {
-        currentPaidSlots: currentPaidSlots,
-        newProfilesPurchased: profileCount,
-        newTotalPaidSlots: newPaidSlots,
-        locationId: locationId,
-        paidLocationIds: paidLocationIds
-      });
 
       const updatedSubscription = await subscriptionService.markSubscriptionAsPaid(gbpAccountId || subscription.gbpAccountId, {
         planId: planId || 'yearly_pro',
@@ -1125,13 +1151,18 @@ router.post('/subscription/verify-payment', async (req, res) => {
 
     console.log('[Subscription Verify] Step 4: Updating local subscription...');
 
-    // CRITICAL: Extract profileCount from subscription notes
-    const profileCountFromNotes = subscription.notes?.actualProfileCount || subscription.notes?.profileCount || subscription.quantity || 1;
+    // CRITICAL: Extract profileCount from subscription notes AND CONVERT TO INTEGER
+    const rawProfileCount = subscription.notes?.actualProfileCount || subscription.notes?.profileCount || subscription.quantity || 1;
+    const profileCountFromNotes = parseInt(rawProfileCount);
+
     console.log('[Subscription Verify] 📊 Profile count from subscription:', {
       actualProfileCount: subscription.notes?.actualProfileCount,
       profileCount: subscription.notes?.profileCount,
       quantity: subscription.quantity,
-      finalProfileCount: profileCountFromNotes
+      rawValue: rawProfileCount,
+      rawType: typeof rawProfileCount,
+      finalProfileCount: profileCountFromNotes,
+      finalType: typeof profileCountFromNotes
     });
 
     // Update local subscription
@@ -1144,15 +1175,45 @@ router.post('/subscription/verify-payment', async (req, res) => {
         const endDate = new Date();
         endDate.setFullYear(endDate.getFullYear() + 1); // 1 year subscription
 
-        // Calculate new paid slots (ADD to existing slots, don't replace)
-        const currentPaidSlots = localSubscription.paidSlots || localSubscription.profileCount || 0;
-        const newPaidSlots = currentPaidSlots + profileCountFromNotes;
-        
-        console.log('[Subscription Verify] 💰 Slot update:', {
-          currentPaidSlots,
-          newProfilesPurchased: profileCountFromNotes,
-          totalPaidSlots: newPaidSlots
+        // CRITICAL FIX: Distinguish between trial->paid transition and top-up payments
+        // - Trial->Paid: SET paidSlots = profileCountFromNotes (don't add to trial profileCount!)
+        // - Top-up: ADD to existing paidSlots
+
+        const isFirstPayment = localSubscription.status === 'trial' || !localSubscription.paidSlots;
+
+        // CRITICAL: Convert to integers to prevent string concatenation!
+        const currentPaidSlots = parseInt(localSubscription.paidSlots) || 0; // ONLY use paidSlots, NOT profileCount
+        const profileCountInt = parseInt(profileCountFromNotes); // Ensure this is a number!
+
+        console.log('[Subscription Verify] 🔢 TYPE CHECK:', {
+          currentPaidSlots: { value: currentPaidSlots, type: typeof currentPaidSlots },
+          profileCountFromNotes: { value: profileCountInt, type: typeof profileCountInt },
+          localSubscriptionPaidSlots: { value: localSubscription.paidSlots, type: typeof localSubscription.paidSlots }
         });
+
+        let newPaidSlots;
+        if (isFirstPayment) {
+          // First payment: SET paid slots to what user just purchased
+          newPaidSlots = profileCountInt;
+          console.log('[Subscription Verify] 💰 FIRST PAYMENT - Setting paidSlots:', {
+            previousStatus: localSubscription.status,
+            currentPaidSlots: currentPaidSlots,
+            profilesPurchased: profileCountInt,
+            newPaidSlots: newPaidSlots,
+            action: 'SET (not add)'
+          });
+        } else {
+          // Top-up payment: ADD to existing paid slots
+          newPaidSlots = currentPaidSlots + profileCountInt; // Both are integers now!
+          console.log('[Subscription Verify] 💰 TOP-UP PAYMENT - Adding to paidSlots:', {
+            previousStatus: localSubscription.status,
+            currentPaidSlots: currentPaidSlots,
+            additionalProfilesPurchased: profileCountInt,
+            newPaidSlots: newPaidSlots,
+            action: 'ADD',
+            calculation: `${currentPaidSlots} + ${profileCountInt} = ${newPaidSlots}`
+          });
+        }
 
         await subscriptionService.updateSubscription(localSubscription.id, {
           status: 'active',
@@ -1189,22 +1250,40 @@ router.post('/subscription/verify-payment', async (req, res) => {
 
     console.log('[Subscription Verify] ✅ ALL STEPS PASSED - Returning success response');
 
-    // Get the updated subscription to return to frontend
+    // CRITICAL: Fetch the COMPLETE updated subscription from database
+    // This ensures we return the latest data with paid slots
     let updatedLocalSub = null;
     if (gbpAccountId) {
       updatedLocalSub = await subscriptionService.getSubscriptionByGBPAccount(gbpAccountId);
+      console.log('[Subscription Verify] 📊 Fetched updated subscription:', {
+        id: updatedLocalSub?.id,
+        status: updatedLocalSub?.status,
+        paidSlots: updatedLocalSub?.paidSlots,
+        profileCount: updatedLocalSub?.profileCount,
+        planId: updatedLocalSub?.planId
+      });
     }
+
+    // Return the FULL subscription object, not just partial data
+    const responseSubscription = updatedLocalSub || {
+      id: subscription.id,
+      status: subscription.status,
+      mandateAuthorized: true,
+      paidSlots: profileCountFromNotes,
+      profileCount: profileCountFromNotes
+    };
+
+    console.log('[Subscription Verify] 📤 Returning subscription to frontend:', {
+      id: responseSubscription.id,
+      status: responseSubscription.status,
+      paidSlots: responseSubscription.paidSlots,
+      profileCount: responseSubscription.profileCount
+    });
 
     res.json({
       success: true,
       message: 'Subscription activated with auto-pay mandate',
-      subscription: {
-        id: subscription.id,
-        status: subscription.status,
-        mandateAuthorized: true,
-        paidSlots: updatedLocalSub?.paidSlots || profileCountFromNotes,
-        profileCount: updatedLocalSub?.profileCount || profileCountFromNotes
-      },
+      subscription: responseSubscription, // Return FULL subscription object
       payment: {
         id: payment.id,
         method: payment.method,
