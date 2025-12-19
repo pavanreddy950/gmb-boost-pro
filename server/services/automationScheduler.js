@@ -805,8 +805,10 @@ class AutomationScheduler {
       return 'learn_more';
     }
 
-    // Default: CALL if phone available, otherwise LEARN_MORE
-    return phoneNumber ? 'call_now' : 'learn_more';
+    // Default: ALWAYS prefer CALL button
+    // Google API automatically uses business phone from profile (no need to pass phoneNumber)
+    // Only use LEARN_MORE if website URL is available and phone is explicitly not wanted
+    return 'call_now'; // Changed from: phoneNumber ? 'call_now' : 'learn_more'
   }
 
   // Generate call-to-action based on button configuration
