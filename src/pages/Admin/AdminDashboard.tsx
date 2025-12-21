@@ -49,7 +49,7 @@ const AdminDashboard = () => {
             <DollarSign className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">${stats.totalRevenue?.toFixed(2) || '0.00'}</div>
+            <div className="text-2xl font-bold">₹{stats.totalRevenue?.toLocaleString('en-IN') || '0'}</div>
             <p className="text-xs text-muted-foreground flex items-center gap-1 mt-1">
               <TrendingUp className="h-3 w-3 text-green-500" />
               <span className="text-green-500">{stats.revenueGrowth || 0}%</span> from last period
@@ -80,7 +80,7 @@ const AdminDashboard = () => {
             <TrendingUp className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">${stats.mrr?.toFixed(2) || '0.00'}</div>
+            <div className="text-2xl font-bold">₹{stats.mrr?.toLocaleString('en-IN') || '0'}</div>
             <p className="text-xs text-muted-foreground mt-1">
               Estimated monthly revenue
             </p>
@@ -108,7 +108,7 @@ const AdminDashboard = () => {
             <DollarSign className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">${stats.todayRevenue?.toFixed(2) || '0.00'}</div>
+            <div className="text-2xl font-bold">₹{stats.todayRevenue?.toLocaleString('en-IN') || '0'}</div>
             <p className="text-xs text-muted-foreground mt-1">
               Revenue collected today
             </p>
@@ -177,7 +177,7 @@ const AdminDashboard = () => {
                   />
                   <YAxis />
                   <Tooltip
-                    formatter={(value: any) => `$${value.toFixed(2)}`}
+                    formatter={(value: any) => `₹${value.toLocaleString('en-IN')}`}
                     labelFormatter={(date) => new Date(date).toLocaleDateString()}
                   />
                   <Legend />
@@ -186,7 +186,7 @@ const AdminDashboard = () => {
                     dataKey="revenue"
                     stroke="#8884d8"
                     strokeWidth={2}
-                    name="Revenue ($)"
+                    name="Revenue (₹)"
                   />
                 </LineChart>
               </ResponsiveContainer>
@@ -243,7 +243,7 @@ const AdminDashboard = () => {
                 Average Transaction
               </div>
               <div className="text-2xl font-bold">
-                ${((stats.totalRevenue || 0) / (stats.successfulPayments || 1)).toFixed(2)}
+                ₹{((stats.totalRevenue || 0) / (stats.successfulPayments || 1)).toLocaleString('en-IN', { maximumFractionDigits: 2 })}
               </div>
             </div>
             <div className="border rounded-lg p-4">

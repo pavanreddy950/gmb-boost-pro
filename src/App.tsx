@@ -39,9 +39,6 @@ import AdminUsers from "./pages/Admin/AdminUsers";
 import AdminSubscriptions from "./pages/Admin/AdminSubscriptions";
 import AdminPayments from "./pages/Admin/AdminPayments";
 import AdminCoupons from "./pages/Admin/AdminCoupons";
-import AdminAnalytics from "./pages/Admin/AdminAnalytics";
-import AdminAudits from "./pages/Admin/AdminAudits";
-import AdminUserAudits from "./pages/Admin/AdminUserAudits";
 // SubscriptionGuard is now handled inside DashboardLayout
 
 const queryClient = new QueryClient();
@@ -122,9 +119,6 @@ const App = () => (
               <Route path="subscriptions" element={<AdminSubscriptions />} />
               <Route path="payments" element={<AdminPayments />} />
               <Route path="coupons" element={<AdminCoupons />} />
-              <Route path="analytics" element={<AdminAnalytics />} />
-              <Route path="audits" element={<AdminAudits />} />
-              <Route path="user-audits" element={<AdminUserAudits />} />
             </Route>
 
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}

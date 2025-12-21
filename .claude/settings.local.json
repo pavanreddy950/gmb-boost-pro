@@ -40,7 +40,8 @@
       "Bash(git commit -m \"$(cat <<''EOF''\nFix: Review reply business name and remove autoreply from Settings page\n\n- Fixed review reply showing ''Team Current Location'' instead of actual business name\n- Auto reply config now includes businessName, keywords, and category from parent config\n- Removed Auto Reply Settings section from Settings page  \n- Auto reply is now managed exclusively from Profile review section\n\nChanges:\n- server/services/automationScheduler.js: Merge full config with autoReply settings\n- src/pages/Settings.tsx: Removed Auto Reply Settings section\nEOF\n)\")",
       "Bash(dir:*)",
       "Bash(rebuild-and-push.bat)",
-      "Bash(cmd /c rebuild-and-push.bat)"
+      "Bash(cmd /c rebuild-and-push.bat)",
+      "Bash(docker info:*)"
     ],
     "deny": [],
     "ask": []

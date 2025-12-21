@@ -111,12 +111,9 @@ const AdminLayout = () => {
   const navigation = [
     { name: 'Dashboard', href: '/admin/dashboard', icon: LayoutDashboard },
     { name: 'Users', href: '/admin/users', icon: Users },
-    { name: 'User Audits', href: '/admin/user-audits', icon: BarChart3 },
     { name: 'Subscriptions', href: '/admin/subscriptions', icon: CreditCard },
     { name: 'Payments', href: '/admin/payments', icon: CreditCard },
     { name: 'Coupons', href: '/admin/coupons', icon: Ticket },
-    { name: 'Analytics', href: '/admin/analytics', icon: TrendingUp },
-    { name: 'Audit Logs', href: '/admin/audits', icon: FileText },
   ];
 
   return (

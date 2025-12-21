@@ -1,4 +1,5 @@
 import supabaseSubscriptionService from './supabaseSubscriptionService.js';
+import supabaseConfig from '../config/supabase.js';
 
 class AdminAnalyticsService {
   constructor() {
@@ -24,11 +25,35 @@ class AdminAnalyticsService {
   }
 
   /**
-   * Get revenue analytics
+   * Load all payments from Supabase payments table
+   */
+  async loadPayments() {
+    try {
+      const supabase = await supabaseConfig.ensureInitialized();
+
+      const { data: payments, error } = await supabase
+        .from('payments')
+        .select('*')
+        .order('paid_at', { ascending: false });
+
+      if (error) {
+        console.error('[AdminAnalyticsService] Error loading payments:', error);
+        return [];
+      }
+
+      return payments || [];
+    } catch (error) {
+      console.error('[AdminAnalyticsService] Error loading payments from Supabase:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Get revenue analytics - FIXED to use payments table
    */
   async getRevenueAnalytics(timeRange = '30days') {
     try {
-      const subscriptions = await this.loadSubscriptions();
+      const payments = await this.loadPayments();
       const now = new Date();
       let startDate;
 
@@ -50,65 +75,47 @@ class AdminAnalyticsService {
           startDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
       }
 
-      let totalRevenue = 0;
       let totalRevenueINR = 0;
       let totalRevenueUSD = 0;
       let paymentCount = 0;
       const dailyRevenue = new Map();
-      const revenueByPlan = new Map();
+      const dailyRevenueINR = new Map();
 
-      // Process all subscriptions
-      Object.values(subscriptions).forEach(subscription => {
-        if (!subscription.paymentHistory) return;
+      // Process all payments from database
+      payments.forEach(payment => {
+        const paymentDate = new Date(payment.paid_at || payment.created_at);
 
-        subscription.paymentHistory.forEach(payment => {
-          const paymentDate = new Date(payment.paidAt || payment.createdAt);
+        // Only include successful payments within time range
+        if (paymentDate >= startDate && payment.status === 'success') {
+          const amount = parseFloat(payment.amount) || 0;
+          const currency = payment.currency || 'INR';
 
-          // Only include payments within time range
-          if (paymentDate >= startDate && payment.status === 'success') {
-            const amount = payment.amount || 0;
-            const currency = payment.currency || 'INR';
+          paymentCount++;
 
-            // Convert to USD for total (rough conversion)
-            const usdAmount = currency === 'USD' ? amount : amount / 83; // Rough INR to USD
-
-            totalRevenue += usdAmount;
-            paymentCount++;
-
-            if (currency === 'INR') {
-              totalRevenueINR += amount;
-            } else {
-              totalRevenueUSD += amount;
-            }
-
-            // Daily revenue
-            const dateKey = paymentDate.toISOString().split('T')[0];
-            dailyRevenue.set(dateKey, (dailyRevenue.get(dateKey) || 0) + usdAmount);
-
-            // Revenue by plan
-            const planId = subscription.planId || 'unknown';
-            revenueByPlan.set(planId, (revenueByPlan.get(planId) || 0) + usdAmount);
+          if (currency === 'INR') {
+            totalRevenueINR += amount;
+          } else {
+            totalRevenueUSD += amount;
           }
-        });
+
+          // Daily revenue (store INR amounts for daily chart)
+          const dateKey = paymentDate.toISOString().split('T')[0];
+          dailyRevenueINR.set(dateKey, (dailyRevenueINR.get(dateKey) || 0) + amount);
+        }
       });
 
       // Convert daily revenue to array and sort
-      const dailyRevenueArray = Array.from(dailyRevenue.entries())
+      const dailyRevenueArray = Array.from(dailyRevenueINR.entries())
         .map(([date, revenue]) => ({ date, revenue: parseFloat(revenue.toFixed(2)) }))
         .sort((a, b) => new Date(a.date) - new Date(b.date));
 
-      // Convert revenue by plan to array
-      const revenueByPlanArray = Array.from(revenueByPlan.entries())
-        .map(([plan, revenue]) => ({ plan, revenue: parseFloat(revenue.toFixed(2)) }));
-
       return {
-        totalRevenue: parseFloat(totalRevenue.toFixed(2)),
+        totalRevenue: parseFloat(totalRevenueINR.toFixed(2)), // Show INR as main currency
         totalRevenueINR: parseFloat(totalRevenueINR.toFixed(2)),
         totalRevenueUSD: parseFloat(totalRevenueUSD.toFixed(2)),
         paymentCount,
-        averageTransactionValue: paymentCount > 0 ? parseFloat((totalRevenue / paymentCount).toFixed(2)) : 0,
+        averageTransactionValue: paymentCount > 0 ? parseFloat((totalRevenueINR / paymentCount).toFixed(2)) : 0,
         dailyRevenue: dailyRevenueArray,
-        revenueByPlan: revenueByPlanArray,
         timeRange
       };
     } catch (error) {
@@ -183,11 +190,11 @@ class AdminAnalyticsService {
   }
 
   /**
-   * Get payment analytics
+   * Get payment analytics - FIXED to use payments table
    */
   async getPaymentAnalytics() {
     try {
-      const subscriptions = await this.loadSubscriptions();
+      const payments = await this.loadPayments();
 
       const stats = {
         totalPayments: 0,
@@ -199,26 +206,22 @@ class AdminAnalyticsService {
         paymentMethods: new Map()
       };
 
-      Object.values(subscriptions).forEach(subscription => {
-        if (!subscription.paymentHistory) return;
+      payments.forEach(payment => {
+        stats.totalPayments++;
 
-        subscription.paymentHistory.forEach(payment => {
-          stats.totalPayments++;
+        const status = payment.status || 'unknown';
+        if (status === 'success') {
+          stats.successfulPayments++;
+          stats.totalProcessed += parseFloat(payment.amount) || 0;
+        } else if (status === 'failed') {
+          stats.failedPayments++;
+        } else if (status === 'pending') {
+          stats.pendingPayments++;
+        }
 
-          const status = payment.status || 'unknown';
-          if (status === 'success') {
-            stats.successfulPayments++;
-            stats.totalProcessed += payment.amount || 0;
-          } else if (status === 'failed') {
-            stats.failedPayments++;
-          } else if (status === 'pending') {
-            stats.pendingPayments++;
-          }
-
-          // Payment method (from Razorpay or similar)
-          const method = payment.method || 'razorpay';
-          stats.paymentMethods.set(method, (stats.paymentMethods.get(method) || 0) + 1);
-        });
+        // Payment method (from Razorpay or similar)
+        const method = payment.razorpay_method || 'razorpay';
+        stats.paymentMethods.set(method, (stats.paymentMethods.get(method) || 0) + 1);
       });
 
       stats.successRate = stats.totalPayments > 0

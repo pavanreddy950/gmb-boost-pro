@@ -140,6 +140,7 @@ const AdminUsers = () => {
                   <TableHead>Display Name</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Subscription</TableHead>
+                  <TableHead>Plan / Profiles</TableHead>
                   <TableHead>GBP Connected</TableHead>
                   <TableHead>Joined</TableHead>
                   <TableHead>Actions</TableHead>
@@ -165,6 +166,18 @@ const AdminUsers = () => {
                         )}
                       </TableCell>
                       <TableCell>{getStatusBadge(user.subscription)}</TableCell>
+                      <TableCell>
+                        {user.subscription ? (
+                          <div className="text-sm">
+                            <div className="font-medium">{user.subscription.profileCount || 0} Profiles</div>
+                            {user.subscription.planId && (
+                              <div className="text-xs text-gray-500">{user.subscription.planId}</div>
+                            )}
+                          </div>
+                        ) : (
+                          <span className="text-gray-400 text-sm">-</span>
+                        )}
+                      </TableCell>
                       <TableCell>
                         {user.gbpAccountId ? (
                           <Badge variant="outline" className="bg-green-50">
@@ -226,7 +239,7 @@ const AdminUsers = () => {
                   ))
                 ) : (
                   <TableRow>
-                    <TableCell colSpan={7} className="text-center text-gray-500 py-8">
+                    <TableCell colSpan={8} className="text-center text-gray-500 py-8">
                       No users found
                     </TableCell>
                   </TableRow>
