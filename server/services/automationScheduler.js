@@ -741,74 +741,13 @@ class AutomationScheduler {
   }
 
   // Smart button type selection based on business category
+  // CRITICAL: ALWAYS return 'call_now' as default for auto-posting
+  // Google API automatically uses the business phone from profile
   smartSelectButtonType(category, phoneNumber, websiteUrl) {
-    const lowerCategory = (category || '').toLowerCase();
-
-    // Hospitality & Accommodation - prefer BOOK if website, else CALL
-    if (lowerCategory.includes('hotel') || lowerCategory.includes('resort') ||
-        lowerCategory.includes('accommodation') || lowerCategory.includes('inn') ||
-        lowerCategory.includes('motel') || lowerCategory.includes('guest house')) {
-      return websiteUrl ? 'book' : (phoneNumber ? 'call_now' : 'learn_more');
-    }
-
-    // Food & Beverage - prefer ORDER for restaurants, CALL for cafes/bars
-    if (lowerCategory.includes('restaurant') || lowerCategory.includes('food') ||
-        lowerCategory.includes('dining') || lowerCategory.includes('pizza') ||
-        lowerCategory.includes('burger')) {
-      return websiteUrl ? 'order' : (phoneNumber ? 'call_now' : 'learn_more');
-    }
-    if (lowerCategory.includes('cafe') || lowerCategory.includes('coffee') ||
-        lowerCategory.includes('bar') || lowerCategory.includes('pub')) {
-      return phoneNumber ? 'call_now' : 'learn_more';
-    }
-
-    // Health & Wellness - prefer BOOK
-    if (lowerCategory.includes('salon') || lowerCategory.includes('spa') ||
-        lowerCategory.includes('massage') || lowerCategory.includes('wellness') ||
-        lowerCategory.includes('clinic') || lowerCategory.includes('dental') ||
-        lowerCategory.includes('doctor') || lowerCategory.includes('health')) {
-      return websiteUrl ? 'book' : (phoneNumber ? 'call_now' : 'learn_more');
-    }
-
-    // Fitness - prefer SIGN_UP if website, else CALL
-    if (lowerCategory.includes('gym') || lowerCategory.includes('fitness') ||
-        lowerCategory.includes('yoga') || lowerCategory.includes('training')) {
-      return websiteUrl ? 'sign_up' : (phoneNumber ? 'call_now' : 'learn_more');
-    }
-
-    // Retail & Shopping - prefer SHOP
-    if (lowerCategory.includes('shop') || lowerCategory.includes('store') ||
-        lowerCategory.includes('retail') || lowerCategory.includes('boutique') ||
-        lowerCategory.includes('clothing') || lowerCategory.includes('fashion') ||
-        lowerCategory.includes('electronics') || lowerCategory.includes('mobile')) {
-      return websiteUrl ? 'buy' : (phoneNumber ? 'call_now' : 'learn_more');
-    }
-
-    // Education - prefer SIGN_UP
-    if (lowerCategory.includes('school') || lowerCategory.includes('education') ||
-        lowerCategory.includes('coaching') || lowerCategory.includes('training') ||
-        lowerCategory.includes('course') || lowerCategory.includes('tuition')) {
-      return websiteUrl ? 'sign_up' : (phoneNumber ? 'call_now' : 'learn_more');
-    }
-
-    // Services (repair, professional) - prefer CALL
-    if (lowerCategory.includes('repair') || lowerCategory.includes('service') ||
-        lowerCategory.includes('plumber') || lowerCategory.includes('electrician') ||
-        lowerCategory.includes('mechanic') || lowerCategory.includes('lawyer') ||
-        lowerCategory.includes('accountant')) {
-      return phoneNumber ? 'call_now' : 'learn_more';
-    }
-
-    // Real Estate - prefer LEARN_MORE
-    if (lowerCategory.includes('real estate') || lowerCategory.includes('property') ||
-        lowerCategory.includes('estate agent')) {
-      return 'learn_more';
-    }
-
-    // Default: ALWAYS prefer CALL button
-    // Google API automatically uses business phone from profile (no need to pass phoneNumber)
-    // Only use LEARN_MORE if website URL is available and phone is explicitly not wanted
-    return 'call_now'; // Changed from: phoneNumber ? 'call_now' : 'learn_more'
+    // ALWAYS return CALL_NOW for all auto-posting
+    // This ensures every automated post has a Call Now button
+    console.log('[AutomationScheduler] 🎯 Smart selection: ALWAYS using CALL_NOW button for auto-posting');
+    return 'call_now';
   }
 
   // Generate call-to-action based on button configuration
@@ -908,25 +847,14 @@ class AutomationScheduler {
         break;
 
       case 'auto':
-        // Smart selection based on business category
-        const lowerCategory = category.toLowerCase();
-
-        if (lowerCategory.includes('restaurant') || lowerCategory.includes('food')) {
-          actionType = 'ORDER';
-        } else if (lowerCategory.includes('salon') || lowerCategory.includes('spa') ||
-                   lowerCategory.includes('health') || lowerCategory.includes('clinic')) {
-          actionType = 'BOOK';
-        } else if (lowerCategory.includes('retail') || lowerCategory.includes('shop') ||
-                   lowerCategory.includes('store')) {
-          actionType = 'SHOP';
-        } else if (lowerCategory.includes('education') || lowerCategory.includes('school') ||
-                   lowerCategory.includes('course')) {
-          actionType = 'SIGN_UP';
-        } else {
-          actionType = 'LEARN_MORE';
-        }
-        console.log(`[AutomationScheduler] Auto-selected CTA type: ${actionType} for category: ${category}`);
-        break;
+        // CRITICAL: Auto mode now ALWAYS uses CALL button
+        // This ensures all automated posts have a Call Now CTA
+        actionType = 'CALL';
+        console.log(`[AutomationScheduler] Auto-selected CTA type: ${actionType} (CALL is now the default for all auto-posting)`);
+        console.log('[AutomationScheduler] ✅ Generated CALL CTA for auto mode');
+        console.log('[AutomationScheduler] 📞 Phone number will be automatically used from business profile');
+        console.log('[AutomationScheduler] ========================================');
+        return { actionType: 'CALL' };
     }
 
     // For non-CALL actions, we need a URL
