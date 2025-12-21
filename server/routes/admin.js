@@ -363,32 +363,30 @@ router.post('/subscriptions/create', checkAdminLevel(['super']), async (req, res
 });
 
 // ============= PAYMENTS =============
+// FIXED: Now reads payment data from Supabase subscriptions table
 router.get('/payments', async (req, res) => {
   try {
-    const subscriptionsData = await adminAnalyticsService.loadSubscriptions();
-    const allPayments = [];
+    // Load payments from Supabase database (extracted from subscriptions)
+    const payments = await adminAnalyticsService.loadPayments();
 
-    Object.values(subscriptionsData).forEach(sub => {
-      if (sub.paymentHistory && Array.isArray(sub.paymentHistory)) {
-        sub.paymentHistory.forEach(payment => {
-          allPayments.push({
-            ...payment,
-            userEmail: sub.email,
-            userId: sub.userId,
-            gbpAccountId: sub.gbpAccountId,
-            planId: sub.planId
-          });
-        });
-      }
-    });
+    // Map to frontend format (payment data already includes user info)
+    const allPayments = payments.map(payment => ({
+      id: payment.id,
+      amount: payment.amount,
+      currency: payment.currency,
+      status: payment.status,
+      description: payment.description,
+      razorpayPaymentId: payment.razorpay_payment_id,
+      razorpayOrderId: payment.razorpay_order_id,
+      paidAt: payment.paid_at,
+      createdAt: payment.created_at,
+      userEmail: payment.email || 'Unknown',
+      userId: payment.user_id || null,
+      gbpAccountId: payment.gbp_account_id || null,
+      planId: payment.plan_id || null
+    }));
 
-    // Sort by date (most recent first)
-    allPayments.sort((a, b) => {
-      const dateA = new Date(a.paidAt || a.createdAt);
-      const dateB = new Date(b.paidAt || b.createdAt);
-      return dateB - dateA;
-    });
-
+    // Already sorted by paid_at desc in loadPayments()
     res.json({ success: true, data: allPayments });
   } catch (error) {
     console.error('Error getting payments:', error);

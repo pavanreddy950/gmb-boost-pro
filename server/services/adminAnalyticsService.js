@@ -25,23 +25,69 @@ class AdminAnalyticsService {
   }
 
   /**
-   * Load all payments from Supabase payments table
+   * Load all payments from Supabase subscriptions table
+   * Fetches ACTUAL payment amounts from Razorpay API
    */
   async loadPayments() {
     try {
       const supabase = await supabaseConfig.ensureInitialized();
 
-      const { data: payments, error } = await supabase
-        .from('payments')
+      // Get all subscriptions that have payment data (where last_payment_date OR razorpay_payment_id is not null)
+      const { data: subscriptions, error } = await supabase
+        .from('subscriptions')
         .select('*')
-        .order('paid_at', { ascending: false });
+        .or('last_payment_date.not.is.null,razorpay_payment_id.not.is.null')
+        .order('last_payment_date', { ascending: false, nullsFirst: false });
 
       if (error) {
         console.error('[AdminAnalyticsService] Error loading payments:', error);
         return [];
       }
 
-      return payments || [];
+      // Initialize Razorpay to fetch actual payment amounts
+      const Razorpay = (await import('razorpay')).default;
+      const razorpay = new Razorpay({
+        key_id: process.env.RAZORPAY_KEY_ID,
+        key_secret: process.env.RAZORPAY_KEY_SECRET
+      });
+
+      // Map subscription records to payment format with ACTUAL amounts from Razorpay
+      const payments = await Promise.all((subscriptions || []).map(async (sub) => {
+        let actualAmount = sub.amount || 0;
+        let actualCurrency = sub.currency || 'INR';
+
+        // Fetch actual payment amount from Razorpay if payment ID exists
+        if (sub.razorpay_payment_id) {
+          try {
+            const razorpayPayment = await razorpay.payments.fetch(sub.razorpay_payment_id);
+            actualAmount = razorpayPayment.amount / 100; // Razorpay stores in paise, convert to rupees
+            actualCurrency = razorpayPayment.currency || 'INR';
+          } catch (razorpayError) {
+            console.error(`[AdminAnalyticsService] Error fetching Razorpay payment ${sub.razorpay_payment_id}:`, razorpayError.error?.description || razorpayError.message);
+            // If Razorpay fetch fails, use stored amount or 0
+          }
+        }
+
+        return {
+          id: sub.id,
+          subscription_id: sub.id,
+          amount: actualAmount,
+          currency: actualCurrency,
+          status: sub.razorpay_payment_id ? 'success' : 'pending',
+          description: `Payment for ${sub.plan_id || 'subscription'} (${sub.profile_count || 0} profiles)`,
+          razorpay_payment_id: sub.razorpay_payment_id,
+          razorpay_order_id: sub.razorpay_order_id,
+          paid_at: sub.last_payment_date || sub.paid_at || sub.created_at,
+          created_at: sub.created_at,
+          // User info
+          user_id: sub.user_id,
+          email: sub.email,
+          gbp_account_id: sub.gbp_account_id,
+          plan_id: sub.plan_id
+        };
+      }));
+
+      return payments;
     } catch (error) {
       console.error('[AdminAnalyticsService] Error loading payments from Supabase:', error);
       return [];

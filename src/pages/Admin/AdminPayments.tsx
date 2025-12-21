@@ -72,29 +72,37 @@ const AdminPayments = () => {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {payments.map((payment, index) => (
-                  <TableRow key={payment.id || index}>
-                    <TableCell>
-                      {payment.paidAt
-                        ? format(new Date(payment.paidAt), 'MMM dd, yyyy HH:mm')
-                        : '-'}
-                    </TableCell>
-                    <TableCell className="font-medium">{payment.userEmail}</TableCell>
-                    <TableCell>{payment.description}</TableCell>
-                    <TableCell className="font-bold">
-                      {payment.amount} {payment.currency}
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-2">
-                        {getStatusIcon(payment.status)}
-                        {getStatusBadge(payment.status)}
-                      </div>
-                    </TableCell>
-                    <TableCell className="text-xs text-gray-500">
-                      {payment.razorpayPaymentId}
+                {payments.length > 0 ? (
+                  payments.map((payment, index) => (
+                    <TableRow key={payment.id || index}>
+                      <TableCell>
+                        {payment.paidAt
+                          ? format(new Date(payment.paidAt), 'MMM dd, yyyy HH:mm')
+                          : '-'}
+                      </TableCell>
+                      <TableCell className="font-medium">{payment.userEmail || 'Unknown'}</TableCell>
+                      <TableCell>{payment.description || `Payment for ${payment.planId || 'subscription'}`}</TableCell>
+                      <TableCell className="font-bold">
+                        ₹{parseFloat(payment.amount || 0).toLocaleString('en-IN')}
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          {getStatusIcon(payment.status)}
+                          {getStatusBadge(payment.status)}
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-xs text-gray-500">
+                        {payment.razorpayPaymentId || '-'}
+                      </TableCell>
+                    </TableRow>
+                  ))
+                ) : (
+                  <TableRow>
+                    <TableCell colSpan={6} className="text-center text-gray-500 py-8">
+                      No payments found
                     </TableCell>
                   </TableRow>
-                ))}
+                )}
               </TableBody>
             </Table>
           </div>
