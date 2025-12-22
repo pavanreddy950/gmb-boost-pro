@@ -1,0 +1,44 @@
+services:
+  # Backend API Service
+  - type: web
+    name: pavan-client-backend
+    runtime: node
+    region: singapore  # Change to your preferred region
+    plan: free  # Change to 'starter' or higher for production
+    buildCommand: cd server && npm install
+    startCommand: cd server && node server.js
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: RUN_MODE
+        value: AZURE
+      - key: PORT
+        generateValue: true  # Render will auto-assign port
+      - key: FRONTEND_URL
+        value: https://www.app.lobaiseo.com
+      - key: BACKEND_URL
+        sync: false  # Will be set to Render URL automatically
+      - key: GOOGLE_CLIENT_ID
+        sync: false  # Set manually in Render dashboard
+      - key: GOOGLE_CLIENT_SECRET
+        sync: false  # Set manually in Render dashboard
+      - key: GOOGLE_REDIRECT_URI
+        value: https://www.app.lobaiseo.com/auth/google/callback
+      - key: HARDCODED_ACCOUNT_ID
+        value: 106433552101751461082
+      - key: RAZORPAY_KEY_ID
+        sync: false  # Set manually in Render dashboard
+      - key: RAZORPAY_KEY_SECRET
+        sync: false  # Set manually in Render dashboard
+      - key: RAZORPAY_WEBHOOK_SECRET
+        value: gmb_boost_pro_webhook_secret_2024
+      - key: AZURE_OPENAI_ENDPOINT
+        value: https://agentplus.openai.azure.com/
+      - key: AZURE_OPENAI_API_KEY
+        sync: false  # Set manually in Render dashboard
+      - key: AZURE_OPENAI_DEPLOYMENT
+        value: gpt-4o
+      - key: AZURE_OPENAI_API_VERSION
+        value: 2024-02-15-preview
+      - key: FIREBASE_PROJECT_ID
+        value: gbp-467810-a56e2
