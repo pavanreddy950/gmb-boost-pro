@@ -41,7 +41,8 @@
       "Bash(dir:*)",
       "Bash(rebuild-and-push.bat)",
       "Bash(cmd /c rebuild-and-push.bat)",
-      "Bash(docker info:*)"
+      "Bash(docker info:*)",
+      "WebFetch(domain:lobaiseo.onrender.com)"
     ],
     "deny": [],
     "ask": []
