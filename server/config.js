@@ -255,6 +255,13 @@ class Config {
       );
     }
 
+    // Render production origins
+    origins.push(
+      'https://lobaiseofrontend.onrender.com',
+      'https://lobaiseo-frontend.onrender.com',
+      'https://lobaiseo.onrender.com'
+    );
+
     // Always include the configured frontend URL
     origins.push(this.frontendUrl);
 
