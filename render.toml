@@ -1,0 +1,9 @@
+# Render configuration for static site
+# This ensures _redirects file is properly used
+
+[[services]]
+type = "web"
+name = "lobaiseofrontend"
+env = "static"
+buildCommand = "npm install && npm run build"
+staticPublishPath = "dist"
