@@ -419,23 +419,34 @@ class AutomationScheduler {
     console.log(`[AutomationScheduler] 📅 Frequency: ${config.frequency}, Schedule: ${config.schedule}, Timezone: ${config.timezone || DEFAULT_TIMEZONE}`);
 
     const job = cron.schedule(cronExpression, async () => {
-      console.log(`[AutomationScheduler] ⏰ CRON TRIGGERED - Running scheduled post for location ${locationId}`);
-      console.log(`[AutomationScheduler] 🕐 Trigger time: ${new Date().toISOString()}`);
-      
+      console.log(`[AutomationScheduler] ========================================`);
+      console.log(`[AutomationScheduler] ⏰ CRON JOB TRIGGERED!`);
+      console.log(`[AutomationScheduler] 📍 Location: ${locationId}`);
+      console.log(`[AutomationScheduler] 🏢 Business: ${config.businessName || 'Unknown'}`);
+      console.log(`[AutomationScheduler] 🕐 Trigger time (IST): ${new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })}`);
+      console.log(`[AutomationScheduler] 🕐 Trigger time (UTC): ${new Date().toISOString()}`);
+      console.log(`[AutomationScheduler] 📅 Frequency: ${config.frequency}`);
+      console.log(`[AutomationScheduler] ⏰ Schedule: ${config.schedule}`);
+      console.log(`[AutomationScheduler] 🌍 Timezone: ${config.timezone || DEFAULT_TIMEZONE}`);
+      console.log(`[AutomationScheduler] 📝 Cron Expression: ${cronExpression}`);
+      console.log(`[AutomationScheduler] ========================================`);
+
       // For frequencies that need interval checking (like "alternative"), verify it's time to post
       if (config.frequency === 'alternative') {
         const lastRun = config.lastRun ? new Date(config.lastRun) : null;
         const nextScheduledTime = this.calculateNextScheduledTime(config, lastRun);
         const now = new Date();
-        
+
         if (nextScheduledTime && now < nextScheduledTime) {
           console.log(`[AutomationScheduler] ⏭️  Skipping - Next post scheduled for: ${nextScheduledTime.toISOString()}`);
           console.log(`[AutomationScheduler] ⏱️  Time remaining: ${Math.floor((nextScheduledTime - now) / 1000 / 60 / 60)} hours`);
           return; // Skip this run
         }
       }
-      
+
+      console.log(`[AutomationScheduler] ▶️ Executing createAutomatedPost now...`);
       await this.createAutomatedPost(locationId, config);
+      console.log(`[AutomationScheduler] ✅ createAutomatedPost completed`);
     }, {
       scheduled: true,
       timezone: config.timezone || DEFAULT_TIMEZONE
@@ -771,18 +782,20 @@ class AutomationScheduler {
       businessCategory: config.businessCategory
     });
 
-    // If button is explicitly disabled or type is 'none', return null
-    if (button?.enabled === false || button?.type === 'none') {
-      console.log('[AutomationScheduler] ❌ CTA button explicitly disabled or type is "none"');
-      console.log('[AutomationScheduler] ========================================');
-      return null;
+    // 🔧 CRITICAL FIX: For auto-posting, ALWAYS add CALL button even if disabled
+    // This ensures every automated post has a CTA button
+    // Only skip if explicitly set to 'none' AND enabled is explicitly false
+    if (button?.enabled === false && button?.type === 'none') {
+      console.log('[AutomationScheduler] ⚠️ CTA button explicitly disabled with type "none"');
+      console.log('[AutomationScheduler] 🔧 OVERRIDE: Auto-posting requires CTA - forcing CALL button');
+      // Don't return null - force CALL button below
     }
 
     // Smart default button selection based on business category if no button specified
     let buttonType = button?.type;
-    if (!buttonType) {
+    if (!buttonType || buttonType === 'none' || buttonType === 'auto') {
       buttonType = this.smartSelectButtonType(category, phoneNumber, websiteUrl);
-      console.log(`[AutomationScheduler] 🎯 Smart-selected button type: ${buttonType} for category: ${category}`);
+      console.log(`[AutomationScheduler] 🎯 Smart-selected button type: ${buttonType} (always CALL for auto-posting)`);
     } else {
       console.log(`[AutomationScheduler] ✅ Using configured button type: ${buttonType}`);
     }
@@ -793,31 +806,17 @@ class AutomationScheduler {
 
     switch (buttonType) {
       case 'call_now':
-        // Use phone number from button config first, then from business profile
+        // 🔧 CRITICAL FIX: ALWAYS return CALL button for auto-posting
+        // Google My Business API v4 automatically uses the phone number from the business profile
+        // We don't need to pass the phone number in the CTA object
         const phone = button?.phoneNumber || phoneNumber;
         console.log('[AutomationScheduler] 📞 Call Now button - Phone numbers:', {
           fromButton: button?.phoneNumber || 'NONE',
           fromProfile: phoneNumber || 'NONE',
-          finalPhone: phone || 'NONE'
+          finalPhone: phone || 'NONE (will use business profile phone)'
         });
-        if (!phone) {
-          console.error('[AutomationScheduler] ❌ Call Now button selected but no phone number available');
-          console.error('[AutomationScheduler] ⚠️ Falling back to LEARN_MORE with website URL');
-          if (!url) {
-            console.log('[AutomationScheduler] ========================================');
-            return null;
-          }
-          // Fallback to LEARN_MORE if no phone
-          const fallbackCTA = {
-            actionType: 'LEARN_MORE',
-            url: url
-          };
-          console.log('[AutomationScheduler] ⚠️ Generated fallback CTA:', fallbackCTA);
-          console.log('[AutomationScheduler] ========================================');
-          return fallbackCTA;
-        }
-        // Google My Business API v4 doesn't accept phoneNumber in callToAction
-        // It automatically uses the phone number from the business profile
+
+        // ALWAYS return CALL CTA - Google API will use phone from business profile
         const callCTA = {
           actionType: 'CALL'
         };

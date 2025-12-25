@@ -1253,6 +1253,27 @@ app.post('/auth/google/callback', async (req, res) => {
       throw new Error(`Failed to save tokens: ${saveError.message}`);
     }
 
+    // 🔧 CRITICAL FIX: Also save tokens to Supabase for auto-posting and Test Post Now
+    console.log('1️⃣5️⃣.5️⃣ Saving tokens to Supabase for auto-posting...');
+    try {
+      await supabaseTokenStorage.saveUserToken(userId, {
+        access_token: tokens.access_token,
+        refresh_token: tokens.refresh_token,
+        expires_in: expiresIn > 0 ? expiresIn : 3600,
+        scope: tokens.scope || '',
+        token_type: tokens.token_type || 'Bearer',
+        expiry_date: tokens.expiry_date
+      });
+      console.log('1️⃣5️⃣.5️⃣ ✅ Tokens saved successfully to Supabase');
+      console.log('1️⃣5️⃣.5️⃣ 🎯 Test Post Now button will work immediately!');
+    } catch (supabaseSaveError) {
+      console.error('⚠️ Failed to save tokens to Supabase (non-critical):', {
+        message: supabaseSaveError.message,
+        stack: supabaseSaveError.stack
+      });
+      // Don't throw - Firestore tokens are already saved, this is just for auto-posting feature
+    }
+
     // Check if user has a Google Business Profile account
     console.log('1️⃣6️⃣ Checking for GBP accounts...');
     try {
