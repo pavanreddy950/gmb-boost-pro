@@ -675,6 +675,26 @@ app.post('/api/automation/test-post-now/:locationId', async (req, res) => {
       console.log(`[TEST POST] ❌ No user ID provided and no token from frontend`);
     }
 
+    // PRIORITY 4: Try to get token from Supabase token storage (fallback)
+    if (!token && finalUserId) {
+      try {
+        console.log(`[TEST POST] Attempting to get tokens from Supabase for user: ${finalUserId}`);
+        const supabaseTokens = await supabaseTokenStorage.getUserToken(finalUserId);
+        console.log(`[TEST POST] Supabase returned:`, {
+          hasTokens: !!supabaseTokens,
+          hasAccessToken: !!supabaseTokens?.access_token,
+          hasRefreshToken: !!supabaseTokens?.refresh_token
+        });
+
+        if (supabaseTokens && supabaseTokens.access_token) {
+          token = supabaseTokens.access_token;
+          console.log(`[TEST POST] ✅ Found valid token for user ${finalUserId} from Supabase`);
+        }
+      } catch (error) {
+        console.log(`[TEST POST] ❌ Error getting tokens from Supabase:`, error.message);
+      }
+    }
+
     if (!token) {
       console.log(`[TEST POST] ========================================`);
       console.log(`[TEST POST] RETURNING 401 - No valid token`);
