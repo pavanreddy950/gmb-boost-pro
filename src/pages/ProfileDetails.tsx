@@ -358,7 +358,7 @@ const ProfileDetails = () => {
         </TabsContent>
         
         <TabsContent value="reviews">
-          <ReviewsTab profileId={location.locationId} />
+          <ReviewsTab profileId={location.locationId} businessName={location.name} />
         </TabsContent>
         
         <TabsContent value="photos">

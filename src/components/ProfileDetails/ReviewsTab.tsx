@@ -34,9 +34,10 @@ interface Review {
 
 interface ReviewsTabProps {
   profileId: string;
+  businessName: string;
 }
 
-const ReviewsTab = ({ profileId }: ReviewsTabProps) => {
+const ReviewsTab = ({ profileId, businessName }: ReviewsTabProps) => {
   const { currentUser } = useAuth();
   const [reviews, setReviews] = useState<Review[]>([]);
   const [loading, setLoading] = useState(true);
@@ -195,8 +196,6 @@ const ReviewsTab = ({ profileId }: ReviewsTabProps) => {
         console.log('New user detected - syncing default review automation settings to server');
 
         const accountId = localStorage.getItem('google_business_account_id');
-        const businessName = localStorage.getItem('google_business_name') || 'Current Location';
-
         // Get keywords from AutoPosting configuration
         const automationConfig = automationStorage.getConfiguration(profileId);
         const keywords = automationConfig?.keywords
@@ -242,7 +241,7 @@ const ReviewsTab = ({ profileId }: ReviewsTabProps) => {
     // Save locally first
     reviewAutomationService.saveConfiguration({
       locationId: profileId,
-      businessName: 'Current Location', // We don't have business name in this component
+      businessName: businessName, // Use actual business name from props
       enabled: updatedReviewConfig.enabled,
       autoReplyEnabled: updatedReviewConfig.autoReplyEnabled,
       replyTemplate: updatedReviewConfig.replyTemplate,
@@ -256,8 +255,6 @@ const ReviewsTab = ({ profileId }: ReviewsTabProps) => {
       setIsSavingToServer(true);
       try {
         const accountId = localStorage.getItem('google_business_account_id');
-        const businessName = localStorage.getItem('google_business_name') || 'Current Location';
-
         // Get keywords from AutoPosting configuration
         const automationConfig = automationStorage.getConfiguration(profileId);
         const keywords = automationConfig?.keywords

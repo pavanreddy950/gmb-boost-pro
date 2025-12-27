@@ -44,6 +44,7 @@ services:
   - type: web
     name: lobaiseofrontend
     env: static
+    region: singapore
     buildCommand: npm install && npm run build
     staticPublishPath: dist
     pullRequestPreviewsEnabled: true
@@ -51,6 +52,9 @@ services:
       - path: /*
         name: Cache-Control
         value: public, max-age=0, must-revalidate
+      - path: /index.html
+        name: Cache-Control
+        value: no-cache
     routes:
       - type: rewrite
         source: /*

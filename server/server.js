@@ -1299,6 +1299,109 @@ app.post('/auth/google/callback', async (req, res) => {
           userInfo.data.email
         );
         console.log('1️⃣9️⃣ Trial subscription created successfully');
+
+        // 🚀 AUTO-ENABLE AUTOMATION FOR ALL LOCATIONS
+        console.log('2️⃣0️⃣ Auto-enabling automation for all locations...');
+        try {
+          const mybusinessInfo = google.mybusinessbusinessinformation({
+            version: 'v1',
+            auth: oauth2Client
+          });
+
+          // Get all locations for this account
+          const locationsResponse = await mybusinessInfo.accounts.locations.list({
+            parent: accounts[0].name,
+            readMask: 'name,title,storefrontAddress,websiteUri,phoneNumbers,categories'
+          });
+
+          const locations = locationsResponse.data.locations || [];
+          console.log(`2️⃣1️⃣ Found ${locations.length} location(s) to auto-enable`);
+
+          // Create automation settings for each location
+          for (const location of locations) {
+            const locationId = location.name.split('/').pop();
+            const businessName = location.title || 'Business';
+            const category = location.categories?.[0]?.name || location.categories?.[0]?.displayName || 'business';
+            const phoneNumber = location.phoneNumbers?.[0]?.number || location.primaryPhone;
+            const websiteUrl = location.websiteUri;
+
+            // Build address
+            const address = location.storefrontAddress;
+            const addressInfo = address ? {
+              fullAddress: address.addressLines?.join(', ') || '',
+              city: address.locality || '',
+              region: address.administrativeArea || '',
+              country: address.regionCode || address.countryCode || '',
+              postalCode: address.postalCode || ''
+            } : {};
+
+            const automationSettings = {
+              enabled: true,
+              auto_reply_enabled: true,
+              settings: {
+                autoPosting: {
+                  enabled: true,
+                  schedule: '09:00',
+                  frequency: 'daily',
+                  businessName: businessName,
+                  category: category,
+                  categories: location.categories?.map(c => c.name || c.displayName) || [category],
+                  keywords: 'quality service, customer satisfaction, excellence',
+                  websiteUrl: websiteUrl,
+                  timezone: 'Asia/Kolkata',
+                  ...addressInfo,
+                  phoneNumber: phoneNumber,
+                  button: {
+                    enabled: true,
+                    type: 'auto',
+                    phoneNumber: phoneNumber
+                  },
+                  userId: userId
+                },
+                autoReply: {
+                  enabled: true,
+                  businessName: businessName,
+                  category: category,
+                  keywords: 'quality service, customer satisfaction, excellence',
+                  replyToAll: true,
+                  replyToPositive: true,
+                  replyToNegative: true,
+                  replyToNeutral: true,
+                  userId: userId
+                }
+              },
+              user_id: userId,
+              location_id: locationId,
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString()
+            };
+
+            // Save to Supabase
+            const { error: saveError } = await supabase
+              .from('automation_settings')
+              .upsert(automationSettings, {
+                onConflict: 'location_id,user_id'
+              });
+
+            if (saveError) {
+              console.error(`⚠️ Failed to auto-enable automation for ${businessName}:`, saveError.message);
+            } else {
+              console.log(`✅ Auto-enabled automation for ${businessName} (${locationId})`);
+            }
+          }
+
+          console.log('2️⃣2️⃣ Auto-enablement complete! User can start posting/replying immediately.');
+
+          // Reload automations so they start immediately
+          if (automationScheduler && typeof automationScheduler.initializeAutomations === 'function') {
+            console.log('2️⃣3️⃣ Reloading automation scheduler...');
+            await automationScheduler.initializeAutomations();
+            console.log('2️⃣4️⃣ Automation scheduler reloaded! Cron jobs and review monitors active.');
+          }
+        } catch (autoEnableError) {
+          console.error('⚠️ Error auto-enabling automation:', autoEnableError.message);
+          // Don't fail the whole request - user can still enable manually
+        }
       }
     } catch (gbpError) {
       console.error('⚠️ Error checking GBP accounts for trial setup:', gbpError.message);
