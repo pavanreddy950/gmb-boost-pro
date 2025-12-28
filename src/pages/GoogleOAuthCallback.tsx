@@ -2,10 +2,15 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 const GoogleOAuthCallback: React.FC = () => {
+  console.log('🚨🚨🚨 GoogleOAuthCallback component is rendering! 🚨🚨🚨');
+  console.log('🚨 Current URL:', window.location.href);
+
   const navigate = useNavigate();
   const [message, setMessage] = useState('Processing authentication...');
 
   useEffect(() => {
+    console.log('🚨 useEffect running in GoogleOAuthCallback');
+
     const handleOAuthCallback = async () => {
       try {
         // Extract authorization code and state from URL
