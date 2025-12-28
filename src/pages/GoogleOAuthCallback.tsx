@@ -54,31 +54,19 @@ const GoogleOAuthCallback: React.FC = () => {
         console.log('✅ Tokens received and stored in backend:', data);
         console.log('✅ User ID:', data.userId);
 
-        setMessage('Success! Closing window...');
+        // Mark OAuth as complete
+        sessionStorage.setItem('oauth_success', 'true');
 
-        // Check if this is a popup (has opener)
-        if (window.opener && !window.opener.closed) {
-          console.log('✅ Sending success message to parent window');
-          // Send success message to parent window
-          window.opener.postMessage(
-            { type: 'OAUTH_SUCCESS', userId: data.userId },
-            window.location.origin
-          );
+        setMessage('Success! Redirecting...');
 
-          // Close popup after a short delay
-          setTimeout(() => {
-            window.close();
-          }, 1000);
-        } else {
-          // Fallback: full page redirect if not in popup
-          console.log('✅ Not in popup, using redirect fallback');
-          sessionStorage.setItem('oauth_success', 'true');
-          const returnUrl = sessionStorage.getItem('oauth_return_url') || '/settings?tab=connections';
-          sessionStorage.removeItem('oauth_return_url');
-          setTimeout(() => {
-            navigate(returnUrl + '?oauth=success');
-          }, 500);
-        }
+        // Get return URL or default to settings
+        const returnUrl = sessionStorage.getItem('oauth_return_url') || '/settings?tab=connections';
+        sessionStorage.removeItem('oauth_return_url');
+
+        // Redirect back to original page
+        setTimeout(() => {
+          navigate(returnUrl + '?oauth=success');
+        }, 500);
 
       } catch (error) {
         console.error('❌ OAuth callback error:', error);
@@ -86,28 +74,17 @@ const GoogleOAuthCallback: React.FC = () => {
         console.error('❌ Error message shown to user:', errorMsg);
         setMessage(errorMsg);
 
-        // Check if this is a popup (has opener)
-        if (window.opener && !window.opener.closed) {
-          console.log('❌ Sending error message to parent window');
-          // Send error message to parent window
-          window.opener.postMessage(
-            { type: 'OAUTH_ERROR', error: errorMsg },
-            window.location.origin
-          );
+        // Mark as failed
+        sessionStorage.setItem('oauth_success', 'false');
 
-          // Close popup after showing error
-          setTimeout(() => {
-            window.close();
-          }, 2000);
-        } else {
-          // Fallback: full page redirect if not in popup
-          sessionStorage.setItem('oauth_success', 'false');
-          const returnUrl = sessionStorage.getItem('oauth_return_url') || '/settings';
-          sessionStorage.removeItem('oauth_return_url');
-          setTimeout(() => {
-            navigate(returnUrl + '?tab=connections&oauth=failed');
-          }, 1500);
-        }
+        // Get return URL or default to settings
+        const returnUrl = sessionStorage.getItem('oauth_return_url') || '/settings';
+        sessionStorage.removeItem('oauth_return_url');
+
+        // Redirect back with error
+        setTimeout(() => {
+          navigate(returnUrl + '?tab=connections&oauth=failed');
+        }, 1500);
       }
     };
 
