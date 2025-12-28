@@ -515,11 +515,31 @@ class SubscriptionService {
             const localSub = allSubs.find(s => s.razorpaySubscriptionId === razorpaySubId);
 
             if (localSub) {
+              // CRITICAL FIX: Extract subscription period dates from Razorpay
+              // current_start and current_end are Unix timestamps in SECONDS
+              const subscriptionStartDate = razorpaySub.current_start
+                ? new Date(razorpaySub.current_start * 1000).toISOString()
+                : null;
+              const subscriptionEndDate = razorpaySub.current_end
+                ? new Date(razorpaySub.current_end * 1000).toISOString()
+                : null;
+
+              console.log('[Webhook] 📅 Extracted subscription dates:', {
+                current_start: razorpaySub.current_start,
+                current_end: razorpaySub.current_end,
+                subscriptionStartDate,
+                subscriptionEndDate
+              });
+
               await this.persistentStorage.updateSubscription(localSub.gbpAccountId, {
                 status: 'active',
-                razorpaySubscriptionId: razorpaySubId
+                razorpaySubscriptionId: razorpaySubId,
+                subscriptionStartDate: subscriptionStartDate,
+                subscriptionEndDate: subscriptionEndDate, // CRITICAL: Save the end date!
+                lastPaymentDate: new Date().toISOString()
               });
               console.log('[Webhook] ✅ Subscription activated:', localSub.gbpAccountId);
+              console.log('[Webhook] ✅ End date saved:', subscriptionEndDate);
             }
           }
           break;
