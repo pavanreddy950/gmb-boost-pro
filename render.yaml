@@ -48,6 +48,9 @@ services:
     buildCommand: npm install && npm run build
     staticPublishPath: dist
     pullRequestPreviewsEnabled: true
+    envVars:
+      - key: VITE_BACKEND_URL
+        value: https://lobaiseo-backend.onrender.com
     headers:
       - path: /*
         name: Cache-Control
