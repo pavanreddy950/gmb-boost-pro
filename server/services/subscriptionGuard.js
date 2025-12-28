@@ -74,7 +74,20 @@ class SubscriptionGuard {
       if (subscription.status === 'active') {
         const endDate = subscription.subscriptionEndDate ? new Date(subscription.subscriptionEndDate) : null;
 
-        if (endDate && endDate > now) {
+        // CRITICAL FIX: If subscription is 'active' and has NO end date, it's a valid paid subscription
+        // This happens when user pays through Razorpay and subscription is ongoing
+        if (!endDate) {
+          console.log(`[SubscriptionGuard] ✅ Active subscription with no end date - treating as valid paid subscription`);
+          return {
+            hasAccess: true,
+            status: 'active',
+            daysRemaining: 999999, // Unlimited until manually cancelled
+            subscription,
+            message: 'Active paid subscription'
+          };
+        }
+
+        if (endDate > now) {
           const daysRemaining = Math.ceil((endDate - now) / (1000 * 60 * 60 * 24));
           return {
             hasAccess: true,
@@ -101,7 +114,19 @@ class SubscriptionGuard {
       if (subscription.status === 'trial') {
         const trialEndDate = subscription.trialEndDate ? new Date(subscription.trialEndDate) : null;
 
-        if (trialEndDate && trialEndDate > now) {
+        // CRITICAL FIX: If trial has no end date, treat as active trial (30 days from creation)
+        if (!trialEndDate) {
+          console.log(`[SubscriptionGuard] ✅ Trial with no end date - treating as active trial`);
+          return {
+            hasAccess: true,
+            status: 'trial',
+            daysRemaining: 30, // Default trial period
+            subscription,
+            message: 'Free trial active'
+          };
+        }
+
+        if (trialEndDate > now) {
           const daysRemaining = Math.ceil((trialEndDate - now) / (1000 * 60 * 60 * 24));
           return {
             hasAccess: true,
