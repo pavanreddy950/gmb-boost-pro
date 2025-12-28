@@ -198,12 +198,57 @@ class GoogleBusinessProfileService {
       const { authUrl } = await urlResponse.json();
       console.log('✅ Got OAuth URL from backend');
 
-      // Store return URL for redirect back after OAuth
-      sessionStorage.setItem('oauth_return_url', window.location.pathname);
+      // Open OAuth in popup window
+      console.log('🔄 Opening Google OAuth in popup...');
+      const width = 600;
+      const height = 700;
+      const left = window.screenX + (window.outerWidth - width) / 2;
+      const top = window.screenY + (window.outerHeight - height) / 2;
 
-      // Use full-page redirect instead of popup (avoids COOP issues)
-      console.log('🔄 Redirecting to Google OAuth...');
-      window.location.href = authUrl;
+      const popup = window.open(
+        authUrl,
+        'google-oauth',
+        `width=${width},height=${height},left=${left},top=${top},toolbar=no,location=no,status=no,menubar=no,scrollbars=yes,resizable=yes`
+      );
+
+      if (!popup) {
+        throw new Error('Popup was blocked. Please allow popups for this site.');
+      }
+
+      // Listen for OAuth completion message from popup
+      return new Promise((resolve, reject) => {
+        const handleMessage = async (event: MessageEvent) => {
+          // Verify origin for security
+          const allowedOrigins = [window.location.origin, 'https://www.app.lobaiseo.com'];
+          if (!allowedOrigins.includes(event.origin)) {
+            console.warn('Ignoring message from unauthorized origin:', event.origin);
+            return;
+          }
+
+          if (event.data.type === 'OAUTH_SUCCESS') {
+            console.log('✅ OAuth completed successfully in popup!');
+            window.removeEventListener('message', handleMessage);
+            popup?.close();
+            resolve();
+          } else if (event.data.type === 'OAUTH_ERROR') {
+            console.error('❌ OAuth failed in popup:', event.data.error);
+            window.removeEventListener('message', handleMessage);
+            popup?.close();
+            reject(new Error(event.data.error || 'OAuth failed'));
+          }
+        };
+
+        window.addEventListener('message', handleMessage);
+
+        // Check if popup was closed by user
+        const checkClosed = setInterval(() => {
+          if (popup?.closed) {
+            clearInterval(checkClosed);
+            window.removeEventListener('message', handleMessage);
+            reject(new Error('OAuth cancelled by user'));
+          }
+        }, 1000);
+      });
     } catch (error) {
       console.error('❌ Backend OAuth flow error:', error);
       throw error;
