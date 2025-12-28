@@ -14,13 +14,13 @@ services:
       - key: PORT
         generateValue: true
       - key: FRONTEND_URL
-        value: https://lobaiseofrontend.onrender.com
+        value: https://www.app.lobaiseo.com
       - key: GOOGLE_CLIENT_ID
         sync: false
       - key: GOOGLE_CLIENT_SECRET
         sync: false
       - key: GOOGLE_REDIRECT_URI
-        value: https://lobaiseofrontend.onrender.com/auth/google/callback
+        value: https://www.app.lobaiseo.com/auth/google/callback
       - key: HARDCODED_ACCOUNT_ID
         value: 106433552101751461082
       - key: RAZORPAY_KEY_ID
