@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -7,21 +7,23 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { 
-  Chrome, 
-  RefreshCw, 
-  Settings as SettingsIcon, 
+import {
+  Chrome,
+  RefreshCw,
+  Settings as SettingsIcon,
   Shield,
   Bell,
   Globe,
   User,
   LogOut,
-  Users
+  Users,
+  AlertCircle
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import ConnectionSetup from "@/components/GoogleBusinessProfile/ConnectionSetup";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 const Settings = () => {
   const [notifications, setNotifications] = useState({
@@ -33,6 +35,24 @@ const Settings = () => {
   const { toast } = useToast();
   const { currentUser, logout } = useAuth();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [showConnectionAlert, setShowConnectionAlert] = useState(false);
+
+  // Check if user was redirected here because they need to connect
+  useEffect(() => {
+    const connectRequired = searchParams.get('connect');
+    if (connectRequired === 'required') {
+      setShowConnectionAlert(true);
+      toast({
+        title: "Google Business Profile Connection Required",
+        description: "Please connect your Google Business Profile to access the dashboard features.",
+        variant: "destructive",
+      });
+      // Clean up the URL parameter
+      searchParams.delete('connect');
+      setSearchParams(searchParams, { replace: true });
+    }
+  }, [searchParams, setSearchParams, toast]);
 
 
   const handleLogout = async () => {
@@ -74,6 +94,15 @@ const Settings = () => {
 
         {/* Connections Tab */}
         <TabsContent value="connections" className="space-y-6">
+          {showConnectionAlert && (
+            <Alert variant="destructive">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>
+                <strong>Connection Required:</strong> You must connect your Google Business Profile to access dashboard features.
+                Please click "Connect Google Business Profile" below to continue.
+              </AlertDescription>
+            </Alert>
+          )}
           <ConnectionSetup />
         </TabsContent>
 

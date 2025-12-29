@@ -3,6 +3,7 @@ import { Outlet, useLocation } from "react-router-dom";
 import Sidebar from "./Sidebar";
 import Topbar from "./Topbar";
 import { ConditionalSubscriptionGuard } from "../ConditionalSubscriptionGuard";
+import GoogleConnectionGuard from "../GoogleConnectionGuard";
 import { MandateSetup } from "../MandateSetup";
 import { useSubscription } from "@/contexts/SubscriptionContext";
 
@@ -42,7 +43,9 @@ const DashboardLayout = () => {
           <main className="flex-1 p-1 sm:p-4 md:p-6 bg-muted/30">
             <div className="animate-fade-in">
               <ConditionalSubscriptionGuard>
-                <Outlet />
+                <GoogleConnectionGuard>
+                  <Outlet />
+                </GoogleConnectionGuard>
               </ConditionalSubscriptionGuard>
             </div>
           </main>
