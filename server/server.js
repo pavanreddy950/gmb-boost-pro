@@ -1479,9 +1479,10 @@ app.post('/auth/google/callback', async (req, res) => {
 
 // Token refresh endpoint for frontend
 app.post('/auth/google/refresh', async (req, res) => {
-  try {
-    const { refresh_token, userId } = req.body;
+  // Extract userId before try block so it's accessible in catch block
+  const { refresh_token, userId } = req.body;
 
+  try {
     console.log('[TOKEN REFRESH] ========================================');
     console.log('[TOKEN REFRESH] Request received for user:', userId);
     console.log('[TOKEN REFRESH] Has refresh token:', !!refresh_token);

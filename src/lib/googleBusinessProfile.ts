@@ -195,68 +195,28 @@ class GoogleBusinessProfileService {
         throw new Error('Failed to get OAuth URL from backend');
       }
 
-      const { authUrl } = await urlResponse.json();
-      console.log('✅ Got OAuth URL from backend');
+      const responseData = await urlResponse.json();
+      console.log('✅ Got response from backend:', responseData);
+
+      const { authUrl } = responseData;
       console.log('🔍 Auth URL:', authUrl);
+      console.log('🔍 Auth URL type:', typeof authUrl);
+      console.log('🔍 Auth URL starts with https://accounts.google.com?', authUrl?.startsWith('https://accounts.google.com'));
+
+      if (!authUrl) {
+        throw new Error('No authUrl in response from backend');
+      }
 
       // Store return URL for redirect back after OAuth
       sessionStorage.setItem('oauth_return_url', window.location.pathname);
 
-      // Use popup window instead of full-page redirect (for better debugging)
-      console.log('🔄 Opening Google OAuth in popup...');
-      const width = 600;
-      const height = 700;
-      const left = window.screen.width / 2 - width / 2;
-      const top = window.screen.height / 2 - height / 2;
+      // Use direct full-page redirect
+      console.log('🔄 Redirecting to Google OAuth (full-page)...');
+      console.log('🔄 Will redirect to:', authUrl);
 
-      const popup = window.open(
-        authUrl,
-        'Google OAuth',
-        `width=${width},height=${height},left=${left},top=${top},scrollbars=yes,resizable=yes`
-      );
-
-      if (!popup) {
-        console.error('❌ Popup blocked! Falling back to full-page redirect...');
-        window.location.href = authUrl;
-        return;
-      }
-
-      console.log('✅ Popup opened, waiting for OAuth completion...');
-
-      // Listen for messages from the popup
-      return new Promise((resolve, reject) => {
-        const messageHandler = (event: MessageEvent) => {
-          // Security: verify origin
-          if (event.origin !== window.location.origin) {
-            console.warn('⚠️ Ignored message from unknown origin:', event.origin);
-            return;
-          }
-
-          if (event.data.type === 'OAUTH_SUCCESS') {
-            console.log('✅ OAuth success message received from popup');
-            window.removeEventListener('message', messageHandler);
-            popup.close();
-            resolve();
-          } else if (event.data.type === 'OAUTH_ERROR') {
-            console.error('❌ OAuth error message received from popup:', event.data.error);
-            window.removeEventListener('message', messageHandler);
-            popup.close();
-            reject(new Error(event.data.error || 'OAuth failed'));
-          }
-        };
-
-        window.addEventListener('message', messageHandler);
-
-        // Check if popup was closed manually
-        const checkPopupClosed = setInterval(() => {
-          if (popup.closed) {
-            clearInterval(checkPopupClosed);
-            window.removeEventListener('message', messageHandler);
-            console.warn('⚠️ Popup was closed before OAuth completed');
-            reject(new Error('OAuth popup was closed'));
-          }
-        }, 500);
-      });
+      // Give a small delay to see the logs
+      await new Promise(resolve => setTimeout(resolve, 500));
+      window.location.href = authUrl;
     } catch (error) {
       console.error('❌ Backend OAuth flow error:', error);
       throw error;
