@@ -255,8 +255,9 @@ class Config {
       );
     }
 
-    // Render production origins
+    // Render production origins (including custom domain)
     origins.push(
+      'https://www.app.lobaiseo.com', // Custom domain
       'https://lobaiseofrontend.onrender.com',
       'https://lobaiseo-frontend.onrender.com',
       'https://lobaiseo.onrender.com'
