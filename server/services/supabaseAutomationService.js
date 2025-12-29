@@ -32,6 +32,12 @@ class SupabaseAutomationService {
     try {
       await this.initialize();
 
+      // Validate locationId is provided
+      if (!locationId || locationId === 'undefined' || locationId === 'null') {
+        console.warn(`[SupabaseAutomationService] ⚠️ Skipping save - invalid location_id: ${locationId} for user: ${userId}`);
+        return settings; // Return settings without saving
+      }
+
       // Log keyword information being saved
       const autoPostingKeywords = settings.autoPosting?.keywords;
       const rootKeywords = settings.keywords;
@@ -163,11 +169,11 @@ class SupabaseAutomationService {
         .insert({
           user_id: userId,
           location_id: locationId,
-          action_type: actionType,
-          review_id: reviewId,
-          status: status,
-          details: details || {},
-          error_message: errorMessage
+          event_type: actionType, // Using event_type to match scalability schema
+          post_id: reviewId, // Using post_id instead of review_id
+          success: status === 'success', // Convert status to boolean
+          error_message: errorMessage,
+          config: details || {} // Using config instead of details
         });
 
       if (error) throw error;
@@ -213,8 +219,8 @@ class SupabaseAutomationService {
         .from('automation_logs')
         .select('*')
         .eq('user_id', userId)
-        .eq('action_type', actionType)
-        .eq('status', 'success')
+        .eq('event_type', actionType) // Using event_type to match scalability schema
+        .eq('success', true) // Using success boolean instead of status string
         .gte('created_at', startDate.toISOString());
 
       if (endDate) {
