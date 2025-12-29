@@ -2,8 +2,14 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 const GoogleOAuthCallback: React.FC = () => {
-  console.log('🚨🚨🚨 GoogleOAuthCallback component is rendering! 🚨🚨🚨');
-  console.log('🚨 Current URL:', window.location.href);
+  console.log('========================================');
+  console.log('🚨 OAUTH CALLBACK PAGE LOADED');
+  console.log('========================================');
+  console.log('📍 Current URL:', window.location.href);
+  console.log('📍 Window opener exists?', !!window.opener);
+  console.log('📍 Window opener closed?', window.opener ? window.opener.closed : 'N/A');
+  console.log('📍 Parent origin:', window.location.origin);
+  console.log('========================================');
 
   const navigate = useNavigate();
   const [message, setMessage] = useState('Processing authentication...');
@@ -61,21 +67,45 @@ const GoogleOAuthCallback: React.FC = () => {
 
         // Check if opened in popup
         if (window.opener && !window.opener.closed) {
-          console.log('✅ Sending success message to opener window');
+          console.log('========================================');
+          console.log('✅ POPUP MODE DETECTED');
+          console.log('========================================');
+          console.log('📤 Sending success message to opener window');
+          console.log('📤 Message:', { type: 'OAUTH_SUCCESS', userId: data.userId });
+          console.log('📤 Target origin:', window.location.origin);
+
           // Send success message to parent window
-          window.opener.postMessage(
-            { type: 'OAUTH_SUCCESS', userId: data.userId },
-            window.location.origin
-          );
+          try {
+            window.opener.postMessage(
+              { type: 'OAUTH_SUCCESS', userId: data.userId },
+              window.location.origin
+            );
+            console.log('✅ postMessage sent successfully');
+          } catch (err) {
+            console.error('❌ Failed to send postMessage:', err);
+          }
+
+          console.log('========================================');
+          console.log('⏳ Closing popup in 1 second...');
+          console.log('========================================');
+
           // Close popup after a short delay
           setTimeout(() => {
+            console.log('🔒 Closing popup now...');
             window.close();
-          }, 500);
+          }, 1000);
         } else {
           // Not a popup, redirect normally
-          console.log('⚠️ Not in popup mode, redirecting normally');
+          console.log('========================================');
+          console.log('⚠️ FULL-PAGE MODE (not a popup)');
+          console.log('========================================');
+          console.log('window.opener:', window.opener);
+          console.log('window.opener?.closed:', window.opener?.closed);
+
           const returnUrl = sessionStorage.getItem('oauth_return_url') || '/settings?tab=connections';
           sessionStorage.removeItem('oauth_return_url');
+
+          console.log('🔄 Redirecting to:', returnUrl + '?oauth=success');
           setTimeout(() => {
             navigate(returnUrl + '?oauth=success');
           }, 500);
@@ -92,21 +122,40 @@ const GoogleOAuthCallback: React.FC = () => {
 
         // Check if opened in popup
         if (window.opener && !window.opener.closed) {
-          console.log('❌ Sending error message to opener window');
+          console.log('========================================');
+          console.log('❌ POPUP MODE - SENDING ERROR');
+          console.log('========================================');
+          console.log('📤 Sending error message to opener window');
+          console.log('📤 Error:', errorMsg);
+
           // Send error message to parent window
-          window.opener.postMessage(
-            { type: 'OAUTH_ERROR', error: errorMsg },
-            window.location.origin
-          );
+          try {
+            window.opener.postMessage(
+              { type: 'OAUTH_ERROR', error: errorMsg },
+              window.location.origin
+            );
+            console.log('✅ Error postMessage sent');
+          } catch (err) {
+            console.error('❌ Failed to send error postMessage:', err);
+          }
+
+          console.log('⏳ Closing popup in 2 seconds...');
+
           // Close popup after a short delay
           setTimeout(() => {
+            console.log('🔒 Closing popup now...');
             window.close();
-          }, 1500);
+          }, 2000);
         } else {
           // Not a popup, redirect normally
-          console.log('⚠️ Not in popup mode, redirecting normally');
+          console.log('========================================');
+          console.log('⚠️ FULL-PAGE MODE - REDIRECTING WITH ERROR');
+          console.log('========================================');
+
           const returnUrl = sessionStorage.getItem('oauth_return_url') || '/settings';
           sessionStorage.removeItem('oauth_return_url');
+
+          console.log('🔄 Redirecting to:', returnUrl + '?tab=connections&oauth=failed');
           setTimeout(() => {
             navigate(returnUrl + '?tab=connections&oauth=failed');
           }, 1500);
@@ -124,10 +173,44 @@ const GoogleOAuthCallback: React.FC = () => {
       justifyContent: 'center',
       minHeight: '100vh',
       fontFamily: 'system-ui, -apple-system, sans-serif',
-      backgroundColor: '#fff'
+      backgroundColor: '#f5f5f5',
+      padding: '20px'
     }}>
-      <div style={{ textAlign: 'center', padding: '20px' }}>
-        <p style={{ fontSize: '16px', color: '#333' }}>{message}</p>
+      <div style={{
+        textAlign: 'center',
+        padding: '40px',
+        backgroundColor: '#fff',
+        borderRadius: '8px',
+        boxShadow: '0 2px 10px rgba(0,0,0,0.1)',
+        maxWidth: '500px',
+        width: '100%'
+      }}>
+        <p style={{ fontSize: '18px', color: '#333', marginBottom: '20px', fontWeight: 'bold' }}>{message}</p>
+
+        {/* Debug Info */}
+        <div style={{
+          marginTop: '30px',
+          padding: '15px',
+          backgroundColor: '#f8f9fa',
+          borderRadius: '4px',
+          fontSize: '12px',
+          textAlign: 'left',
+          fontFamily: 'monospace'
+        }}>
+          <div style={{ marginBottom: '8px' }}>
+            <strong>Debug Info:</strong>
+          </div>
+          <div>Popup Mode: {window.opener && !window.opener.closed ? '✅ Yes' : '❌ No'}</div>
+          <div>Window Opener: {window.opener ? '✅ Exists' : '❌ Null'}</div>
+          <div>Opener Closed: {window.opener?.closed ? '❌ Yes' : '✅ No'}</div>
+          <div style={{ marginTop: '8px', wordBreak: 'break-all' }}>
+            URL: {window.location.href}
+          </div>
+        </div>
+
+        <div style={{ marginTop: '20px', fontSize: '12px', color: '#666' }}>
+          Check browser console for detailed logs (Press F12)
+        </div>
       </div>
     </div>
   );
