@@ -6,20 +6,14 @@
   "scripts": {
     "dev": "vite --port 3000",
     "dev:local": "vite --mode development --port 3000",
-    "dev:azure": "node switch-env.js azure && vite --mode development --port 3000",
     "build": "vite build",
     "build:local": "vite build --mode development",
-    "build:azure": "node switch-env.js azure && vite build --mode production",
     "build:dev": "vite build --mode development",
     "lint": "eslint .",
     "preview": "vite preview",
     "build:production": "npm run build && npm run server:install",
     "server:install": "cd server && npm install --omit=dev",
-    "start:production": "cd server && NODE_ENV=production npm start",
-    "switch:local": "node switch-env.js local",
-    "switch:azure": "node switch-env.js azure",
-    "env:status": "node switch-env.js status",
-    "deploy:azure": "node switch-env.js azure && npm run build:azure"
+    "start:production": "cd server && NODE_ENV=production npm start"
   },
   "dependencies": {
     "@google-cloud/local-auth": "^3.0.1",

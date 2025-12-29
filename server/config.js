@@ -7,7 +7,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 /**
- * Configuration manager for switching between local and Azure environments
+ * Configuration manager for the application
  */
 class Config {
   constructor() {
@@ -15,18 +15,8 @@ class Config {
   }
 
   loadConfiguration() {
-    // Determine which config to load based on RUN_MODE or NODE_ENV
-    const runMode = process.env.RUN_MODE;
+    // Load environment configuration
     let envFile = '.env.local'; // Default to local
-
-    // Force Azure mode if running in production or if RUN_MODE is AZURE
-    if (runMode === 'AZURE' || process.env.NODE_ENV === 'production') {
-      envFile = '.env.azure';
-      // Set RUN_MODE to AZURE if not already set
-      if (!process.env.RUN_MODE) {
-        process.env.RUN_MODE = 'AZURE';
-      }
-    }
 
     // Load the appropriate .env file
     const envPath = path.join(__dirname, envFile);
@@ -35,19 +25,7 @@ class Config {
     if (result.error) {
       console.warn(`⚠️ Could not load ${envFile} from ${envPath}`);
       console.warn(`⚠️ Error: ${result.error.message}`);
-      console.warn(`⚠️ Falling back to environment variables or defaults...`);
-
-      // Try loading the other config as fallback
-      const fallbackFile = envFile === '.env.local' ? '.env.azure' : '.env.local';
-      const fallbackPath = path.join(__dirname, fallbackFile);
-      const fallbackResult = dotenv.config({ path: fallbackPath });
-
-      if (fallbackResult.error) {
-        console.warn(`⚠️ Could not load fallback ${fallbackFile} either`);
-        console.warn(`⚠️ Relying entirely on environment variables and production defaults`);
-      } else {
-        console.log(`✅ Loaded configuration from fallback ${fallbackFile}`);
-      }
+      console.warn(`⚠️ Relying on environment variables...`);
     } else {
       console.log(`✅ Loaded configuration from ${envFile}`);
     }
@@ -65,9 +43,7 @@ class Config {
 
     const productionDefaults = {
       NODE_ENV: 'production',
-      RUN_MODE: 'AZURE',
       FRONTEND_URL: 'https://www.app.lobaiseo.com',
-      BACKEND_URL: 'https://pavan-client-backend-bxgdaqhvarfdeuhe.canadacentral-01.azurewebsites.net',
       GOOGLE_REDIRECT_URI: 'https://www.app.lobaiseo.com/auth/google/callback',
       GOOGLE_CLIENT_ID: '52772597205-9ogv54i6sfvucse3jrqj1nl1hlkspcv1.apps.googleusercontent.com',
       GOOGLE_CLIENT_SECRET: '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',
@@ -108,7 +84,7 @@ class Config {
 
     const optional = [
       'RAZORPAY_KEY_ID',
-      'RAZORPAY_KEY_SECRET', 
+      'RAZORPAY_KEY_SECRET',
       'AZURE_OPENAI_ENDPOINT',
       'AZURE_OPENAI_API_KEY'
     ];
@@ -120,8 +96,8 @@ class Config {
       console.error(`❌ CRITICAL: Missing required environment variables: ${missing.join(', ')}`);
       
       if (this.isProduction) {
-        console.error(`\n🔧 AZURE DEPLOYMENT CONFIGURATION REQUIRED:`);
-        console.error(`Set the following environment variables in your Azure Container/App Service:`);
+        console.error(`\n🔧 DEPLOYMENT CONFIGURATION REQUIRED:`);
+        console.error(`Set the following environment variables in your deployment platform:`);
         console.error(`\n📋 Required Environment Variables:`);
         missing.forEach(key => {
           const example = this.getExampleValue(key);
@@ -134,11 +110,11 @@ class Config {
           console.error(`   ${key}=${example}`);
         });
         
-        console.error(`\n🚀 Azure Configuration Steps:`);
-        console.error(`1. Go to Azure Portal > Container Apps/App Service`);
-        console.error(`2. Navigate to Configuration > Environment Variables`);
+        console.error(`\n🚀 Configuration Steps:`);
+        console.error(`1. Go to your deployment platform dashboard`);
+        console.error(`2. Navigate to Environment Variables`);
         console.error(`3. Add each environment variable listed above`);
-        console.error(`4. Restart the container/app service`);
+        console.error(`4. Restart the service`);
         console.error(`\n⚠️ WARNING: Application may not function correctly without required variables!\n`);
       }
     }
@@ -161,7 +137,7 @@ class Config {
     const examples = {
       'GOOGLE_CLIENT_ID': 'your-google-client-id.apps.googleusercontent.com',
       'GOOGLE_CLIENT_SECRET': 'GOCSPX-your-google-client-secret',
-      'FRONTEND_URL': 'https://your-frontend-url.azurestaticapps.net',
+      'FRONTEND_URL': 'https://your-frontend-url.com',
       'HARDCODED_ACCOUNT_ID': '106433552101751461082',
       'RAZORPAY_KEY_ID': 'rzp_live_your-razorpay-key',
       'RAZORPAY_KEY_SECRET': 'your-razorpay-secret',
@@ -185,11 +161,7 @@ class Config {
   }
 
   get isLocal() {
-    return process.env.RUN_MODE === 'LOCAL' || this.isDevelopment;
-  }
-
-  get isAzure() {
-    return process.env.RUN_MODE === 'AZURE' || this.isProduction;
+    return this.isDevelopment;
   }
 
   get frontendUrl() {
@@ -232,36 +204,15 @@ class Config {
       );
     }
 
-    if (this.isAzure) {
-      // Azure production origins - Updated for new backend URL
-      origins.push(
-        'https://www.app.lobaiseo.com',
-        'https://delightful-sea-062191a0f.2.azurestaticapps.net',
-        'https://pavan-client-backend-bxgdaqhvarfdeuhe.canadacentral-01.azurewebsites.net'
-      );
-
-      // Add dynamic Azure hostname if available
-      if (process.env.WEBSITE_HOSTNAME) {
-        origins.push(`https://${process.env.WEBSITE_HOSTNAME}`);
-      }
-    }
-
-    // Always include Azure origins if running in production (fallback)
+    // Production origins (including custom domain)
     if (process.env.NODE_ENV === 'production') {
       origins.push(
         'https://www.app.lobaiseo.com',
-        'https://delightful-sea-062191a0f.2.azurestaticapps.net',
-        'https://pavan-client-backend-bxgdaqhvarfdeuhe.canadacentral-01.azurewebsites.net'
+        'https://lobaiseofrontend.onrender.com',
+        'https://lobaiseo-frontend.onrender.com',
+        'https://lobaiseo.onrender.com'
       );
     }
-
-    // Render production origins (including custom domain)
-    origins.push(
-      'https://www.app.lobaiseo.com', // Custom domain
-      'https://lobaiseofrontend.onrender.com',
-      'https://lobaiseo-frontend.onrender.com',
-      'https://lobaiseo.onrender.com'
-    );
 
     // Always include the configured frontend URL
     origins.push(this.frontendUrl);
@@ -280,7 +231,6 @@ class Config {
   // Configuration summary for debugging
   getSummary() {
     return {
-      mode: this.isLocal ? 'LOCAL' : 'AZURE',
       environment: process.env.NODE_ENV || 'development',
       port: this.port,
       frontendUrl: this.frontendUrl,
@@ -288,8 +238,7 @@ class Config {
       redirectUri: this.googleRedirectUri,
       allowedOrigins: this.allowedOrigins,
       hasGoogleClientId: !!process.env.GOOGLE_CLIENT_ID,
-      hasGoogleClientSecret: !!process.env.GOOGLE_CLIENT_SECRET,
-      azureHostname: process.env.WEBSITE_HOSTNAME || 'not-detected'
+      hasGoogleClientSecret: !!process.env.GOOGLE_CLIENT_SECRET
     };
   }
 }

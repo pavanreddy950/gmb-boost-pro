@@ -8,22 +8,8 @@
     "start": "node server.js",
     "dev": "nodemon server.js",
     "dev:local": "set RUN_MODE=LOCAL && nodemon server.js",
-    "dev:azure": "set RUN_MODE=AZURE && nodemon server.js",
     "start:local": "set RUN_MODE=LOCAL && node server.js",
-    "start:azure": "set RUN_MODE=AZURE && node server.js",
-    "start:production": "node start-production.js",
-    "docker:build": "docker build -t lobaiseo-backend:latest .",
-    "docker:run": "docker-compose up -d",
-    "docker:run:prod": "docker-compose -f docker-compose.production.yml up -d --build",
-    "docker:stop": "docker-compose down",
-    "docker:stop:prod": "docker-compose -f docker-compose.production.yml down",
-    "docker:logs": "docker-compose logs -f backend",
-    "docker:logs:prod": "docker-compose -f docker-compose.production.yml logs -f backend",
-    "docker:push": "./docker-push.sh scale112",
-    "docker:tag": "docker tag lobaiseo-backend:latest scale112/lobaiseo-backend:latest",
-    "docker:pull": "docker pull scale112/lobaiseo-backend:v6",
-    "docker:run:hub": "docker-compose -f docker-compose.hub.yml up -d",
-    "docker:stop:hub": "docker-compose -f docker-compose.hub.yml down"
+    "start:production": "node start-production.js"
   },
   "keywords": [
     "google-business-profile",

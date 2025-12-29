@@ -40,3 +40,4 @@ server/.env.production
 **/*firebase*adminsdk*.json
 **/firebase-service-account.json
 .env.local.backup
+nul
