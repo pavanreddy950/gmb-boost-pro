@@ -1496,7 +1496,7 @@ app.post('/auth/google/refresh', async (req, res) => {
     if (userId) {
       try {
         console.log('[TOKEN REFRESH] Checking Firestore for stored tokens...');
-        const storedTokens = await tokenManager.getTokens(userId);
+        const storedTokens = await tokenManager.getValidTokens(userId);
         if (storedTokens && storedTokens.refresh_token) {
           storedRefreshToken = storedTokens.refresh_token;
           console.log('[TOKEN REFRESH] ✅ Using refresh token from Firestore storage');
@@ -1592,10 +1592,24 @@ app.post('/auth/google/refresh', async (req, res) => {
     }
     console.error('[TOKEN REFRESH] ========================================');
 
+    // Check if this is an invalid_grant error (token expired/revoked)
+    const isInvalidGrant = error.response?.data?.error === 'invalid_grant';
+
+    if (isInvalidGrant && userId) {
+      console.log('[TOKEN REFRESH] ⚠️ Invalid grant detected - clearing stored tokens for user:', userId);
+      try {
+        await tokenManager.removeTokens(userId);
+        console.log('[TOKEN REFRESH] ✅ Cleared invalid tokens from storage');
+      } catch (clearError) {
+        console.error('[TOKEN REFRESH] ❌ Failed to clear tokens:', clearError);
+      }
+    }
+
     res.status(401).json({
       error: 'Token refresh failed',
       message: error.message || 'Unable to refresh token',
-      details: error.response?.data || null
+      details: error.response?.data || null,
+      requiresReauth: isInvalidGrant // Flag to tell frontend to re-authenticate
     });
   }
 });

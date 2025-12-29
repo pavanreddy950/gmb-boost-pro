@@ -564,9 +564,15 @@ class GoogleBusinessProfileService {
 
         // Special handling for 401 errors
         if (response.status === 401) {
-          // Clear invalid tokens
+          // Clear invalid tokens from all sources
           localStorage.removeItem('google_business_tokens');
           this.accessToken = null;
+
+          // Check if backend indicates re-authentication is required
+          if (errorData.requiresReauth) {
+            console.error('🔐 Re-authentication required: Refresh token has been revoked or expired');
+            throw new Error(`Your Google Business Profile access has expired or been revoked. Please reconnect your account.`);
+          }
 
           throw new Error(`Token refresh failed: Invalid or expired refresh token. Please reconnect your Google Business Profile.`);
         }
