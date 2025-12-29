@@ -57,16 +57,29 @@ const GoogleOAuthCallback: React.FC = () => {
         // Mark OAuth as complete
         sessionStorage.setItem('oauth_success', 'true');
 
-        setMessage('Success! Redirecting...');
+        setMessage('Success! Closing popup...');
 
-        // Get return URL or default to settings
-        const returnUrl = sessionStorage.getItem('oauth_return_url') || '/settings?tab=connections';
-        sessionStorage.removeItem('oauth_return_url');
-
-        // Redirect back to original page
-        setTimeout(() => {
-          navigate(returnUrl + '?oauth=success');
-        }, 500);
+        // Check if opened in popup
+        if (window.opener && !window.opener.closed) {
+          console.log('✅ Sending success message to opener window');
+          // Send success message to parent window
+          window.opener.postMessage(
+            { type: 'OAUTH_SUCCESS', userId: data.userId },
+            window.location.origin
+          );
+          // Close popup after a short delay
+          setTimeout(() => {
+            window.close();
+          }, 500);
+        } else {
+          // Not a popup, redirect normally
+          console.log('⚠️ Not in popup mode, redirecting normally');
+          const returnUrl = sessionStorage.getItem('oauth_return_url') || '/settings?tab=connections';
+          sessionStorage.removeItem('oauth_return_url');
+          setTimeout(() => {
+            navigate(returnUrl + '?oauth=success');
+          }, 500);
+        }
 
       } catch (error) {
         console.error('❌ OAuth callback error:', error);
@@ -77,14 +90,27 @@ const GoogleOAuthCallback: React.FC = () => {
         // Mark as failed
         sessionStorage.setItem('oauth_success', 'false');
 
-        // Get return URL or default to settings
-        const returnUrl = sessionStorage.getItem('oauth_return_url') || '/settings';
-        sessionStorage.removeItem('oauth_return_url');
-
-        // Redirect back with error
-        setTimeout(() => {
-          navigate(returnUrl + '?tab=connections&oauth=failed');
-        }, 1500);
+        // Check if opened in popup
+        if (window.opener && !window.opener.closed) {
+          console.log('❌ Sending error message to opener window');
+          // Send error message to parent window
+          window.opener.postMessage(
+            { type: 'OAUTH_ERROR', error: errorMsg },
+            window.location.origin
+          );
+          // Close popup after a short delay
+          setTimeout(() => {
+            window.close();
+          }, 1500);
+        } else {
+          // Not a popup, redirect normally
+          console.log('⚠️ Not in popup mode, redirecting normally');
+          const returnUrl = sessionStorage.getItem('oauth_return_url') || '/settings';
+          sessionStorage.removeItem('oauth_return_url');
+          setTimeout(() => {
+            navigate(returnUrl + '?tab=connections&oauth=failed');
+          }, 1500);
+        }
       }
     };
 
