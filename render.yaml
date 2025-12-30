@@ -51,6 +51,10 @@ services:
     envVars:
       - key: VITE_BACKEND_URL
         value: https://lobaiseo-backend.onrender.com
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
     headers:
       - path: /*
         name: Cache-Control
