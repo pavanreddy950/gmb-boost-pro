@@ -40,7 +40,8 @@ const GoogleOAuthCallback: React.FC = () => {
         setMessage('Exchanging authorization code for permanent access...');
 
         // Exchange code for tokens via backend (include state with Firebase user ID)
-        const backendUrl = import.meta.env.VITE_BACKEND_URL || 'https://pavan-client-backend-bxgdaqhvarfdeuhe.canadacentral-01.azurewebsites.net';
+        const backendUrl = import.meta.env.VITE_BACKEND_URL || 'https://lobaiseo-backend-yjnl.onrender.com';
+        console.log('🔗 Using backend URL:', backendUrl);
         const response = await fetch(`${backendUrl}/auth/google/callback`, {
           method: 'POST',
           headers: {

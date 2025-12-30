@@ -45,7 +45,7 @@ const Billing = () => {
 
   const { currentUser } = useAuth();
   const { toast } = useToast();
-  const backendUrl = import.meta.env.VITE_BACKEND_URL || 'https://pavan-client-backend-bxgdaqhvarfdeuhe.canadacentral-01.azurewebsites.net';
+  const backendUrl = import.meta.env.VITE_BACKEND_URL || 'https://lobaiseo-backend-yjnl.onrender.com';
 
   // Check if user is admin
   useEffect(() => {

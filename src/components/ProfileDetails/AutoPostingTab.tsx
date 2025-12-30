@@ -622,7 +622,7 @@ export function AutoPostingTab({ location }: AutoPostingTabProps) {
       console.log('[AutoPostingTab] Checking backend token status for user:', currentUser.uid);
 
       // FIRST: Verify tokens exist on backend before attempting test post
-      const backendUrl = import.meta.env.VITE_BACKEND_URL || 'https://pavan-client-backend-bxgdaqhvarfdeuhe.canadacentral-01.azurewebsites.net';
+      const backendUrl = import.meta.env.VITE_BACKEND_URL || 'https://lobaiseo-backend-yjnl.onrender.com';
       const tokenCheckResponse = await fetch(`${backendUrl}/auth/google/token-status/${currentUser.uid}`);
 
       if (!tokenCheckResponse.ok) {

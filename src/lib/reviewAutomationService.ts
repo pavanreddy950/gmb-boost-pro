@@ -163,7 +163,7 @@ class ReviewAutomationService {
 
   private async fetchLocationReviews(locationId: string) {
     try {
-      const backendUrl = import.meta.env.VITE_BACKEND_URL || 'https://pavan-client-backend-bxgdaqhvarfdeuhe.canadacentral-01.azurewebsites.net';
+      const backendUrl = import.meta.env.VITE_BACKEND_URL || 'https://lobaiseo-backend-yjnl.onrender.com';
       const accessToken = googleBusinessProfileService.getAccessToken();
 
       const response = await fetch(`${backendUrl}/api/locations/${locationId}/reviews?_t=${Date.now()}`, {
@@ -354,7 +354,7 @@ Generate only the reply text, no quotes or extra formatting.`;
   }
 
   private async postReviewReply(locationId: string, reviewName: string, replyText: string): Promise<void> {
-    const backendUrl = import.meta.env.VITE_BACKEND_URL || 'https://pavan-client-backend-bxgdaqhvarfdeuhe.canadacentral-01.azurewebsites.net';
+    const backendUrl = import.meta.env.VITE_BACKEND_URL || 'https://lobaiseo-backend-yjnl.onrender.com';
     const accessToken = googleBusinessProfileService.getAccessToken();
     
     // Extract locationId and reviewId from reviewName (format: accounts/.../locations/locationId/reviews/reviewId)

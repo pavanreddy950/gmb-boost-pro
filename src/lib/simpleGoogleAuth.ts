@@ -56,7 +56,7 @@ export class SimpleGoogleAuth {
       const tokenData = JSON.parse(tokens);
       
       // Call backend API to get real Google Business Profile data
-      const backendUrl = import.meta.env.VITE_BACKEND_URL || 'https://pavan-client-backend-bxgdaqhvarfdeuhe.canadacentral-01.azurewebsites.net';
+      const backendUrl = import.meta.env.VITE_BACKEND_URL || 'https://lobaiseo-backend-yjnl.onrender.com';
       const response = await fetch(`${backendUrl}/api/accounts`, {
         method: 'GET',
         headers: {

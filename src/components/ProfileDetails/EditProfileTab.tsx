@@ -118,7 +118,7 @@ const EditProfileTab: React.FC<EditProfileTabProps> = ({ profileId }) => {
 
     setIsSaving(true);
     try {
-      const backendUrl = import.meta.env.VITE_BACKEND_URL || 'https://pavan-client-backend-bxgdaqhvarfdeuhe.canadacentral-01.azurewebsites.net';
+      const backendUrl = import.meta.env.VITE_BACKEND_URL || 'https://lobaiseo-backend-yjnl.onrender.com';
 
       const updateData = {
         displayName: formData.businessName,

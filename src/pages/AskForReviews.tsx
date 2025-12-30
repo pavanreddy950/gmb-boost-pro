@@ -95,7 +95,7 @@ const AskForReviews = () => {
   // Auto-detect backend URL based on environment
   const backendUrl = window.location.hostname === 'localhost'
     ? 'http://localhost:5000'
-    : (import.meta.env.VITE_BACKEND_URL || 'https://pavan-client-backend-bxgdaqhvarfdeuhe.canadacentral-01.azurewebsites.net');
+    : (import.meta.env.VITE_BACKEND_URL || 'https://lobaiseo-backend-yjnl.onrender.com');
 
   // Filter accounts based on subscription limitations - memoize to prevent infinite re-renders
   const accessibleAccounts = useMemo(() => getAccessibleAccounts(accounts), [accounts, getAccessibleAccounts]);

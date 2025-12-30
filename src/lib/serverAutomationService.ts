@@ -61,7 +61,7 @@ class ServerAutomationService {
   private backendUrl: string;
 
   constructor() {
-    this.backendUrl = import.meta.env.VITE_BACKEND_URL || 'https://pavan-client-backend-bxgdaqhvarfdeuhe.canadacentral-01.azurewebsites.net';
+    this.backendUrl = import.meta.env.VITE_BACKEND_URL || 'https://lobaiseo-backend-yjnl.onrender.com';
   }
 
   // Save automation settings to server

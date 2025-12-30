@@ -120,7 +120,7 @@ class GoogleBusinessProfileService {
 
   constructor() {
     this.clientId = '52772597205-9ogv54i6sfvucse3jrqj1nl1hlkspcv1.apps.googleusercontent.com';
-    this.backendUrl = import.meta.env.VITE_BACKEND_URL || 'https://pavan-client-backend-bxgdaqhvarfdeuhe.canadacentral-01.azurewebsites.net';
+    this.backendUrl = import.meta.env.VITE_BACKEND_URL || 'https://lobaiseo-backend-yjnl.onrender.com';
 
     // Note: loadStoredTokens is now called with userId parameter
     this.initializeGoogleAPI();

@@ -35,7 +35,7 @@ export const MandateSetup: React.FC<MandateSetupProps> = ({
   const { subscription } = useSubscription();
   const { toast } = useToast();
 
-  const backendUrl = import.meta.env.VITE_BACKEND_URL || 'https://pavan-client-backend-bxgdaqhvarfdeuhe.canadacentral-01.azurewebsites.net';
+  const backendUrl = import.meta.env.VITE_BACKEND_URL || 'https://lobaiseo-backend-yjnl.onrender.com';
   const razorpayKeyId = import.meta.env.VITE_RAZORPAY_KEY_ID || 'rzp_live_RaLWJLkG5dQTII';
 
   // Check mandate status on mount
