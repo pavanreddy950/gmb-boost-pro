@@ -1,7 +1,8 @@
 services:
-  # Backend API Service
+  # Backend API Service (IMPORTANT: Actual service is lobaiseo-backend-yjnl)
+  # This render.yaml may not be in use - backend deployed separately
   - type: web
-    name: lobaiseo-backend
+    name: lobaiseo-backend-yjnl
     runtime: node
     region: singapore
     buildCommand: cd server && npm install
@@ -50,7 +51,7 @@ services:
     pullRequestPreviewsEnabled: true
     envVars:
       - key: VITE_BACKEND_URL
-        value: https://lobaiseo-backend.onrender.com
+        value: https://lobaiseo-backend-yjnl.onrender.com
     routes:
       - type: rewrite
         source: /*
