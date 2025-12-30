@@ -58,3 +58,7 @@ services:
       - path: /index.html
         name: Cache-Control
         value: no-cache
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
