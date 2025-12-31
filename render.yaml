@@ -31,13 +31,13 @@ services:
       - key: RAZORPAY_WEBHOOK_SECRET
         value: gmb_boost_pro_webhook_secret_2024
       - key: AZURE_OPENAI_ENDPOINT
-        value: https://agentplus.openai.azure.com/
+        value: https://n8nservices.cognitiveservices.azure.com/
       - key: AZURE_OPENAI_API_KEY
         sync: false
       - key: AZURE_OPENAI_DEPLOYMENT
-        value: gpt-4o
+        value: gpt-4.1
       - key: AZURE_OPENAI_API_VERSION
-        value: 2024-02-15-preview
+        value: 2025-01-01-preview
       - key: FIREBASE_PROJECT_ID
         value: gbp-467810-a56e2
 
