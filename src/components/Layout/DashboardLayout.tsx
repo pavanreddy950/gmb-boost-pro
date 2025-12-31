@@ -6,6 +6,8 @@ import { ConditionalSubscriptionGuard } from "../ConditionalSubscriptionGuard";
 import GoogleConnectionGuard from "../GoogleConnectionGuard";
 import { MandateSetup } from "../MandateSetup";
 import { useSubscription } from "@/contexts/SubscriptionContext";
+import { ReconnectionBanner } from "../ReconnectionBanner";
+import { AuthErrorBoundary } from "../AuthErrorBoundary";
 
 const DashboardLayout = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -26,6 +28,9 @@ const DashboardLayout = () => {
 
   return (
     <div className="min-h-screen bg-background">
+      {/* Global Reconnection Banner */}
+      <ReconnectionBanner />
+
       <div className="flex">
         <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
@@ -44,7 +49,9 @@ const DashboardLayout = () => {
             <div className="animate-fade-in">
               <ConditionalSubscriptionGuard>
                 <GoogleConnectionGuard>
-                  <Outlet />
+                  <AuthErrorBoundary>
+                    <Outlet />
+                  </AuthErrorBoundary>
                 </GoogleConnectionGuard>
               </ConditionalSubscriptionGuard>
             </div>

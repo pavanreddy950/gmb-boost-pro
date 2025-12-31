@@ -476,6 +476,60 @@ class AutomationScheduler {
       const userId = config.userId || 'default';
       console.log(`[AutomationScheduler] Using userId for content generation: ${userId}`);
 
+      // ========================================
+      // CRITICAL: Token Validation Before Post Creation
+      // ========================================
+      // Validate that the user has valid tokens before attempting to create a post
+      // This prevents automation failures due to expired/revoked tokens
+      if (userId && userId !== 'default') {
+        try {
+          console.log(`[AutomationScheduler] 🔐 Validating tokens for user ${userId}...`);
+          const tokens = await supabaseTokenStorage.getUserToken(userId);
+
+          if (!tokens || !tokens.access_token) {
+            console.error(`[AutomationScheduler] ❌ No valid tokens found for user ${userId}`);
+            await supabaseTokenStorage.logTokenFailure(userId, {
+              operation: 'auto_post',
+              reason: 'no_tokens',
+              locationId: locationId
+            });
+            return null; // Pause automation by returning null
+          }
+
+          // Check if token is expired
+          const now = Date.now();
+          const expiresAt = tokens.expiry_date ? new Date(tokens.expiry_date).getTime() : (tokens.created_at + (tokens.expires_in * 1000));
+
+          if (now >= expiresAt) {
+            console.error(`[AutomationScheduler] ❌ Token expired for user ${userId}`);
+            console.error(`[AutomationScheduler] Token expired at: ${new Date(expiresAt).toISOString()}`);
+            console.error(`[AutomationScheduler] Current time: ${new Date(now).toISOString()}`);
+
+            await supabaseTokenStorage.logTokenFailure(userId, {
+              operation: 'auto_post',
+              reason: 'token_expired',
+              locationId: locationId,
+              expiredAt: new Date(expiresAt).toISOString()
+            });
+
+            return null; // Pause automation by returning null
+          }
+
+          console.log(`[AutomationScheduler] ✅ Token valid for user ${userId}, expires: ${new Date(expiresAt).toISOString()}`);
+
+        } catch (tokenError) {
+          console.error(`[AutomationScheduler] ❌ Token validation failed:`, tokenError);
+          await supabaseTokenStorage.logTokenFailure(userId, {
+            operation: 'auto_post',
+            reason: 'validation_error',
+            locationId: locationId,
+            error: tokenError.message
+          });
+          return null; // Pause automation by returning null
+        }
+      }
+      // ========================================
+
       // Generate post content using AI
       const postContent = await this.generatePostContent(config, locationId, userId);
       

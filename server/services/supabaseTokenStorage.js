@@ -468,6 +468,57 @@ class SupabaseTokenStorage {
       };
     }
   }
+
+  /**
+   * Log token failure for monitoring and debugging
+   * Tracks automation failures due to expired/revoked tokens
+   *
+   * @param {string} userId - User ID
+   * @param {object} failureData - Failure details (operation, reason, locationId, etc.)
+   */
+  async logTokenFailure(userId, failureData) {
+    if (!userId || !failureData) {
+      console.warn('[SupabaseTokenStorage] logTokenFailure called with missing parameters');
+      return;
+    }
+
+    try {
+      await this.initialize();
+
+      const failureRecord = {
+        user_id: userId,
+        operation: failureData.operation || 'unknown',
+        reason: failureData.reason || 'unknown',
+        location_id: failureData.locationId || null,
+        error_details: JSON.stringify({
+          timestamp: new Date().toISOString(),
+          ...failureData
+        }),
+        created_at: new Date().toISOString()
+      };
+
+      console.log('[SupabaseTokenStorage] 📝 Logging token failure:', {
+        userId,
+        operation: failureRecord.operation,
+        reason: failureRecord.reason,
+        locationId: failureRecord.location_id
+      });
+
+      const { error } = await this.client
+        .from('token_failures')
+        .insert(failureRecord);
+
+      if (error) {
+        console.error('[SupabaseTokenStorage] ❌ Failed to log token failure:', error.message);
+      } else {
+        console.log('[SupabaseTokenStorage] ✅ Token failure logged successfully');
+      }
+
+    } catch (error) {
+      console.error('[SupabaseTokenStorage] ❌ Error logging token failure:', error);
+      // Don't throw - logging failures shouldn't break the main flow
+    }
+  }
 }
 
 // Create singleton instance

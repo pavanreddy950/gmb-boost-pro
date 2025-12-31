@@ -1606,14 +1606,29 @@ app.post('/auth/google/refresh', async (req, res) => {
       }
     }
 
-    res.status(401).json({
-      error: 'Token refresh failed',
-      message: error.message || 'Unable to refresh token',
-      details: error.response?.data || null,
-      requiresReauth: isInvalidGrant // Flag to tell frontend to re-authenticate
-    });
+    res.status(401).json(createReauthErrorResponse(error, userId));
   }
 });
+
+// ========================================
+// HELPER: Standardized Reauth Error Response
+// ========================================
+function createReauthErrorResponse(error, userId = null) {
+  const isInvalidGrant = error.response?.data?.error === 'invalid_grant';
+  const isUnauthorized = error.response?.status === 401;
+  const requiresReauth = isInvalidGrant || isUnauthorized;
+
+  return {
+    error: 'Authentication required',
+    message: requiresReauth
+      ? 'Your Google Business Profile access has expired or been revoked. Please reconnect your account.'
+      : (error.message || 'Token operation failed'),
+    requiresReauth: requiresReauth,
+    timestamp: new Date().toISOString(),
+    userId: userId,
+    details: error.response?.data || null
+  };
+}
 
 // Force save tokens to Firestore (migration endpoint)
 app.post('/auth/google/save-tokens', async (req, res) => {

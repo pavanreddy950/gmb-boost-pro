@@ -3,6 +3,7 @@ import { BusinessAccount, BusinessLocation, googleBusinessProfileService } from 
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
+import { tokenInvalidationService } from '@/lib/tokenInvalidationService';
 
 interface UseGoogleBusinessProfileReturn {
   isConnected: boolean;
@@ -11,6 +12,8 @@ interface UseGoogleBusinessProfileReturn {
   selectedAccount: BusinessAccount | null;
   selectedLocation: BusinessLocation | null;
   error: string | null;
+  needsReauth: boolean;
+  reauthReason: string;
   connectGoogleBusiness: () => void;
   disconnectGoogleBusiness: () => Promise<void>;
   selectAccount: (account: BusinessAccount) => void;
@@ -26,6 +29,8 @@ export const useGoogleBusinessProfile = (): UseGoogleBusinessProfileReturn => {
   const [selectedAccount, setSelectedAccount] = useState<BusinessAccount | null>(null);
   const [selectedLocation, setSelectedLocation] = useState<BusinessLocation | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [needsReauth, setNeedsReauth] = useState(false);
+  const [reauthReason, setReauthReason] = useState<string>('');
   const { toast } = useToast();
   const { currentUser } = useAuth();
   const navigate = useNavigate();
@@ -172,6 +177,30 @@ export const useGoogleBusinessProfile = (): UseGoogleBusinessProfileReturn => {
       setError(null);
     } catch (error) {
       console.error('Error loading business accounts:', error);
+
+      // Check if this is a REAUTH_REQUIRED error
+      if (error instanceof Error && error.message.startsWith('REAUTH_REQUIRED')) {
+        const reason = error.message.replace('REAUTH_REQUIRED: ', '');
+        console.error('[useGoogleBusinessProfile] Re-authentication required:', reason);
+
+        setError(reason);
+        setNeedsReauth(true);
+        setReauthReason(reason);
+        setIsConnected(false);
+        setAccounts([]);
+        setSelectedAccount(null);
+        setSelectedLocation(null);
+
+        toast({
+          title: "Reconnection Required",
+          description: reason,
+          variant: "destructive",
+          duration: 10000,
+        });
+
+        return; // Exit early
+      }
+
       setError('Failed to load business accounts');
       toast({
         title: "Error loading accounts",
@@ -182,6 +211,30 @@ export const useGoogleBusinessProfile = (): UseGoogleBusinessProfileReturn => {
       setIsLoading(false);
     }
   }, [toast, saveGbpAssociation, updateProfileCount]);
+
+  // Listen for global reauth events from tokenInvalidationService
+  useEffect(() => {
+    const unsubscribe = tokenInvalidationService.onReauthRequired((reason) => {
+      console.log('[useGoogleBusinessProfile] Global reauth event received:', reason);
+
+      setNeedsReauth(true);
+      setReauthReason(reason);
+      setIsConnected(false);
+      setAccounts([]);
+      setSelectedAccount(null);
+      setSelectedLocation(null);
+      setError(reason);
+
+      toast({
+        title: "Reconnection Required",
+        description: reason,
+        variant: "destructive",
+        duration: 10000,
+      });
+    });
+
+    return unsubscribe;
+  }, [toast]);
 
   // Automatic token refresh - check periodically to keep connection alive
   useEffect(() => {
@@ -463,6 +516,8 @@ export const useGoogleBusinessProfile = (): UseGoogleBusinessProfileReturn => {
     selectedAccount,
     selectedLocation,
     error,
+    needsReauth,
+    reauthReason,
     connectGoogleBusiness,
     disconnectGoogleBusiness,
     selectAccount,

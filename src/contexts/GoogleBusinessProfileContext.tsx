@@ -9,6 +9,8 @@ interface GoogleBusinessProfileContextType {
   selectedAccount: BusinessAccount | null;
   selectedLocation: BusinessLocation | null;
   error: string | null;
+  needsReauth: boolean;
+  reauthReason: string;
   connectGoogleBusiness: () => void;
   disconnectGoogleBusiness: () => Promise<void>;
   selectAccount: (account: BusinessAccount) => void;

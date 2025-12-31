@@ -2,6 +2,7 @@
 
 import { tokenStorageService, type StoredGoogleTokens } from './tokenStorage';
 import { gbpCache } from './gbpCacheService';
+import { tokenInvalidationService } from './tokenInvalidationService';
 
 // Google Business Profile API configuration
 const SCOPES = [
@@ -576,15 +577,21 @@ class GoogleBusinessProfileService {
 
         // Special handling for 401 errors
         if (response.status === 401) {
+          // Check if backend indicates re-authentication is required
+          if (errorData.requiresReauth) {
+            console.error('🔐 CRITICAL: Re-authentication required - refresh token has been revoked or expired');
+
+            // Trigger global token invalidation and reauth flow
+            const reason = errorData.message || 'Your Google Business Profile access has expired or been revoked. Please reconnect your account.';
+            await tokenInvalidationService.invalidateAndRequestReauth(reason, this.currentUserId);
+
+            this.accessToken = null;
+            throw new Error(`REAUTH_REQUIRED: ${reason}`);
+          }
+
           // Clear invalid tokens from all sources
           localStorage.removeItem('google_business_tokens');
           this.accessToken = null;
-
-          // Check if backend indicates re-authentication is required
-          if (errorData.requiresReauth) {
-            console.error('🔐 Re-authentication required: Refresh token has been revoked or expired');
-            throw new Error(`Your Google Business Profile access has expired or been revoked. Please reconnect your account.`);
-          }
 
           throw new Error(`Token refresh failed: Invalid or expired refresh token. Please reconnect your Google Business Profile.`);
         }
@@ -708,11 +715,27 @@ class GoogleBusinessProfileService {
   }
 
   // Enhanced 401 error handler with automatic token refresh and retry
+  // Limits retry attempts to prevent infinite loops
   private async handleUnauthorizedAndRetry<T>(
     operationName: string,
-    retryRequest: () => Promise<Response>
+    retryRequest: () => Promise<Response>,
+    attemptCount: number = 0
   ): Promise<T> {
-    console.log(`🔑 Got 401 for ${operationName}, attempting to refresh token...`);
+    const MAX_ATTEMPTS = 3;
+
+    if (attemptCount >= MAX_ATTEMPTS) {
+      console.error(`❌ Max retry attempts (${MAX_ATTEMPTS}) reached for ${operationName}`);
+
+      // Trigger global token invalidation after max retries
+      await tokenInvalidationService.invalidateAndRequestReauth(
+        `Authentication failed after ${MAX_ATTEMPTS} attempts. Please reconnect your Google Business Profile.`,
+        this.currentUserId
+      );
+
+      throw new Error(`REAUTH_REQUIRED: Authentication failed permanently for ${operationName}`);
+    }
+
+    console.log(`🔑 Got 401 for ${operationName}, attempting to refresh token (attempt ${attemptCount + 1}/${MAX_ATTEMPTS})...`);
 
     try {
       // Clear any cached results for this operation
@@ -744,8 +767,9 @@ class GoogleBusinessProfileService {
       } else {
         // Handle different error status codes
         if (retryResponse.status === 401) {
-          console.error(`❌ Still getting 401 after token refresh for ${operationName} - token may be permanently invalid`);
-          throw new Error(`Authentication failed permanently. Please reconnect your Google Business Profile. (${operationName})`);
+          console.error(`❌ Still getting 401 after token refresh for ${operationName} - retrying...`);
+          // Recursively retry with incremented attempt count
+          return await this.handleUnauthorizedAndRetry<T>(operationName, retryRequest, attemptCount + 1);
         } else if (retryResponse.status === 403) {
           console.error(`❌ Permission denied for ${operationName} - insufficient permissions`);
           throw new Error(`Access denied. Please ensure your Google Business Profile has the required permissions for ${operationName}.`);
@@ -760,13 +784,30 @@ class GoogleBusinessProfileService {
     } catch (refreshError) {
       console.error(`❌ Token refresh/retry failed for ${operationName}:`, refreshError);
 
+      // If it's a REAUTH_REQUIRED error, re-throw it immediately
+      if (refreshError instanceof Error && refreshError.message.startsWith('REAUTH_REQUIRED')) {
+        throw refreshError;
+      }
+
       // If it's already a formatted error message, re-throw it
       if (refreshError instanceof Error && refreshError.message.includes('Authentication')) {
         throw refreshError;
       }
 
-      // Otherwise, wrap it in a user-friendly message
-      throw new Error(`Authentication expired. Please reconnect your Google Business Profile. (${operationName})`);
+      // For network errors or temporary failures, retry if we haven't hit max attempts
+      if (attemptCount < MAX_ATTEMPTS - 1) {
+        console.log(`⚠️ Temporary error, will retry (attempt ${attemptCount + 2}/${MAX_ATTEMPTS})...`);
+        await new Promise(resolve => setTimeout(resolve, Math.pow(2, attemptCount) * 1000)); // Exponential backoff
+        return await this.handleUnauthorizedAndRetry<T>(operationName, retryRequest, attemptCount + 1);
+      }
+
+      // Max attempts reached - trigger token invalidation
+      await tokenInvalidationService.invalidateAndRequestReauth(
+        `Authentication failed for ${operationName}. Please reconnect your Google Business Profile.`,
+        this.currentUserId
+      );
+
+      throw new Error(`REAUTH_REQUIRED: Authentication expired for ${operationName}`);
     }
   }
 
