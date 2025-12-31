@@ -27,18 +27,16 @@ class AutomationScheduler {
     this.postCreationLocks = new Map(); // locationId -> timestamp of last post creation
     this.DUPLICATE_POST_WINDOW = 60 * 1000; // 60 seconds - prevent duplicate posts within this window
 
-    // Hardcoded Azure OpenAI configuration - no environment variables needed
-    this.azureEndpoint = 'https://n8nservices.cognitiveservices.azure.com/';
-    this.apiKey = 'FSQ0UWJgdAmR3qECBH33SLQsRJy1RUJyy9sul3RUDIwnzP7mmdxlJQQJ99BHACYeBjFXJ3w3AAAAACOGf58T';
-    this.deploymentName = 'gpt-4.1';
-    this.apiVersion = '2025-01-01-preview';
+    // OpenAI API configuration from environment variables
+    this.openaiApiKey = process.env.OPENAI_API_KEY || '';
+    this.openaiModel = process.env.OPENAI_MODEL || 'gpt-4o-mini';
+    this.openaiEndpoint = process.env.OPENAI_ENDPOINT || 'https://api.openai.com/v1/chat/completions';
 
-    // Log Azure OpenAI configuration status
-    console.log('[AutomationScheduler] ✅ Azure OpenAI Configuration (Hardcoded):');
-    console.log(`  - Endpoint: ✅ ${this.azureEndpoint}`);
-    console.log(`  - API Key: ✅ Configured`);
-    console.log(`  - Deployment: ✅ ${this.deploymentName}`);
-    console.log(`  - API Version: ✅ ${this.apiVersion}`);
+    // Log OpenAI configuration status
+    console.log('[AutomationScheduler] ✅ OpenAI Configuration:');
+    console.log(`  - Endpoint: ${this.openaiEndpoint ? '✅' : '❌'}`);
+    console.log(`  - API Key: ${this.openaiApiKey ? '✅ Configured' : '❌ NOT SET'}`);
+    console.log(`  - Model: ${this.openaiModel}`);
   }
 
   // Load settings from Supabase (called on initialization)
@@ -1124,8 +1122,8 @@ class AutomationScheduler {
     console.log(`[AutomationScheduler] Website: ${websiteUrl}`);
     console.log(`[AutomationScheduler] ========================================`);
     
-    if (!this.apiKey || !this.azureEndpoint) {
-      throw new Error('[AutomationScheduler] Azure OpenAI not configured - AI generation is required');
+    if (!this.openaiApiKey || !this.openaiEndpoint) {
+      throw new Error('[AutomationScheduler] OpenAI not configured - AI generation is required');
     }
     
     try {
@@ -1199,14 +1197,15 @@ EXAMPLES OF GOOD SHORT POSTS (around 80-100 words):
 Write naturally, engagingly, but KEEP IT SHORT - maximum 100 words!`;
 
       const response = await fetch(
-        `${this.azureEndpoint}openai/deployments/${this.deploymentName}/chat/completions?api-version=${this.apiVersion}`,
+        this.openaiEndpoint,
         {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'api-key': this.apiKey
+            'Authorization': `Bearer ${this.openaiApiKey}`
           },
           body: JSON.stringify({
+            model: this.openaiModel,
             messages: [
               {
                 role: 'system',
@@ -1263,11 +1262,11 @@ Think of yourself as writing a quick, enthusiastic recommendation - SHORT but me
         };
       } else {
         const errorText = await response.text();
-        throw new Error(`Azure OpenAI API error: ${response.status} - ${errorText}`);
+        throw new Error(`OpenAI API error: ${response.status} - ${errorText}`);
       }
     } catch (error) {
       console.error('[AutomationScheduler] Critical error - AI generation failed:', error);
-      throw new Error(`AI content generation failed: ${error.message}. Please ensure Azure OpenAI is properly configured.`);
+      throw new Error(`AI content generation failed: ${error.message}. Please ensure OpenAI is properly configured.`);
     }
   }
 
@@ -1561,8 +1560,8 @@ Think of yourself as writing a quick, enthusiastic recommendation - SHORT but me
     const keywords = config.keywords || '';
     const category = config.category || 'business';
 
-    if (!this.apiKey || !this.azureEndpoint) {
-      throw new Error('[AutomationScheduler] Azure OpenAI not configured - AI generation is required for review replies');
+    if (!this.openaiApiKey || !this.openaiEndpoint) {
+      throw new Error('[AutomationScheduler] OpenAI not configured - AI generation is required for review replies');
     }
 
     try {
@@ -1611,14 +1610,15 @@ CONTENT Requirements:
 Return ONLY the middle content paragraph with no greeting or closing.`;
 
       const response = await fetch(
-        `${this.azureEndpoint}openai/deployments/${this.deploymentName}/chat/completions?api-version=${this.apiVersion}`,
+        this.openaiEndpoint,
         {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'api-key': this.apiKey
+            'Authorization': `Bearer ${this.openaiApiKey}`
           },
           body: JSON.stringify({
+            model: this.openaiModel,
             messages: [
               {
                 role: 'system',
@@ -1662,11 +1662,11 @@ Team ${businessName}`;
         return completeReply;
       } else {
         const errorText = await response.text();
-        throw new Error(`Azure OpenAI API error: ${response.status} - ${errorText}`);
+        throw new Error(`OpenAI API error: ${response.status} - ${errorText}`);
       }
     } catch (error) {
       console.error('[AutomationScheduler] Critical error - AI reply generation failed:', error);
-      throw new Error(`AI reply generation failed: ${error.message}. Please ensure Azure OpenAI is properly configured.`);
+      throw new Error(`AI reply generation failed: ${error.message}. Please ensure OpenAI is properly configured.`);
     }
   }
 

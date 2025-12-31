@@ -3,39 +3,32 @@ import { getCategoryMapping, generateCategoryPrompt } from '../config/categoryRe
 
 class AIReviewService {
   constructor() {
-    // Hardcoded Azure OpenAI configuration - no environment variables needed
-    this.azureEndpoint = 'https://n8nservices.cognitiveservices.azure.com/';
-    this.apiKey = 'FSQ0UWJgdAmR3qECBH33SLQsRJy1RUJyy9sul3RUDIwnzP7mmdxlJQQJ99BHACYeBjFXJ3w3AAAAACOGf58T';
-    this.deploymentName = 'gpt-4.1';
-    this.apiVersion = '2025-01-01-preview';
-    
+    // OpenAI API configuration from environment variables
+    this.openaiApiKey = process.env.OPENAI_API_KEY || '';
+    this.openaiModel = process.env.OPENAI_MODEL || 'gpt-4o-mini';
+    this.openaiEndpoint = process.env.OPENAI_ENDPOINT || 'https://api.openai.com/v1/chat/completions';
+
     // Simple in-memory cache for faster responses
     this.reviewCache = new Map();
     this.cacheTimeout = 30 * 1000; // 30 seconds cache (reduced from 5 minutes)
-    
-    console.log('[AIReviewService] Initialized with hardcoded Azure OpenAI configuration');
+
+    console.log('[AIReviewService] Initialized with OpenAI configuration');
+    console.log(`[AIReviewService] API Key: ${this.openaiApiKey ? '✅ Configured' : '❌ NOT SET'}`);
   }
 
   async generateReviewSuggestions(businessName, location, businessType = 'business', reviewId = null, keywords = null, businessCategory = null) {
     // NO CACHING - Generate completely fresh reviews every time for maximum uniqueness
     console.log('[AI Review Service] 🎲 Generating completely fresh reviews (NO CACHE) for maximum uniqueness');
     
-    // Enhanced debugging for Azure OpenAI configuration
+    // Enhanced debugging for OpenAI configuration
     console.log('[AI Review Service] Generating new reviews (no cache hit)');
-    console.log(`[AI Review Service] Endpoint: ${this.azureEndpoint ? 'SET (' + this.azureEndpoint.substring(0, 30) + '...)' : 'NOT SET'}`);
-    console.log(`[AI Review Service] API Key: ${this.apiKey ? 'SET (' + this.apiKey.substring(0, 10) + '...)' : 'NOT SET'}`);
-    console.log(`[AI Review Service] Deployment: ${this.deploymentName || 'NOT SET'}`);
-    console.log(`[AI Review Service] Version: ${this.apiVersion || 'NOT SET'}`);
-    
-    // Check if Azure OpenAI is configured
-    if (!this.apiKey || !this.azureEndpoint || !this.deploymentName) {
-      const missingVars = [];
-      if (!this.azureEndpoint) missingVars.push('AZURE_OPENAI_ENDPOINT');
-      if (!this.apiKey) missingVars.push('AZURE_OPENAI_API_KEY');
-      if (!this.deploymentName) missingVars.push('AZURE_OPENAI_DEPLOYMENT');
-      if (!this.apiVersion) missingVars.push('AZURE_OPENAI_API_VERSION');
-      
-      throw new Error(`[AI Review Service] Missing Azure OpenAI environment variables: ${missingVars.join(', ')}. Please configure these in your Azure App Service settings.`);
+    console.log(`[AI Review Service] Endpoint: ${this.openaiEndpoint ? 'SET' : 'NOT SET'}`);
+    console.log(`[AI Review Service] API Key: ${this.openaiApiKey ? 'SET (' + this.openaiApiKey.substring(0, 10) + '...)' : 'NOT SET'}`);
+    console.log(`[AI Review Service] Model: ${this.openaiModel || 'NOT SET'}`);
+
+    // Check if OpenAI is configured
+    if (!this.openaiApiKey || !this.openaiEndpoint) {
+      throw new Error('[AI Review Service] OpenAI API not configured. Please check configuration.');
     }
     
     try {
@@ -171,15 +164,14 @@ Example 3:
       console.log(`Keywords in prompt: ${keywordList.length > 0 ? keywordList.join(', ') : '⚠️ NONE - USING FALLBACK'}`);
       console.log(`Prompt length: ${prompt.length} characters\n`);
 
-      const url = `${this.azureEndpoint}openai/deployments/${this.deploymentName}/chat/completions?api-version=${this.apiVersion}`;
-
-      const response = await fetch(url, {
+      const response = await fetch(this.openaiEndpoint, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'api-key': this.apiKey
+          'Authorization': `Bearer ${this.openaiApiKey}`
         },
         body: JSON.stringify({
+          model: this.openaiModel,
           messages: [
             {
               role: 'system',
@@ -469,15 +461,14 @@ Return ONLY this JSON array (no markdown):
   {"reply": "[Third distinct reply with keywords]", "tone": "${tone}", "focus": "resolution"}
 ]`;
 
-      const url = `${this.azureEndpoint}openai/deployments/${this.deploymentName}/chat/completions?api-version=${this.apiVersion}`;
-
-      const response = await fetch(url, {
+      const response = await fetch(this.openaiEndpoint, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'api-key': this.apiKey
+          'Authorization': `Bearer ${this.openaiApiKey}`
         },
         body: JSON.stringify({
+          model: this.openaiModel,
           messages: [
             {
               role: 'system',

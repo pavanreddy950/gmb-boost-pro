@@ -15,49 +15,49 @@ interface PostContent {
 }
 
 export class OpenAIService {
-  private subscriptionKey: string;
+  private apiKey: string;
   private endpoint: string;
-  private deployment: string;
-  private apiVersion: string;
+  private model: string;
   private lastRequestTime = 0;
   private minRequestInterval = 1000; // 1 second between requests
 
   constructor() {
-    // Hardcoded Azure OpenAI configuration - no environment variables needed
-    this.subscriptionKey = 'FSQ0UWJgdAmR3qECBH33SLQsRJy1RUJyy9sul3RUDIwnzP7mmdxlJQQJ99BHACYeBjFXJ3w3AAAAACOGf58T';
-    this.endpoint = 'https://n8nservices.cognitiveservices.azure.com/';
-    this.deployment = 'gpt-4.1';
-    this.apiVersion = '2025-01-01-preview';
-    
-    console.log('✅ Azure OpenAI configuration hardcoded successfully');
+    // OpenAI API configuration from environment variables
+    this.apiKey = import.meta.env.VITE_OPENAI_API_KEY || '';
+    this.endpoint = import.meta.env.VITE_OPENAI_ENDPOINT || 'https://api.openai.com/v1/chat/completions';
+    this.model = import.meta.env.VITE_OPENAI_MODEL || 'gpt-4o-mini';
+
+    console.log('✅ OpenAI configuration loaded successfully');
     console.log('🔑 Endpoint:', this.endpoint);
-    console.log('🚀 Deployment:', this.deployment);
-    console.log('📅 API Version:', this.apiVersion);
-    console.log('🔑 Subscription key preview:', this.subscriptionKey.substring(0, 8) + '...');
-    
+    console.log('🚀 Model:', this.model);
+    console.log('🔑 API key:', this.apiKey ? '✅ Configured' : '❌ NOT SET');
+
     // Test the API configuration validity
-    this.testApiKey().catch(error => {
-      console.warn('⚠️ Azure OpenAI API test failed:', error.message);
-    });
+    if (this.apiKey) {
+      this.testApiKey().catch(error => {
+        console.warn('⚠️ OpenAI API test failed:', error.message);
+      });
+    }
   }
 
-  // Test Azure OpenAI API configuration validity
+  // Test OpenAI API configuration validity
   private async testApiKey(): Promise<boolean> {
-    if (!this.subscriptionKey || !this.endpoint || !this.deployment || !this.apiVersion) return false;
+    if (!this.apiKey || !this.endpoint || !this.model) return false;
     
     try {
       console.log('🧪 Testing Azure OpenAI API configuration...');
       
       // Test with a simple completion request
-      const testUrl = `${this.endpoint}/openai/deployments/${this.deployment}/chat/completions?api-version=${this.apiVersion}`;
+      const testUrl = this.endpoint;
       
       const response = await fetch(testUrl, {
         method: 'POST',
         headers: {
-          'api-key': this.subscriptionKey,
+          'Authorization': `Bearer ${this.apiKey}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
+          model: this.model,
           messages: [{ role: 'user', content: 'test' }],
           max_tokens: 1,
           temperature: 0
@@ -268,15 +268,16 @@ export class OpenAIService {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
 
-      const azureUrl = `${this.endpoint}/openai/deployments/${this.deployment}/chat/completions?api-version=${this.apiVersion}`;
+      const url = this.endpoint;
       
-      const response = await this.rateLimitedRequest(azureUrl, {
+      const response = await this.rateLimitedRequest(url, {
         method: 'POST',
         headers: {
-          'api-key': this.subscriptionKey,
+          'Authorization': `Bearer ${this.apiKey}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
+          model: this.model,
           messages: [
             {
               role: 'system',
@@ -377,22 +378,23 @@ export class OpenAIService {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 60000); // 60 second timeout
 
-      const azureUrl = `${this.endpoint}/openai/deployments/${this.deployment}/chat/completions?api-version=${this.apiVersion}`;
+      const url = this.endpoint;
       
-      const response = await this.rateLimitedRequest(azureUrl, {
+      const response = await this.rateLimitedRequest(url, {
         method: 'POST',
         headers: {
-          'api-key': this.subscriptionKey,
+          'Authorization': `Bearer ${this.apiKey}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
+          model: this.model,
           messages: [
             {
               role: 'user',
               content: prompt
             }
           ],
-          max_tokens: 2000,
+          max_tokens:2000,
           temperature: 0.7,
         }),
         signal: controller.signal,
@@ -403,7 +405,7 @@ export class OpenAIService {
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
         console.error('🚨 OpenAI API Error:', response.status, errorData);
-        throw new Error(`Azure OpenAI API error: ${response.status}`);
+        throw new Error(`OpenAI API error: ${response.status}`);
       }
 
       const data: OpenAIResponse = await response.json();
@@ -452,12 +454,12 @@ Requirements:
 Generate ONLY the response text, no additional formatting.`;
 
     try {
-      const azureUrl = `${this.endpoint}/openai/deployments/${this.deployment}/chat/completions?api-version=${this.apiVersion}`;
+      const url = this.endpoint;
       
-      const response = await this.rateLimitedRequest(azureUrl, {
+      const response = await this.rateLimitedRequest(url, {
         method: 'POST',
         headers: {
-          'api-key': this.subscriptionKey,
+          'Authorization': `Bearer ${this.apiKey}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({

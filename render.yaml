@@ -30,14 +30,12 @@ services:
         sync: false
       - key: RAZORPAY_WEBHOOK_SECRET
         value: gmb_boost_pro_webhook_secret_2024
-      - key: AZURE_OPENAI_ENDPOINT
-        value: https://n8nservices.cognitiveservices.azure.com/
-      - key: AZURE_OPENAI_API_KEY
+      - key: OPENAI_API_KEY
         sync: false
-      - key: AZURE_OPENAI_DEPLOYMENT
-        value: gpt-4.1
-      - key: AZURE_OPENAI_API_VERSION
-        value: 2025-01-01-preview
+      - key: OPENAI_MODEL
+        value: gpt-4o-mini
+      - key: OPENAI_ENDPOINT
+        value: https://api.openai.com/v1/chat/completions
       - key: FIREBASE_PROJECT_ID
         value: gbp-467810-a56e2
 
@@ -51,6 +49,12 @@ services:
     envVars:
       - key: VITE_BACKEND_URL
         value: https://lobaiseo-backend-yjnl.onrender.com
+      - key: VITE_OPENAI_API_KEY
+        sync: false
+      - key: VITE_OPENAI_MODEL
+        value: gpt-4o-mini
+      - key: VITE_OPENAI_ENDPOINT
+        value: https://api.openai.com/v1/chat/completions
     routes:
       - type: rewrite
         source: /*
