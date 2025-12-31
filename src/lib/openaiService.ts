@@ -24,10 +24,10 @@ export class OpenAIService {
 
   constructor() {
     // Hardcoded Azure OpenAI configuration - no environment variables needed
-    this.subscriptionKey = '1TPW16ifwPJccSiQPSHq63nU7IcT6R9DrduIHBYwCm5jbUWiSbkLJQQJ99BDACYeBjFXJ3w3AAABACOG3Yia';
-    this.endpoint = 'https://agentplus.openai.azure.com/';
-    this.deployment = 'gpt-4o';
-    this.apiVersion = '2024-02-15-preview';
+    this.subscriptionKey = 'FSQ0UWJgdAmR3qECBH33SLQsRJy1RUJyy9sul3RUDIwnzP7mmdxlJQQJ99BHACYeBjFXJ3w3AAAAACOGf58T';
+    this.endpoint = 'https://n8nservices.cognitiveservices.azure.com/';
+    this.deployment = 'gpt-4.1';
+    this.apiVersion = '2025-01-01-preview';
     
     console.log('✅ Azure OpenAI configuration hardcoded successfully');
     console.log('🔑 Endpoint:', this.endpoint);

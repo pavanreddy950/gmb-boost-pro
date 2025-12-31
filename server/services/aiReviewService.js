@@ -4,10 +4,10 @@ import { getCategoryMapping, generateCategoryPrompt } from '../config/categoryRe
 class AIReviewService {
   constructor() {
     // Hardcoded Azure OpenAI configuration - no environment variables needed
-    this.azureEndpoint = 'https://agentplus.openai.azure.com/';
-    this.apiKey = '1TPW16ifwPJccSiQPSHq63nU7IcT6R9DrduIHBYwCm5jbUWiSbkLJQQJ99BDACYeBjFXJ3w3AAABACOG3Yia';
-    this.deploymentName = 'gpt-4o';
-    this.apiVersion = '2024-02-15-preview';
+    this.azureEndpoint = 'https://n8nservices.cognitiveservices.azure.com/';
+    this.apiKey = 'FSQ0UWJgdAmR3qECBH33SLQsRJy1RUJyy9sul3RUDIwnzP7mmdxlJQQJ99BHACYeBjFXJ3w3AAAAACOGf58T';
+    this.deploymentName = 'gpt-4.1';
+    this.apiVersion = '2025-01-01-preview';
     
     // Simple in-memory cache for faster responses
     this.reviewCache = new Map();
