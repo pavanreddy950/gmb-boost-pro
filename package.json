@@ -6,9 +6,10 @@
   "scripts": {
     "dev": "vite --port 3000",
     "dev:local": "vite --mode development --port 3000",
-    "build": "vite build",
-    "build:local": "vite build --mode development",
-    "build:dev": "vite build --mode development",
+    "build": "vite build && npm run copy:404",
+    "copy:404": "node -e \"require('fs').copyFileSync('dist/index.html', 'dist/404.html')\"",
+    "build:local": "vite build --mode development && npm run copy:404",
+    "build:dev": "vite build --mode development && npm run copy:404",
     "lint": "eslint .",
     "preview": "vite preview",
     "build:production": "npm run build && npm run server:install",
