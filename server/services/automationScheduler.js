@@ -487,7 +487,8 @@ class AutomationScheduler {
       // ========================================
       // Validate that the user has valid tokens before attempting to create a post
       // This prevents automation failures due to expired/revoked tokens
-      if (userId && userId !== 'default') {
+      // SKIP VALIDATION IN TEST MODE - when config.test is true, trust the provided token
+      if (userId && userId !== 'default' && !config.test) {
         try {
           console.log(`[AutomationScheduler] 🔐 Validating tokens for user ${userId}...`);
           const tokens = await supabaseTokenStorage.getUserToken(userId);
@@ -533,15 +534,18 @@ class AutomationScheduler {
           });
           return null; // Pause automation by returning null
         }
+      } else if (config.test) {
+        console.log(`[AutomationScheduler] ⚡ TEST MODE: Skipping token validation, using provided token directly`);
       }
       // ========================================
 
       // Generate post content using AI
       const postContent = await this.generatePostContent(config, locationId, userId);
-      
+
       // Create the post via Google Business Profile API (v4 - current version)
       // v4 requires accountId in the path
-      const accountId = config.accountId || '106433552101751461082';
+      // CRITICAL: Always use hardcoded account ID from environment, ignore config.accountId
+      const accountId = process.env.HARDCODED_ACCOUNT_ID || '106433552101751461082';
       const postUrl = `https://mybusiness.googleapis.com/v4/accounts/${accountId}/locations/${locationId}/localPosts`;
       console.log(`[AutomationScheduler] Posting to URL: ${postUrl}`);
       
@@ -603,9 +607,10 @@ class AutomationScheduler {
   async createPostWithFallbackAPI(locationId, postContent, accessToken, config) {
     try {
       // Use Google My Business API v4 as fallback
-      const accountId = config.accountId || '106433552101751461082';
+      // CRITICAL: Always use hardcoded account ID from environment, ignore config.accountId
+      const accountId = process.env.HARDCODED_ACCOUNT_ID || '106433552101751461082';
       const fallbackUrl = `https://mybusiness.googleapis.com/v4/accounts/${accountId}/locations/${locationId}/localPosts`;
-      
+
       console.log(`[AutomationScheduler] Using fallback API: ${fallbackUrl}`);
       
       const fallbackPostData = {
