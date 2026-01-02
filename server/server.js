@@ -4518,51 +4518,30 @@ initializeServer().then(() => {
     // Only the LEADER server will run automations (prevents duplicates)
     console.log('👑 [LEADER ELECTION] Starting leader election for horizontal scaling...');
 
-    // Track if automations have been started
-    let automationsStarted = false;
+    // 🚀 CRITICAL: Start automations IMMEDIATELY for 24/7 operation
+    // No delays, no leader election - ensures auto-posting and auto-reply work continuously
+    console.log('🚀 [AUTOMATION] Starting automations immediately for 24/7 operation...');
 
-    // Helper function to start automations
-    const startAutomations = async (source) => {
-      if (automationsStarted) {
-        console.log(`[AUTOMATION] ⏭️ Automations already started, skipping (${source})`);
-        return;
-      }
-      automationsStarted = true;
-      console.log(`[AUTOMATION] 🚀 Starting automations (${source})...`);
+    // Start automations right away (no setTimeout, no delays)
+    (async () => {
       try {
         await automationScheduler.initializeAutomations();
-        console.log(`✅ [AUTOMATION] Automations started successfully (${source})`);
+        console.log('✅ [AUTOMATION] Automations started successfully!');
+        console.log('✅ [AUTOMATION] Auto-posting and auto-reply are now running 24/7');
       } catch (error) {
-        console.error(`❌ [AUTOMATION] Failed to start automations (${source}):`, error);
-        automationsStarted = false; // Allow retry
+        console.error('❌ [AUTOMATION] Failed to start automations:', error);
+        // Retry once after 5 seconds if it fails
+        setTimeout(async () => {
+          try {
+            console.log('🔄 [AUTOMATION] Retrying automation start...');
+            await automationScheduler.initializeAutomations();
+            console.log('✅ [AUTOMATION] Automations started successfully on retry!');
+          } catch (retryError) {
+            console.error('❌ [AUTOMATION] Retry failed:', retryError);
+          }
+        }, 5000);
       }
-    };
-
-    setTimeout(async () => {
-      try {
-        await leaderElection.start();
-        console.log('✅ [LEADER ELECTION] Leader election started!');
-        if (leaderElection.isLeader) {
-          console.log('✅ [LEADER ELECTION] 👑 This server is LEADER - automations will run here');
-          await startAutomations('leader-election');
-        } else {
-          console.log('📌 [LEADER ELECTION] This server is FOLLOWER - automations run on leader only');
-        }
-      } catch (error) {
-        console.error('❌ [LEADER ELECTION] Failed to start leader election:', error);
-        console.log('⚠️ [LEADER ELECTION] Falling back to direct automation start...');
-        await startAutomations('leader-election-fallback');
-      }
-    }, 5000);
-
-    // 🚨 CRITICAL FALLBACK: Ensure automations start even if leader election hangs
-    // This guarantees automations run on Azure with "Always On" enabled
-    setTimeout(async () => {
-      if (!automationsStarted) {
-        console.log('⚠️ [AUTOMATION] Timeout reached - starting automations as safety fallback...');
-        await startAutomations('timeout-fallback');
-      }
-    }, 15000); // 15 second safety timeout
+    })();
 
     // 📧 Start Trial Email Scheduler
     console.log('📧 [EMAIL] Starting trial email automation...');

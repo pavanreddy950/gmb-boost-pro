@@ -27,16 +27,24 @@ class AutomationScheduler {
     this.postCreationLocks = new Map(); // locationId -> timestamp of last post creation
     this.DUPLICATE_POST_WINDOW = 60 * 1000; // 60 seconds - prevent duplicate posts within this window
 
-    // OpenAI API configuration from environment variables
-    this.openaiApiKey = process.env.OPENAI_API_KEY || '';
-    this.openaiModel = process.env.OPENAI_MODEL || 'gpt-4o-mini';
-    this.openaiEndpoint = process.env.OPENAI_ENDPOINT || 'https://api.openai.com/v1/chat/completions';
+    // Azure OpenAI API configuration from environment variables
+    this.azureEndpoint = process.env.AZURE_OPENAI_ENDPOINT || '';
+    this.azureApiKey = process.env.AZURE_OPENAI_API_KEY || '';
+    this.azureDeployment = process.env.AZURE_OPENAI_DEPLOYMENT || 'gpt-4o-mini-3';
+    this.azureApiVersion = process.env.AZURE_OPENAI_API_VERSION || '2025-01-01-preview';
 
-    // Log OpenAI configuration status
-    console.log('[AutomationScheduler] ✅ OpenAI Configuration:');
-    console.log(`  - Endpoint: ${this.openaiEndpoint ? '✅' : '❌'}`);
-    console.log(`  - API Key: ${this.openaiApiKey ? '✅ Configured' : '❌ NOT SET'}`);
-    console.log(`  - Model: ${this.openaiModel}`);
+    // Build full Azure OpenAI endpoint URL
+    this.openaiEndpoint = this.azureEndpoint
+      ? `${this.azureEndpoint}/openai/deployments/${this.azureDeployment}/chat/completions?api-version=${this.azureApiVersion}`
+      : '';
+    this.openaiApiKey = this.azureApiKey;
+    this.openaiModel = this.azureDeployment; // For Azure, model is the deployment name
+
+    // Log Azure OpenAI configuration status
+    console.log('[AutomationScheduler] ✅ Azure OpenAI Configuration:');
+    console.log(`  - Endpoint: ${this.azureEndpoint ? '✅' : '❌'}`);
+    console.log(`  - Deployment: ${this.azureDeployment}`);
+    console.log(`  - API Key: ${this.azureApiKey ? '✅ Configured' : '❌ NOT SET'}`);
   }
 
   // Load settings from Supabase (called on initialization)
@@ -1202,10 +1210,9 @@ Write naturally, engagingly, but KEEP IT SHORT - maximum 100 words!`;
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${this.openaiApiKey}`
+            'api-key': this.openaiApiKey
           },
           body: JSON.stringify({
-            model: this.openaiModel,
             messages: [
               {
                 role: 'system',
@@ -1615,10 +1622,9 @@ Return ONLY the middle content paragraph with no greeting or closing.`;
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${this.openaiApiKey}`
+            'api-key': this.openaiApiKey
           },
           body: JSON.stringify({
-            model: this.openaiModel,
             messages: [
               {
                 role: 'system',

@@ -3,17 +3,27 @@ import { getCategoryMapping, generateCategoryPrompt } from '../config/categoryRe
 
 class AIReviewService {
   constructor() {
-    // OpenAI API configuration from environment variables
-    this.openaiApiKey = process.env.OPENAI_API_KEY || '';
-    this.openaiModel = process.env.OPENAI_MODEL || 'gpt-4o-mini';
-    this.openaiEndpoint = process.env.OPENAI_ENDPOINT || 'https://api.openai.com/v1/chat/completions';
+    // Azure OpenAI API configuration from environment variables
+    this.azureEndpoint = process.env.AZURE_OPENAI_ENDPOINT || '';
+    this.azureApiKey = process.env.AZURE_OPENAI_API_KEY || '';
+    this.azureDeployment = process.env.AZURE_OPENAI_DEPLOYMENT || 'gpt-4o-mini-3';
+    this.azureApiVersion = process.env.AZURE_OPENAI_API_VERSION || '2025-01-01-preview';
+
+    // Build full Azure OpenAI endpoint URL
+    this.openaiEndpoint = this.azureEndpoint
+      ? `${this.azureEndpoint}/openai/deployments/${this.azureDeployment}/chat/completions?api-version=${this.azureApiVersion}`
+      : '';
+    this.openaiApiKey = this.azureApiKey;
+    this.openaiModel = this.azureDeployment; // For Azure, model is the deployment name
 
     // Simple in-memory cache for faster responses
     this.reviewCache = new Map();
     this.cacheTimeout = 30 * 1000; // 30 seconds cache (reduced from 5 minutes)
 
-    console.log('[AIReviewService] Initialized with OpenAI configuration');
-    console.log(`[AIReviewService] API Key: ${this.openaiApiKey ? '✅ Configured' : '❌ NOT SET'}`);
+    console.log('[AIReviewService] Initialized with Azure OpenAI configuration');
+    console.log(`[AIReviewService] Endpoint: ${this.azureEndpoint}`);
+    console.log(`[AIReviewService] Deployment: ${this.azureDeployment}`);
+    console.log(`[AIReviewService] API Key: ${this.azureApiKey ? '✅ Configured' : '❌ NOT SET'}`);
   }
 
   async generateReviewSuggestions(businessName, location, businessType = 'business', reviewId = null, keywords = null, businessCategory = null) {
@@ -168,10 +178,9 @@ Example 3:
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${this.openaiApiKey}`
+          'api-key': this.openaiApiKey
         },
         body: JSON.stringify({
-          model: this.openaiModel,
           messages: [
             {
               role: 'system',
@@ -384,7 +393,7 @@ ${keywordList.length > 0 ? '- 2-3 keywords naturally integrated in each' : '- Ge
     console.log('[AI Review Service] 🎲 Generating completely fresh reply suggestions (NO CACHE)');
 
     // Check if Azure OpenAI is configured
-    if (!this.apiKey || !this.azureEndpoint || !this.deploymentName) {
+    if (!this.openaiApiKey || !this.openaiEndpoint) {
       throw new Error('[AI Review Service] Azure OpenAI is required for reply generation. Please configure Azure OpenAI.');
     }
 
@@ -465,10 +474,9 @@ Return ONLY this JSON array (no markdown):
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${this.openaiApiKey}`
+          'api-key': this.openaiApiKey
         },
         body: JSON.stringify({
-          model: this.openaiModel,
           messages: [
             {
               role: 'system',

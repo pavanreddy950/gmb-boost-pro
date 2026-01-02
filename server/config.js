@@ -50,9 +50,9 @@ class Config {
       HARDCODED_ACCOUNT_ID: '106433552101751461082',
       RAZORPAY_KEY_ID: 'rzp_live_RFSzT9EvJ2cwJI',
       RAZORPAY_KEY_SECRET: '7i0iikfS6eO7w4DSLXldCBX5',
-      AZURE_OPENAI_ENDPOINT: 'https://n8nservices.cognitiveservices.azure.com/',
-      AZURE_OPENAI_API_KEY: 'FSQ0UWJgdAmR3qECBH33SLQsRJy1RUJyy9sul3RUDIwnzP7mmdxlJQQJ99BHACYeBjFXJ3w3AAAAACOGf58T',
-      AZURE_OPENAI_DEPLOYMENT: 'gpt-4.1',
+      AZURE_OPENAI_ENDPOINT: 'https://rajag-mjx5q079-eastus2.cognitiveservices.azure.com',
+      AZURE_OPENAI_API_KEY: '7EdRCwZiy4teOevPf63fO9PCAem0uNowvpC0eCrv0llNwnM6fmRdJQQJ99CAACHYHv6XJ3w3AAAAACOGI5pT',
+      AZURE_OPENAI_DEPLOYMENT: 'gpt-4o-mini-3',
       AZURE_OPENAI_API_VERSION: '2025-01-01-preview',
       FIREBASE_PROJECT_ID: 'gbp-467810-a56e2',
       RAZORPAY_WEBHOOK_SECRET: 'gmb_boost_pro_webhook_secret_2024'
