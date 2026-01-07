@@ -192,47 +192,56 @@ function calculateNextPostTime(schedule, frequency, lastRun) {
 
   const [hours, minutes] = schedule.split(':').map(Number);
   const now = new Date();
-  const timezone = 'Asia/Kolkata';
 
-  // Get current time in IST
-  const istNow = new Date(now.toLocaleString('en-US', { timeZone: timezone }));
+  // IST offset is +5:30 from UTC (in milliseconds)
+  const IST_OFFSET_MS = (5 * 60 + 30) * 60 * 1000;
 
-  // Create scheduled time for today in IST
-  let scheduledTime = new Date(istNow);
-  scheduledTime.setHours(hours, minutes, 0, 0);
+  // Get current UTC time
+  const nowUtc = now.getTime();
 
-  // Check if we already posted today
+  // Convert to IST for date calculations
+  const nowIst = new Date(nowUtc + IST_OFFSET_MS);
+
+  // Create scheduled time for today in IST (as UTC Date with IST values for calculation)
+  const scheduledIst = new Date(nowIst);
+  scheduledIst.setUTCHours(hours, minutes, 0, 0);
+
+  // Check if we already posted today (in IST)
   const lastRunDate = lastRun ? new Date(lastRun) : null;
-  const lastRunIST = lastRunDate ? new Date(lastRunDate.toLocaleString('en-US', { timeZone: timezone })) : null;
-  const alreadyPostedToday = lastRunIST &&
-    lastRunIST.getDate() === istNow.getDate() &&
-    lastRunIST.getMonth() === istNow.getMonth() &&
-    lastRunIST.getFullYear() === istNow.getFullYear();
+  let alreadyPostedToday = false;
+
+  if (lastRunDate) {
+    const lastRunUtc = lastRunDate.getTime();
+    const lastRunIst = new Date(lastRunUtc + IST_OFFSET_MS);
+
+    alreadyPostedToday =
+      lastRunIst.getUTCDate() === nowIst.getUTCDate() &&
+      lastRunIst.getUTCMonth() === nowIst.getUTCMonth() &&
+      lastRunIst.getUTCFullYear() === nowIst.getUTCFullYear();
+  }
 
   if (frequency === 'daily') {
     // If scheduled time passed OR already posted today, move to tomorrow
-    if (scheduledTime <= istNow || alreadyPostedToday) {
-      scheduledTime.setDate(scheduledTime.getDate() + 1);
+    if (scheduledIst <= nowIst || alreadyPostedToday) {
+      scheduledIst.setUTCDate(scheduledIst.getUTCDate() + 1);
     }
   } else if (frequency === 'alternative' || frequency === 'every_2_days') {
     // Every 2 days
-    if (scheduledTime <= istNow || alreadyPostedToday) {
-      scheduledTime.setDate(scheduledTime.getDate() + 2);
+    if (scheduledIst <= nowIst || alreadyPostedToday) {
+      scheduledIst.setUTCDate(scheduledIst.getUTCDate() + 2);
     }
   } else if (frequency === 'weekly') {
     // Weekly
-    if (scheduledTime <= istNow || alreadyPostedToday) {
-      scheduledTime.setDate(scheduledTime.getDate() + 7);
+    if (scheduledIst <= nowIst || alreadyPostedToday) {
+      scheduledIst.setUTCDate(scheduledIst.getUTCDate() + 7);
     }
   }
 
-  // Convert IST time back to UTC for consistent comparison
-  const utcTime = new Date(scheduledTime.toLocaleString('en-US', { timeZone: 'UTC' }));
-  // Adjust for IST offset (UTC+5:30)
-  utcTime.setHours(utcTime.getHours() - 5);
-  utcTime.setMinutes(utcTime.getMinutes() - 30);
+  // Convert scheduled IST time back to actual UTC
+  // scheduledIst contains IST values stored as UTC, so subtract IST offset to get real UTC
+  const scheduledUtc = new Date(scheduledIst.getTime() - IST_OFFSET_MS);
 
-  return scheduledTime;
+  return scheduledUtc;
 }
 
 // Update automation settings for a location
