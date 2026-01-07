@@ -869,18 +869,29 @@ class GoogleBusinessProfileService {
       console.log('🔍 ACCOUNTS DEBUG: VITE_BACKEND_URL env var:', import.meta.env.VITE_BACKEND_URL);
       console.log('🔍 ACCOUNTS DEBUG: Full URL:', `${this.backendUrl}/api/accounts`);
 
-      // Add timeout control for faster failure
+      // Add timeout control - increased for Render backend cold starts
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout for faster response
+      const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout for cold start handling
 
-      const response = await fetch(`${this.backendUrl}/api/accounts?_t=${Date.now()}`, {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${this.accessToken}`,
-          'Content-Type': 'application/json',
-        },
-        signal: controller.signal,
-      });
+      let response: Response;
+      try {
+        response = await fetch(`${this.backendUrl}/api/accounts?_t=${Date.now()}`, {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${this.accessToken}`,
+            'Content-Type': 'application/json',
+          },
+          signal: controller.signal,
+        });
+      } catch (fetchError: any) {
+        clearTimeout(timeoutId);
+        // Handle abort error gracefully
+        if (fetchError.name === 'AbortError') {
+          console.warn('⚠️ Request timed out - backend may be cold starting, retrying...');
+          throw new Error('Request timed out. The server may be waking up. Please try again.');
+        }
+        throw fetchError;
+      }
 
       clearTimeout(timeoutId);
 
