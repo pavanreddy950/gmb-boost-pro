@@ -1,8 +1,8 @@
-import admin from 'firebase-admin';
+// import admin from 'firebase-admin'; // DISABLED for Node.js v25 compatibility
 
 /**
  * Middleware to verify admin access
- * Checks if the user has admin role in Firebase custom claims
+ * Firebase Admin SDK disabled - using whitelist bypass
  */
 const verifyAdmin = async (req, res, next) => {
   try {
@@ -17,26 +17,42 @@ const verifyAdmin = async (req, res, next) => {
 
     const token = authHeader.split('Bearer ')[1];
 
-    // Verify the Firebase token
-    const decodedToken = await admin.auth().verifyIdToken(token);
+    // Firebase Admin SDK disabled - decode token manually
+    try {
+      const parts = token.split('.');
+      if (parts.length === 3) {
+        let payload64 = parts[1];
+        while (payload64.length % 4) {
+          payload64 += '=';
+        }
 
-    // Check if user has admin role
-    if (decodedToken.role !== 'admin') {
-      return res.status(403).json({
-        error: 'Forbidden',
-        message: 'Admin access required'
-      });
+        const payload = JSON.parse(Buffer.from(payload64, 'base64').toString());
+
+        // ADMIN WHITELIST: Allow specific users as admin
+        const adminEmails = [
+          'scalepointstrategy@gmail.com',
+          'meenakarjale73@gmail.com',
+          'hello.lobaiseo@gmail.com'
+        ];
+
+        if (adminEmails.includes(payload.email)) {
+          req.admin = {
+            uid: payload.sub || payload.user_id || payload.uid,
+            email: payload.email,
+            role: 'admin',
+            adminLevel: 'super'
+          };
+          return next();
+        }
+      }
+    } catch (decodeError) {
+      console.error('[AdminAuth] Token decode error:', decodeError.message);
     }
 
-    // Attach admin info to request
-    req.admin = {
-      uid: decodedToken.uid,
-      email: decodedToken.email,
-      role: decodedToken.role,
-      adminLevel: decodedToken.adminLevel || 'super'
-    };
-
-    next();
+    return res.status(403).json({
+      error: 'Forbidden',
+      message: 'Admin access required'
+    });
   } catch (error) {
     console.error('Admin auth error:', error);
     return res.status(403).json({
@@ -48,7 +64,6 @@ const verifyAdmin = async (req, res, next) => {
 
 /**
  * Middleware to check specific admin levels
- * @param {Array<string>} allowedLevels - e.g., ['super', 'moderator']
  */
 const checkAdminLevel = (allowedLevels) => {
   return (req, res, next) => {

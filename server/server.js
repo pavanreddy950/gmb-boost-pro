@@ -4,8 +4,8 @@ import { google } from 'googleapis';
 import fetch from 'node-fetch';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import admin from 'firebase-admin';
-import { readFileSync } from 'fs';
+// import admin from 'firebase-admin'; // DISABLED for Node.js v25 compatibility
+// import { readFileSync } from 'fs'; // Not needed without Firebase
 import config from './config.js';
 import paymentRoutes from './routes/payment.js';
 import aiReviewsRoutes from './routes/aiReviews.js';
@@ -35,6 +35,7 @@ import dailyActivityScheduler from './services/newDailyActivityScheduler.js';
 import dynamicDailyActivityScheduler from './services/dynamicDailyActivityScheduler.js';
 import dailyActivityEmailService from './services/newDailyActivityEmailService.js';
 import keepAliveService from './services/keepAliveService.js';
+import scheduledPostsService from './services/scheduledPostsService.js';
 
 // 🚀 Scalability Components
 import connectionPool from './database/connectionPool.js';
@@ -53,21 +54,11 @@ const HARDCODED_ACCOUNT_ID = process.env.HARDCODED_ACCOUNT_ID || '10643355210175
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Initialize Firebase Admin SDK
-try {
-  const serviceAccountPath = path.join(__dirname, 'serviceAccountKey.json');
-  const serviceAccount = JSON.parse(readFileSync(serviceAccountPath, 'utf8'));
-
-  if (!admin.apps.length) {
-    admin.initializeApp({
-      credential: admin.credential.cert(serviceAccount)
-    });
-    console.log('✅ Firebase Admin SDK initialized successfully');
-  }
-} catch (error) {
-  console.error('❌ Error initializing Firebase Admin SDK:', error.message);
-  console.error('   Make sure serviceAccountKey.json exists in the server directory');
-}
+// Firebase Admin SDK - DISABLED for Node.js v25 compatibility
+// The gRPC library used by firebase-admin crashes on Node.js v25 Windows
+// Token storage is now handled by Supabase instead
+console.log('⚠️ Firebase Admin SDK DISABLED for Node.js v25 compatibility');
+console.log('ℹ️ Token storage is handled by Supabase');
 
 const app = express();
 const PORT = config.port;
@@ -1361,7 +1352,7 @@ app.post('/auth/google/callback', async (req, res) => {
               settings: {
                 autoPosting: {
                   enabled: true,
-                  schedule: '09:00',
+                  schedule: '10:20',
                   frequency: 'daily',
                   businessName: businessName,
                   category: category,
@@ -1369,6 +1360,7 @@ app.post('/auth/google/callback', async (req, res) => {
                   keywords: 'quality service, customer satisfaction, excellence',
                   websiteUrl: websiteUrl,
                   timezone: 'Asia/Kolkata',
+                  userCustomizedTime: false, // User hasn't customized time - will use previous post time
                   ...addressInfo,
                   phoneNumber: phoneNumber,
                   button: {
@@ -4528,6 +4520,11 @@ initializeServer().then(() => {
         await automationScheduler.initializeAutomations();
         console.log('✅ [AUTOMATION] Automations started successfully!');
         console.log('✅ [AUTOMATION] Auto-posting and auto-reply are now running 24/7');
+        
+        // 📅 Start the scheduled posts pre-generation service
+        console.log('📅 [SCHEDULED POSTS] Starting pre-generation service...');
+        scheduledPostsService.startPreGenerationChecker();
+        console.log('✅ [SCHEDULED POSTS] Pre-generation service started! Posts will appear 30 min before publishing.');
       } catch (error) {
         console.error('❌ [AUTOMATION] Failed to start automations:', error);
         // Retry once after 5 seconds if it fails
@@ -4536,6 +4533,10 @@ initializeServer().then(() => {
             console.log('🔄 [AUTOMATION] Retrying automation start...');
             await automationScheduler.initializeAutomations();
             console.log('✅ [AUTOMATION] Automations started successfully on retry!');
+            
+            // Also start scheduled posts on retry
+            scheduledPostsService.startPreGenerationChecker();
+            console.log('✅ [SCHEDULED POSTS] Pre-generation service started on retry!');
           } catch (retryError) {
             console.error('❌ [AUTOMATION] Retry failed:', retryError);
           }

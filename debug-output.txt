@@ -1,0 +1,14 @@
+
+
+=== SCHEDULER DIAGNOSTIC ===
+Current Time (IST): 7/1/2026, 12:30:41 pm
+Total Automations: 1
+
+Location: 12595110707100978856 (Second Hand Laptops by Divine Computers)
+  - Enabled: true
+  - Schedule: 11:47
+  - Frequency: daily
+  - Last Run: 6/1/2026, 12:30:16 pm
+  - Posted Today: false
+  - Schedule Time Passed: true
+  - SHOULD POST NOW: true

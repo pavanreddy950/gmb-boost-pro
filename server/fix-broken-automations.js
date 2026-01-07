@@ -63,7 +63,7 @@ async function fixBrokenAutomations() {
         autoPosting: {
           ...setting.settings?.autoPosting,
           enabled: true,
-          schedule: hasSchedule || '09:00', // Default to 9:00 AM
+          schedule: hasSchedule || '10:20', // Default to 10:20 AM
           frequency: hasFrequency || 'daily', // Default to daily
           businessName: setting.settings?.autoPosting?.businessName ||
                        setting.settings?.businessName ||

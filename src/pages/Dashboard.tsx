@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Building2, MapPin, Star, Calendar, ArrowRight, Settings, AlertCircle, CreditCard, Users } from "lucide-react";
+import { Plus, Building2, MapPin, Star, Calendar, ArrowRight, Settings, AlertCircle, CreditCard, Users, Zap, Clock } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { useGoogleBusinessProfile } from "@/hooks/useGoogleBusinessProfile";
 import { useProfileLimitations } from "@/hooks/useProfileLimitations";
@@ -10,6 +10,8 @@ import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { TrialBanner } from "@/components/TrialBanner";
 import { PaymentModal } from "@/components/PaymentModal";
 import { useSubscription } from "@/contexts/SubscriptionContext";
+import { ProfileAutomationStatus } from "@/components/ProfileAutomationStatus";
+import { GlobalPostingTimeModal } from "@/components/GlobalPostingTimeModal";
 
 const Dashboard = () => {
   const navigate = useNavigate();
@@ -17,6 +19,7 @@ const Dashboard = () => {
   const subscription = useSubscription();
   const { getAccessibleAccounts } = useProfileLimitations();
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
+  const [isGlobalTimeModalOpen, setIsGlobalTimeModalOpen] = useState(false);
   
   // Safely destructure subscription context
   const subscriptionStatus = subscription?.status || 'none';
@@ -208,6 +211,32 @@ const Dashboard = () => {
         </Card>
       </div>
 
+      {/* Global Posting Time Card */}
+      <Card className="border-blue-200 bg-gradient-to-r from-blue-50 to-indigo-50">
+        <CardContent className="p-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-3">
+              <div className="h-10 w-10 bg-blue-100 rounded-lg flex items-center justify-center">
+                <Clock className="h-5 w-5 text-blue-600" />
+              </div>
+              <div>
+                <h4 className="font-medium text-blue-900">Set Global Posting Time</h4>
+                <p className="text-sm text-blue-700">
+                  Apply the same posting time to all your enabled profiles
+                </p>
+              </div>
+            </div>
+            <Button 
+              onClick={() => setIsGlobalTimeModalOpen(true)}
+              className="bg-blue-600 hover:bg-blue-700"
+            >
+              <Clock className="mr-2 h-4 w-4" />
+              Set Time for All
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
       {/* Business Profiles */}
       <div className="space-y-4">
         <div className="flex items-center justify-between gap-2">
@@ -263,7 +292,7 @@ const Dashboard = () => {
                       
                       {/* Categories */}
                       {location.categories && location.categories.length > 0 && (
-                        <div className="flex flex-wrap gap-1 mb-4">
+                        <div className="flex flex-wrap gap-1 mb-3">
                           {location.categories.slice(0, 2).map((category: any, catIndex: number) => (
                             <span 
                               key={catIndex} 
@@ -283,6 +312,15 @@ const Dashboard = () => {
                           )}
                         </div>
                       )}
+                      
+                      {/* Auto-posting countdown for each profile */}
+                      <div className="mb-3 border-t pt-3">
+                        <ProfileAutomationStatus 
+                          locationId={locationId} 
+                          businessName={profile.accountName}
+                          compact={true}
+                        />
+                      </div>
                     </div>
                     
                     {/* Manage Profile Button - Fixed at bottom */}
@@ -374,6 +412,13 @@ const Dashboard = () => {
       <PaymentModal 
         isOpen={isPaymentModalOpen}
         onClose={() => setIsPaymentModalOpen(false)}
+      />
+      
+      {/* Global Posting Time Modal */}
+      <GlobalPostingTimeModal
+        isOpen={isGlobalTimeModalOpen}
+        onClose={() => setIsGlobalTimeModalOpen(false)}
+        profiles={profiles || []}
       />
     </>
   );

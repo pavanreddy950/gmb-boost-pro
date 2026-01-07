@@ -10,6 +10,7 @@ export interface AutoPostingConfig {
     frequency: 'daily' | 'alternative' | 'weekly' | 'custom' | 'test30s';
     time: string; // Format: "HH:MM"
     customTimes?: string[]; // For custom frequency
+    userCustomizedTime?: boolean; // True if user explicitly set the time, false to use previous post time
   };
   button?: {
     enabled: boolean;
@@ -290,7 +291,8 @@ class AutomationStorage {
       enabled: true, // Auto-posting enabled by default for all users
       schedule: {
         frequency: 'daily', // Default to daily posting instead of alternative
-        time: '09:00',
+        time: '10:20', // Default time - will be overridden by previous post time if userCustomizedTime is false
+        userCustomizedTime: false, // User hasn't customized yet - will use previous post time
       },
       button: {
         enabled: true,
@@ -305,6 +307,25 @@ class AutomationStorage {
 
     defaultConfig.nextPost = this.calculateNextPostTime(defaultConfig);
     return defaultConfig;
+  }
+
+  // Get effective schedule time (user customized or from last post)
+  getEffectiveScheduleTime(config: AutoPostingConfig): string {
+    // If user has explicitly customized the time, use their setting
+    if (config.schedule.userCustomizedTime) {
+      return config.schedule.time;
+    }
+    
+    // If there's a previous post, use its time
+    if (config.lastPost) {
+      const lastPostDate = new Date(config.lastPost);
+      const hours = lastPostDate.getHours().toString().padStart(2, '0');
+      const minutes = lastPostDate.getMinutes().toString().padStart(2, '0');
+      return `${hours}:${minutes}`;
+    }
+    
+    // Fallback to default schedule time
+    return config.schedule.time;
   }
 
   // Listen for real-time updates

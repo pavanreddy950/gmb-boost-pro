@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { Plus, Calendar, Clock, Image, Search, Filter, MoreHorizontal, Users, Info } from "lucide-react";
+import { Plus, Calendar, Clock, Image, Search, Filter, MoreHorizontal, Users, Info, RefreshCw } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -19,6 +19,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import CreatePostModal from "@/components/ProfileDetails/CreatePostModal";
+import { ScheduledPostsSection } from "@/components/ScheduledPostsSection";
 import { useGoogleBusinessProfile } from "@/hooks/useGoogleBusinessProfile";
 import { googleBusinessProfileService } from "@/lib/googleBusinessProfile";
 import { useNotifications } from "@/contexts/NotificationContext";
@@ -42,7 +43,9 @@ const Posts = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [selectedProfileFilter, setSelectedProfileFilter] = useState<string>("all");
-  
+  const [refreshKey, setRefreshKey] = useState(0);
+  const [lastRefreshed, setLastRefreshed] = useState<Date | null>(null);
+
   // Get real-time Google Business Profile data
   const {
     accounts,
@@ -83,7 +86,7 @@ const Posts = () => {
       setLoading(true);
       try {
         console.log('Posts: Fetching posts across all profiles (PARALLEL LOADING)');
-        
+
         // Create all location tasks for parallel execution (only accessible accounts)
         const locationTasks = accessibleAccounts.flatMap(account =>
           account.locations.map(location => ({
@@ -92,17 +95,18 @@ const Posts = () => {
             task: async () => {
               try {
                 console.log(`📍 Posts: Processing location - "${location.displayName}"`);
-                
+
                 // Add timeout to prevent individual locations from hanging
                 const controller = new AbortController();
                 const timeoutId = setTimeout(() => controller.abort(), 6000); // 6 second timeout per location
-                
-                // Use locationId to avoid path encoding issues
-                const locationPosts = await googleBusinessProfileService.getLocationPosts(location.locationId);
+
+                // Use locationId and forceRefresh to get latest posts
+                const shouldForceRefresh = refreshKey > 0; // Force refresh on manual/auto refresh
+                const locationPosts = await googleBusinessProfileService.getLocationPosts(location.locationId, { forceRefresh: shouldForceRefresh });
                 clearTimeout(timeoutId);
-                
+
                 console.log(`📍 Posts: Received ${locationPosts.length} posts for ${location.displayName}`);
-                
+
                 // Convert BusinessPost to Post format
                 const convertedPosts: Post[] = locationPosts.map(post => ({
                   id: post.id,
@@ -112,7 +116,7 @@ const Posts = () => {
                   status: 'published' as const,
                   postedAt: post.createTime
                 }));
-                
+
                 return convertedPosts;
               } catch (error) {
                 console.warn(`⚠️ Failed to fetch posts for ${location.displayName}:`, error);
@@ -121,14 +125,14 @@ const Posts = () => {
             }
           }))
         );
-        
+
         console.log(`🚀 Starting parallel loading of posts for ${locationTasks.length} locations`);
         const startTime = Date.now();
-        
+
         // Execute all tasks in parallel
         const postPromises = locationTasks.map(({ task }) => task());
         const postsArrays = await Promise.allSettled(postPromises);
-        
+
         // Collect all successful results
         const allPosts: Post[] = [];
         postsArrays.forEach((result, index) => {
@@ -138,7 +142,7 @@ const Posts = () => {
             console.warn(`Location ${index} failed:`, result.reason);
           }
         });
-        
+
         const loadTime = Date.now() - startTime;
         console.log(`✅ Parallel loading completed in ${loadTime}ms: Loaded ${allPosts.length} posts from ${locationTasks.length} locations`);
         setPosts(allPosts);
@@ -153,7 +157,25 @@ const Posts = () => {
     // Always start with loading state
     setLoading(true);
     fetchPosts();
-  }, [accessibleAccounts, isConnected, googleLoading]);
+  }, [accessibleAccounts, isConnected, googleLoading, refreshKey]);
+
+  // Auto-refresh every 60 seconds to catch new auto-posted content
+  useEffect(() => {
+    const interval = setInterval(() => {
+      console.log('[Posts] Auto-refreshing posts...');
+      setRefreshKey(prev => prev + 1);
+    }, 60000); // 60 seconds
+
+    return () => clearInterval(interval);
+  }, []);
+
+  // Manual refresh function
+  const handleRefresh = () => {
+    console.log('[Posts] Manual refresh triggered - clearing cache');
+    googleBusinessProfileService.clearPostsCache();
+    setRefreshKey(prev => prev + 1);
+    setLastRefreshed(new Date());
+  };
 
   const formatDateTime = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('en-US', {
@@ -192,7 +214,7 @@ const Posts = () => {
 
   const filteredPosts = posts.filter(post => {
     const matchesSearch = post.content.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         post.profileName.toLowerCase().includes(searchQuery.toLowerCase());
+      post.profileName.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesStatus = statusFilter === "all" || post.status === statusFilter;
     const matchesProfile = selectedProfileFilter === "all" || post.profileId === selectedProfileFilter;
     return matchesSearch && matchesStatus && matchesProfile;
@@ -201,15 +223,15 @@ const Posts = () => {
   const handleCreatePost = async (postData: any) => {
     try {
       console.log("Creating post:", postData);
-      
+
       // Find the selected location (only from accessible accounts)
       const selectedLocation = accessibleAccounts.flatMap(account => account.locations)
         .find(location => location.locationId === postData.profileId);
-      
+
       if (!selectedLocation) {
         throw new Error('Selected location not found');
       }
-      
+
       // Create the post using Google Business Profile API
       // Use locationId instead of the full location name to avoid path encoding issues
       const createdPost = await googleBusinessProfileService.createLocationPost(
@@ -220,25 +242,25 @@ const Posts = () => {
           callToAction: postData.callToAction
         }
       );
-      
+
       console.log('Post created successfully:', createdPost);
-      
+
       // Determine the actual post status from Google
       const postStatus = createdPost.status || createdPost.state || 'pending';
       const realTime = createdPost.realTime || false;
-      
+
       // Add the new post to the list with real status
       const newPost: Post = {
         id: createdPost.id,
         profileId: selectedLocation.locationId,
         profileName: selectedLocation.displayName,
         content: createdPost.summary || '',
-        status: postStatus === 'PENDING' || postStatus === 'UNDER_REVIEW' ? 'scheduled' : 
-                postStatus === 'LIVE' ? 'published' : 'draft',
+        status: postStatus === 'PENDING' || postStatus === 'UNDER_REVIEW' ? 'scheduled' :
+          postStatus === 'LIVE' ? 'published' : 'draft',
         postedAt: createdPost.createTime,
         scheduledAt: postStatus === 'PENDING' ? createdPost.createTime : undefined
       };
-      
+
       setPosts(prev => [newPost, ...prev]);
       setShowCreateModal(false);
 
@@ -275,7 +297,7 @@ const Posts = () => {
           actionUrl: '/posts'
         });
       }
-      
+
       // Show appropriate success message based on real status
       if (realTime) {
         if (postStatus === 'PENDING' || postStatus === 'UNDER_REVIEW') {
@@ -295,10 +317,10 @@ const Posts = () => {
       }
     } catch (error) {
       console.error('Error creating post:', error);
-      
+
       // Show detailed error message to user
       let errorMessage = 'Failed to create post. Please try again.';
-      
+
       if (error instanceof Error) {
         // Check if it's a network error
         if (error.message.includes('fetch')) {
@@ -311,7 +333,7 @@ const Posts = () => {
           errorMessage = `Error: ${error.message}`;
         }
       }
-      
+
       // Use alert for immediate feedback (can be replaced with toast notification later)
       alert(`❌ ${errorMessage}\n\n💡 If this continues, try:\n• Checking your internet connection\n• Reconnecting your Google Business Profile\n• Refreshing the page`);
     }
@@ -337,16 +359,33 @@ const Posts = () => {
             <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold tracking-tight">Posts</h1>
             <p className="text-sm sm:text-base text-muted-foreground mt-1">
               Manage posts across all your business profiles
+              {lastRefreshed && (
+                <span className="text-xs ml-2">
+                  • Last refreshed: {lastRefreshed.toLocaleTimeString()}
+                </span>
+              )}
             </p>
           </div>
-          <Button 
-            onClick={() => setShowCreateModal(true)}
-            className="bg-primary hover:bg-primary-hover shadow-primary w-full sm:w-auto"
-            size="sm"
-          >
-            <Plus className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4" />
-            <span className="text-sm sm:text-base">Create Post</span>
-          </Button>
+          <div className="flex gap-2 w-full sm:w-auto">
+            <Button
+              onClick={handleRefresh}
+              variant="outline"
+              size="sm"
+              disabled={loading}
+              className="flex-1 sm:flex-none"
+            >
+              <RefreshCw className={`mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4 ${loading ? 'animate-spin' : ''}`} />
+              <span className="text-sm sm:text-base">Refresh</span>
+            </Button>
+            <Button
+              onClick={() => setShowCreateModal(true)}
+              className="bg-primary hover:bg-primary-hover shadow-primary flex-1 sm:flex-none"
+              size="sm"
+            >
+              <Plus className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4" />
+              <span className="text-sm sm:text-base">Create Post</span>
+            </Button>
+          </div>
         </div>
 
         {/* Profile Limitation Alert */}
@@ -379,21 +418,21 @@ const Posts = () => {
               <p className="text-xs text-muted-foreground">Total Posts</p>
             </CardContent>
           </Card>
-          
+
           <Card className="shadow-card border border-border">
             <CardContent className="pt-6">
               <div className="text-2xl font-bold text-success">{statusCounts.published}</div>
               <p className="text-xs text-muted-foreground">Published</p>
             </CardContent>
           </Card>
-          
+
           <Card className="shadow-card border border-border">
             <CardContent className="pt-6">
               <div className="text-2xl font-bold text-warning">{statusCounts.scheduled}</div>
               <p className="text-xs text-muted-foreground">Scheduled</p>
             </CardContent>
           </Card>
-          
+
           <Card className="shadow-card border border-border">
             <CardContent className="pt-6">
               <div className="text-2xl font-bold text-muted-foreground">{statusCounts.draft}</div>
@@ -401,6 +440,9 @@ const Posts = () => {
             </CardContent>
           </Card>
         </div>
+
+        {/* Scheduled Posts Section - Shows upcoming auto-posts */}
+        <ScheduledPostsSection />
 
         {/* Filters */}
         <Card className="shadow-card border border-border">
@@ -415,7 +457,7 @@ const Posts = () => {
                   className="pl-10"
                 />
               </div>
-              
+
               {/* Business Profile Filter */}
               <Select value={selectedProfileFilter} onValueChange={setSelectedProfileFilter}>
                 <SelectTrigger className="w-full sm:w-64">
@@ -434,7 +476,7 @@ const Posts = () => {
                   ))}
                 </SelectContent>
               </Select>
-              
+
               <Select value={statusFilter} onValueChange={setStatusFilter}>
                 <SelectTrigger className="w-full sm:w-48">
                   <Filter className="mr-2 h-4 w-4" />
@@ -457,7 +499,7 @@ const Posts = () => {
           <CardHeader>
             <CardTitle>All Posts</CardTitle>
           </CardHeader>
-          
+
           <CardContent>
             {loading ? (
               <div className="space-y-4">
@@ -479,7 +521,7 @@ const Posts = () => {
                   {searchQuery || statusFilter !== "all" ? "No posts found" : "No posts yet"}
                 </h3>
                 <p className="text-muted-foreground mb-4">
-                  {searchQuery || statusFilter !== "all" 
+                  {searchQuery || statusFilter !== "all"
                     ? "Try adjusting your search or filters"
                     : "Create your first post to start engaging with customers"
                   }
@@ -512,7 +554,7 @@ const Posts = () => {
                           </div>
                         )}
                       </div>
-                      
+
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
                           <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
@@ -527,13 +569,13 @@ const Posts = () => {
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </div>
-                    
+
                     <div className="flex gap-4">
                       {post.imageUrl && (
                         <div className="flex-shrink-0">
-                          <img 
-                            src={post.imageUrl} 
-                            alt="Post image" 
+                          <img
+                            src={post.imageUrl}
+                            alt="Post image"
                             className="w-16 h-16 object-cover rounded-md"
                           />
                         </div>
@@ -549,9 +591,9 @@ const Posts = () => {
           </CardContent>
         </Card>
       </div>
-      
-      <CreatePostModal 
-        open={showCreateModal} 
+
+      <CreatePostModal
+        open={showCreateModal}
         onOpenChange={setShowCreateModal}
         onSubmit={handleCreatePost}
         profileId={selectedProfileFilter !== "all" ? selectedProfileFilter : ""}

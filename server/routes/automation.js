@@ -1,5 +1,6 @@
 import express from 'express';
 import automationScheduler from '../services/automationScheduler.js';
+import scheduledPostsService from '../services/scheduledPostsService.js';
 
 const router = express.Router();
 
@@ -15,12 +16,231 @@ router.get('/status/:locationId', (req, res) => {
   }
 });
 
+// Get automation status for ALL locations (DATABASE ONLY - bulk endpoint for dashboard)
+router.get('/status-all', async (req, res) => {
+  try {
+    const { userId } = req.query;
+
+    // 🔥 DATABASE ONLY - Always query database for consistency
+    const { createClient } = await import('@supabase/supabase-js');
+    const supabaseUrl = process.env.SUPABASE_URL;
+    const supabaseKey = process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_KEY;
+    const supabase = createClient(supabaseUrl, supabaseKey);
+
+    let query = supabase.from('automation_settings').select('*').eq('enabled', true);
+
+    // Filter by userId if provided
+    if (userId) {
+      query = query.eq('user_id', userId);
+    }
+
+    const { data: dbAutomations, error } = await query;
+
+    if (error) {
+      console.error('[Automation API] Database error:', error);
+      return res.status(500).json({ error: 'Database error' });
+    }
+
+    const now = new Date();
+    const results = {};
+
+    for (const dbSetting of (dbAutomations || [])) {
+      const locationId = dbSetting.location_id;
+      const settings = dbSetting.settings || {};
+      const autoPosting = settings.autoPosting || {};
+
+      if (!autoPosting.enabled) {
+        results[locationId] = {
+          enabled: false,
+          locationId,
+          businessName: autoPosting.businessName || 'Unknown'
+        };
+        continue;
+      }
+
+      const lastRun = autoPosting.lastRun ? new Date(autoPosting.lastRun) : null;
+      const nextScheduledTime = calculateNextPostTime(autoPosting.schedule, autoPosting.frequency, lastRun);
+
+      let countdown = null;
+      if (nextScheduledTime) {
+        const timeRemainingMs = nextScheduledTime.getTime() - now.getTime();
+        const isOverdue = timeRemainingMs <= 0;
+        const totalSeconds = Math.max(0, Math.floor(timeRemainingMs / 1000));
+        const hours = Math.floor(totalSeconds / 3600);
+        const minutes = Math.floor((totalSeconds % 3600) / 60);
+        const seconds = totalSeconds % 60;
+
+        countdown = {
+          hours,
+          minutes,
+          seconds,
+          totalSeconds,
+          isOverdue,
+          display: isOverdue ? 'Posting soon...' : `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`
+        };
+      }
+
+      results[locationId] = {
+        success: true,
+        enabled: true,
+        locationId,
+        businessName: autoPosting.businessName,
+        schedule: autoPosting.schedule,
+        frequency: autoPosting.frequency,
+        timezone: autoPosting.timezone || 'Asia/Kolkata',
+        lastRun: lastRun?.toISOString() || null,
+        nextPostTime: nextScheduledTime?.toISOString() || null,
+        nextPostTimeLocal: nextScheduledTime?.toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' }) || null,
+        countdown,
+        hasCronJob: automationScheduler.scheduledJobs.has(locationId)
+      };
+    }
+
+    res.json({
+      success: true,
+      count: Object.keys(results).length,
+      automations: results,
+      serverTime: now.toISOString(),
+      serverTimeIST: now.toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })
+    });
+  } catch (error) {
+    console.error('Error getting all automation status:', error);
+    res.status(500).json({ error: 'Failed to get automation status' });
+  }
+});
+
+// Get next scheduled post time for a location (DATABASE ONLY - no cache)
+router.get('/next-post-time/:locationId', async (req, res) => {
+  try {
+    const { locationId } = req.params;
+
+    // 🔥 DATABASE ONLY - Always query database for consistency
+    const { createClient } = await import('@supabase/supabase-js');
+    const supabaseUrl = process.env.SUPABASE_URL;
+    const supabaseKey = process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_KEY;
+    const supabase = createClient(supabaseUrl, supabaseKey);
+
+    const { data: dbSettings, error } = await supabase
+      .from('automation_settings')
+      .select('*')
+      .eq('location_id', locationId)
+      .eq('enabled', true)
+      .single();
+
+    if (error || !dbSettings?.settings?.autoPosting?.enabled) {
+      return res.json({
+        success: false,
+        enabled: false,
+        message: 'Auto-posting is not enabled for this location'
+      });
+    }
+
+    const settings = dbSettings.settings;
+    const autoPosting = settings.autoPosting;
+    const lastRun = autoPosting.lastRun ? new Date(autoPosting.lastRun) : null;
+
+    // Calculate next scheduled time
+    const nextScheduledTime = calculateNextPostTime(autoPosting.schedule, autoPosting.frequency, lastRun);
+
+    const now = new Date();
+    const serverTimeIST = new Date().toLocaleString('en-US', { timeZone: 'Asia/Kolkata' });
+
+    let timeRemainingMs = 0;
+    let isOverdue = false;
+
+    if (nextScheduledTime) {
+      timeRemainingMs = nextScheduledTime.getTime() - now.getTime();
+      isOverdue = timeRemainingMs <= 0;
+    }
+
+    const totalSeconds = Math.max(0, Math.floor(timeRemainingMs / 1000));
+    const hours = Math.floor(totalSeconds / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+    const seconds = totalSeconds % 60;
+
+    res.json({
+      success: true,
+      enabled: true,
+      locationId,
+      businessName: autoPosting.businessName,
+      schedule: autoPosting.schedule,
+      frequency: autoPosting.frequency,
+      timezone: autoPosting.timezone || 'Asia/Kolkata',
+      lastRun: lastRun?.toISOString() || null,
+      nextPostTime: nextScheduledTime?.toISOString() || null,
+      nextPostTimeLocal: nextScheduledTime?.toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' }) || null,
+      serverTimeIST,
+      countdown: {
+        hours,
+        minutes,
+        seconds,
+        totalSeconds,
+        isOverdue,
+        display: isOverdue ? 'Posting soon...' : `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`
+      },
+      hasCronJob: automationScheduler.scheduledJobs.has(locationId)
+    });
+  } catch (error) {
+    console.error('Error getting next post time:', error);
+    res.status(500).json({ error: 'Failed to get next post time' });
+  }
+});
+
+// Helper function to calculate next post time (used by database-only endpoints)
+function calculateNextPostTime(schedule, frequency, lastRun) {
+  if (!schedule) return null;
+
+  const [hours, minutes] = schedule.split(':').map(Number);
+  const now = new Date();
+  const timezone = 'Asia/Kolkata';
+
+  // Get current time in IST
+  const istNow = new Date(now.toLocaleString('en-US', { timeZone: timezone }));
+
+  // Create scheduled time for today in IST
+  let scheduledTime = new Date(istNow);
+  scheduledTime.setHours(hours, minutes, 0, 0);
+
+  // Check if we already posted today
+  const lastRunDate = lastRun ? new Date(lastRun) : null;
+  const lastRunIST = lastRunDate ? new Date(lastRunDate.toLocaleString('en-US', { timeZone: timezone })) : null;
+  const alreadyPostedToday = lastRunIST &&
+    lastRunIST.getDate() === istNow.getDate() &&
+    lastRunIST.getMonth() === istNow.getMonth() &&
+    lastRunIST.getFullYear() === istNow.getFullYear();
+
+  if (frequency === 'daily') {
+    // If scheduled time passed OR already posted today, move to tomorrow
+    if (scheduledTime <= istNow || alreadyPostedToday) {
+      scheduledTime.setDate(scheduledTime.getDate() + 1);
+    }
+  } else if (frequency === 'alternative' || frequency === 'every_2_days') {
+    // Every 2 days
+    if (scheduledTime <= istNow || alreadyPostedToday) {
+      scheduledTime.setDate(scheduledTime.getDate() + 2);
+    }
+  } else if (frequency === 'weekly') {
+    // Weekly
+    if (scheduledTime <= istNow || alreadyPostedToday) {
+      scheduledTime.setDate(scheduledTime.getDate() + 7);
+    }
+  }
+
+  // Convert IST time back to UTC for consistent comparison
+  const utcTime = new Date(scheduledTime.toLocaleString('en-US', { timeZone: 'UTC' }));
+  // Adjust for IST offset (UTC+5:30)
+  utcTime.setHours(utcTime.getHours() - 5);
+  utcTime.setMinutes(utcTime.getMinutes() - 30);
+
+  return scheduledTime;
+}
+
 // Update automation settings for a location
 router.post('/settings/:locationId', (req, res) => {
   try {
     const { locationId } = req.params;
     const settings = req.body;
-    
+
     console.log(`[Automation API] ========================================`);
     console.log(`[Automation API] Updating settings for location ${locationId}`);
     console.log(`[Automation API] Incoming settings:`, JSON.stringify(settings, null, 2));
@@ -41,12 +261,13 @@ router.post('/settings/:locationId', (req, res) => {
       console.log(`[Automation API] No autoPosting object - creating default`);
       settings.autoPosting = {
         enabled: true,
-        schedule: '09:00',
+        schedule: '10:20',
         frequency: 'alternative',
         businessName: settings.businessName || 'Business',
         category: settings.category || 'business',
         keywords: settings.keywords || 'quality service, customer satisfaction',
         userId: settings.userId || 'default',
+        userCustomizedTime: false, // User hasn't customized time - will use previous post time
         // Include address fields if they exist in root settings
         city: settings.city || '',
         region: settings.region || '',
@@ -73,7 +294,7 @@ router.post('/settings/:locationId', (req, res) => {
         settings.autoPosting.button = settings.button;
       }
     }
-    
+
     if (!settings.autoReply) {
       settings.autoReply = {
         enabled: true,
@@ -93,7 +314,7 @@ router.post('/settings/:locationId', (req, res) => {
         settings.autoReply.keywords = settings.keywords || settings.autoPosting?.keywords;
       }
     }
-    
+
     const updatedSettings = automationScheduler.updateAutomationSettings(locationId, settings);
     console.log(`[Automation API] ✅ Settings saved successfully`);
     console.log(`[Automation API] Saved keywords:`, updatedSettings.autoPosting?.keywords || 'NONE');
@@ -108,9 +329,9 @@ router.post('/settings/:locationId', (req, res) => {
     console.log(`[Automation API] 🔘 Saved button config:`, updatedSettings.autoPosting?.button || 'NONE');
     console.log(`[Automation API] Full saved settings:`, JSON.stringify(updatedSettings, null, 2));
     console.log(`[Automation API] ========================================`);
-    
-    res.json({ 
-      success: true, 
+
+    res.json({
+      success: true,
       settings: updatedSettings,
       status: automationScheduler.getAutomationStatus(locationId)
     });
@@ -125,23 +346,70 @@ router.post('/trigger-post/:locationId', async (req, res) => {
   try {
     const { locationId } = req.params;
     const config = req.body;
-    
-    console.log(`[Automation API] Manually triggering post for location ${locationId}`);
-    
+
+    console.log(`[Automation API] ========================================`);
+    console.log(`[Automation API] 🚀 MANUAL POST TRIGGER for location ${locationId}`);
+    console.log(`[Automation API] Config received:`, JSON.stringify(config, null, 2));
+    console.log(`[Automation API] ========================================`);
+
     // Get existing automation settings if config is not complete
     const settings = automationScheduler.settings.automations?.[locationId];
+
+    // Merge with provided config, ensuring all required fields are present
     const mergedConfig = {
       ...settings?.autoPosting,
       ...config,
-      userId: config.userId || settings?.autoPosting?.userId || 'default'
+      userId: config.userId || settings?.autoPosting?.userId || 'default',
+      accountId: config.accountId || settings?.autoPosting?.accountId,
+      gbpAccountId: config.gbpAccountId || settings?.autoPosting?.gbpAccountId || config.accountId,
+      businessName: config.businessName || settings?.autoPosting?.businessName || 'Business',
+      keywords: config.keywords || settings?.autoPosting?.keywords || config.businessName,
+      categories: config.categories || settings?.autoPosting?.categories || [],
+      frequency: config.frequency || settings?.autoPosting?.frequency || 'daily',
+      schedule: config.schedule || settings?.autoPosting?.schedule || '10:00'
     };
-    
-    await automationScheduler.createAutomatedPost(locationId, mergedConfig);
-    
-    res.json({ success: true, message: 'Post triggered successfully' });
+
+    console.log(`[Automation API] Merged config:`, {
+      businessName: mergedConfig.businessName,
+      userId: mergedConfig.userId,
+      keywords: mergedConfig.keywords?.substring?.(0, 50) || mergedConfig.keywords,
+      frequency: mergedConfig.frequency,
+      schedule: mergedConfig.schedule
+    });
+
+    // If no settings exist in scheduler, save them first
+    if (!settings?.autoPosting) {
+      console.log(`[Automation API] No existing settings found, creating new configuration`);
+      await automationScheduler.updateAutomationSettings(locationId, {
+        autoPosting: {
+          ...mergedConfig,
+          enabled: true
+        }
+      });
+    }
+
+    const result = await automationScheduler.createAutomatedPost(locationId, mergedConfig);
+
+    if (result) {
+      console.log(`[Automation API] ✅ Post created successfully`);
+      res.json({
+        success: true,
+        message: 'Post created successfully',
+        postId: result.name || result.id
+      });
+    } else {
+      console.log(`[Automation API] ⚠️ Post creation returned null (may have been blocked by subscription or duplicate check)`);
+      res.json({
+        success: false,
+        message: 'Post creation blocked - check subscription or duplicate post prevention'
+      });
+    }
   } catch (error) {
-    console.error('Error triggering post:', error);
-    res.status(500).json({ error: error.message || 'Failed to trigger post' });
+    console.error('[Automation API] ❌ Error triggering post:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to trigger post'
+    });
   }
 });
 
@@ -150,11 +418,11 @@ router.post('/check-reviews/:locationId', async (req, res) => {
   try {
     const { locationId } = req.params;
     const config = req.body;
-    
+
     console.log(`[Automation API] Manually checking reviews for location ${locationId}`);
-    
+
     await automationScheduler.checkAndReplyToReviews(locationId, config);
-    
+
     res.json({ success: true, message: 'Review check completed' });
   } catch (error) {
     console.error('Error checking reviews:', error);
@@ -168,7 +436,7 @@ router.get('/logs', (req, res) => {
     const fs = require('fs');
     const path = require('path');
     const logFile = path.join(__dirname, '..', 'data', 'automation_log.json');
-    
+
     if (fs.existsSync(logFile)) {
       const log = JSON.parse(fs.readFileSync(logFile, 'utf8'));
       res.json(log);
@@ -185,18 +453,18 @@ router.get('/logs', (req, res) => {
 router.post('/stop/:locationId', (req, res) => {
   try {
     const { locationId } = req.params;
-    
+
     console.log(`[Automation API] Stopping all automations for location ${locationId}`);
-    
+
     automationScheduler.stopAutoPosting(locationId);
     automationScheduler.stopReviewMonitoring(locationId);
-    
+
     // Update settings to disabled
     automationScheduler.updateAutomationSettings(locationId, {
       autoPosting: { enabled: false },
       autoReply: { enabled: false }
     });
-    
+
     res.json({ success: true, message: 'All automations stopped' });
   } catch (error) {
     console.error('Error stopping automations:', error);
@@ -228,19 +496,19 @@ router.post('/test-post-now/:locationId', async (req, res) => {
     console.log(`[Automation API] Token from body:`, accessToken ? 'Present' : 'Missing');
     console.log(`[Automation API] Token from header:`, authHeader ? 'Present' : 'Missing');
     console.log(`[Automation API] Frontend token available:`, frontendToken ? 'Yes' : 'No');
-    
+
     // Get existing automation settings OR create default
     let settings = automationScheduler.settings.automations?.[locationId];
-    
+
     // If no settings exist, create default configuration
     if (!settings?.autoPosting) {
       console.log(`[Automation API] No config found, creating default auto-posting configuration for location ${locationId}`);
-      
+
       // Create default configuration
       const defaultConfig = {
         autoPosting: {
           enabled: true,
-          schedule: '09:00',
+          schedule: '10:20',
           frequency: 'alternative', // Every 2 days
           businessName: businessName || 'Business',
           category: category || 'business',
@@ -248,7 +516,8 @@ router.post('/test-post-now/:locationId', async (req, res) => {
           websiteUrl: websiteUrl || '',
           locationName: locationName || '',
           timezone: 'Asia/Kolkata',
-          userId: 'default'
+          userId: 'default',
+          userCustomizedTime: false // User hasn't customized time - will use previous post time
         },
         autoReply: {
           enabled: true,
@@ -260,12 +529,12 @@ router.post('/test-post-now/:locationId', async (req, res) => {
           accountId: '106433552101751461082'
         }
       };
-      
+
       // Save the default configuration
       automationScheduler.updateAutomationSettings(locationId, defaultConfig);
       settings = { ...defaultConfig };
     }
-    
+
     // Create test config with all necessary data including location info
     const testConfig = {
       ...settings.autoPosting,
@@ -284,7 +553,7 @@ router.post('/test-post-now/:locationId', async (req, res) => {
       accountId: settings.autoPosting.accountId || settings.accountId || '106433552101751461082',
       test: true
     };
-    
+
     console.log(`[Automation API] Test config:`, testConfig);
 
     // PRIORITY 1: Try to get valid token from backend storage (with auto-refresh)
@@ -327,7 +596,7 @@ router.post('/test-post-now/:locationId', async (req, res) => {
         result = null;
       }
     }
-    
+
     // Check if post was actually created
     if (result === undefined || result === null) {
       // Post creation failed (likely due to no token)
@@ -368,16 +637,16 @@ router.post('/test-review-check/:locationId', async (req, res) => {
   try {
     const { locationId } = req.params;
     const { businessName, category, keywords } = req.body;
-    
+
     console.log(`[Automation API] TEST MODE - Checking reviews NOW for location ${locationId}`);
-    
+
     // Get existing automation settings OR create default
     let settings = automationScheduler.settings.automations?.[locationId];
-    
+
     // If no settings exist, create default configuration
     if (!settings?.autoReply) {
       console.log(`[Automation API] No config found, creating default auto-reply configuration for location ${locationId}`);
-      
+
       // Create default configuration
       const defaultConfig = {
         autoReply: {
@@ -394,20 +663,21 @@ router.post('/test-review-check/:locationId', async (req, res) => {
         },
         autoPosting: {
           enabled: true,
-          schedule: '09:00',
+          schedule: '10:20',
           frequency: 'alternative',
           businessName: businessName || 'Business',
           category: category || 'business',
           keywords: keywords || 'quality service, customer satisfaction, professional',
-          userId: 'default'
+          userId: 'default',
+          userCustomizedTime: false // User hasn't customized time - will use previous post time
         }
       };
-      
+
       // Save the default configuration
       automationScheduler.updateAutomationSettings(locationId, defaultConfig);
       settings = { ...defaultConfig };
     }
-    
+
     // Create test config
     const testConfig = {
       ...settings.autoReply,
@@ -415,33 +685,33 @@ router.post('/test-review-check/:locationId', async (req, res) => {
       accountId: settings.autoReply.accountId || settings.accountId || '106433552101751461082',
       test: true
     };
-    
+
     console.log(`[Automation API] Test config:`, testConfig);
-    
+
     // Check and reply to reviews immediately
     const result = await automationScheduler.checkAndReplyToReviews(locationId, testConfig);
-    
+
     // Check if review check actually worked
     if (result === undefined || result === null) {
-      return res.status(401).json({ 
-        success: false, 
+      return res.status(401).json({
+        success: false,
         error: 'Failed to check reviews. No Google account connected.',
         details: 'Please connect your Google Business Profile account in Settings > Connections first.',
         requiresAuth: true
       });
     }
-    
-    res.json({ 
-      success: true, 
+
+    res.json({
+      success: true,
       message: 'Review check completed! Any new reviews have been replied to.',
       config: testConfig,
-      result: result 
+      result: result
     });
   } catch (error) {
     console.error('Error checking reviews:', error);
-    res.status(500).json({ 
+    res.status(500).json({
       error: error.message || 'Failed to check reviews',
-      details: error.toString() 
+      details: error.toString()
     });
   }
 });
@@ -703,6 +973,345 @@ router.get('/debug/scheduler-status', (req, res) => {
   } catch (error) {
     console.error('Error getting scheduler status:', error);
     res.status(500).json({ error: 'Failed to get scheduler status' });
+  }
+});
+
+// ============================================
+// SUBSCRIPTION STATUS ENDPOINTS
+// ============================================
+
+// Check subscription status for all profiles
+router.get('/subscription-status/:userId', async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const { gbpAccountId } = req.query;
+
+    console.log(`[Automation API] 🔒 Checking subscription for userId: ${userId}, gbpAccountId: ${gbpAccountId}`);
+
+    // Import subscriptionGuard dynamically to avoid circular imports
+    const subscriptionGuard = (await import('../services/subscriptionGuard.js')).default;
+
+    const validationResult = await subscriptionGuard.hasValidAccess(userId, gbpAccountId);
+
+    res.json({
+      success: true,
+      userId,
+      gbpAccountId,
+      hasValidSubscription: validationResult.hasAccess,
+      status: validationResult.status || validationResult.reason,
+      daysRemaining: validationResult.daysRemaining || 0,
+      message: validationResult.message
+    });
+  } catch (error) {
+    console.error('[Automation API] Error checking subscription:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to check subscription status'
+    });
+  }
+});
+
+// ============================================
+// GLOBAL POSTING TIME ENDPOINT
+// ============================================
+
+// Set global posting time for all profiles (only for subscribed profiles)
+router.post('/global-time', async (req, res) => {
+  try {
+    const { schedule, frequency, userId, locationIds, gbpAccountId } = req.body;
+
+    if (!schedule || !frequency) {
+      return res.status(400).json({
+        success: false,
+        error: 'Schedule and frequency are required'
+      });
+    }
+
+    console.log(`[Automation API] ========================================`);
+    console.log(`[Automation API] 🌐 GLOBAL TIME UPDATE REQUEST`);
+    console.log(`[Automation API]    - Schedule: ${schedule}`);
+    console.log(`[Automation API]    - Frequency: ${frequency}`);
+    console.log(`[Automation API]    - UserId: ${userId}`);
+    console.log(`[Automation API]    - GBP Account: ${gbpAccountId}`);
+    console.log(`[Automation API]    - Location count: ${locationIds?.length || 'ALL'}`);
+    console.log(`[Automation API] ========================================`);
+
+    // Import subscriptionGuard and supabase dynamically
+    const subscriptionGuard = (await import('../services/subscriptionGuard.js')).default;
+    const { createClient } = await import('@supabase/supabase-js');
+
+    const supabaseUrl = process.env.SUPABASE_URL;
+    const supabaseKey = process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_KEY;
+    const supabase = createClient(supabaseUrl, supabaseKey);
+
+    // 🔒 First check if user has valid subscription
+    const subscriptionCheck = await subscriptionGuard.hasValidAccess(userId, gbpAccountId);
+
+    if (!subscriptionCheck.hasAccess) {
+      console.log(`[Automation API] ❌ User ${userId} does not have valid subscription`);
+      return res.status(403).json({
+        success: false,
+        error: 'No valid subscription',
+        message: subscriptionCheck.message,
+        reason: subscriptionCheck.reason
+      });
+    }
+
+    console.log(`[Automation API] ✅ User has valid subscription: ${subscriptionCheck.status}`);
+
+    const results = [];
+
+    // 🔥 FIX: Query ALL automation_settings from database for this user
+    const { data: dbAutomations, error: dbError } = await supabase
+      .from('automation_settings')
+      .select('*')
+      .eq('user_id', userId);
+
+    if (dbError) {
+      console.error(`[Automation API] ❌ Database error:`, dbError);
+      return res.status(500).json({ success: false, error: 'Database error' });
+    }
+
+    console.log(`[Automation API] 📊 Found ${dbAutomations?.length || 0} profiles in database for user ${userId}`);
+
+    // If no profiles in DB, fall back to in-memory automations
+    let profilesToUpdate = dbAutomations || [];
+
+    if (profilesToUpdate.length === 0) {
+      // Fallback to in-memory
+      const automations = automationScheduler.settings.automations || {};
+      const memoryLocations = Object.keys(automations).filter(locId => {
+        const config = automations[locId];
+        return config?.autoPosting?.userId === userId || config?.userId === userId;
+      });
+
+      console.log(`[Automation API] 📊 Fallback: Found ${memoryLocations.length} profiles in memory`);
+
+      for (const locationId of memoryLocations) {
+        profilesToUpdate.push({
+          location_id: locationId,
+          settings: automations[locationId]
+        });
+      }
+    }
+
+    // Update each profile
+    for (const profile of profilesToUpdate) {
+      const locationId = profile.location_id;
+
+      try {
+        const existingSettings = profile.settings || {};
+        const autoPosting = existingSettings.autoPosting || {};
+        const businessName = autoPosting.businessName || existingSettings.businessName || 'Unknown';
+
+        // Build updated settings
+        const updatedAutoPosting = {
+          ...autoPosting,
+          enabled: true,
+          schedule: schedule,
+          frequency: frequency,
+          userCustomizedTime: true,
+          userId: userId
+        };
+
+        const updatedSettings = {
+          ...existingSettings,
+          enabled: true,
+          userId: userId,
+          autoPosting: updatedAutoPosting
+        };
+
+        // Remove disabled flags
+        delete updatedSettings.disabledAt;
+        delete updatedSettings.disabledReason;
+
+        // 1. Update in database directly
+        const { error: updateError } = await supabase
+          .from('automation_settings')
+          .update({
+            enabled: true,
+            settings: updatedSettings,
+            updated_at: new Date().toISOString()
+          })
+          .eq('location_id', locationId)
+          .eq('user_id', userId);
+
+        if (updateError) {
+          console.error(`[Automation API] ❌ DB update failed for ${locationId}:`, updateError);
+          results.push({
+            locationId,
+            businessName,
+            success: false,
+            error: updateError.message
+          });
+          continue;
+        }
+
+        // 2. Also update in-memory scheduler
+        automationScheduler.settings.automations = automationScheduler.settings.automations || {};
+        automationScheduler.settings.automations[locationId] = updatedSettings;
+
+        // 3. Reschedule cron job with the autoPosting config
+        try {
+          automationScheduler.stopAutoPosting(locationId);
+          automationScheduler.scheduleAutoPosting(locationId, updatedAutoPosting);
+        } catch (cronError) {
+          console.warn(`[Automation API] ⚠️ Cron reschedule warning for ${locationId}:`, cronError.message);
+        }
+
+        console.log(`[Automation API] ✅ Updated ${businessName} (${locationId}) to post at ${schedule} (${frequency})`);
+        results.push({
+          locationId,
+          businessName,
+          success: true
+        });
+      } catch (error) {
+        console.error(`[Automation API] ❌ Failed to update ${locationId}:`, error);
+        results.push({
+          locationId,
+          success: false,
+          error: error.message || 'Unknown error'
+        });
+      }
+    }
+
+    const successCount = results.filter(r => r.success).length;
+    const failCount = results.filter(r => !r.success).length;
+
+    console.log(`[Automation API] ✅ Global time update complete: ${successCount} success, ${failCount} failed`);
+
+    res.json({
+      success: true,
+      message: `Updated ${successCount} profile(s) to post at ${schedule}`,
+      schedule,
+      frequency,
+      successCount,
+      failCount,
+      subscriptionStatus: subscriptionCheck.status,
+      results
+    });
+  } catch (error) {
+    console.error('[Automation API] ❌ Global time update failed:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to update global posting time',
+      details: error.message
+    });
+  }
+});
+
+// ============================================
+// SCHEDULED POSTS ENDPOINTS (30-min preview)
+// ============================================
+
+// Get all visible scheduled posts (posts that appear 30 min before publishing)
+router.get('/scheduled-posts', async (req, res) => {
+  try {
+    // First, trigger pre-generation check to ensure we have latest
+    await scheduledPostsService.preGenerateAllUpcomingPosts();
+
+    // Get visible scheduled posts
+    const scheduledPosts = scheduledPostsService.getVisibleScheduledPosts();
+
+    res.json({
+      success: true,
+      count: scheduledPosts.length,
+      posts: scheduledPosts,
+      message: scheduledPosts.length > 0
+        ? `${scheduledPosts.length} post(s) scheduled and ready to publish`
+        : 'No scheduled posts in preview window (posts appear 30 minutes before publishing)'
+    });
+  } catch (error) {
+    console.error('Error getting scheduled posts:', error);
+    res.status(500).json({ error: 'Failed to get scheduled posts' });
+  }
+});
+
+// Get scheduled post for a specific location
+router.get('/scheduled-posts/:locationId', (req, res) => {
+  try {
+    const { locationId } = req.params;
+    const post = scheduledPostsService.getScheduledPostForLocation(locationId);
+
+    if (post) {
+      res.json({ success: true, post });
+    } else {
+      res.json({ success: false, message: 'No scheduled post for this location' });
+    }
+  } catch (error) {
+    console.error('Error getting scheduled post:', error);
+    res.status(500).json({ error: 'Failed to get scheduled post' });
+  }
+});
+
+// Force pre-generate all upcoming posts NOW (for testing)
+router.post('/scheduled-posts/generate-now', async (req, res) => {
+  try {
+    console.log('[API] Force pre-generating all scheduled posts...');
+    const count = await scheduledPostsService.preGenerateAllUpcomingPosts();
+
+    res.json({
+      success: true,
+      preGeneratedCount: count,
+      visiblePosts: scheduledPostsService.getVisibleScheduledPosts().length,
+      message: `Pre-generated ${count} post(s)`
+    });
+  } catch (error) {
+    console.error('Error pre-generating posts:', error);
+    res.status(500).json({ error: 'Failed to pre-generate posts' });
+  }
+});
+
+// Start the scheduled posts pre-generation service
+router.post('/scheduled-posts/start-service', (req, res) => {
+  try {
+    scheduledPostsService.startPreGenerationChecker();
+    res.json({
+      success: true,
+      message: 'Scheduled posts pre-generation service started'
+    });
+  } catch (error) {
+    console.error('Error starting service:', error);
+    res.status(500).json({ error: 'Failed to start service' });
+  }
+});
+
+// 🔄 Reload all automation settings from database (for fixing sync issues)
+router.post('/reload', async (req, res) => {
+  try {
+    console.log('[Automation API] 🔄 Reloading all automation settings from database...');
+
+    // Stop all existing cron jobs
+    const existingJobs = Array.from(automationScheduler.scheduledJobs.keys());
+    for (const locationId of existingJobs) {
+      automationScheduler.stopAutoPosting(locationId);
+    }
+    console.log(`[Automation API] ⏹️ Stopped ${existingJobs.length} existing cron jobs`);
+
+    // Reload settings from database
+    await automationScheduler.loadSettings();
+
+    // Reinitialize all automations
+    await automationScheduler.initializeAutomations();
+
+    const automationCount = Object.keys(automationScheduler.settings.automations || {}).length;
+    const cronJobCount = automationScheduler.scheduledJobs.size;
+
+    console.log(`[Automation API] ✅ Reload complete: ${automationCount} automations, ${cronJobCount} cron jobs`);
+
+    res.json({
+      success: true,
+      message: `Reloaded ${automationCount} automation settings`,
+      automationCount,
+      cronJobCount
+    });
+  } catch (error) {
+    console.error('[Automation API] ❌ Error reloading settings:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to reload settings',
+      details: error.message
+    });
   }
 });
 

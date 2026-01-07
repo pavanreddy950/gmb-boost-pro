@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -8,7 +8,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
-import { Clock, Zap, Calendar, BarChart3, Play, Pause, TestTube, Tags, Plus, X, MapPin, Building, Hash, Tag, Edit, RefreshCw, Trash2, Sparkles } from 'lucide-react';
+import { Clock, Zap, Calendar, BarChart3, Play, Pause, TestTube, Tags, Plus, X, MapPin, Building, Hash, Tag, Edit, RefreshCw, Trash2, Sparkles, Timer } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { automationStorage, type AutoPostingConfig } from '@/lib/automationStorage';
 import { automationService } from '@/lib/automationService';
@@ -42,10 +42,22 @@ export function AutoPostingTab({ location }: AutoPostingTabProps) {
   const [config, setConfig] = useState<AutoPostingConfig | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isTesting, setIsTesting] = useState(false);
-  const [customTimes, setCustomTimes] = useState<string[]>(['09:00']);
+  const [customTimes, setCustomTimes] = useState<string[]>(['10:20']);
   const [newKeyword, setNewKeyword] = useState('');
   const [keywords, setKeywords] = useState<string[]>([]);
   const [isSavingToServer, setIsSavingToServer] = useState(false);
+  
+  // Countdown timer state
+  const [countdown, setCountdown] = useState<{
+    hours: number;
+    minutes: number;
+    seconds: number;
+    totalSeconds: number;
+    isExpired: boolean;
+  }>({ hours: 0, minutes: 0, seconds: 0, totalSeconds: 0, isExpired: false });
+  const countdownIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const [serverNextPostTime, setServerNextPostTime] = useState<Date | null>(null);
+  const [isServerScheduleActive, setIsServerScheduleActive] = useState(false);
 
   // Smart keyword filtering to avoid generic terms
   const getGenericKeywordBlacklist = () => [
@@ -121,6 +133,147 @@ export function AutoPostingTab({ location }: AutoPostingTabProps) {
     return [];
   };
 
+  // Fetch server's next post time for accurate countdown
+  const fetchServerSchedule = useCallback(async () => {
+    if (!config?.enabled) return;
+    
+    try {
+      const response = await serverAutomationService.getNextPostTime(location.id);
+      if (response?.success && response.nextPostTime) {
+        setServerNextPostTime(new Date(response.nextPostTime));
+        setIsServerScheduleActive(response.hasCronJob || false);
+        console.log('📅 Server schedule synced:', response.nextPostTimeLocal);
+      }
+    } catch (error) {
+      console.error('Failed to fetch server schedule:', error);
+    }
+  }, [config?.enabled, location.id]);
+
+  // Calculate time remaining until next scheduled post
+  const calculateCountdown = useCallback(() => {
+    if (!config?.enabled || !config?.schedule?.time) {
+      return { hours: 0, minutes: 0, seconds: 0, totalSeconds: 0, isExpired: false };
+    }
+
+    const now = new Date();
+    let nextPostTime: Date;
+    
+    // Use server's next post time if available for more accuracy
+    if (serverNextPostTime && serverNextPostTime > now) {
+      nextPostTime = serverNextPostTime;
+    } else {
+      // Fall back to local calculation
+      const [scheduledHours, scheduledMinutes] = config.schedule.time.split(':').map(Number);
+      
+      nextPostTime = new Date();
+      nextPostTime.setHours(scheduledHours, scheduledMinutes, 0, 0);
+      
+      // Handle different frequencies
+      const frequency = config.schedule.frequency;
+      
+      if (frequency === 'test30s') {
+        // For test mode, use lastPost + 30 seconds
+        if (config.lastPost) {
+          nextPostTime = new Date(new Date(config.lastPost).getTime() + 30 * 1000);
+        } else {
+          nextPostTime = new Date(now.getTime() + 30 * 1000);
+        }
+      } else {
+        // If time has passed today, calculate next occurrence based on frequency
+        if (nextPostTime <= now) {
+          switch (frequency) {
+            case 'daily':
+              nextPostTime.setDate(nextPostTime.getDate() + 1);
+              break;
+            case 'alternative':
+              nextPostTime.setDate(nextPostTime.getDate() + 2);
+              break;
+            case 'weekly':
+              nextPostTime.setDate(nextPostTime.getDate() + 7);
+              break;
+            case 'custom':
+              if (customTimes.length > 0) {
+                const times = customTimes.map(t => {
+                  const [h, m] = t.split(':').map(Number);
+                  const customTime = new Date();
+                  customTime.setHours(h, m, 0, 0);
+                  return customTime;
+                }).sort((a, b) => a.getTime() - b.getTime());
+                
+                const nextTimeToday = times.find(t => t > now);
+                nextPostTime = nextTimeToday || times[0];
+                if (!nextTimeToday) {
+                  nextPostTime.setDate(nextPostTime.getDate() + 1);
+                }
+              }
+              break;
+          }
+        }
+      }
+    }
+    
+    const diffMs = nextPostTime.getTime() - now.getTime();
+    
+    if (diffMs <= 0) {
+      return { hours: 0, minutes: 0, seconds: 0, totalSeconds: 0, isExpired: true };
+    }
+    
+    const totalSeconds = Math.floor(diffMs / 1000);
+    const hours = Math.floor(totalSeconds / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+    const seconds = totalSeconds % 60;
+    
+    return { hours, minutes, seconds, totalSeconds, isExpired: false };
+  }, [config, customTimes, serverNextPostTime]);
+
+  // Fetch server schedule on mount and when config changes
+  useEffect(() => {
+    if (config?.enabled) {
+      fetchServerSchedule();
+      
+      // Refresh server schedule every 30 seconds for accuracy
+      const serverSyncInterval = setInterval(fetchServerSchedule, 30000);
+      
+      return () => clearInterval(serverSyncInterval);
+    }
+  }, [config?.enabled, fetchServerSchedule]);
+
+  // Update countdown every second
+  useEffect(() => {
+    if (!config?.enabled) {
+      setCountdown({ hours: 0, minutes: 0, seconds: 0, totalSeconds: 0, isExpired: false });
+      return;
+    }
+
+    // Initial calculation
+    setCountdown(calculateCountdown());
+
+    // Clear existing interval
+    if (countdownIntervalRef.current) {
+      clearInterval(countdownIntervalRef.current);
+    }
+
+    // Update every second
+    countdownIntervalRef.current = setInterval(() => {
+      const newCountdown = calculateCountdown();
+      setCountdown(newCountdown);
+      
+      // When countdown expires, refresh the config and server schedule
+      if (newCountdown.isExpired) {
+        setTimeout(() => {
+          loadConfiguration();
+          fetchServerSchedule();
+        }, 2000); // Wait 2 seconds then refresh
+      }
+    }, 1000);
+
+    return () => {
+      if (countdownIntervalRef.current) {
+        clearInterval(countdownIntervalRef.current);
+      }
+    };
+  }, [config?.enabled, config?.schedule?.time, config?.schedule?.frequency, config?.lastPost, calculateCountdown, fetchServerSchedule]);
+
   useEffect(() => {
     loadConfiguration();
     
@@ -181,7 +334,7 @@ export function AutoPostingTab({ location }: AutoPostingTabProps) {
         serverAutomationService.enableAutoPosting(
           location.id,
           location.name,
-          existingConfig.schedule.time || '09:00',
+          existingConfig.schedule.time || '10:20',
           existingConfig.schedule.frequency || 'daily', // Use 'daily' as default instead of 'alternative'
           location.categories?.[0],
           existingConfig.keywords.join(', '),
@@ -267,7 +420,7 @@ export function AutoPostingTab({ location }: AutoPostingTabProps) {
         await serverAutomationService.enableAutoPosting(
           location.id,
           location.name,
-          config?.schedule.time || '09:00',
+          config?.schedule.time || '10:20',
           config?.schedule.frequency || 'daily',
           location.categories?.[0],
           keywords.join(', '),
@@ -340,6 +493,7 @@ export function AutoPostingTab({ location }: AutoPostingTabProps) {
             keywords: keywords.join(', '),
             websiteUrl: location.websiteUri,
             timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+            userCustomizedTime: newConfig.schedule.userCustomizedTime || false, // Preserve user's time customization setting
             ...addressInfo,
             phoneNumber: location.phoneNumber,
             button: config?.button,
@@ -413,6 +567,7 @@ export function AutoPostingTab({ location }: AutoPostingTabProps) {
   const handleTimeChange = async (time: string) => {
     const newConfig = { ...config! };
     newConfig.schedule.time = time;
+    newConfig.schedule.userCustomizedTime = true; // Mark that user has customized the time
     newConfig.nextPost = calculateNextPost(newConfig.schedule.frequency, time);
     saveConfiguration(newConfig);
     
@@ -440,6 +595,7 @@ export function AutoPostingTab({ location }: AutoPostingTabProps) {
             keywords: keywords.join(', '),
             websiteUrl: location.websiteUri,
             timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+            userCustomizedTime: true, // Tell server user has customized
             ...addressInfo,
             phoneNumber: location.phoneNumber,
             button: config?.button,
@@ -462,7 +618,7 @@ export function AutoPostingTab({ location }: AutoPostingTabProps) {
   };
 
   const addCustomTime = () => {
-    const newTimes = [...customTimes, '09:00'];
+    const newTimes = [...customTimes, '10:20'];
     handleCustomTimesChange(newTimes);
   };
 
@@ -540,7 +696,7 @@ export function AutoPostingTab({ location }: AutoPostingTabProps) {
         await serverAutomationService.saveAutomationSettings(location.id, {
           autoPosting: {
             enabled: true,
-            schedule: config?.schedule.time || '09:00',
+            schedule: config?.schedule.time || '10:20',
             frequency: config?.schedule.frequency || 'daily',
             businessName: location.name,
             category: location.categories?.[0],
@@ -548,6 +704,7 @@ export function AutoPostingTab({ location }: AutoPostingTabProps) {
             keywords: keywords.join(', '),
             websiteUrl: location.websiteUri,
             timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+            userCustomizedTime: config?.schedule.userCustomizedTime || false, // Preserve user's time customization setting
             ...addressInfo,
             phoneNumber: location.phoneNumber,
             button: config?.button,
@@ -712,6 +869,42 @@ export function AutoPostingTab({ location }: AutoPostingTabProps) {
     } finally {
       setIsTesting(false);
     }
+  };
+
+  // Format countdown for display
+  const formatCountdown = () => {
+    if (!config?.enabled) return null;
+    
+    if (countdown.isExpired) {
+      return { display: 'Posting now...', isPosting: true };
+    }
+    
+    const { hours, minutes, seconds } = countdown;
+    
+    // For test mode, just show seconds
+    if (config.schedule.frequency === 'test30s') {
+      return { 
+        display: `${seconds}s`, 
+        isPosting: false,
+        detailed: `${seconds} seconds`
+      };
+    }
+    
+    // Format as HH:MM:SS
+    const pad = (n: number) => n.toString().padStart(2, '0');
+    const timeString = `${pad(hours)}:${pad(minutes)}:${pad(seconds)}`;
+    
+    // Create detailed string
+    const parts = [];
+    if (hours > 0) parts.push(`${hours}h`);
+    if (minutes > 0) parts.push(`${minutes}m`);
+    parts.push(`${seconds}s`);
+    
+    return { 
+      display: timeString, 
+      isPosting: false,
+      detailed: parts.join(' ')
+    };
   };
 
   const getNextPostTime = () => {
@@ -1000,6 +1193,121 @@ export function AutoPostingTab({ location }: AutoPostingTabProps) {
               </p>
             </div>
           </div>
+
+          {/* Live Countdown Timer Section */}
+          {config.enabled && (
+            <div className="pt-3 sm:pt-4 border-t">
+              <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950/30 dark:to-indigo-950/30 rounded-xl p-4 sm:p-6 border border-blue-100 dark:border-blue-900">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-2">
+                    <Timer className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                    <Label className="text-sm sm:text-base font-semibold text-blue-800 dark:text-blue-300">
+                      Next Auto-Post In
+                    </Label>
+                  </div>
+                  <Badge variant="outline" className="text-xs bg-white dark:bg-gray-800">
+                    {getFrequencyLabel(config.schedule.frequency)}
+                  </Badge>
+                </div>
+                
+                {/* Countdown Display */}
+                <div className="flex flex-col items-center justify-center py-4">
+                  {countdown.isExpired ? (
+                    <div className="flex items-center gap-2 text-green-600 animate-pulse">
+                      <div className="animate-spin h-5 w-5 border-2 border-green-600 border-t-transparent rounded-full" />
+                      <span className="text-lg sm:text-xl font-bold">Posting now...</span>
+                    </div>
+                  ) : (
+                    <>
+                      {/* Digital Clock Style Countdown */}
+                      <div className="flex items-center gap-1 sm:gap-2">
+                        {config.schedule.frequency !== 'test30s' ? (
+                          <>
+                            {/* Hours */}
+                            <div className="flex flex-col items-center">
+                              <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md px-3 sm:px-4 py-2 sm:py-3 min-w-[60px] sm:min-w-[80px]">
+                                <span className="text-2xl sm:text-4xl font-mono font-bold text-blue-600 dark:text-blue-400">
+                                  {countdown.hours.toString().padStart(2, '0')}
+                                </span>
+                              </div>
+                              <span className="text-[10px] sm:text-xs text-muted-foreground mt-1">Hours</span>
+                            </div>
+                            
+                            <span className="text-2xl sm:text-4xl font-bold text-blue-400 dark:text-blue-500 self-start mt-2 sm:mt-3">:</span>
+                            
+                            {/* Minutes */}
+                            <div className="flex flex-col items-center">
+                              <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md px-3 sm:px-4 py-2 sm:py-3 min-w-[60px] sm:min-w-[80px]">
+                                <span className="text-2xl sm:text-4xl font-mono font-bold text-blue-600 dark:text-blue-400">
+                                  {countdown.minutes.toString().padStart(2, '0')}
+                                </span>
+                              </div>
+                              <span className="text-[10px] sm:text-xs text-muted-foreground mt-1">Minutes</span>
+                            </div>
+                            
+                            <span className="text-2xl sm:text-4xl font-bold text-blue-400 dark:text-blue-500 self-start mt-2 sm:mt-3">:</span>
+                            
+                            {/* Seconds */}
+                            <div className="flex flex-col items-center">
+                              <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md px-3 sm:px-4 py-2 sm:py-3 min-w-[60px] sm:min-w-[80px]">
+                                <span className="text-2xl sm:text-4xl font-mono font-bold text-orange-500 dark:text-orange-400 animate-pulse">
+                                  {countdown.seconds.toString().padStart(2, '0')}
+                                </span>
+                              </div>
+                              <span className="text-[10px] sm:text-xs text-muted-foreground mt-1">Seconds</span>
+                            </div>
+                          </>
+                        ) : (
+                          /* Test mode - just show seconds prominently */
+                          <div className="flex flex-col items-center">
+                            <div className="bg-yellow-100 dark:bg-yellow-900 rounded-lg shadow-md px-6 py-4">
+                              <span className="text-4xl sm:text-5xl font-mono font-bold text-yellow-600 dark:text-yellow-400 animate-pulse">
+                                {countdown.seconds}s
+                              </span>
+                            </div>
+                            <span className="text-xs text-yellow-600 mt-2">Test Mode - 30 second interval</span>
+                          </div>
+                        )}
+                      </div>
+                      
+                      {/* Scheduled Time Info */}
+                      <div className="mt-4 text-center">
+                        <p className="text-xs sm:text-sm text-muted-foreground">
+                          Scheduled for <span className="font-semibold text-foreground">{config.schedule.time}</span>
+                          {' '}({getTimezoneInfo().abbreviation})
+                        </p>
+                        <p className="text-[10px] sm:text-xs text-muted-foreground mt-1">
+                          {getNextPostTime()}
+                        </p>
+                        {isServerScheduleActive && (
+                          <div className="flex items-center justify-center gap-1 mt-2">
+                            <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
+                            <span className="text-[10px] text-green-600 dark:text-green-400">
+                              Server automation active
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    </>
+                  )}
+                </div>
+                
+                {/* Progress Bar */}
+                {!countdown.isExpired && config.schedule.frequency !== 'test30s' && (
+                  <div className="mt-2">
+                    <div className="w-full bg-blue-100 dark:bg-blue-900 rounded-full h-1.5 sm:h-2">
+                      <div 
+                        className="bg-gradient-to-r from-blue-500 to-indigo-500 h-1.5 sm:h-2 rounded-full transition-all duration-1000"
+                        style={{ 
+                          width: `${Math.max(0, Math.min(100, 100 - (countdown.totalSeconds / (24 * 60 * 60)) * 100))}%` 
+                        }}
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
 
           {/* Status and Actions */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 pt-3 sm:pt-4 border-t">

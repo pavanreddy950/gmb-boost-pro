@@ -1,35 +1,27 @@
-import admin from 'firebase-admin';
+// import admin from 'firebase-admin'; // DISABLED for Node.js v25 compatibility
 import firebaseConfig from '../config/firebase.js';
 import supabaseSubscriptionService from './supabaseSubscriptionService.js';
 import supabaseUserMappingService from './supabaseUserMappingService.js';
 
+/**
+ * Admin User Service - Modified for Node.js v25 compatibility
+ * Firebase Admin SDK disabled - admin functions limited
+ */
 class AdminUserService {
   constructor() {
-    // No longer using JSON files - all data comes from Supabase
+    console.log('[AdminUserService] ⚠️ Firebase Admin SDK disabled - admin user functions limited');
   }
 
   async ensureFirebaseInitialized() {
-    try {
-      const result = await firebaseConfig.ensureInitialized();
-      if (!result.app) {
-        console.error('[AdminUserService] Firebase app is null after initialization');
-        return false;
-      }
-      return true;
-    } catch (error) {
-      console.error('[AdminUserService] Firebase not initialized:', error);
-      console.error('[AdminUserService] Stack:', error.stack);
-      return false;
-    }
+    // Firebase disabled
+    return false;
   }
 
   async loadData() {
     try {
-      // Fetch data from Supabase database
       const subscriptionsArray = await supabaseSubscriptionService.getAllSubscriptions();
       const mapping = await supabaseUserMappingService.getAllMappings();
 
-      // Convert subscriptions array to object for backward compatibility
       const subscriptionsObj = {};
       subscriptionsArray.forEach(sub => {
         subscriptionsObj[sub.gbpAccountId] = sub;
@@ -47,41 +39,33 @@ class AdminUserService {
 
   /**
    * Get all users with subscription and GBP data
+   * NOTE: Firebase Admin SDK disabled - returns Supabase data only
    */
   async getAllUsers({ page = 1, limit = 50, search = '', status = 'all' }) {
     try {
-      // Ensure Firebase is initialized
-      const initialized = await this.ensureFirebaseInitialized();
-      if (!initialized) {
-        throw new Error('Firebase Admin SDK is not initialized. Please check server logs.');
-      }
-
-      // Get Firebase users
-      const listUsersResult = await admin.auth().listUsers(1000);
+      // Firebase disabled - return data from Supabase only
       const { subscriptions, mapping } = await this.loadData();
 
-      // Combine Firebase user data with subscription data
-      let users = listUsersResult.users.map(user => {
-        const gbpAccountId = mapping.userToGbpMapping[user.uid];
-        const subscription = gbpAccountId ? subscriptions[gbpAccountId] : null;
-
+      // Convert subscriptions to user-like objects
+      let users = Object.entries(subscriptions).map(([gbpAccountId, subscription]) => {
+        const userId = mapping.gbpToUserMapping?.[gbpAccountId];
         return {
-          uid: user.uid,
-          email: user.email,
-          displayName: user.displayName || 'N/A',
-          emailVerified: user.emailVerified,
-          disabled: user.disabled,
-          createdAt: user.metadata.creationTime,
-          lastLoginAt: user.metadata.lastSignInTime,
-          customClaims: user.customClaims || {},
-          gbpAccountId: gbpAccountId || null,
-          subscription: subscription ? {
+          uid: userId || `gbp-${gbpAccountId}`,
+          email: subscription.email || 'N/A',
+          displayName: subscription.businessName || 'N/A',
+          emailVerified: true,
+          disabled: false,
+          createdAt: subscription.createdAt || new Date().toISOString(),
+          lastLoginAt: subscription.updatedAt || new Date().toISOString(),
+          customClaims: {},
+          gbpAccountId: gbpAccountId,
+          subscription: {
             status: subscription.status,
             planId: subscription.planId,
             trialEndDate: subscription.trialEndDate,
             subscriptionEndDate: subscription.subscriptionEndDate,
             profileCount: subscription.profileCount || 0
-          } : null
+          }
         };
       });
 
@@ -122,34 +106,23 @@ class AdminUserService {
   }
 
   /**
-   * Get user by UID with detailed information
+   * Get user by UID - Limited without Firebase
    */
   async getUserById(uid) {
     try {
-      // Ensure Firebase is initialized
-      const initialized = await this.ensureFirebaseInitialized();
-      if (!initialized) {
-        throw new Error('Firebase Admin SDK is not initialized. Please check server logs.');
-      }
-
-      const user = await admin.auth().getUser(uid);
       const { subscriptions, mapping } = await this.loadData();
-
-      const gbpAccountId = mapping.userToGbpMapping[uid];
+      const gbpAccountId = mapping.userToGbpMapping?.[uid];
       const subscription = gbpAccountId ? subscriptions[gbpAccountId] : null;
 
       return {
-        uid: user.uid,
-        email: user.email,
-        displayName: user.displayName || 'N/A',
-        emailVerified: user.emailVerified,
-        disabled: user.disabled,
-        phoneNumber: user.phoneNumber,
-        photoURL: user.photoURL,
-        createdAt: user.metadata.creationTime,
-        lastLoginAt: user.metadata.lastSignInTime,
-        customClaims: user.customClaims || {},
-        providerData: user.providerData,
+        uid: uid,
+        email: subscription?.email || 'N/A',
+        displayName: subscription?.businessName || 'N/A',
+        emailVerified: true,
+        disabled: false,
+        createdAt: subscription?.createdAt || new Date().toISOString(),
+        lastLoginAt: subscription?.updatedAt || new Date().toISOString(),
+        customClaims: {},
         gbpAccountId,
         subscription: subscription || null
       };
@@ -160,70 +133,36 @@ class AdminUserService {
   }
 
   /**
-   * Update user custom claims (e.g., make admin)
+   * Update user custom claims - NOT AVAILABLE without Firebase
    */
   async setUserRole(uid, role, adminLevel = 'viewer') {
-    try {
-      // Ensure Firebase is initialized
-      const initialized = await this.ensureFirebaseInitialized();
-      if (!initialized) {
-        throw new Error('Firebase Admin SDK is not initialized. Please check server logs.');
-      }
-
-      await admin.auth().setCustomUserClaims(uid, {
-        role,
-        adminLevel
-      });
-
-      return {
-        success: true,
-        message: `User role updated to ${role}${role === 'admin' ? ` (${adminLevel})` : ''}`
-      };
-    } catch (error) {
-      console.error('Error setting user role:', error);
-      throw error;
-    }
+    console.warn('[AdminUserService] setUserRole not available - Firebase Admin SDK disabled');
+    return {
+      success: false,
+      message: 'Firebase Admin SDK disabled - cannot set user roles'
+    };
   }
 
   /**
-   * Disable/Enable user account
+   * Disable/Enable user account - NOT AVAILABLE without Firebase
    */
   async toggleUserStatus(uid, disabled) {
-    try {
-      // Ensure Firebase is initialized
-      const initialized = await this.ensureFirebaseInitialized();
-      if (!initialized) {
-        throw new Error('Firebase Admin SDK is not initialized. Please check server logs.');
-      }
-
-      await admin.auth().updateUser(uid, { disabled });
-
-      return {
-        success: true,
-        message: disabled ? 'User account suspended' : 'User account activated'
-      };
-    } catch (error) {
-      console.error('Error toggling user status:', error);
-      throw error;
-    }
+    console.warn('[AdminUserService] toggleUserStatus not available - Firebase Admin SDK disabled');
+    return {
+      success: false,
+      message: 'Firebase Admin SDK disabled - cannot toggle user status'
+    };
   }
 
   /**
-   * Get user statistics
+   * Get user statistics from Supabase
    */
   async getUserStats() {
     try {
-      // Ensure Firebase is initialized
-      const initialized = await this.ensureFirebaseInitialized();
-      if (!initialized) {
-        throw new Error('Firebase Admin SDK is not initialized. Please check server logs.');
-      }
-
       const { subscriptions } = await this.loadData();
-      const allUsers = await admin.auth().listUsers(1000);
 
       const stats = {
-        totalUsers: allUsers.users.length,
+        totalUsers: Object.keys(subscriptions).length,
         activeSubscriptions: 0,
         trialSubscriptions: 0,
         expiredSubscriptions: 0,
@@ -232,19 +171,10 @@ class AdminUserService {
         disabledUsers: 0
       };
 
-      // Count subscriptions
       Object.values(subscriptions).forEach(sub => {
         if (sub.status === 'active') stats.activeSubscriptions++;
         else if (sub.status === 'trial') stats.trialSubscriptions++;
         else stats.expiredSubscriptions++;
-      });
-
-      stats.noSubscription = stats.totalUsers - (stats.activeSubscriptions + stats.trialSubscriptions + stats.expiredSubscriptions);
-
-      // Count user statuses
-      allUsers.users.forEach(user => {
-        if (user.emailVerified) stats.emailVerified++;
-        if (user.disabled) stats.disabledUsers++;
       });
 
       return stats;
@@ -255,26 +185,14 @@ class AdminUserService {
   }
 
   /**
-   * Delete user account
+   * Delete user account - NOT AVAILABLE without Firebase
    */
   async deleteUser(uid) {
-    try {
-      // Ensure Firebase is initialized
-      const initialized = await this.ensureFirebaseInitialized();
-      if (!initialized) {
-        throw new Error('Firebase Admin SDK is not initialized. Please check server logs.');
-      }
-
-      await admin.auth().deleteUser(uid);
-
-      return {
-        success: true,
-        message: 'User account deleted successfully'
-      };
-    } catch (error) {
-      console.error('Error deleting user:', error);
-      throw error;
-    }
+    console.warn('[AdminUserService] deleteUser not available - Firebase Admin SDK disabled');
+    return {
+      success: false,
+      message: 'Firebase Admin SDK disabled - cannot delete users'
+    };
   }
 }
 

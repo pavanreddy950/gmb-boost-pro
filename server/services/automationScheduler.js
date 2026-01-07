@@ -8,6 +8,7 @@ import supabaseAutomationService from './supabaseAutomationService.js';
 import subscriptionGuard from './subscriptionGuard.js';
 import appConfig from '../config.js';
 import { getCategoryMapping, generateCategoryPrompt } from '../config/categoryReviewMapping.js';
+import scheduledPostsService from './scheduledPostsService.js';
 
 // Get __dirname equivalent for ES modules
 const __filename = fileURLToPath(import.meta.url);
@@ -25,7 +26,8 @@ class AutomationScheduler {
 
     // Post creation locks to prevent duplicate posts (fixes 3 posts at same time issue)
     this.postCreationLocks = new Map(); // locationId -> timestamp of last post creation
-    this.DUPLICATE_POST_WINDOW = 60 * 1000; // 60 seconds - prevent duplicate posts within this window
+    this.postingInProgress = new Map(); // locationId -> true/false to prevent concurrent posting
+    this.DUPLICATE_POST_WINDOW = 120 * 1000; // 120 seconds - prevent duplicate posts within this window
 
     // Azure OpenAI API configuration from environment variables
     this.azureEndpoint = process.env.AZURE_OPENAI_ENDPOINT || '';
@@ -68,14 +70,24 @@ class AutomationScheduler {
         // Use the setting object directly instead of trying to parse setting.settings
         this.settings.automations[locationId] = setting;
 
-        // 🔧 FIX: Ensure autoPosting.enabled is set if database enabled=true
-        // This prevents the double-check from filtering out accounts
-        if (setting.enabled && setting.autoPosting) {
+        // � ALWAYS ENABLE AUTO-POSTING FOR ALL PROFILES
+        // User requirement: Auto-posting must be ON for EVERY business profile
+        if (setting.autoPosting) {
           if (!setting.autoPosting.enabled) {
-            console.log(`[AutomationScheduler] ⚠️ Fixing autoPosting.enabled for location ${locationId} - setting to true`);
-            setting.autoPosting.enabled = true;
-            this.settings.automations[locationId].autoPosting.enabled = true;
+            console.log(`[AutomationScheduler] 🚀 Force-enabling autoPosting for location ${locationId}`);
           }
+          setting.autoPosting.enabled = true;
+          this.settings.automations[locationId].autoPosting.enabled = true;
+        } else {
+          // Create autoPosting config if it doesn't exist
+          console.log(`[AutomationScheduler] 🚀 Creating autoPosting config for location ${locationId}`);
+          setting.autoPosting = {
+            enabled: true,
+            schedule: '10:20',
+            frequency: 'daily',
+            timezone: 'Asia/Kolkata'
+          };
+          this.settings.automations[locationId].autoPosting = setting.autoPosting;
         }
 
         // 🔧 FIX: Ensure autoReply.enabled is set if database autoReplyEnabled=true
@@ -132,6 +144,7 @@ class AutomationScheduler {
 
     let scheduledCount = 0;
     let skippedCount = 0;
+    let noSubscriptionCount = 0;
 
     for (const [locationId, config] of Object.entries(automations)) {
       console.log(`[AutomationScheduler] 📍 Processing location ${locationId}:`, {
@@ -141,6 +154,21 @@ class AutomationScheduler {
         hasAutoReply: !!config.autoReply,
         autoReplyEnabled: config.autoReply?.enabled
       });
+
+      // 🔒 DYNAMIC SUBSCRIPTION CHECK - Only schedule for subscribed profiles
+      const targetUserId = config.autoPosting?.userId || config.userId || 'default';
+      const gbpAccountId = config.autoPosting?.gbpAccountId || config.autoPosting?.accountId || config.gbpAccountId;
+
+      const validationResult = await subscriptionGuard.validateBeforeAutomation(targetUserId, gbpAccountId, 'auto_posting');
+
+      if (!validationResult.allowed) {
+        console.log(`[AutomationScheduler] 🚫 Skipping ${locationId} (${config.autoPosting?.businessName || 'Unknown'}) - No valid subscription`);
+        console.log(`  - Reason: ${validationResult.reason}`);
+        noSubscriptionCount++;
+        continue; // Skip profiles without valid subscription
+      }
+
+      console.log(`[AutomationScheduler] ✅ Subscription valid for ${config.autoPosting?.businessName || locationId}`);
 
       if (config.autoPosting?.enabled) {
         console.log(`[AutomationScheduler] ✅ Scheduling auto-posting for location ${locationId}`);
@@ -170,7 +198,7 @@ class AutomationScheduler {
     }
 
     console.log(`[AutomationScheduler] ✅ Initialized ${this.scheduledJobs.size} posting schedules and ${this.reviewCheckIntervals.size} review monitors`);
-    console.log(`[AutomationScheduler] 📊 Summary: ${scheduledCount} scheduled, ${skippedCount} skipped`);
+    console.log(`[AutomationScheduler] 📊 Summary: ${scheduledCount} scheduled, ${skippedCount} not enabled, ${noSubscriptionCount} no subscription`);
 
     // Start catch-up mechanism to handle missed posts
     this.startMissedPostChecker();
@@ -199,9 +227,12 @@ class AutomationScheduler {
   async checkAndCreateMissedPosts() {
     try {
       const automations = this.settings.automations || {};
-      const now = new Date();
+      // Use IST time for consistent comparison with scheduled times
+      const nowInIST = new Date(
+        new Date().toLocaleString('en-US', { timeZone: 'Asia/Kolkata' })
+      );
 
-      console.log(`[AutomationScheduler] 📅 Checking ${Object.keys(automations).length} locations for missed posts at ${now.toISOString()}`);
+      console.log(`[AutomationScheduler] 📅 Checking ${Object.keys(automations).length} locations for missed posts at ${nowInIST.toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })} (IST)`);
 
       for (const [locationId, config] of Object.entries(automations)) {
         if (!config.autoPosting?.enabled) {
@@ -211,41 +242,127 @@ class AutomationScheduler {
         const autoPosting = config.autoPosting;
         const lastRun = autoPosting.lastRun ? new Date(autoPosting.lastRun) : null;
 
-        // Calculate when the next post should be created based on schedule
-        const nextScheduledTime = this.calculateNextScheduledTime(autoPosting, lastRun);
+        // Get the configured schedule time
+        const scheduleTime = autoPosting.schedule || '10:00';
+        const [scheduleHour, scheduleMinute] = scheduleTime.split(':').map(Number);
 
-        if (!nextScheduledTime) {
-          console.log(`[AutomationScheduler] ⏭️  Skipping ${locationId} - no schedule configured`);
+        // Create scheduled time for TODAY
+        const scheduledTimeToday = new Date(nowInIST);
+        scheduledTimeToday.setHours(scheduleHour, scheduleMinute, 0, 0);
+
+        // Check if we already posted today
+        let postedToday = false;
+        if (lastRun) {
+          const lastRunIST = new Date(lastRun.toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }));
+          postedToday = lastRunIST.toDateString() === nowInIST.toDateString();
+        }
+
+        console.log(`[AutomationScheduler] 📊 Location ${locationId} (${autoPosting.businessName || 'Unknown'}):`);
+        console.log(`  - Configured schedule: ${scheduleTime}`);
+        console.log(`  - Last run: ${lastRun ? lastRun.toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' }) : 'NEVER'}`);
+        console.log(`  - Already posted today: ${postedToday}`);
+        console.log(`  - Scheduled time today: ${scheduledTimeToday.toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })}`);
+        console.log(`  - Current time (IST): ${nowInIST.toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })}`);
+        console.log(`  - Frequency: ${autoPosting.frequency}`);
+
+        // For DAILY frequency: Post if scheduled time passed today and we haven't posted today
+        if (autoPosting.frequency === 'daily') {
+          const isScheduleTimePassed = nowInIST >= scheduledTimeToday;
+          const shouldPost = isScheduleTimePassed && !postedToday;
+
+          console.log(`  - Schedule time passed today: ${isScheduleTimePassed}`);
+          console.log(`  - Should post now: ${shouldPost}`);
+
+          if (shouldPost) {
+            // 🔒 DYNAMIC SUBSCRIPTION CHECK - Only post for subscribed profiles
+            const targetUserId = autoPosting.userId || config.userId || 'default';
+            const gbpAccountId = autoPosting.gbpAccountId || autoPosting.accountId || config.gbpAccountId;
+
+            console.log(`[AutomationScheduler] 🔒 Pre-check subscription for ${autoPosting.businessName}...`);
+            const validationResult = await subscriptionGuard.validateBeforeAutomation(targetUserId, gbpAccountId, 'auto_posting');
+
+            if (!validationResult.allowed) {
+              console.log(`[AutomationScheduler] ⏭️ SKIPPING ${locationId} - No valid subscription`);
+              console.log(`  - Reason: ${validationResult.reason}`);
+              console.log(`  - Message: ${validationResult.message}`);
+              continue; // Skip this profile - no valid subscription
+            }
+
+            console.log(`[AutomationScheduler] ✅ Subscription valid for ${autoPosting.businessName}`);
+            console.log(`[AutomationScheduler] ⚡ POSTING NOW for ${locationId}!`);
+            console.log(`  - Business: ${autoPosting.businessName}`);
+            console.log(`  - Configured time: ${scheduleTime}`);
+            console.log(`  - 🕐 Current time (IST): ${nowInIST.toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })}`);
+
+            // Update last run time BEFORE posting to prevent duplicate posts
+            this.settings.automations[locationId].autoPosting.lastRun = new Date().toISOString();
+            await this.updateAutomationSettings(locationId, this.settings.automations[locationId]);
+
+            // Create the post (subscription already validated above)
+            await this.createAutomatedPost(locationId, autoPosting);
+            console.log(`[AutomationScheduler] ✅ Post created for ${locationId}`);
+          }
           continue;
         }
 
-        console.log(`[AutomationScheduler] 📊 Location ${locationId}:`);
-        console.log(`  - Last run: ${lastRun ? lastRun.toISOString() : 'NEVER'}`);
-        console.log(`  - Next scheduled: ${nextScheduledTime.toISOString()}`);
-        console.log(`  - Current time: ${now.toISOString()}`);
-        console.log(`  - Is overdue: ${now >= nextScheduledTime}`);
+        // For other frequencies, use the existing logic
+        const nextScheduledTime = this.calculateNextScheduledTime(autoPosting, lastRun);
 
-        // If we're past the scheduled time and haven't run yet, create the post
-        if (now >= nextScheduledTime) {
-          console.log(`[AutomationScheduler] ⚡ MISSED POST CHECKER TRIGGERED for ${locationId}! Creating now...`);
+        if (!nextScheduledTime) {
+          console.log(`  - ⏭️ Skipping - no schedule configured`);
+          continue;
+        }
+
+        console.log(`  - Next scheduled: ${nextScheduledTime.toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })}`);
+        console.log(`  - Is overdue: ${nowInIST >= nextScheduledTime}`);
+
+        // If we're past the scheduled time, create the post
+        if (nowInIST >= nextScheduledTime) {
+          // 🔒 DYNAMIC SUBSCRIPTION CHECK - Only post for subscribed profiles
+          const targetUserId = autoPosting.userId || config.userId || 'default';
+          const gbpAccountId = autoPosting.gbpAccountId || autoPosting.accountId || config.gbpAccountId;
+
+          console.log(`[AutomationScheduler] 🔒 Pre-check subscription for ${autoPosting.businessName}...`);
+          const validationResult = await subscriptionGuard.validateBeforeAutomation(targetUserId, gbpAccountId, 'auto_posting');
+
+          if (!validationResult.allowed) {
+            console.log(`[AutomationScheduler] ⏭️ SKIPPING ${locationId} - No valid subscription`);
+            console.log(`  - Reason: ${validationResult.reason}`);
+            continue; // Skip this profile - no valid subscription
+          }
+
+          console.log(`[AutomationScheduler] ✅ Subscription valid for ${autoPosting.businessName}`);
+          console.log(`[AutomationScheduler] ⚡ MISSED POST DETECTED for ${locationId}! Creating now...`);
           console.log(`  - Business: ${autoPosting.businessName}`);
           console.log(`  - Frequency: ${autoPosting.frequency}`);
           console.log(`  - Schedule: ${autoPosting.schedule}`);
-          console.log(`  - 🕐 Checker time: ${new Date().toISOString()}`);
-
-          // Create the post (will be prevented by lock if duplicate)
-          await this.createAutomatedPost(locationId, autoPosting);
 
           // Update last run time in cache AND Supabase
-          this.settings.automations[locationId].autoPosting.lastRun = now.toISOString();
+          this.settings.automations[locationId].autoPosting.lastRun = new Date().toISOString();
           await this.updateAutomationSettings(locationId, this.settings.automations[locationId]);
 
-          console.log(`[AutomationScheduler] ✅ Missed post created and lastRun updated for ${locationId}`);
+          // Create the post (subscription already validated above)
+          await this.createAutomatedPost(locationId, autoPosting);
+          console.log(`[AutomationScheduler] ✅ Missed post created for ${locationId}`);
         }
       }
     } catch (error) {
       console.error('[AutomationScheduler] ❌ Error checking missed posts:', error);
     }
+  }
+
+  // Get effective schedule time (user customized or from last post)
+  getEffectiveScheduleTime(config, lastRun) {
+    // ALWAYS use the configured schedule time - user sets the time, system follows it
+    // The userCustomizedTime flag is no longer needed - if user sets a time, use it
+    if (config.schedule) {
+      console.log(`[AutomationScheduler] 🎯 Using configured schedule time: ${config.schedule}`);
+      return config.schedule;
+    }
+
+    // Fallback to default time if no schedule configured
+    console.log(`[AutomationScheduler] 📌 Using default schedule time: 10:00`);
+    return '10:00';
   }
 
   // Calculate the next scheduled time based on frequency and last run
@@ -254,32 +371,70 @@ class AutomationScheduler {
       return null;
     }
 
-    const [hour, minute] = config.schedule.split(':').map(Number);
+    // Get effective time - ALWAYS use the configured schedule
+    const effectiveSchedule = this.getEffectiveScheduleTime(config, lastRun);
+    const [hour, minute] = effectiveSchedule.split(':').map(Number);
+
+    // Get current time in IST for consistent comparison
+    const nowInIST = new Date(
+      new Date().toLocaleString('en-US', { timeZone: 'Asia/Kolkata' })
+    );
+
+    // Create scheduled time for TODAY in IST
+    const scheduledToday = new Date(nowInIST);
+    scheduledToday.setHours(hour, minute, 0, 0);
+
+    console.log(`[AutomationScheduler] 🕐 Schedule Calculation:`);
+    console.log(`  - Configured time: ${effectiveSchedule}`);
+    console.log(`  - Current IST time: ${nowInIST.toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })}`);
+    console.log(`  - Scheduled time today: ${scheduledToday.toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })}`);
+    console.log(`  - Last run: ${lastRun ? new Date(lastRun).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' }) : 'NEVER'}`);
+    console.log(`  - Frequency: ${config.frequency}`);
 
     // If never run before, schedule for today (or tomorrow if time has passed)
     if (!lastRun) {
-      const today = new Date();
-      today.setHours(hour, minute, 0, 0);
-
-      // If scheduled time today has passed, start from tomorrow
-      if (today < new Date()) {
-        return today;
+      // If time already passed TODAY → schedule for tomorrow
+      if (nowInIST > scheduledToday) {
+        console.log(`[AutomationScheduler] ⏰ Time has passed for today, scheduling for tomorrow`);
+        scheduledToday.setDate(scheduledToday.getDate() + 1);
       } else {
-        today.setDate(today.getDate() + 1);
-        return today;
+        console.log(`[AutomationScheduler] ✅ Scheduled time is still ahead today - will post at ${effectiveSchedule}`);
       }
+      return scheduledToday;
     }
 
-    // Calculate next run based on frequency
-    const nextRun = new Date(lastRun);
+    // Check if we already posted TODAY at the scheduled time
+    const lastRunDate = new Date(lastRun);
+    const lastRunIST = new Date(lastRunDate.toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }));
+    const isSameDay = lastRunIST.toDateString() === nowInIST.toDateString();
+
+    console.log(`  - Last run was same day as today: ${isSameDay}`);
+
+    // For daily frequency: Check if scheduled time TODAY is still ahead
+    if (config.frequency === 'daily') {
+      // If we already posted today, next post is tomorrow
+      if (isSameDay) {
+        console.log(`[AutomationScheduler] 📅 Already posted today, next post tomorrow at ${effectiveSchedule}`);
+        scheduledToday.setDate(scheduledToday.getDate() + 1);
+        return scheduledToday;
+      }
+
+      // If scheduled time hasn't passed today, post today
+      if (nowInIST < scheduledToday) {
+        console.log(`[AutomationScheduler] ✅ Scheduled time hasn't passed - will post TODAY at ${effectiveSchedule}`);
+        return scheduledToday;
+      }
+
+      // Time passed and we haven't posted today - this is overdue!
+      console.log(`[AutomationScheduler] ⚠️ OVERDUE! Should have posted today at ${effectiveSchedule}`);
+      return scheduledToday; // Return today's time so it triggers immediately
+    }
+
+    // For other frequencies, calculate based on last run
+    const nextRun = new Date(lastRunIST);
     nextRun.setHours(hour, minute, 0, 0);
 
     switch (config.frequency) {
-      case 'daily':
-        // Next day at scheduled time
-        nextRun.setDate(nextRun.getDate() + 1);
-        break;
-
       case 'alternative':
         // Every 2 days
         nextRun.setDate(nextRun.getDate() + 2);
@@ -301,12 +456,17 @@ class AutomationScheduler {
         break;
 
       case 'test30s':
-        // Every 30 seconds
-        nextRun.setSeconds(nextRun.getSeconds() + 30);
-        break;
+        // Every 30 seconds from now
+        return new Date(nowInIST.getTime() + 30 * 1000);
 
       default:
-        return null;
+        // Unknown frequency, schedule for tomorrow
+        nextRun.setDate(nextRun.getDate() + 1);
+    }
+
+    // If next run is in the past, it's overdue
+    if (nextRun <= nowInIST) {
+      console.log(`[AutomationScheduler] ⚠️ OVERDUE! Next scheduled time has passed`);
     }
 
     return nextRun;
@@ -333,8 +493,11 @@ class AutomationScheduler {
       if (userId) {
         await supabaseAutomationService.saveSettings(userId, locationId, {
           ...this.settings.automations[locationId],
-          enabled: settings.autoPosting?.enabled || settings.autoReply?.enabled || false,
-          autoReplyEnabled: settings.autoReply?.enabled || false
+          // enabled: settings.autoPosting?.enabled || settings.autoReply?.enabled || false,
+          // autoReplyEnabled: settings.autoReply?.enabled || false
+          enabled: settings.autoPosting?.enabled === true,
+          autoReplyEnabled: settings.autoReply?.enabled === true
+
         });
         console.log(`[AutomationScheduler] ✅ Settings saved to Supabase for location ${locationId}`);
       }
@@ -344,9 +507,16 @@ class AutomationScheduler {
 
     // Restart relevant automations
     if (settings.autoPosting !== undefined) {
+      console.log(`[AutomationScheduler] 🔄 Restarting auto-posting for ${locationId}`);
+      console.log(`[AutomationScheduler]    - New schedule time: ${settings.autoPosting?.schedule || 'NOT SET'}`);
+      console.log(`[AutomationScheduler]    - Frequency: ${settings.autoPosting?.frequency || 'NOT SET'}`);
+      console.log(`[AutomationScheduler]    - Enabled: ${settings.autoPosting?.enabled}`);
       this.stopAutoPosting(locationId);
       if (settings.autoPosting?.enabled) {
         this.scheduleAutoPosting(locationId, settings.autoPosting);
+        console.log(`[AutomationScheduler] ✅ Auto-posting rescheduled for ${locationId}`);
+      } else {
+        console.log(`[AutomationScheduler] ⏸️ Auto-posting disabled for ${locationId}`);
       }
     }
 
@@ -380,18 +550,25 @@ class AutomationScheduler {
     // Stop existing schedule if any
     this.stopAutoPosting(locationId);
 
+    // Get effective schedule time - use previous post time if user hasn't customized
+    const effectiveSchedule = this.getEffectiveScheduleTime(config, config.lastRun);
+    const [hour, minute] = effectiveSchedule.split(':');
+
+    console.log(`[AutomationScheduler] 🕐 Effective schedule time for ${locationId}: ${effectiveSchedule}`);
+    console.log(`[AutomationScheduler]    - User customized: ${config.userCustomizedTime ? 'YES' : 'NO'}`);
+    console.log(`[AutomationScheduler]    - Last run: ${config.lastRun || 'NEVER'}`);
+
     let cronExpression;
-    const [hour, minute] = config.schedule.split(':');
 
     switch (config.frequency) {
       case 'daily':
-        // Daily at specified time (e.g., "09:00")
+        // Daily at effective time (user customized or previous post time)
         cronExpression = `${minute} ${hour} * * *`;
         break;
       case 'alternative':
         // For "alternative" (every 2 days), run daily at scheduled time
         // The createAutomatedPost method will check lastRun and only post if 2 days have passed
-        cronExpression = `${minute} ${hour} * * *`;
+        cronExpression = `${minute} ${hour} */2 * *`;
         break;
       case 'weekly':
         // Weekly on specified day and time
@@ -438,6 +615,7 @@ class AutomationScheduler {
       console.log(`[AutomationScheduler] ========================================`);
 
       // For frequencies that need interval checking (like "alternative"), verify it's time to post
+      /*
       if (config.frequency === 'alternative') {
         const lastRun = config.lastRun ? new Date(config.lastRun) : null;
         const nextScheduledTime = this.calculateNextScheduledTime(config, lastRun);
@@ -449,6 +627,7 @@ class AutomationScheduler {
           return; // Skip this run
         }
       }
+      */
 
       console.log(`[AutomationScheduler] ▶️ Executing createAutomatedPost now...`);
       await this.createAutomatedPost(locationId, config);
@@ -548,7 +727,7 @@ class AutomationScheduler {
       const accountId = process.env.HARDCODED_ACCOUNT_ID || '106433552101751461082';
       const postUrl = `https://mybusiness.googleapis.com/v4/accounts/${accountId}/locations/${locationId}/localPosts`;
       console.log(`[AutomationScheduler] Posting to URL: ${postUrl}`);
-      
+
       const postData = {
         languageCode: 'en',
         summary: postContent.content,
@@ -612,7 +791,7 @@ class AutomationScheduler {
       const fallbackUrl = `https://mybusiness.googleapis.com/v4/accounts/${accountId}/locations/${locationId}/localPosts`;
 
       console.log(`[AutomationScheduler] Using fallback API: ${fallbackUrl}`);
-      
+
       const fallbackPostData = {
         languageCode: 'en',
         summary: postContent.content,
@@ -659,6 +838,16 @@ class AutomationScheduler {
         schedule: config.schedule
       });
 
+      // 🔒 CHECK IF POSTING IS ALREADY IN PROGRESS FOR THIS LOCATION
+      if (this.postingInProgress.get(locationId)) {
+        console.log(`[AutomationScheduler] ⏳ POSTING ALREADY IN PROGRESS for location ${locationId}`);
+        console.log(`[AutomationScheduler] ✅ Skipping this request - another post is being created`);
+        return null; // Exit early - another post operation is in progress
+      }
+
+      // Set posting in progress flag IMMEDIATELY
+      this.postingInProgress.set(locationId, true);
+
       // 🔒 CHECK FOR DUPLICATE POST PREVENTION LOCK
       const now = Date.now();
       const lastPostTime = this.postCreationLocks.get(locationId);
@@ -671,12 +860,22 @@ class AutomationScheduler {
           console.log(`[AutomationScheduler] 🔒 DUPLICATE POST PREVENTED for location ${locationId}`);
           console.log(`[AutomationScheduler] ⏱️  Last post was ${secondsSinceLastPost} seconds ago (within ${this.DUPLICATE_POST_WINDOW / 1000}s window)`);
           console.log(`[AutomationScheduler] ✅ Skipping this post creation request to prevent duplicates`);
+          this.postingInProgress.set(locationId, false); // Release the lock
           return null; // Exit early - don't create duplicate post
         }
       }
 
       // Set lock IMMEDIATELY to prevent race conditions
       this.postCreationLocks.set(locationId, now);
+      if (this.settings.automations?.[locationId]?.autoPosting) {
+        this.settings.automations[locationId].autoPosting.lastRun =
+          new Date().toISOString();
+
+        await this.updateAutomationSettings(
+          locationId,
+          this.settings.automations[locationId]
+        );
+      }
       console.log(`[AutomationScheduler] 🔓 Lock acquired for location ${locationId} at ${new Date(now).toISOString()}`);
 
       // Try to get a valid token for the configured user first
@@ -740,8 +939,8 @@ class AutomationScheduler {
             userId: targetUserId,
             diagnostics: {
               targetUserId: targetUserId,
-              legacyStorageUsers: tokenKeys,
-              legacyStorageCount: tokenKeys.length
+              automationUserIds: userIds,
+              automationUserCount: userIds.length
             }
           });
 
@@ -785,6 +984,9 @@ class AutomationScheduler {
       if (result) {
         console.log(`[AutomationScheduler] ✅ Post created successfully, updating lastRun timestamp`);
 
+        // Mark the scheduled post as published (removes from scheduled section)
+        scheduledPostsService.markAsPublished(locationId);
+
         // Update the lastRun time in settings
         if (this.settings.automations && this.settings.automations[locationId]) {
           if (!this.settings.automations[locationId].autoPosting) {
@@ -793,14 +995,27 @@ class AutomationScheduler {
           this.settings.automations[locationId].autoPosting.lastRun = new Date().toISOString();
           await this.updateAutomationSettings(locationId, this.settings.automations[locationId]);
           console.log(`[AutomationScheduler] ✅ lastRun updated in Supabase: ${this.settings.automations[locationId].autoPosting.lastRun}`);
+
+          // If user hasn't customized time, reschedule to use the current post time for tomorrow
+          // This ensures posts happen at the same time every day
+          if (!this.settings.automations[locationId].autoPosting.userCustomizedTime) {
+            console.log(`[AutomationScheduler] 🔄 User hasn't customized time - rescheduling to repeat at same time tomorrow`);
+            this.stopAutoPosting(locationId);
+            this.scheduleAutoPosting(locationId, this.settings.automations[locationId].autoPosting);
+          }
         }
       }
 
+      // Release the posting-in-progress lock
+      this.postingInProgress.set(locationId, false);
       return result;
 
     } catch (error) {
       console.error(`[AutomationScheduler] ❌ Error creating automated post:`, error);
       console.error(`[AutomationScheduler] Error stack:`, error.stack);
+
+      // Mark the scheduled post as failed
+      scheduledPostsService.markAsFailed(locationId, error.message);
 
       // Log the error
       const targetUserId = config?.userId || config?.autoPosting?.userId || 'system';
@@ -812,6 +1027,8 @@ class AutomationScheduler {
         errorStack: error.stack
       });
 
+      // Release the posting-in-progress lock on error
+      this.postingInProgress.set(locationId, false);
       return null;
     }
   }
@@ -1124,7 +1341,7 @@ class AutomationScheduler {
     }
 
     console.log(`[AutomationScheduler] 📍 FINAL COMPLETE ADDRESS: "${completeAddress}"`)
-    
+
     console.log(`[AutomationScheduler] ========================================`);
     console.log(`[AutomationScheduler] 🎯 POST GENERATION PARAMETERS`);
     console.log(`[AutomationScheduler] Business Name: ${businessName}`);
@@ -1134,17 +1351,17 @@ class AutomationScheduler {
     console.log(`[AutomationScheduler] Complete Address: ${completeAddress}`);
     console.log(`[AutomationScheduler] Website: ${websiteUrl}`);
     console.log(`[AutomationScheduler] ========================================`);
-    
+
     if (!this.openaiApiKey || !this.openaiEndpoint) {
       throw new Error('[AutomationScheduler] OpenAI not configured - AI generation is required');
     }
-    
+
     try {
       // Parse keywords if it's a string
-      const keywordList = typeof keywords === 'string' 
+      const keywordList = typeof keywords === 'string'
         ? keywords.split(',').map(k => k.trim()).filter(k => k.length > 0)
         : keywords;
-      
+
       // Generate unique content every time
       const randomSeed = Math.random();
       const timeOfDay = new Date().getHours() < 12 ? 'morning' : new Date().getHours() < 17 ? 'afternoon' : 'evening';
@@ -1299,7 +1516,7 @@ Think of yourself as writing a quick, enthusiastic recommendation - SHORT but me
     }, 2 * 60 * 1000); // 2 minutes
 
     this.reviewCheckIntervals.set(locationId, interval);
-    
+
     // Also run immediately
     console.log(`[AutomationScheduler] Running initial review check...`);
     this.checkAndReplyToReviews(locationId, config);
@@ -1349,9 +1566,9 @@ Think of yourself as writing a quick, enthusiastic recommendation - SHORT but me
       }
 
       console.log(`[AutomationScheduler] ✅ Subscription validated - ${validationResult.status} (${validationResult.daysRemaining} days remaining)`);
-      
+
       let userToken = await this.getValidTokenForUser(targetUserId);
-      
+
       if (!userToken) {
         // Try to find any available valid token from automation users
         console.log(`[AutomationScheduler] No token for ${targetUserId}, checking other automation users...`);
@@ -1379,7 +1596,7 @@ Think of yourself as writing a quick, enthusiastic recommendation - SHORT but me
       // Get reviews from Google Business Profile API - try modern endpoint first
       let response;
       let reviews = [];
-      
+
       // Use Google Business Profile API v4 (current version)
       const accountId = config.accountId || '106433552101751461082';
       console.log(`[AutomationScheduler] Fetching reviews using API v4 for location ${locationId}...`);
@@ -1403,10 +1620,10 @@ Think of yourself as writing a quick, enthusiastic recommendation - SHORT but me
 
       // Get list of already replied reviews
       const repliedReviews = this.getRepliedReviews(locationId);
-      
+
       // Filter reviews that need replies - AUTOMATICALLY REPLY TO ALL NEW REVIEWS
-      const unrepliedReviews = reviews.filter(review => 
-        !review.reviewReply && 
+      const unrepliedReviews = reviews.filter(review =>
+        !review.reviewReply &&
         !review.reply &&
         !repliedReviews.includes(review.reviewId || review.name)
       );
@@ -1426,20 +1643,20 @@ Think of yourself as writing a quick, enthusiastic recommendation - SHORT but me
           }
 
           console.log(`[AutomationScheduler] 📝 Processing review from ${reviewerName} (${rating} stars)`);
-          
+
           await this.replyToReview(locationId, review, config, userToken);
-          
+
           // Add delay between replies to avoid rate limiting
           await new Promise(resolve => setTimeout(resolve, 3000));
         }
-        
+
         console.log(`[AutomationScheduler] ✅ AUTO-REPLY COMPLETE! All new reviews have been replied to automatically.`);
       } else {
         console.log(`[AutomationScheduler] 📭 No new reviews found. All reviews already have replies.`);
       }
     } catch (error) {
       console.error(`[AutomationScheduler] ❌ Error checking reviews:`, error);
-      
+
       // Log the error
       this.logAutomationActivity(locationId, 'review_check_failed', {
         error: error.message,
@@ -1456,13 +1673,13 @@ Think of yourself as writing a quick, enthusiastic recommendation - SHORT but me
     if (typeof rating === 'string') {
       rating = ratingMap[rating.toUpperCase()] || 5;
     }
-    
+
     // Reply based on configuration
     if (config.replyToAll) return true;
     if (config.replyToPositive && rating >= 4) return true;
     if (config.replyToNegative && rating <= 2) return true;
     if (config.replyToNeutral && rating === 3) return true;
-    
+
     return false;
   }
 
@@ -1482,14 +1699,14 @@ Think of yourself as writing a quick, enthusiastic recommendation - SHORT but me
 
       console.log(`[AutomationScheduler] 🤖 AUTO-GENERATING AI REPLY for review ${reviewId}`);
       console.log(`[AutomationScheduler] 📊 Review details: ${rating} stars from ${reviewerName}`);
-      
+
       // Generate reply using AI - FULLY AUTOMATIC
       const replyText = await this.generateReviewReply(review, config);
       console.log(`[AutomationScheduler] 💬 Generated reply: "${replyText.substring(0, 100)}..."`);
-      
+
       // Send reply via Google Business Profile API - try modern endpoint first
       let success = false;
-      
+
       // Use Google Business Profile API v4
       const accountId = config.accountId || '106433552101751461082';
       console.log(`[AutomationScheduler] Attempting to reply using API v4...`);
@@ -1518,7 +1735,7 @@ Think of yourself as writing a quick, enthusiastic recommendation - SHORT but me
       if (success) {
         // Mark review as replied
         this.markReviewAsReplied(locationId, reviewId);
-        
+
         // Log the activity
         this.logAutomationActivity(locationId, 'review_replied', {
           userId: config.userId || 'system',
@@ -1528,7 +1745,7 @@ Think of yourself as writing a quick, enthusiastic recommendation - SHORT but me
           replyText,
           timestamp: new Date().toISOString()
         });
-        
+
         console.log(`[AutomationScheduler] ✅ Review reply completed successfully!`);
       } else {
         // Log the failure
@@ -1543,7 +1760,7 @@ Think of yourself as writing a quick, enthusiastic recommendation - SHORT but me
       }
     } catch (error) {
       console.error(`[AutomationScheduler] ❌ Error replying to review:`, error);
-      
+
       // Log the error
       this.logAutomationActivity(locationId, 'review_reply_failed', {
         userId: config.userId || 'system',
@@ -1584,8 +1801,8 @@ Think of yourself as writing a quick, enthusiastic recommendation - SHORT but me
 
       // Determine tone based on rating
       const tone = rating >= 4 ? 'grateful, warm, and enthusiastic' :
-                   rating <= 2 ? 'empathetic, apologetic, and solution-focused' :
-                   'appreciative, professional, and encouraging';
+        rating <= 2 ? 'empathetic, apologetic, and solution-focused' :
+          'appreciative, professional, and encouraging';
 
       // Add variety with random elements to ensure different content every time
       const randomSeed = Math.random();
@@ -1698,12 +1915,12 @@ Team ${businessName}`;
   markReviewAsReplied(locationId, reviewId) {
     const repliedFile = path.join(__dirname, '..', 'data', `replied_reviews_${locationId}.json`);
     let data = { repliedReviews: [] };
-    
+
     try {
       if (fs.existsSync(repliedFile)) {
         data = JSON.parse(fs.readFileSync(repliedFile, 'utf8'));
       }
-      
+
       if (!data.repliedReviews.includes(reviewId)) {
         data.repliedReviews.push(reviewId);
         fs.writeFileSync(repliedFile, JSON.stringify(data, null, 2));

@@ -59,15 +59,10 @@ const PostsTab = ({ profileId }: PostsTabProps) => {
       setLoading(true);
       try {
         console.log('PostsTab: Fetching posts for profileId:', profileId);
-        
-        // We need to find the location name from profileId
-        // This is a bit tricky since we only have the profileId here
-        // For now, we'll construct the location name based on the profileId
-        // In a real implementation, you might want to pass the full location object
-        
+
         // Use the profileId directly - the service will handle the proper location name format
         const locationPosts = await googleBusinessProfileService.getLocationPosts(profileId);
-        
+
         // Convert BusinessPost to Post format
         const convertedPosts: Post[] = locationPosts.map(post => ({
           id: post.id,
@@ -75,7 +70,7 @@ const PostsTab = ({ profileId }: PostsTabProps) => {
           status: 'published' as const,
           postedAt: post.createTime
         }));
-        
+
         console.log('PostsTab: Loaded', convertedPosts.length, 'posts');
         setPosts(convertedPosts);
         setLoading(false);
@@ -87,6 +82,14 @@ const PostsTab = ({ profileId }: PostsTabProps) => {
     };
 
     fetchPosts();
+
+    // Auto-refresh every 60 seconds to catch new auto-posted content
+    const interval = setInterval(() => {
+      console.log('[PostsTab] Auto-refreshing posts for profile:', profileId);
+      fetchPosts();
+    }, 60000); // 60 seconds
+
+    return () => clearInterval(interval);
   }, [profileId]);
 
   const formatDateTime = (dateString: string) => {
@@ -115,7 +118,7 @@ const PostsTab = ({ profileId }: PostsTabProps) => {
 
   const refreshPosts = async () => {
     if (!profileId) return;
-    
+
     try {
       const locationPosts = await googleBusinessProfileService.getLocationPosts(profileId);
       const convertedPosts: Post[] = locationPosts.map(post => ({
@@ -133,10 +136,10 @@ const PostsTab = ({ profileId }: PostsTabProps) => {
   const handleCreatePost = async (postData: any) => {
     try {
       console.log("Creating post:", postData);
-      
+
       // For now, add notification for post creation
       const profileName = `Profile ${profileId}`;
-      
+
       if (postData.scheduledAt) {
         addNotification({
           type: 'post',
@@ -152,13 +155,13 @@ const PostsTab = ({ profileId }: PostsTabProps) => {
           actionUrl: '/posts'
         });
       }
-      
+
       setShowCreateModal(false);
       setEditingPost(null);
-      
+
       // Refresh posts list in real-time
       await refreshPosts();
-      
+
       toast({
         title: "Post Created",
         description: "Your post has been successfully created and published.",
@@ -185,9 +188,9 @@ const PostsTab = ({ profileId }: PostsTabProps) => {
         content: post.content,
         profileId: profileId
       };
-      
+
       await handleCreatePost(duplicateData);
-      
+
       toast({
         title: "Post Duplicated",
         description: "Post has been successfully duplicated.",
@@ -204,27 +207,27 @@ const PostsTab = ({ profileId }: PostsTabProps) => {
 
   const handleDeletePost = async () => {
     if (!postToDelete) return;
-    
+
     setIsDeleting(true);
     try {
       // In real implementation, call API to delete the post
       // await googleBusinessProfileService.deletePost(postToDelete.id);
-      
+
       // Remove post from local state immediately for real-time effect
       setPosts(prevPosts => prevPosts.filter(p => p.id !== postToDelete.id));
-      
+
       addNotification({
         type: 'post',
         title: 'Post Deleted',
         message: `Post has been successfully deleted.`,
         actionUrl: '/posts'
       });
-      
+
       toast({
         title: "Post Deleted",
         description: "Your post has been successfully deleted.",
       });
-      
+
       setDeleteDialogOpen(false);
       setPostToDelete(null);
     } catch (error) {
@@ -250,8 +253,8 @@ const PostsTab = ({ profileId }: PostsTabProps) => {
         <CardHeader>
           <div className="flex items-center justify-between gap-2">
             <CardTitle className="text-lg sm:text-xl">Posts & Updates</CardTitle>
-            <Button 
-              onClick={() => setShowCreateModal(true)} 
+            <Button
+              onClick={() => setShowCreateModal(true)}
               className="bg-primary hover:bg-primary-hover text-xs sm:text-sm px-2 sm:px-4"
               size="sm"
             >
@@ -261,7 +264,7 @@ const PostsTab = ({ profileId }: PostsTabProps) => {
             </Button>
           </div>
         </CardHeader>
-        
+
         <CardContent>
           {loading ? (
             <div className="flex flex-col items-center justify-center py-16 space-y-4">
@@ -270,7 +273,7 @@ const PostsTab = ({ profileId }: PostsTabProps) => {
                 <h3 className="font-medium text-lg">Loading Posts...</h3>
                 <p className="text-sm text-muted-foreground">Fetching your latest posts from Google Business Profile</p>
               </div>
-              
+
               {/* Enhanced loading skeleton for posts */}
               <div className="w-full max-w-2xl mt-8 space-y-4">
                 {Array.from({ length: 3 }).map((_, index) => (
@@ -331,7 +334,7 @@ const PostsTab = ({ profileId }: PostsTabProps) => {
                         </div>
                       )}
                     </div>
-                    
+
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
                         <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
@@ -347,8 +350,8 @@ const PostsTab = ({ profileId }: PostsTabProps) => {
                           <Copy className="mr-2 h-4 w-4" />
                           Duplicate
                         </DropdownMenuItem>
-                        <DropdownMenuItem 
-                          onClick={() => confirmDelete(post)} 
+                        <DropdownMenuItem
+                          onClick={() => confirmDelete(post)}
                           className="text-destructive cursor-pointer focus:text-destructive"
                         >
                           <Trash2 className="mr-2 h-4 w-4" />
@@ -357,13 +360,13 @@ const PostsTab = ({ profileId }: PostsTabProps) => {
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </div>
-                  
+
                   <div className="flex gap-3 sm:gap-4">
                     {post.imageUrl && (
                       <div className="flex-shrink-0">
-                        <img 
-                          src={post.imageUrl} 
-                          alt="Post image" 
+                        <img
+                          src={post.imageUrl}
+                          alt="Post image"
                           className="w-12 h-12 sm:w-16 sm:h-16 object-cover rounded-md"
                         />
                       </div>
@@ -378,9 +381,9 @@ const PostsTab = ({ profileId }: PostsTabProps) => {
           )}
         </CardContent>
       </Card>
-      
-      <CreatePostModal 
-        open={showCreateModal} 
+
+      <CreatePostModal
+        open={showCreateModal}
         onOpenChange={(open) => {
           setShowCreateModal(open);
           if (!open) setEditingPost(null);
@@ -400,8 +403,8 @@ const PostsTab = ({ profileId }: PostsTabProps) => {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction 
-              onClick={handleDeletePost} 
+            <AlertDialogAction
+              onClick={handleDeletePost}
               disabled={isDeleting}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >

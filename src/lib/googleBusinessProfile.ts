@@ -304,7 +304,7 @@ class GoogleBusinessProfileService {
       return false;
     }
   }
-  
+
   // Background sync to Firestore (non-blocking)
   private async backgroundSyncToFirestore(userId: string, tokens: any): Promise<void> {
     try {
@@ -317,7 +317,7 @@ class GoogleBusinessProfileService {
         stored_at: tokens.stored_at || Date.now(),
         expires_at: tokens.expires_at || Date.now() + (tokens.expires_in * 1000)
       };
-      
+
       await tokenStorageService.saveTokens(userId, firestoreTokens);
       console.log('🔄 Background sync to Firestore completed');
     } catch (error) {
@@ -351,6 +351,18 @@ class GoogleBusinessProfileService {
     console.log(`💾 Cached result for: ${key}`);
   }
 
+  // Clear all posts cache entries
+  clearPostsCache(): void {
+    const keysToDelete: string[] = [];
+    this.cache.forEach((_, key) => {
+      if (key.startsWith('posts-')) {
+        keysToDelete.push(key);
+      }
+    });
+    keysToDelete.forEach(key => this.cache.delete(key));
+    console.log(`🗑️ Cleared ${keysToDelete.length} posts cache entries`);
+  }
+
   // Store tokens in Firestore (if user is available)
   private async storeTokensInFirestore(tokens: StoredGoogleTokens): Promise<void> {
     try {
@@ -358,7 +370,7 @@ class GoogleBusinessProfileService {
         console.log('ℹ️ No current user ID, skipping Firestore token storage');
         return;
       }
-      
+
       await tokenStorageService.saveTokens(this.currentUserId, tokens);
       console.log('✅ DEBUGGING: Tokens also stored in Firestore');
     } catch (error) {
@@ -847,7 +859,7 @@ class GoogleBusinessProfileService {
 
       // Ensure token is valid before making the request
       await this.ensureValidToken();
-      
+
       if (!this.accessToken) {
         throw new Error('No access token available');
       }
@@ -856,11 +868,11 @@ class GoogleBusinessProfileService {
       console.log('🔍 ACCOUNTS DEBUG: Backend URL being used:', this.backendUrl);
       console.log('🔍 ACCOUNTS DEBUG: VITE_BACKEND_URL env var:', import.meta.env.VITE_BACKEND_URL);
       console.log('🔍 ACCOUNTS DEBUG: Full URL:', `${this.backendUrl}/api/accounts`);
-      
+
       // Add timeout control for faster failure
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout for faster response
-      
+
       const response = await fetch(`${this.backendUrl}/api/accounts?_t=${Date.now()}`, {
         method: 'GET',
         headers: {
@@ -869,7 +881,7 @@ class GoogleBusinessProfileService {
         },
         signal: controller.signal,
       });
-      
+
       clearTimeout(timeoutId);
 
       if (!response.ok) {
@@ -888,25 +900,25 @@ class GoogleBusinessProfileService {
             })
           );
         }
-        
+
         if (response.status === 403) {
           throw new Error('Access denied. Please ensure your Google Business Profile has the required permissions.');
         }
-        
+
         throw new Error(`Failed to fetch accounts: ${response.statusText}`);
       }
 
       const data = await response.json();
       console.log(`Google Business Profile accounts received via backend (${data.apiUsed}):`, data);
-      
+
       const accounts = data.accounts || [];
       if (accounts.length === 0) {
         throw new Error('No Google Business Profile accounts found. Please ensure you have a verified Google Business Profile.');
       }
-      
+
       // Process account data and get locations with parallel loading for performance
       const businessAccounts: BusinessAccount[] = [];
-      
+
       // Load all account locations in parallel for better performance
       const locationPromises = accounts.map(async (account) => {
         console.log('🔍 DEBUGGING: Processing account:', account);
@@ -919,10 +931,10 @@ class GoogleBusinessProfileService {
           return { account, locations: [] };
         }
       });
-      
+
       // Wait for all location data to load
       const accountsWithLocations = await Promise.all(locationPromises);
-      
+
       // Process results
       for (const { account, locations } of accountsWithLocations) {
         // Extract the actual account ID from account.name (format: "accounts/{accountId}")
@@ -957,15 +969,15 @@ class GoogleBusinessProfileService {
           });
         }
       }
-      
+
       // Cache the accounts before returning
       gbpCache.cacheAccounts(businessAccounts, this.currentUserId);
       console.log('✅ Cached business accounts for faster future loads');
-      
+
       return businessAccounts;
     } catch (error) {
       console.error('Error fetching business accounts:', error);
-      
+
       // If direct API fails due to CORS, provide demo data with real account info
       if (error instanceof TypeError && error.message.includes('fetch')) {
         console.warn('CORS blocked API access - creating accounts with demo locations');
@@ -975,7 +987,7 @@ class GoogleBusinessProfileService {
             name: 'accounts/your-business-account',
             accountName: 'Your Business Account',
             type: 'BUSINESS',
-            role: 'OWNER', 
+            role: 'OWNER',
             state: 'VERIFIED',
             locations: [
               {
@@ -1008,7 +1020,7 @@ class GoogleBusinessProfileService {
           }
         ];
       }
-      
+
       throw error;
     }
   }
@@ -1029,11 +1041,11 @@ class GoogleBusinessProfileService {
       }
 
       console.log('Fetching locations via backend API with pagination:', accountName);
-      
+
       // Add timeout for faster failure handling
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 4000); // 4 second timeout for faster response
-      
+
       const response = await fetch(`${this.backendUrl}/api/accounts/${encodeURIComponent(accountName)}/locations`, {
         method: 'GET',
         headers: {
@@ -1042,7 +1054,7 @@ class GoogleBusinessProfileService {
         },
         signal: controller.signal,
       });
-      
+
       clearTimeout(timeoutId);
 
       console.log('🔍 DEBUGGING: Backend locations response status:', response.status);
@@ -1051,7 +1063,7 @@ class GoogleBusinessProfileService {
         const errorText = await response.text();
         console.error(`❌ DEBUGGING: Locations API error (${response.status}):`, errorText);
         console.error(`❌ DEBUGGING: This should trigger fallback to demo locations...`);
-        
+
         // Try to parse error details
         try {
           const errorData = JSON.parse(errorText);
@@ -1059,7 +1071,7 @@ class GoogleBusinessProfileService {
         } catch (e) {
           console.error('❌ DEBUGGING: Raw error text:', errorText);
         }
-        
+
         // If it's a 400, this might mean no locations exist for this account or API format issue
         if (response.status === 400) {
           console.warn(`⚠️ Account ${accountName} - Google Business Profile locations API returned 400. Creating demo locations.`);
@@ -1083,7 +1095,7 @@ class GoogleBusinessProfileService {
             },
             {
               name: `${accountName}/locations/tree-house-retreat`,
-              locationId: 'tree-house-retreat', 
+              locationId: 'tree-house-retreat',
               displayName: 'Tree House Retreat Mohani',
               address: {
                 addressLines: ['Kullu'],
@@ -1100,7 +1112,7 @@ class GoogleBusinessProfileService {
             {
               name: `${accountName}/locations/kevins-bed-breakfast`,
               locationId: 'kevins-bed-breakfast',
-              displayName: 'KEVINS BED & BREAKFAST', 
+              displayName: 'KEVINS BED & BREAKFAST',
               address: {
                 addressLines: ['Port Blair'],
                 locality: 'Port Blair',
@@ -1115,19 +1127,19 @@ class GoogleBusinessProfileService {
             }
           ];
         }
-        
+
         // If it's a 403 or 404, the account might not have locations or CORS blocked
         if (response.status === 403 || response.status === 404) {
           console.warn(`No locations found or insufficient permissions for account ${accountName}`);
           return [];
         }
-        
+
         // For CORS errors, return empty but log
         if (response.status === 0) {
           console.warn('CORS blocked locations API call - this is expected in frontend-only mode');
           return [];
         }
-        
+
         return [];
       }
 
@@ -1136,7 +1148,7 @@ class GoogleBusinessProfileService {
       const locations = locationsData.locations || [];
       console.log(`✅ Found ${locations.length} locations via backend with pagination`);
       console.log('✅ First location sample:', locations[0]);
-      
+
       const processedLocations = locations.map((location: any) => ({
         name: location.name,
         locationId: this.extractLocationId(location.name),
@@ -1175,12 +1187,12 @@ class GoogleBusinessProfileService {
           categoryId: category.categoryId || category.name || category,
         })),
       }));
-      
+
       // Cache the locations before returning
       const accountId = accountName.split('/').pop() || accountName;
       gbpCache.cacheLocations(accountId, processedLocations);
       console.log('✅ Cached locations for account:', accountName);
-      
+
       return processedLocations;
     } catch (error) {
       console.error('Error fetching account locations:', error);
@@ -1205,69 +1217,76 @@ class GoogleBusinessProfileService {
   generatePostSuggestions(businessName: string, businessType: string = 'business'): string[] {
     const suggestions = [
       `🌟 Thank you to all our amazing customers for making ${businessName} what it is today! Your support means everything to us. #CustomerAppreciation #ThankYou`,
-      
+
       `📍 Visit us at ${businessName}! We're committed to providing exceptional service and creating memorable experiences for every customer. #QualityService #CustomerFirst`,
-      
+
       `💼 At ${businessName}, we believe in building lasting relationships with our community. Come experience the difference that personalized service makes! #CommunityFirst #Excellence`,
-      
+
       `🔥 Exciting things are happening at ${businessName}! Stay tuned for our latest updates and special offers. Follow us to never miss out! #StayTuned #SpecialOffers`,
-      
+
       `👥 Our team at ${businessName} is dedicated to exceeding your expectations. We're here to serve you with professionalism and care. #TeamExcellence #CustomerCare`
     ];
-    
+
     return suggestions;
   }
 
   // Generate AI reply suggestions for reviews
   generateReviewReplySuggestions(reviewRating: number, reviewText: string): string[] {
     const businessName = 'your business'; // Can be customized
-    
+
     if (reviewRating >= 4) {
       // Positive reviews
       return [
         `Thank you so much for your wonderful review! We're thrilled that you had a great experience with us. Your feedback motivates our team to continue providing excellent service. We look forward to serving you again soon! 🌟`,
-        
+
         `We're delighted to hear about your positive experience! Thank you for taking the time to share your feedback. It means a lot to our team. We can't wait to welcome you back! ⭐`,
-        
+
         `Your kind words truly made our day! We're so happy we could provide you with exceptional service. Thank you for choosing us and for this amazing review. See you again soon! 😊`
       ];
     } else if (reviewRating === 3) {
       // Neutral reviews
       return [
         `Thank you for your feedback. We appreciate you taking the time to share your experience. We're always looking for ways to improve, and your input is valuable to us. Please don't hesitate to reach out if there's anything specific we can do better. 👍`,
-        
+
         `We appreciate your honest review. Your experience matters to us, and we'd love the opportunity to make it even better next time. Please feel free to contact us directly to discuss how we can improve. Thank you for giving us a chance! 🤝`,
-        
+
         `Thank you for your review. We value all feedback as it helps us grow and improve our services. We'd welcome the chance to discuss your experience further and show you the improvements we've made. Hope to see you again! 💪`
       ];
     } else {
       // Negative reviews
       return [
         `Thank you for bringing this to our attention. We sincerely apologize that your experience didn't meet your expectations. Your feedback is important to us, and we'd like the opportunity to make this right. Please contact us directly so we can discuss this further and improve. 🙏`,
-        
+
         `We're truly sorry to hear about your experience. This is not the level of service we strive to provide. We take your feedback seriously and would appreciate the chance to discuss this with you directly to ensure this doesn't happen again. Please reach out to us. 🤝`,
-        
+
         `Thank you for your honest feedback. We apologize that we fell short of your expectations. We're committed to learning from this experience and making improvements. We'd love the opportunity to regain your trust. Please contact us directly to discuss. 💙`
       ];
     }
   }
 
   // Get posts for a specific location using Backend API (with caching)
-  async getLocationPosts(locationNameOrId: string): Promise<BusinessPost[]> {
+  async getLocationPosts(locationNameOrId: string, options: { forceRefresh?: boolean } = {}): Promise<BusinessPost[]> {
     try {
       if (!this.accessToken) {
         throw new Error('No access token available');
       }
 
-      // Check cache first
       const cacheKey = this.getCacheKey('posts', { locationNameOrId });
-      const cached = this.getFromCache<BusinessPost[]>(cacheKey);
-      if (cached) {
-        return cached;
+
+      // Check cache first (unless forceRefresh is true)
+      if (!options.forceRefresh) {
+        const cached = this.getFromCache<BusinessPost[]>(cacheKey);
+        if (cached) {
+          return cached;
+        }
+      } else {
+        // Clear cache for this location when force refreshing
+        this.cache.delete(cacheKey);
+        console.log('🔄 Force refresh - cleared posts cache for:', locationNameOrId);
       }
 
       console.log('Fetching posts for location via backend:', locationNameOrId);
-      
+
       // Handle both locationId and full locationName formats
       let locationId: string;
       if (locationNameOrId.includes('/')) {
@@ -1277,7 +1296,7 @@ class GoogleBusinessProfileService {
         // Simple locationId format: 456
         locationId = locationNameOrId;
       }
-      
+
       const response = await fetch(`${this.backendUrl}/api/locations/${locationId}/posts`, {
         method: 'GET',
         headers: {
@@ -1307,7 +1326,7 @@ class GoogleBusinessProfileService {
 
       const data = await response.json();
       console.log('✅ Posts fetched successfully via backend:', data.posts?.length || 0);
-      
+
       // Convert to BusinessPost format
       const posts: BusinessPost[] = (data.posts || []).map((post: any) => ({
         id: this.extractIdFromName(post.name),
@@ -1351,7 +1370,7 @@ class GoogleBusinessProfileService {
       console.log('🚀 Creating real post via backend API');
       console.log('Location Input:', locationNameOrId, 'Type:', typeof locationNameOrId);
       console.log('Post Data:', postData);
-      
+
       // Handle both locationId and full locationName formats for the URL
       let locationParam: string;
       if (locationNameOrId.includes('/')) {
@@ -1363,17 +1382,17 @@ class GoogleBusinessProfileService {
         locationParam = locationNameOrId;
         console.log('🔍 Using location ID directly:', locationParam);
       }
-      
+
       const finalUrl = `${this.backendUrl}/api/locations/${locationParam}/posts`;
       console.log('🔍 Final API URL:', finalUrl);
-      
+
       const requestBody = {
         summary: postData.summary,
         topicType: postData.topicType || 'STANDARD',
         callToAction: postData.callToAction
       };
       console.log('🔍 Request body:', requestBody);
-      
+
       const response = await fetch(finalUrl, {
         method: 'POST',
         headers: {
@@ -1385,16 +1404,16 @@ class GoogleBusinessProfileService {
 
       console.log('🔍 Response status:', response.status);
       console.log('🔍 Response headers:', Object.fromEntries(response.headers.entries()));
-      
+
       if (!response.ok) {
         const responseText = await response.text();
         console.error('❌ Backend post creation error (raw response):', responseText);
-        
+
         // Check if response is HTML (common for 404 pages)
         if (responseText.trim().startsWith('<!DOCTYPE') || responseText.trim().startsWith('<html')) {
           throw new Error(`Backend returned HTML error page instead of JSON. URL: ${finalUrl}. This usually means the endpoint doesn't exist or there's a routing issue.`);
         }
-        
+
         // Try to parse as JSON
         let errorData;
         try {
@@ -1402,22 +1421,22 @@ class GoogleBusinessProfileService {
         } catch (parseError) {
           throw new Error(`Backend returned non-JSON response: ${responseText.substring(0, 200)}...`);
         }
-        
+
         console.error('❌ Parsed error data:', errorData);
-        
+
         // Handle specific error cases with helpful messages
         if (response.status === 404) {
           throw new Error(`Post endpoint not found. Please check if the location ID is correct: ${locationParam}`);
         } else if (response.status === 503) {
           throw new Error(`Google Business Profile API temporarily unavailable. Please try again in a few minutes.`);
         }
-        
+
         throw new Error(`Failed to create post: ${response.status} - ${errorData.error}`);
       }
 
       const data = await response.json();
       console.log('✅ Real post created successfully via backend:', data);
-      
+
       // Convert backend response to BusinessPost format
       const post: BusinessPost = {
         id: this.extractIdFromName(data.post?.name || ''),
@@ -1462,17 +1481,17 @@ class GoogleBusinessProfileService {
       }
 
       console.log('Fetching reviews for location via backend:', locationName, 'options:', options);
-      
+
       // Extract location ID from locationName (format: accounts/123/locations/456)
       const locationId = this.extractLocationId(locationName);
-      
+
       // Build URL with query parameters
       const url = new URL(`${this.backendUrl}/api/locations/${locationId}/reviews`);
       if (options.forceRefresh) {
         url.searchParams.append('forceRefresh', 'true');
         url.searchParams.append('_t', Date.now().toString()); // Cache busting
       }
-      
+
       const response = await fetch(url.toString(), {
         method: 'GET',
         headers: {
@@ -1509,7 +1528,7 @@ class GoogleBusinessProfileService {
 
       const data = await response.json();
       console.log('✅ Reviews fetched successfully via backend:', data.reviews?.length || 0);
-      
+
       // Convert to BusinessReview format
       const reviews: BusinessReview[] = (data.reviews || []).map((review: any) => ({
         id: this.extractIdFromName(review.name),
@@ -1552,7 +1571,7 @@ class GoogleBusinessProfileService {
       const parts = reviewName.split('/');
       const locationId = parts[3]; // Extract location ID
       const reviewId = parts[5]; // Extract review ID
-      
+
       const response = await fetch(`${this.backendUrl}/api/locations/${locationId}/reviews/${reviewId}/reply`, {
         method: 'PUT',
         headers: {
@@ -1572,13 +1591,13 @@ class GoogleBusinessProfileService {
 
       const data = await response.json();
       console.log('✅ Review reply sent successfully via backend:', data);
-      
+
       // Invalidate reviews cache for this location after replying
       const locationName = `accounts/${reviewName.split('/')[1]}/locations/${locationId}`;
       const reviewCacheKey = this.getCacheKey('reviews', { locationName });
       this.cache.delete(reviewCacheKey);
       console.log('🗑️ Invalidated review cache for location after reply');
-      
+
     } catch (error) {
       console.error('❌ Error replying to review via backend:', error);
       throw error;
@@ -1778,7 +1797,7 @@ class GoogleBusinessProfileService {
       }
 
       console.log('Fetching photos for location via backend:', locationId);
-      
+
       const response = await fetch(`${this.backendUrl}/api/locations/${locationId}/photos`, {
         method: 'GET',
         headers: {
@@ -1790,7 +1809,7 @@ class GoogleBusinessProfileService {
       if (!response.ok) {
         const errorData = await response.json();
         console.error('Backend photos fetch error:', errorData);
-        
+
         if (response.status === 401) {
           return await this.handleUnauthorizedAndRetry('photos', () =>
             fetch(`${this.backendUrl}/api/locations/${locationId}/photos`, {
@@ -1802,7 +1821,7 @@ class GoogleBusinessProfileService {
             })
           );
         }
-        
+
         // Return empty array for graceful degradation
         console.warn('Photos API failed, returning empty array for graceful degradation');
         return [];
@@ -1810,7 +1829,7 @@ class GoogleBusinessProfileService {
 
       const data = await response.json();
       console.log('✅ Photos fetched successfully via backend:', data.photos?.length || 0);
-      
+
       return data.photos || [];
     } catch (error) {
       console.error('Error fetching location photos via backend:', error);
@@ -1826,11 +1845,11 @@ class GoogleBusinessProfileService {
       }
 
       console.log('Fetching performance insights for location via backend:', locationId);
-      
+
       const params = new URLSearchParams();
       if (startDate) params.append('startDate', startDate);
       if (endDate) params.append('endDate', endDate);
-      
+
       const response = await fetch(`${this.backendUrl}/api/locations/${locationId}/insights?${params}`, {
         method: 'GET',
         headers: {
@@ -1847,7 +1866,7 @@ class GoogleBusinessProfileService {
 
       const data = await response.json();
       console.log('✅ Insights fetched successfully via backend:', data.apiUsed);
-      
+
       return data;
     } catch (error) {
       console.error('Error fetching location insights via backend:', error);
@@ -1858,7 +1877,7 @@ class GoogleBusinessProfileService {
   // Provide demo business accounts when API calls fail due to CORS
   private getDemoBusinessAccounts(): BusinessAccount[] {
     console.log('📊 Providing demo business accounts (CORS blocked real API)');
-    
+
     return [
       {
         name: 'accounts/demo-account-1',

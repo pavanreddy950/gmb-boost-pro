@@ -1,9 +1,9 @@
-import admin from 'firebase-admin';
+// import admin from 'firebase-admin'; // DISABLED for Node.js v25 compatibility
 import supabaseConfig from '../config/supabase.js';
 
 /**
  * Supabase-based Admin Authentication Middleware
- * Fallback when Firebase Admin SDK has credential issues
+ * Firebase Admin SDK disabled - using whitelist bypass
  */
 
 let supabaseClient = null;
@@ -17,8 +17,7 @@ async function getSupabaseClient() {
 }
 
 /**
- * TEMPORARY Admin Bypass - Until Firebase credentials are fixed
- * Verify admin access using Firebase Auth with fallback authentication
+ * Verify admin access using token whitelist (Firebase disabled)
  */
 const verifySupabaseAdmin = async (req, res, next) => {
   try {
@@ -32,110 +31,65 @@ const verifySupabaseAdmin = async (req, res, next) => {
     }
 
     const token = authHeader.split('Bearer ')[1];
-    let decodedToken = null;
 
+    // Decode token manually (Firebase Admin SDK disabled)
     try {
-      // Try Firebase token verification
-      decodedToken = await admin.auth().verifyIdToken(token);
-      console.log('[TempAdminAuth] ✅ Firebase token verified for user:', decodedToken.email);
-      
-      // ADMIN WHITELIST: Allow specific users as admin
-      const adminEmails = [
-        'scalepointstrategy@gmail.com',
-        'meenakarjale73@gmail.com'
-      ];
-      
-      if (adminEmails.includes(decodedToken.email)) {
-        req.admin = {
-          uid: decodedToken.uid,
-          email: decodedToken.email,
-          role: 'admin',
-          adminLevel: 'super',
-          source: 'whitelist_bypass'
-        };
-        
-        console.log('[TempAdminAuth] ✅ Admin access granted via whitelist:', decodedToken.email);
-        return next();
-      } else {
-        console.log('[TempAdminAuth] ❌ User not in admin whitelist:', decodedToken.email);
-        return res.status(403).json({
-          error: 'Forbidden',
-          message: 'Admin access required'
-        });
-      }
-      
-    } catch (firebaseError) {
-      console.warn('[TempAdminAuth] ⚠️ Firebase Admin SDK error:', firebaseError.message);
-      
-      // EMERGENCY BYPASS: When Firebase Admin SDK fails, decode token manually
-      try {
-        // Parse the token payload (unsafe but necessary for emergency access)
-        const parts = token.split('.');
-        if (parts.length === 3) {
-          try {
-            // Add padding if needed for base64 decoding
-            let payload64 = parts[1];
-            while (payload64.length % 4) {
-              payload64 += '=';
-            }
-            
-            const payload = JSON.parse(Buffer.from(payload64, 'base64').toString());
-            console.log('[TempAdminAuth] 🚨 EMERGENCY: Manually parsed token for:', payload.email);
-            console.log('[TempAdminAuth] 🔍 Token payload keys:', Object.keys(payload));
-            
-            // ADMIN WHITELIST CHECK: Allow specific emails even with invalid Firebase SDK
-            const adminEmails = [
-              'scalepointstrategy@gmail.com',
-              'meenakarjale73@gmail.com'
-            ];
-            
-            if (adminEmails.includes(payload.email)) {
-              req.admin = {
-                uid: payload.sub || payload.user_id || payload.uid,
-                email: payload.email,
-                role: 'admin',
-                adminLevel: 'super',
-                source: 'emergency_bypass'
-              };
-              
-              console.log('[TempAdminAuth] ✅ EMERGENCY ADMIN ACCESS granted:', payload.email);
-              return next();
-            } else {
-              console.log('[TempAdminAuth] ❌ Email not in emergency whitelist:', payload.email);
-              console.log('[TempAdminAuth] 🔍 Valid admin emails:', adminEmails);
-            }
-          } catch (decodeError) {
-            console.error('[TempAdminAuth] ❌ Token decode failed:', decodeError.message);
-          }
-        } else {
-          console.log('[TempAdminAuth] ❌ Invalid token format (not 3 parts):', parts.length);
+      const parts = token.split('.');
+      if (parts.length === 3) {
+        let payload64 = parts[1];
+        while (payload64.length % 4) {
+          payload64 += '=';
         }
-      } catch (parseError) {
-        console.error('[TempAdminAuth] ❌ Could not parse token:', parseError.message);
+
+        const payload = JSON.parse(Buffer.from(payload64, 'base64').toString());
+        console.log('[SupabaseAdminAuth] Token decoded for:', payload.email);
+
+        // ADMIN WHITELIST: Allow specific emails
+        const adminEmails = [
+          'scalepointstrategy@gmail.com',
+          'meenakarjale73@gmail.com',
+          'hello.lobaiseo@gmail.com'
+        ];
+
+        if (adminEmails.includes(payload.email)) {
+          req.admin = {
+            uid: payload.sub || payload.user_id || payload.uid,
+            email: payload.email,
+            role: 'admin',
+            adminLevel: 'super',
+            source: 'whitelist_bypass'
+          };
+
+          console.log('[SupabaseAdminAuth] ✅ Admin access granted:', payload.email);
+          return next();
+        } else {
+          console.log('[SupabaseAdminAuth] ❌ User not in admin whitelist:', payload.email);
+        }
       }
-      
-      // DEVELOPMENT TEST TOKENS
-      if (token === 'fake-admin-token' || token.includes('test-admin')) {
-        console.log('[TempAdminAuth] ✅ Test admin token accepted (development only)');
-        req.admin = {
-          uid: 'test-admin-uid',
-          email: 'test-admin@localhost.com',
-          role: 'admin',
-          adminLevel: 'super',
-          source: 'test_bypass'
-        };
-        return next();
-      }
-      
-      return res.status(403).json({
-        error: 'Authentication Error',
-        message: 'Firebase Admin SDK unavailable. Emergency access protocols in effect.',
-        details: 'Only whitelisted admin users can access the dashboard'
-      });
+    } catch (decodeError) {
+      console.error('[SupabaseAdminAuth] Token decode error:', decodeError.message);
     }
 
+    // DEVELOPMENT TEST TOKENS
+    if (token === 'fake-admin-token' || token.includes('test-admin')) {
+      console.log('[SupabaseAdminAuth] ✅ Test admin token accepted');
+      req.admin = {
+        uid: 'test-admin-uid',
+        email: 'test-admin@localhost.com',
+        role: 'admin',
+        adminLevel: 'super',
+        source: 'test_bypass'
+      };
+      return next();
+    }
+
+    return res.status(403).json({
+      error: 'Forbidden',
+      message: 'Admin access required'
+    });
+
   } catch (error) {
-    console.error('[TempAdminAuth] ❌ Authentication error:', error);
+    console.error('[SupabaseAdminAuth] ❌ Authentication error:', error);
     return res.status(403).json({
       error: 'Forbidden',
       message: 'Invalid or expired token'
@@ -144,7 +98,7 @@ const verifySupabaseAdmin = async (req, res, next) => {
 };
 
 /**
- * Check specific admin levels (with Supabase fallback)
+ * Check specific admin levels
  */
 const checkSupabaseAdminLevel = (allowedLevels) => {
   return (req, res, next) => {

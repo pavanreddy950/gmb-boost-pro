@@ -1,5 +1,312 @@
 [
   {
+    "id": "audit_1767714133952_y8b53h0s2",
+    "userId": "QlJvlBBTEPSV4tb2rsYsDaxdSgd2",
+    "userEmail": "hello.lobaiseo@gmail.com",
+    "locationId": "locations/9152028977863765725",
+    "locationName": "Tree House Retreat Mohani",
+    "performance": {
+      "timeSeriesData": [
+        {
+          "views": 3,
+          "impressions": 3,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 8,
+          "date": "2025-12-07"
+        },
+        {
+          "views": 2,
+          "impressions": 2,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 0,
+          "date": "2025-12-08"
+        },
+        {
+          "views": 3,
+          "impressions": 3,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 0,
+          "date": "2025-12-09"
+        },
+        {
+          "views": 2,
+          "impressions": 2,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 5,
+          "date": "2025-12-10"
+        },
+        {
+          "views": 4,
+          "impressions": 4,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 2,
+          "date": "2025-12-11"
+        },
+        {
+          "views": 4,
+          "impressions": 4,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 0,
+          "date": "2025-12-12"
+        },
+        {
+          "views": 0,
+          "impressions": 0,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 0,
+          "date": "2025-12-13"
+        },
+        {
+          "views": 3,
+          "impressions": 3,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 0,
+          "date": "2025-12-14"
+        },
+        {
+          "views": 4,
+          "impressions": 4,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 0,
+          "date": "2025-12-15"
+        },
+        {
+          "views": 1,
+          "impressions": 1,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 5,
+          "date": "2025-12-16"
+        },
+        {
+          "views": 4,
+          "impressions": 4,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 0,
+          "date": "2025-12-17"
+        },
+        {
+          "views": 0,
+          "impressions": 0,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 2,
+          "date": "2025-12-18"
+        },
+        {
+          "views": 2,
+          "impressions": 2,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 2,
+          "date": "2025-12-19"
+        },
+        {
+          "views": 7,
+          "impressions": 7,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 0,
+          "date": "2025-12-20"
+        },
+        {
+          "views": 1,
+          "impressions": 1,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 0,
+          "date": "2025-12-21"
+        },
+        {
+          "views": 1,
+          "impressions": 1,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 0,
+          "date": "2025-12-22"
+        },
+        {
+          "views": 0,
+          "impressions": 0,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 3,
+          "date": "2025-12-23"
+        },
+        {
+          "views": 2,
+          "impressions": 2,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 2,
+          "date": "2025-12-24"
+        },
+        {
+          "views": 7,
+          "impressions": 7,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 0,
+          "date": "2025-12-25"
+        },
+        {
+          "views": 3,
+          "impressions": 3,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 5,
+          "date": "2025-12-26"
+        },
+        {
+          "views": 8,
+          "impressions": 8,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 0,
+          "date": "2025-12-27"
+        },
+        {
+          "views": 5,
+          "impressions": 5,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 2,
+          "date": "2025-12-28"
+        },
+        {
+          "views": 13,
+          "impressions": 13,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 0,
+          "date": "2025-12-29"
+        },
+        {
+          "views": 4,
+          "impressions": 4,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 1,
+          "date": "2025-12-30"
+        },
+        {
+          "views": 1,
+          "impressions": 1,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 3,
+          "date": "2025-12-31"
+        },
+        {
+          "views": 8,
+          "impressions": 8,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 1,
+          "date": "2026-01-01"
+        },
+        {
+          "views": 12,
+          "impressions": 12,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 1,
+          "date": "2026-01-02"
+        },
+        {
+          "views": 0,
+          "impressions": 0,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 0,
+          "date": "2026-01-03"
+        },
+        {
+          "views": 0,
+          "impressions": 0,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 0,
+          "date": "2026-01-04"
+        },
+        {
+          "views": 0,
+          "impressions": 0,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 0,
+          "date": "2026-01-05"
+        },
+        {
+          "views": 0,
+          "impressions": 0,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 0,
+          "date": "2026-01-06"
+        }
+      ]
+    },
+    "recommendations": {
+      "recommendations": []
+    },
+    "score": {
+      "overall": 50,
+      "performance": 3,
+      "engagement": 100,
+      "searchRank": 7,
+      "profileCompletion": 47,
+      "seoScore": 34,
+      "reviewScore": 25,
+      "reviewReplyScore": 100,
+      "profileCompletionDetails": {
+        "totalFields": 15,
+        "completedFields": 7,
+        "missingFields": [
+          "Website",
+          "Description",
+          "Business Hours",
+          "Labels",
+          "Google Ads",
+          "Profile",
+          "Attributes",
+          "Special Hours"
+        ]
+      },
+      "seoDetails": {
+        "hasDescription": false,
+        "hasKeywords": false,
+        "hasCategories": true
+      },
+      "reviewDetails": {
+        "totalReviews": 1,
+        "reviewsLast30Days": 1,
+        "reviewsPerWeek": 0.23333333333333334,
+        "repliedReviews": 1,
+        "replyRate": 100
+      }
+    },
+    "dateRange": {
+      "startDate": "2025-12-07",
+      "endDate": "2026-01-06"
+    },
+    "timestamp": "2026-01-06T15:42:13.952Z",
+    "metadata": {
+      "source": "audit_tool",
+      "timestamp": "2026-01-06T15:42:13.935Z"
+    }
+  },
+  {
     "id": "audit_1764073594890_5g3wdtdod",
     "userId": "g9nPJnKnjrgScYUVc8Xo1AFRDsu1",
     "userEmail": "meenakarjale73@gmail.com",

@@ -57,6 +57,30 @@ interface AutomationStatus {
   };
 }
 
+interface NextPostTimeResponse {
+  success: boolean;
+  enabled: boolean;
+  locationId?: string;
+  businessName?: string;
+  schedule?: string;
+  frequency?: string;
+  timezone?: string;
+  lastRun?: string | null;
+  nextPostTime?: string | null;
+  nextPostTimeLocal?: string | null;
+  serverTimeIST?: string;
+  countdown?: {
+    hours: number;
+    minutes: number;
+    seconds: number;
+    totalSeconds: number;
+    isOverdue: boolean;
+    display: string;
+  };
+  hasCronJob?: boolean;
+  message?: string;
+}
+
 class ServerAutomationService {
   private backendUrl: string;
 
@@ -115,6 +139,42 @@ class ServerAutomationService {
       return status;
     } catch (error) {
       console.error('❌ Error getting automation status:', error);
+      return null;
+    }
+  }
+
+  // Get next scheduled post time from server (for accurate countdown)
+  async getNextPostTime(locationId: string): Promise<NextPostTimeResponse | null> {
+    try {
+      const response = await fetch(`${this.backendUrl}/api/automation/next-post-time/${locationId}`);
+      
+      if (!response.ok) {
+        throw new Error(`Failed to get next post time: ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      console.log(`⏰ Next post time for location ${locationId}:`, data);
+      return data;
+    } catch (error) {
+      console.error('❌ Error getting next post time:', error);
+      return null;
+    }
+  }
+
+  // Get automation status for ALL locations (bulk endpoint for dashboard)
+  async getAllAutomationStatus(): Promise<Record<string, NextPostTimeResponse> | null> {
+    try {
+      const response = await fetch(`${this.backendUrl}/api/automation/status-all`);
+      
+      if (!response.ok) {
+        throw new Error(`Failed to get all automation status: ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      console.log(`📊 All automation status fetched:`, Object.keys(data.automations || {}).length, 'locations');
+      return data.automations || {};
+    } catch (error) {
+      console.error('❌ Error getting all automation status:', error);
       return null;
     }
   }

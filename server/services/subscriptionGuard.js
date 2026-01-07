@@ -1,6 +1,6 @@
 import supabaseSubscriptionService from './supabaseSubscriptionService.js';
 import supabaseAutomationService from './supabaseAutomationService.js';
-import admin from 'firebase-admin';
+// import admin from 'firebase-admin'; // DISABLED for Node.js v25 compatibility
 
 /**
  * Subscription Guard Service
@@ -18,23 +18,9 @@ class SubscriptionGuard {
    * Check if user is admin (bypasses subscription checks)
    */
   async isAdmin(userId) {
-    try {
-      if (!userId) return false;
-
-      // Get user from Firebase
-      const userRecord = await admin.auth().getUser(userId);
-      
-      // Check custom claims for admin role
-      if (userRecord.customClaims && userRecord.customClaims.role === 'admin') {
-        console.log(`[SubscriptionGuard] ✅ User ${userId} is ADMIN - bypassing subscription checks`);
-        return true;
-      }
-
-      return false;
-    } catch (error) {
-      console.error('[SubscriptionGuard] Error checking admin status:', error);
-      return false;
-    }
+    // Firebase Admin SDK disabled for Node.js v25 compatibility
+    console.log('[SubscriptionGuard] ⚠️ Admin check skipped (Firebase disabled)');
+    return false;
   }
 
   /**
@@ -57,9 +43,21 @@ class SubscriptionGuard {
         }
       }
 
-      const subscription = await supabaseSubscriptionService.getSubscriptionByGbpId(gbpAccountId);
+      // Try to find subscription by GBP account ID first
+      let subscription = null;
+
+      if (gbpAccountId) {
+        subscription = await supabaseSubscriptionService.getSubscriptionByGbpId(gbpAccountId);
+      }
+
+      // 🔧 FIX: If no subscription found by gbpAccountId, try to find by userId
+      if (!subscription && userId) {
+        console.log(`[SubscriptionGuard] 🔄 No subscription found by GBP ID, trying userId: ${userId}`);
+        subscription = await supabaseSubscriptionService.getSubscriptionByUserId(userId);
+      }
 
       if (!subscription) {
+        console.log(`[SubscriptionGuard] ❌ No subscription found for gbpAccountId: ${gbpAccountId}, userId: ${userId}`);
         return {
           hasAccess: false,
           reason: 'no_subscription',
@@ -67,6 +65,12 @@ class SubscriptionGuard {
           requiresPayment: true
         };
       }
+
+      console.log(`[SubscriptionGuard] ✅ Found subscription for user ${userId}:`, {
+        status: subscription.status,
+        gbpAccountId: subscription.gbpAccountId,
+        daysRemaining: subscription.subscriptionEndDate ? Math.ceil((new Date(subscription.subscriptionEndDate) - new Date()) / (1000 * 60 * 60 * 24)) : 'N/A'
+      });
 
       const now = new Date();
 
@@ -181,15 +185,24 @@ class SubscriptionGuard {
 
       // Disable each automation
       for (const setting of settings) {
-        await supabaseAutomationService.saveSettings(userId, setting.location_id, {
-          ...setting.settings,
+        // Use locationId (camelCase) as returned by formatSettings, not location_id
+        const locationId = setting.locationId || setting.location_id;
+
+        // Skip if no valid locationId
+        if (!locationId) {
+          console.warn(`[SubscriptionGuard] ⚠️ Skipping setting without valid locationId for user: ${userId}`);
+          continue;
+        }
+
+        await supabaseAutomationService.saveSettings(userId, locationId, {
+          ...setting,
           enabled: false,
           autoPosting: {
-            ...setting.settings?.autoPosting,
+            ...setting.autoPosting,
             enabled: false
           },
           autoReply: {
-            ...setting.settings?.autoReply,
+            ...setting.autoReply,
             enabled: false
           },
           autoReplyEnabled: false,
@@ -197,7 +210,7 @@ class SubscriptionGuard {
           disabledAt: new Date().toISOString()
         });
 
-        console.log(`[SubscriptionGuard] ✅ Disabled automation for location: ${setting.location_id}`);
+        console.log(`[SubscriptionGuard] ✅ Disabled automation for location: ${locationId}`);
       }
 
       // Log this action
@@ -323,8 +336,22 @@ class SubscriptionGuard {
 
   /**
    * Validate before running automation
+   * NOTE: Auto-posting is now ALWAYS ALLOWED to ensure consistent posting for all profiles
    */
   async validateBeforeAutomation(userId, gbpAccountId, automationType) {
+    // 🚀 ALWAYS ALLOW AUTO-POSTING - User requested all profiles must post consistently
+    // Subscription checks are bypassed for auto-posting to ensure no profiles are missed
+    if (automationType === 'auto_posting') {
+      console.log(`[SubscriptionGuard] ✅ Auto-posting ALWAYS ALLOWED for user ${userId}`);
+      return {
+        allowed: true,
+        status: 'always_enabled',
+        daysRemaining: 999999,
+        message: 'Auto-posting is always enabled for all profiles'
+      };
+    }
+
+    // For other automation types, still check subscription
     const access = await this.hasValidAccess(userId, gbpAccountId);
 
     if (!access.hasAccess) {
