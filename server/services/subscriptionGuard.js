@@ -16,11 +16,35 @@ class SubscriptionGuard {
 
   /**
    * Check if user is admin (bypasses subscription checks)
+   * Checks against hardcoded admin email whitelist
    */
   async isAdmin(userId) {
-    // Firebase Admin SDK disabled for Node.js v25 compatibility
-    console.log('[SubscriptionGuard] ⚠️ Admin check skipped (Firebase disabled)');
-    return false;
+    try {
+      // Admin email whitelist
+      const adminEmails = [
+        'scalepointstrategy@gmail.com',
+        'meenakarjale73@gmail.com',
+        'hello.lobaiseo@gmail.com'
+      ];
+
+      // Get user email from Supabase user mapping or subscription
+      const subscription = await supabaseSubscriptionService.getSubscriptionByUserId(userId);
+      const userEmail = subscription?.email;
+
+      if (!userEmail) {
+        console.log('[SubscriptionGuard] ⚠️ Could not find email for userId:', userId);
+        return false;
+      }
+
+      const isAdminUser = adminEmails.includes(userEmail);
+      if (isAdminUser) {
+        console.log(`[SubscriptionGuard] ✅ Admin detected: ${userEmail}`);
+      }
+      return isAdminUser;
+    } catch (error) {
+      console.error('[SubscriptionGuard] Error checking admin status:', error);
+      return false;
+    }
   }
 
   /**
@@ -336,22 +360,16 @@ class SubscriptionGuard {
 
   /**
    * Validate before running automation
-   * NOTE: Auto-posting is now ALWAYS ALLOWED to ensure consistent posting for all profiles
+   * Enforces subscription/trial requirements for all automation types
+   * - Admin accounts: Always allowed (unlimited)
+   * - Users in trial: Allowed until trial expires
+   * - Users with active subscription: Allowed until subscription expires
+   * - Users with no trial/subscription: Blocked
    */
   async validateBeforeAutomation(userId, gbpAccountId, automationType) {
-    // 🚀 ALWAYS ALLOW AUTO-POSTING - User requested all profiles must post consistently
-    // Subscription checks are bypassed for auto-posting to ensure no profiles are missed
-    if (automationType === 'auto_posting') {
-      console.log(`[SubscriptionGuard] ✅ Auto-posting ALWAYS ALLOWED for user ${userId}`);
-      return {
-        allowed: true,
-        status: 'always_enabled',
-        daysRemaining: 999999,
-        message: 'Auto-posting is always enabled for all profiles'
-      };
-    }
+    console.log(`[SubscriptionGuard] 🔍 Validating ${automationType} for user ${userId}, gbpAccountId: ${gbpAccountId}`);
 
-    // For other automation types, still check subscription
+    // Check subscription/trial status for all automation types
     const access = await this.hasValidAccess(userId, gbpAccountId);
 
     if (!access.hasAccess) {
@@ -368,6 +386,7 @@ class SubscriptionGuard {
       };
     }
 
+    console.log(`[SubscriptionGuard] ✅ ${automationType} ALLOWED for user ${userId} - Status: ${access.status}, Days remaining: ${access.daysRemaining}`);
     return {
       allowed: true,
       status: access.status,
