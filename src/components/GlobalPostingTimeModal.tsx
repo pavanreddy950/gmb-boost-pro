@@ -109,6 +109,13 @@ export function GlobalPostingTimeModal({ isOpen, onClose, profiles }: GlobalPost
     try {
       console.log(`[GlobalPostingTime] Updating all profiles to ${selectedTime} (${selectedFrequency})`);
       
+      // Prepare profiles data for backend to insert into user_locations if needed
+      const profilesData = profiles?.map(p => ({
+        locationId: p.name?.split('/').pop() || p.locationId || p.id,
+        businessName: p.title || p.name || p.businessName || 'Unknown',
+        address: p.storefrontAddress?.addressLines?.join(', ') || p.address || ''
+      })) || [];
+
       const response = await fetch(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000'}/api/automation/global-time`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -116,7 +123,9 @@ export function GlobalPostingTimeModal({ isOpen, onClose, profiles }: GlobalPost
           schedule: selectedTime,
           frequency: selectedFrequency,
           userId: currentUser.uid,
-          gbpAccountId: accountId
+          email: currentUser.email, // Use email as primary identifier
+          gbpAccountId: accountId,
+          profiles: profilesData // Send profiles for insertion if needed
         })
       });
 
@@ -156,11 +165,12 @@ export function GlobalPostingTimeModal({ isOpen, onClose, profiles }: GlobalPost
 
       if (failCount === 0 && successCount > 0) {
         toast.success(`✅ Updated ${successCount} profile(s) to post at ${getDisplayTime()}`);
-        
-        // Trigger page refresh after 2 seconds to show updated countdowns
+
+        // Close modal after short delay - no page reload needed
+        // The dashboard will fetch updated status on its own interval
         setTimeout(() => {
-          window.location.reload();
-        }, 2000);
+          handleClose();
+        }, 1500);
       } else if (successCount > 0) {
         toast.warning(`Updated ${successCount} profile(s), ${failCount} failed`);
       } else if (results.length === 0) {

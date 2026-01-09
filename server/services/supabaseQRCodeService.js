@@ -38,6 +38,7 @@ class SupabaseQRCodeService {
         location_name: qrCodeData.locationName || null,
         address: qrCodeData.address || null,
         user_id: qrCodeData.userId,
+        gmail_id: qrCodeData.gmailId || qrCodeData.email || null, // NEW: Support gmail_id for new schema
         place_id: qrCodeData.placeId || null,
         qr_data_url: qrCodeData.qrDataUrl || null,
         review_link: qrCodeData.reviewLink || null,
@@ -56,7 +57,7 @@ class SupabaseQRCodeService {
 
       if (error) throw error;
 
-      console.log(`[SupabaseQRCodeService] ✅ Saved QR code: ${qrCodeData.code} (${qrCodeData.locationName || 'Unknown'}) with keywords: ${qrCodeData.keywords || 'none'}`);
+      console.log(`[SupabaseQRCodeService] ✅ Saved QR code: ${qrCodeData.code} (${qrCodeData.locationName || 'Unknown'}) with keywords: "${qrCodeData.keywords || 'none'}"`);
       return qrCodeData;
     } catch (error) {
       console.error('[SupabaseQRCodeService] Error saving QR code:', error);

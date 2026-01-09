@@ -8,6 +8,7 @@ import { fileURLToPath } from 'url';
 // import { readFileSync } from 'fs'; // Not needed without Firebase
 import config from './config.js';
 import paymentRoutes from './routes/payment.js';
+import userPaymentRoutes from './routes/userPayment.js';
 import aiReviewsRoutes from './routes/aiReviews.js';
 import reviewLinkRoutes from './routes/reviewLink.js';
 import googleReviewLinkRoutes from './routes/googleReviewLink.js';
@@ -36,6 +37,7 @@ import dynamicDailyActivityScheduler from './services/dynamicDailyActivitySchedu
 import dailyActivityEmailService from './services/newDailyActivityEmailService.js';
 import keepAliveService from './services/keepAliveService.js';
 import scheduledPostsService from './services/scheduledPostsService.js';
+import couponService from './services/couponService.js';
 
 // 🚀 Scalability Components
 import connectionPool from './database/connectionPool.js';
@@ -236,6 +238,7 @@ const SCOPES = [
 
 // Payment routes (no subscription check needed, with rate limiting)
 app.use('/api/payment', paymentRateLimit, paymentRoutes);
+app.use('/api/user-payment', paymentRateLimit, userPaymentRoutes); // New simplified payment routes using gmail_id
 app.use('/api/ai-reviews', aiReviewsRoutes);
 app.use('/api/review-link', reviewLinkRoutes);
 app.use('/api/google-review', googleReviewLinkRoutes);
@@ -1285,6 +1288,33 @@ app.post('/auth/google/callback', async (req, res) => {
       // Don't throw - Firestore tokens are already saved, this is just for auto-posting feature
     }
 
+    // 🆕 SAVE TO NEW CLEAN SCHEMA (users table)
+    console.log('1️⃣5️⃣.6️⃣ Saving user to NEW CLEAN SCHEMA (users table)...');
+    try {
+      const newSchemaAdapter = (await import('./services/newSchemaAdapter.js')).default;
+
+      await newSchemaAdapter.upsertUser({
+        gmailId: userInfo.data.email,
+        firebaseUid: userId,
+        displayName: userInfo.data.name || userInfo.data.email.split('@')[0],
+        subscriptionStatus: 'trial',
+        googleAccessToken: tokens.access_token,
+        googleRefreshToken: tokens.refresh_token,
+        googleTokenExpiry: tokens.expiry_date,
+        googleAccountId: null // Will be set later when we check GBP accounts
+      });
+
+      console.log('1️⃣5️⃣.6️⃣ ✅ User saved to NEW CLEAN SCHEMA (users table)');
+      console.log(`1️⃣5️⃣.6️⃣ 📧 Gmail: ${userInfo.data.email}`);
+      console.log(`1️⃣5️⃣.6️⃣ 🆔 Firebase UID: ${userId}`);
+    } catch (newSchemaError) {
+      console.error('⚠️ Failed to save to new schema (non-critical):', {
+        message: newSchemaError.message,
+        stack: newSchemaError.stack
+      });
+      // Don't throw - old tables still work
+    }
+
     // Check if user has a Google Business Profile account
     console.log('1️⃣6️⃣ Checking for GBP accounts...');
     try {
@@ -1310,6 +1340,27 @@ app.post('/auth/google/callback', async (req, res) => {
           userInfo.data.email
         );
         console.log('1️⃣9️⃣ Trial subscription created successfully');
+
+        // 🆕 UPDATE USER IN NEW CLEAN SCHEMA with GBP account ID
+        console.log('1️⃣9️⃣.1️⃣ Updating user in NEW CLEAN SCHEMA with GBP account ID...');
+        try {
+          const newSchemaAdapter = (await import('./services/newSchemaAdapter.js')).default;
+
+          await newSchemaAdapter.upsertUser({
+            gmailId: userInfo.data.email,
+            firebaseUid: userId,
+            displayName: userInfo.data.name || userInfo.data.email.split('@')[0],
+            subscriptionStatus: 'trial',
+            googleAccessToken: tokens.access_token,
+            googleRefreshToken: tokens.refresh_token,
+            googleTokenExpiry: tokens.expiry_date,
+            googleAccountId: gbpAccountId // NOW we have the GBP account ID
+          });
+
+          console.log('1️⃣9️⃣.1️⃣ ✅ User updated in NEW CLEAN SCHEMA with account ID:', gbpAccountId);
+        } catch (updateError) {
+          console.error('⚠️ Failed to update user with account ID (non-critical):', updateError.message);
+        }
 
         // 🚀 AUTO-ENABLE AUTOMATION FOR ALL LOCATIONS
         console.log('2️⃣0️⃣ Auto-enabling automation for all locations...');
@@ -1388,7 +1439,7 @@ app.post('/auth/google/callback', async (req, res) => {
               updated_at: new Date().toISOString()
             };
 
-            // Save to Supabase
+            // Save to Supabase (old table)
             const { error: saveError } = await supabase
               .from('automation_settings')
               .upsert(automationSettings, {
@@ -1399,6 +1450,50 @@ app.post('/auth/google/callback', async (req, res) => {
               console.error(`⚠️ Failed to auto-enable automation for ${businessName}:`, saveError.message);
             } else {
               console.log(`✅ Auto-enabled automation for ${businessName} (${locationId})`);
+            }
+
+            // 🆕 SAVE LOCATION TO NEW CLEAN SCHEMA (user_locations table)
+            try {
+              console.log(`   📍 Saving ${businessName} to NEW CLEAN SCHEMA...`);
+              const newSchemaAdapter = (await import('./services/newSchemaAdapter.js')).default;
+
+              const fullAddress = [
+                ...(address?.addressLines || []),
+                address?.locality,
+                address?.administrativeArea,
+                address?.postalCode,
+                address?.regionCode || address?.countryCode
+              ].filter(Boolean).join(', ');
+
+              console.log(`   📧 Gmail: ${userInfo.data.email}`);
+              console.log(`   🏢 Business: ${businessName}`);
+              console.log(`   🆔 Location ID: ${locationId}`);
+              console.log(`   📍 Address: ${fullAddress}`);
+
+              const result = await newSchemaAdapter.upsertLocation({
+                gmailId: userInfo.data.email,
+                locationId: locationId,
+                businessName: businessName,
+                address: fullAddress,
+                category: category,
+                keywords: automationSettings.settings.autoPosting.keywords,
+                autopostingEnabled: true,
+                autopostingSchedule: '10:20',
+                autopostingFrequency: 'daily',
+                autoreplyEnabled: true
+              });
+
+              if (result) {
+                console.log(`   ✅ Saved ${businessName} to NEW CLEAN SCHEMA (user_locations)`);
+                console.log(`   📊 Status: ${result.autoposting_status}`);
+                console.log(`   📝 Reason: ${result.autoposting_status_reason}`);
+              } else {
+                console.log(`   ⚠️ No result returned from newSchemaAdapter.upsertLocation`);
+              }
+            } catch (locationSaveError) {
+              console.error(`   ❌ Failed to save ${businessName} to new schema:`);
+              console.error(`   Error: ${locationSaveError.message}`);
+              console.error(`   Stack:`, locationSaveError.stack);
             }
           }
 
@@ -1625,7 +1720,7 @@ function createReauthErrorResponse(error, userId = null) {
 // Force save tokens to Firestore (migration endpoint)
 app.post('/auth/google/save-tokens', async (req, res) => {
   try {
-    const { userId, tokens } = req.body;
+    const { userId, tokens, email, accountId } = req.body;
 
     if (!userId || !tokens) {
       return res.status(400).json({ error: 'userId and tokens are required' });
@@ -1633,6 +1728,8 @@ app.post('/auth/google/save-tokens', async (req, res) => {
 
     console.log('[SAVE TOKENS] ========================================');
     console.log('[SAVE TOKENS] Manually saving tokens for user:', userId);
+    console.log('[SAVE TOKENS] Email:', email);
+    console.log('[SAVE TOKENS] Account ID:', accountId);
 
     const tokenData = {
       access_token: tokens.access_token,
@@ -1656,6 +1753,62 @@ app.post('/auth/google/save-tokens', async (req, res) => {
       console.log('[SAVE TOKENS] ✅ Saved to Firestore');
     } catch (error) {
       console.error('[SAVE TOKENS] ❌ Failed to save to Firestore:', error);
+    }
+
+    // 🚀 CRITICAL: Auto-create free trial when user connects Google Business Profile
+    try {
+      const supabaseSubscriptionService = (await import('./services/supabaseSubscriptionService.js')).default;
+
+      // Check if user already has a subscription/trial
+      const existingSub = await supabaseSubscriptionService.getSubscriptionByUserId(userId);
+
+      if (!existingSub) {
+        console.log('[SAVE TOKENS] 🎁 User has no subscription, creating FREE TRIAL...');
+
+        // Create 15-day free trial
+        const trialEndDate = new Date();
+        trialEndDate.setDate(trialEndDate.getDate() + 15);
+
+        const trialData = {
+          userId: userId,
+          email: userId + '@firebase.user', // Placeholder - will be updated when we get actual email
+          status: 'trial',
+          trialEndDate: trialEndDate.toISOString(),
+          profileCount: 100, // Allow unlimited profiles during trial
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        };
+
+        await supabaseSubscriptionService.saveSubscription(trialData);
+        console.log('[SAVE TOKENS] ✅ Free trial created! User can now use auto-posting for 15 days');
+      } else {
+        console.log('[SAVE TOKENS] ✅ User already has subscription/trial:', existingSub.status);
+      }
+    } catch (subError) {
+      console.error('[SAVE TOKENS] ⚠️ Failed to create trial (non-critical):', subError.message);
+      // Don't fail the token save if trial creation fails
+    }
+
+    // 🆕 SAVE TO NEW CLEAN SCHEMA
+    try {
+      const newSchemaAdapter = (await import('./services/newSchemaAdapter.js')).default;
+
+      console.log('[SAVE TOKENS] 📊 Saving to NEW CLEAN SCHEMA...');
+
+      await newSchemaAdapter.upsertUser({
+        gmailId: email || `${userId}@temp.user`,
+        firebaseUid: userId,
+        displayName: email ? email.split('@')[0] : 'User',
+        subscriptionStatus: 'trial',
+        googleAccessToken: tokenData.access_token,
+        googleRefreshToken: tokenData.refresh_token,
+        googleTokenExpiry: tokenData.expiry_date,
+        googleAccountId: accountId || '106433552101751461082'
+      });
+
+      console.log('[SAVE TOKENS] ✅ Saved to NEW CLEAN SCHEMA (users table)');
+    } catch (newSchemaError) {
+      console.error('[SAVE TOKENS] ⚠️ Failed to save to new schema (non-critical):', newSchemaError.message);
     }
 
     console.log('[SAVE TOKENS] ========================================');
@@ -4445,6 +4598,11 @@ async function initializeServer() {
     console.log('🔄 Initializing token storage...');
     await supabaseTokenStorage.initialize();
     console.log('✅ Token storage initialized');
+
+    // Initialize coupon service (creates default coupons like RAJATEST)
+    console.log('🎟️ Initializing coupon service...');
+    await couponService.initialize();
+    console.log('✅ Coupon service initialized (RAJATEST coupon ready)');
 
     console.log('✅ All scalability components ready');
   } catch (error) {

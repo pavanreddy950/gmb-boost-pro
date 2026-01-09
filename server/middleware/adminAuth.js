@@ -28,11 +28,9 @@ const verifyAdmin = async (req, res, next) => {
 
         const payload = JSON.parse(Buffer.from(payload64, 'base64').toString());
 
-        // ADMIN WHITELIST: Allow specific users as admin
+        // ADMIN WHITELIST: Allow specific users as admin - ONLY scalepointstrategy@gmail.com
         const adminEmails = [
-          'scalepointstrategy@gmail.com',
-          'meenakarjale73@gmail.com',
-          'hello.lobaiseo@gmail.com'
+          'scalepointstrategy@gmail.com'
         ];
 
         if (adminEmails.includes(payload.email)) {

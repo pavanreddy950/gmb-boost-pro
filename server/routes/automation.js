@@ -19,44 +19,91 @@ router.get('/status/:locationId', (req, res) => {
 // Get automation status for ALL locations (DATABASE ONLY - bulk endpoint for dashboard)
 router.get('/status-all', async (req, res) => {
   try {
-    const { userId } = req.query;
+    const { userId, email } = req.query;
 
-    // 🔥 DATABASE ONLY - Always query database for consistency
+    // 🔥 DATABASE ONLY - Query user_locations table (NEW CLEAN SCHEMA)
     const { createClient } = await import('@supabase/supabase-js');
     const supabaseUrl = process.env.SUPABASE_URL;
     const supabaseKey = process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_KEY;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    let query = supabase.from('automation_settings').select('*').eq('enabled', true);
+    let query = supabase.from('user_locations').select('*').eq('autoposting_enabled', true);
 
-    // Filter by userId if provided
-    if (userId) {
-      query = query.eq('user_id', userId);
+    // Filter by email (gmail_id) if provided - this is the new primary key
+    if (email) {
+      query = query.eq('gmail_id', email);
     }
 
-    const { data: dbAutomations, error } = await query;
+    const { data: dbLocations, error } = await query;
 
     if (error) {
       console.error('[Automation API] Database error:', error);
-      return res.status(500).json({ error: 'Database error' });
+      // Don't fail - fall back to in-memory
     }
 
     const now = new Date();
     const results = {};
 
-    for (const dbSetting of (dbAutomations || [])) {
-      const locationId = dbSetting.location_id;
-      const settings = dbSetting.settings || {};
-      const autoPosting = settings.autoPosting || {};
+    // Process database locations
+    for (const location of (dbLocations || [])) {
+      const locationId = location.location_id;
 
-      if (!autoPosting.enabled) {
+      if (!location.autoposting_enabled) {
         results[locationId] = {
           enabled: false,
           locationId,
-          businessName: autoPosting.businessName || 'Unknown'
+          businessName: location.business_name || 'Unknown'
         };
         continue;
       }
+
+      const lastRun = location.last_post_date ? new Date(location.last_post_date) : null;
+      const nextScheduledTime = calculateNextPostTime(location.autoposting_schedule, location.autoposting_frequency, lastRun);
+
+      let countdown = null;
+      if (nextScheduledTime) {
+        const timeRemainingMs = nextScheduledTime.getTime() - now.getTime();
+        const isOverdue = timeRemainingMs <= 0;
+        const totalSeconds = Math.max(0, Math.floor(timeRemainingMs / 1000));
+        const hours = Math.floor(totalSeconds / 3600);
+        const minutes = Math.floor((totalSeconds % 3600) / 60);
+        const seconds = totalSeconds % 60;
+
+        countdown = {
+          hours,
+          minutes,
+          seconds,
+          totalSeconds,
+          isOverdue,
+          display: isOverdue ? 'Posting soon...' : `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`
+        };
+      }
+
+      results[locationId] = {
+        success: true,
+        enabled: true,
+        locationId,
+        businessName: location.business_name,
+        schedule: location.autoposting_schedule,
+        frequency: location.autoposting_frequency,
+        timezone: location.autoposting_timezone || 'Asia/Kolkata',
+        lastRun: lastRun?.toISOString() || null,
+        nextPostTime: nextScheduledTime?.toISOString() || null,
+        nextPostTimeLocal: nextScheduledTime?.toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' }) || null,
+        countdown,
+        hasCronJob: automationScheduler.scheduledJobs.has(locationId),
+        source: 'database'
+      };
+    }
+
+    // Also check in-memory scheduler for any additional locations
+    const inMemoryAutomations = automationScheduler.settings?.automations || {};
+    for (const [locationId, settings] of Object.entries(inMemoryAutomations)) {
+      // Skip if already in results from database
+      if (results[locationId]) continue;
+
+      const autoPosting = settings.autoPosting || settings;
+      if (!autoPosting.enabled && !settings.enabled) continue;
 
       const lastRun = autoPosting.lastRun ? new Date(autoPosting.lastRun) : null;
       const nextScheduledTime = calculateNextPostTime(autoPosting.schedule, autoPosting.frequency, lastRun);
@@ -84,7 +131,7 @@ router.get('/status-all', async (req, res) => {
         success: true,
         enabled: true,
         locationId,
-        businessName: autoPosting.businessName,
+        businessName: autoPosting.businessName || settings.businessName || 'Unknown',
         schedule: autoPosting.schedule,
         frequency: autoPosting.frequency,
         timezone: autoPosting.timezone || 'Asia/Kolkata',
@@ -92,7 +139,8 @@ router.get('/status-all', async (req, res) => {
         nextPostTime: nextScheduledTime?.toISOString() || null,
         nextPostTimeLocal: nextScheduledTime?.toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' }) || null,
         countdown,
-        hasCronJob: automationScheduler.scheduledJobs.has(locationId)
+        hasCronJob: automationScheduler.scheduledJobs.has(locationId),
+        source: 'memory'
       };
     }
 
@@ -114,20 +162,30 @@ router.get('/next-post-time/:locationId', async (req, res) => {
   try {
     const { locationId } = req.params;
 
-    // 🔥 DATABASE ONLY - Always query database for consistency
+    // 🔥 DATABASE ONLY - Query user_locations table (NEW CLEAN SCHEMA)
     const { createClient } = await import('@supabase/supabase-js');
     const supabaseUrl = process.env.SUPABASE_URL;
     const supabaseKey = process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_KEY;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    const { data: dbSettings, error } = await supabase
-      .from('automation_settings')
+    // Query user_locations table instead of automation_settings
+    const { data: locationData, error } = await supabase
+      .from('user_locations')
       .select('*')
       .eq('location_id', locationId)
-      .eq('enabled', true)
-      .single();
+      .eq('autoposting_enabled', true)
+      .maybeSingle();
 
-    if (error || !dbSettings?.settings?.autoPosting?.enabled) {
+    // Also check in-memory scheduler as fallback
+    const inMemorySettings = automationScheduler.settings?.automations?.[locationId];
+    const inMemoryEnabled = inMemorySettings?.autoPosting?.enabled || inMemorySettings?.enabled;
+
+    if (error) {
+      console.log(`[next-post-time] DB error for ${locationId}:`, error.message);
+    }
+
+    // Use database data if available, otherwise fall back to in-memory
+    if (!locationData && !inMemoryEnabled) {
       return res.json({
         success: false,
         enabled: false,
@@ -135,12 +193,28 @@ router.get('/next-post-time/:locationId', async (req, res) => {
       });
     }
 
-    const settings = dbSettings.settings;
-    const autoPosting = settings.autoPosting;
-    const lastRun = autoPosting.lastRun ? new Date(autoPosting.lastRun) : null;
+    // Extract schedule data from database or in-memory
+    let schedule, frequency, businessName, lastRun, timezone;
+
+    if (locationData) {
+      // Use user_locations table data
+      schedule = locationData.autoposting_schedule;
+      frequency = locationData.autoposting_frequency;
+      businessName = locationData.business_name;
+      lastRun = locationData.last_post_date ? new Date(locationData.last_post_date) : null;
+      timezone = locationData.autoposting_timezone || 'Asia/Kolkata';
+    } else if (inMemorySettings) {
+      // Use in-memory data
+      const autoPosting = inMemorySettings.autoPosting || inMemorySettings;
+      schedule = autoPosting.schedule;
+      frequency = autoPosting.frequency;
+      businessName = autoPosting.businessName || inMemorySettings.businessName;
+      lastRun = autoPosting.lastRun ? new Date(autoPosting.lastRun) : null;
+      timezone = autoPosting.timezone || 'Asia/Kolkata';
+    }
 
     // Calculate next scheduled time
-    const nextScheduledTime = calculateNextPostTime(autoPosting.schedule, autoPosting.frequency, lastRun);
+    const nextScheduledTime = calculateNextPostTime(schedule, frequency, lastRun);
 
     const now = new Date();
     const serverTimeIST = new Date().toLocaleString('en-US', { timeZone: 'Asia/Kolkata' });
@@ -162,10 +236,10 @@ router.get('/next-post-time/:locationId', async (req, res) => {
       success: true,
       enabled: true,
       locationId,
-      businessName: autoPosting.businessName,
-      schedule: autoPosting.schedule,
-      frequency: autoPosting.frequency,
-      timezone: autoPosting.timezone || 'Asia/Kolkata',
+      businessName: businessName || 'Unknown',
+      schedule: schedule || '10:00',
+      frequency: frequency || 'daily',
+      timezone: timezone,
       lastRun: lastRun?.toISOString() || null,
       nextPostTime: nextScheduledTime?.toISOString() || null,
       nextPostTimeLocal: nextScheduledTime?.toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' }) || null,
@@ -178,7 +252,8 @@ router.get('/next-post-time/:locationId', async (req, res) => {
         isOverdue,
         display: isOverdue ? 'Posting soon...' : `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`
       },
-      hasCronJob: automationScheduler.scheduledJobs.has(locationId)
+      hasCronJob: automationScheduler.scheduledJobs.has(locationId),
+      source: locationData ? 'database' : 'memory'
     });
   } catch (error) {
     console.error('Error getting next post time:', error);
@@ -1027,7 +1102,7 @@ router.get('/subscription-status/:userId', async (req, res) => {
 // Set global posting time for all profiles (only for subscribed profiles)
 router.post('/global-time', async (req, res) => {
   try {
-    const { schedule, frequency, userId, locationIds, gbpAccountId } = req.body;
+    const { schedule, frequency, userId, email, locationIds, gbpAccountId, profiles } = req.body;
 
     if (!schedule || !frequency) {
       return res.status(400).json({
@@ -1036,10 +1111,14 @@ router.post('/global-time', async (req, res) => {
       });
     }
 
+    // Use email as primary identifier (gmail_id in database)
+    const userEmail = email || userId;
+
     console.log(`[Automation API] ========================================`);
     console.log(`[Automation API] 🌐 GLOBAL TIME UPDATE REQUEST`);
     console.log(`[Automation API]    - Schedule: ${schedule}`);
     console.log(`[Automation API]    - Frequency: ${frequency}`);
+    console.log(`[Automation API]    - Email: ${userEmail}`);
     console.log(`[Automation API]    - UserId: ${userId}`);
     console.log(`[Automation API]    - GBP Account: ${gbpAccountId}`);
     console.log(`[Automation API]    - Location count: ${locationIds?.length || 'ALL'}`);
@@ -1053,16 +1132,16 @@ router.post('/global-time', async (req, res) => {
     const supabaseKey = process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_KEY;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // 🔒 First check if user has valid subscription
-    const subscriptionCheck = await subscriptionGuard.hasValidAccess(userId, gbpAccountId);
+    // 🔒 First check if user has valid subscription (using email)
+    const subscriptionCheck = await subscriptionGuard.hasValidAccess(userEmail, gbpAccountId);
 
     if (!subscriptionCheck.hasAccess) {
-      console.log(`[Automation API] ❌ User ${userId} does not have valid subscription`);
+      console.log(`[Automation API] ❌ User ${userEmail} does not have valid subscription`);
       return res.status(403).json({
         success: false,
         error: 'No valid subscription',
         message: subscriptionCheck.message,
-        reason: subscriptionCheck.reason
+        reason: 'no_subscription'
       });
     }
 
@@ -1070,117 +1149,229 @@ router.post('/global-time', async (req, res) => {
 
     const results = [];
 
-    // 🔥 FIX: Query ALL automation_settings from database for this user
-    const { data: dbAutomations, error: dbError } = await supabase
-      .from('automation_settings')
+    // 🔥 NEW: Query user_locations table using gmail_id (email)
+    const { data: userLocations, error: dbError } = await supabase
+      .from('user_locations')
       .select('*')
-      .eq('user_id', userId);
+      .eq('gmail_id', userEmail);
 
     if (dbError) {
-      console.error(`[Automation API] ❌ Database error:`, dbError);
-      return res.status(500).json({ success: false, error: 'Database error' });
+      console.error(`[Automation API] ❌ Database error querying user_locations:`, dbError);
+      return res.status(500).json({ success: false, error: 'Database error: ' + dbError.message });
     }
 
-    console.log(`[Automation API] 📊 Found ${dbAutomations?.length || 0} profiles in database for user ${userId}`);
+    console.log(`[Automation API] 📊 Found ${userLocations?.length || 0} locations in user_locations for ${userEmail}`);
 
-    // If no profiles in DB, fall back to in-memory automations
-    let profilesToUpdate = dbAutomations || [];
+    // If no locations in user_locations table, use profiles sent from frontend
+    if (!userLocations || userLocations.length === 0) {
+      console.log(`[Automation API] 📊 No locations in DB, checking frontend profiles...`);
+      console.log(`[Automation API] 📊 Frontend sent ${profiles?.length || 0} profiles`);
 
-    if (profilesToUpdate.length === 0) {
-      // Fallback to in-memory
-      const automations = automationScheduler.settings.automations || {};
-      const memoryLocations = Object.keys(automations).filter(locId => {
-        const config = automations[locId];
-        return config?.autoPosting?.userId === userId || config?.userId === userId;
-      });
+      // Use profiles from frontend if available
+      if (profiles && profiles.length > 0) {
+        console.log(`[Automation API] 📊 Using ${profiles.length} profiles from frontend`);
 
-      console.log(`[Automation API] 📊 Fallback: Found ${memoryLocations.length} profiles in memory`);
+        for (const profile of profiles) {
+          const locationId = profile.locationId;
+          const businessName = profile.businessName || 'Unknown';
+          const address = profile.address || '';
 
-      for (const locationId of memoryLocations) {
-        profilesToUpdate.push({
-          location_id: locationId,
-          settings: automations[locationId]
+          try {
+            // Insert location to user_locations table
+            const { error: upsertError } = await supabase
+              .from('user_locations')
+              .upsert({
+                gmail_id: userEmail,
+                location_id: locationId,
+                business_name: businessName,
+                address: address,
+                autoposting_enabled: true,
+                autoposting_schedule: schedule,
+                autoposting_frequency: frequency,
+                autoposting_status: 'active',
+                autoposting_status_reason: 'Enabled via global time setting',
+                updated_at: new Date().toISOString()
+              }, { onConflict: 'gmail_id,location_id' });
+
+            if (upsertError) {
+              console.error(`[Automation API] ❌ Upsert failed for ${locationId}:`, upsertError);
+              results.push({ locationId, businessName, success: false, error: upsertError.message });
+              continue;
+            }
+
+            // Update in-memory scheduler
+            automationScheduler.settings.automations = automationScheduler.settings.automations || {};
+            automationScheduler.settings.automations[locationId] = {
+              enabled: true,
+              email: userEmail,
+              autoPosting: {
+                enabled: true,
+                schedule,
+                frequency,
+                businessName,
+                userCustomizedTime: true,
+                email: userEmail
+              }
+            };
+
+            // Schedule the automation
+            try {
+              automationScheduler.stopAutoPosting(locationId);
+              automationScheduler.scheduleAutoPosting(locationId, {
+                enabled: true,
+                schedule,
+                frequency,
+                businessName,
+                email: userEmail
+              });
+            } catch (cronError) {
+              console.warn(`[Automation API] ⚠️ Cron warning for ${locationId}:`, cronError.message);
+            }
+
+            console.log(`[Automation API] ✅ Inserted & scheduled ${businessName} (${locationId})`);
+            results.push({ locationId, businessName, success: true });
+          } catch (error) {
+            console.error(`[Automation API] ❌ Error for ${locationId}:`, error);
+            results.push({ locationId, businessName, success: false, error: error.message });
+          }
+        }
+      } else {
+        // Fallback to in-memory automations
+        const automations = automationScheduler.settings.automations || {};
+        const memoryLocations = Object.keys(automations).filter(locId => {
+          const config = automations[locId];
+          return config?.autoPosting?.userId === userId ||
+                 config?.userId === userId ||
+                 config?.autoPosting?.email === userEmail ||
+                 config?.email === userEmail;
         });
-      }
-    }
 
-    // Update each profile
-    for (const profile of profilesToUpdate) {
-      const locationId = profile.location_id;
+        console.log(`[Automation API] 📊 Fallback: Found ${memoryLocations.length} locations in memory`);
 
-      try {
-        const existingSettings = profile.settings || {};
-        const autoPosting = existingSettings.autoPosting || {};
-        const businessName = autoPosting.businessName || existingSettings.businessName || 'Unknown';
-
-        // Build updated settings
-        const updatedAutoPosting = {
-          ...autoPosting,
-          enabled: true,
-          schedule: schedule,
-          frequency: frequency,
-          userCustomizedTime: true,
-          userId: userId
-        };
-
-        const updatedSettings = {
-          ...existingSettings,
-          enabled: true,
-          userId: userId,
-          autoPosting: updatedAutoPosting
-        };
-
-        // Remove disabled flags
-        delete updatedSettings.disabledAt;
-        delete updatedSettings.disabledReason;
-
-        // 1. Update in database directly
-        const { error: updateError } = await supabase
-          .from('automation_settings')
-          .update({
-            enabled: true,
-            settings: updatedSettings,
-            updated_at: new Date().toISOString()
-          })
-          .eq('location_id', locationId)
-          .eq('user_id', userId);
-
-        if (updateError) {
-          console.error(`[Automation API] ❌ DB update failed for ${locationId}:`, updateError);
-          results.push({
-            locationId,
-            businessName,
-            success: false,
-            error: updateError.message
+        if (memoryLocations.length === 0) {
+          return res.json({
+            success: true,
+            message: 'No profiles found to update. Please add locations first.',
+            schedule,
+            frequency,
+            successCount: 0,
+            failCount: 0,
+            results: []
           });
-          continue;
         }
 
-        // 2. Also update in-memory scheduler
-        automationScheduler.settings.automations = automationScheduler.settings.automations || {};
-        automationScheduler.settings.automations[locationId] = updatedSettings;
+        // Insert memory locations to database and update them
+        for (const locationId of memoryLocations) {
+          const config = automations[locationId];
+          const businessName = config?.autoPosting?.businessName || config?.businessName || 'Unknown';
 
-        // 3. Reschedule cron job with the autoPosting config
+          try {
+            // Upsert location to user_locations table
+            const { error: upsertError } = await supabase
+              .from('user_locations')
+              .upsert({
+                gmail_id: userEmail,
+                location_id: locationId,
+                business_name: businessName,
+                autoposting_enabled: true,
+                autoposting_schedule: schedule,
+                autoposting_frequency: frequency,
+                autoposting_status: 'active',
+                autoposting_status_reason: 'Enabled via global time setting',
+                updated_at: new Date().toISOString()
+              }, { onConflict: 'gmail_id,location_id' });
+
+            if (upsertError) {
+              console.error(`[Automation API] ❌ Upsert failed for ${locationId}:`, upsertError);
+              results.push({ locationId, businessName, success: false, error: upsertError.message });
+              continue;
+            }
+
+            // Update in-memory scheduler
+            automationScheduler.settings.automations[locationId] = {
+              ...config,
+              enabled: true,
+              autoPosting: {
+                ...config?.autoPosting,
+                enabled: true,
+                schedule,
+                frequency,
+                userCustomizedTime: true,
+                email: userEmail
+              }
+            };
+
+            console.log(`[Automation API] ✅ Inserted & updated ${businessName} (${locationId})`);
+            results.push({ locationId, businessName, success: true });
+          } catch (error) {
+            results.push({ locationId, businessName, success: false, error: error.message });
+          }
+        }
+      }
+    } else {
+      // Update existing locations in user_locations table
+      for (const location of userLocations) {
+        const locationId = location.location_id;
+        const businessName = location.business_name || 'Unknown';
+
         try {
-          automationScheduler.stopAutoPosting(locationId);
-          automationScheduler.scheduleAutoPosting(locationId, updatedAutoPosting);
-        } catch (cronError) {
-          console.warn(`[Automation API] ⚠️ Cron reschedule warning for ${locationId}:`, cronError.message);
-        }
+          // Update the location in user_locations table
+          const { error: updateError } = await supabase
+            .from('user_locations')
+            .update({
+              autoposting_enabled: true,
+              autoposting_schedule: schedule,
+              autoposting_frequency: frequency,
+              autoposting_status: 'active',
+              autoposting_status_reason: 'Enabled via global time setting',
+              updated_at: new Date().toISOString()
+            })
+            .eq('gmail_id', userEmail)
+            .eq('location_id', locationId);
 
-        console.log(`[Automation API] ✅ Updated ${businessName} (${locationId}) to post at ${schedule} (${frequency})`);
-        results.push({
-          locationId,
-          businessName,
-          success: true
-        });
-      } catch (error) {
-        console.error(`[Automation API] ❌ Failed to update ${locationId}:`, error);
-        results.push({
-          locationId,
-          success: false,
-          error: error.message || 'Unknown error'
-        });
+          if (updateError) {
+            console.error(`[Automation API] ❌ Update failed for ${locationId}:`, updateError);
+            results.push({ locationId, businessName, success: false, error: updateError.message });
+            continue;
+          }
+
+          // Also update in-memory scheduler
+          automationScheduler.settings.automations = automationScheduler.settings.automations || {};
+          automationScheduler.settings.automations[locationId] = {
+            ...automationScheduler.settings.automations[locationId],
+            enabled: true,
+            email: userEmail,
+            autoPosting: {
+              ...(automationScheduler.settings.automations[locationId]?.autoPosting || {}),
+              enabled: true,
+              schedule,
+              frequency,
+              businessName,
+              userCustomizedTime: true,
+              email: userEmail
+            }
+          };
+
+          // Reschedule cron job
+          try {
+            automationScheduler.stopAutoPosting(locationId);
+            automationScheduler.scheduleAutoPosting(locationId, {
+              enabled: true,
+              schedule,
+              frequency,
+              businessName,
+              email: userEmail
+            });
+          } catch (cronError) {
+            console.warn(`[Automation API] ⚠️ Cron reschedule warning for ${locationId}:`, cronError.message);
+          }
+
+          console.log(`[Automation API] ✅ Updated ${businessName} (${locationId}) to post at ${schedule} (${frequency})`);
+          results.push({ locationId, businessName, success: true });
+        } catch (error) {
+          console.error(`[Automation API] ❌ Failed to update ${locationId}:`, error);
+          results.push({ locationId, businessName, success: false, error: error.message || 'Unknown error' });
+        }
       }
     }
 
@@ -1321,6 +1512,229 @@ router.post('/reload', async (req, res) => {
       error: 'Failed to reload settings',
       details: error.message
     });
+  }
+});
+
+// ============================================
+// COMPREHENSIVE HEALTH CHECK ENDPOINT
+// ============================================
+
+/**
+ * Full diagnostic endpoint to understand why locations may not be running
+ * Shows subscription status, token status, and automation status for ALL locations
+ */
+router.get('/health/full-diagnostic', async (req, res) => {
+  try {
+    const { createClient } = await import('@supabase/supabase-js');
+    const supabaseSubscriptionService = (await import('../services/supabaseSubscriptionService.js')).default;
+    const subscriptionGuard = (await import('../services/subscriptionGuard.js')).default;
+    const supabaseTokenStorage = (await import('../services/supabaseTokenStorage.js')).default;
+
+    const supabaseUrl = process.env.SUPABASE_URL;
+    const supabaseKey = process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_KEY;
+    const supabase = createClient(supabaseUrl, supabaseKey);
+
+    const diagnostic = {
+      timestamp: new Date().toISOString(),
+      serverTimeIST: new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' }),
+      summary: {
+        total: 0,
+        running: 0,
+        blocked: 0,
+        disabled: 0,
+        noSubscription: 0,
+        noToken: 0
+      },
+      systemHealth: {
+        schedulerActive: !!automationScheduler.missedPostCheckerInterval,
+        activeCronJobs: automationScheduler.scheduledJobs.size,
+        activeReviewMonitors: automationScheduler.reviewCheckIntervals.size,
+        inMemoryLocations: Object.keys(automationScheduler.settings.automations || {}).length
+      },
+      locations: []
+    };
+
+    // Get ALL automation settings from database (including disabled)
+    const { data: allSettings, error } = await supabase
+      .from('automation_settings')
+      .select('*');
+
+    if (error) {
+      return res.status(500).json({ error: 'Database error', details: error.message });
+    }
+
+    // Analyze each location
+    for (const setting of (allSettings || [])) {
+      const locationId = setting.location_id;
+      const userId = setting.user_id;
+      const settings = setting.settings || {};
+      const autoPosting = settings.autoPosting || {};
+
+      const locationDiagnostic = {
+        locationId,
+        userId,
+        businessName: autoPosting.businessName || settings.businessName || 'Unknown',
+        status: 'unknown',
+        issues: [],
+        details: {
+          dbEnabled: setting.enabled,
+          autoPostingEnabled: autoPosting.enabled,
+          autoReplyEnabled: settings.autoReply?.enabled,
+          schedule: autoPosting.schedule,
+          frequency: autoPosting.frequency,
+          lastRun: autoPosting.lastRun,
+          disabledReason: settings.disabledReason || null
+        }
+      };
+
+      diagnostic.summary.total++;
+
+      // Check 1: Is it enabled in database?
+      if (!setting.enabled) {
+        locationDiagnostic.status = 'disabled';
+        locationDiagnostic.issues.push({
+          type: 'DISABLED_IN_DB',
+          severity: 'high',
+          message: `Disabled: ${settings.disabledReason || 'Unknown reason'}`
+        });
+        diagnostic.summary.disabled++;
+      }
+
+      // Check 2: Subscription status
+      try {
+        const access = await subscriptionGuard.hasValidAccess(userId, settings.gbpAccountId);
+        locationDiagnostic.subscription = {
+          hasAccess: access.hasAccess,
+          status: access.status || access.reason,
+          daysRemaining: access.daysRemaining,
+          message: access.message
+        };
+
+        if (!access.hasAccess) {
+          locationDiagnostic.issues.push({
+            type: 'SUBSCRIPTION_BLOCKED',
+            severity: 'critical',
+            message: access.message
+          });
+          diagnostic.summary.noSubscription++;
+        }
+      } catch (subError) {
+        locationDiagnostic.subscription = { error: subError.message };
+        locationDiagnostic.issues.push({
+          type: 'SUBSCRIPTION_ERROR',
+          severity: 'critical',
+          message: 'Could not check subscription status'
+        });
+      }
+
+      // Check 3: Token availability
+      try {
+        const token = await supabaseTokenStorage.getUserToken(userId);
+        if (token) {
+          const now = Date.now();
+          const isExpired = token.expiry_date && token.expiry_date < now;
+          locationDiagnostic.token = {
+            available: true,
+            expired: isExpired,
+            expiresAt: token.expiry_date ? new Date(token.expiry_date).toISOString() : 'unknown'
+          };
+
+          if (isExpired) {
+            locationDiagnostic.issues.push({
+              type: 'TOKEN_EXPIRED',
+              severity: 'high',
+              message: 'Token expired, will use pool or need refresh'
+            });
+          }
+        } else {
+          locationDiagnostic.token = { available: false };
+          locationDiagnostic.issues.push({
+            type: 'NO_TOKEN',
+            severity: 'high',
+            message: 'No token for user, will use shared pool'
+          });
+          diagnostic.summary.noToken++;
+        }
+      } catch (tokenError) {
+        locationDiagnostic.token = { error: tokenError.message };
+      }
+
+      // Check 4: Cron job status
+      const hasCronJob = automationScheduler.scheduledJobs.has(locationId);
+      const hasReviewMonitor = automationScheduler.reviewCheckIntervals.has(locationId);
+      locationDiagnostic.scheduler = {
+        hasCronJob,
+        hasReviewMonitor
+      };
+
+      if (setting.enabled && autoPosting.enabled && !hasCronJob) {
+        locationDiagnostic.issues.push({
+          type: 'NO_CRON_JOB',
+          severity: 'high',
+          message: 'Enabled but no cron job scheduled'
+        });
+      }
+
+      // Determine final status
+      if (locationDiagnostic.issues.length === 0) {
+        locationDiagnostic.status = 'running';
+        diagnostic.summary.running++;
+      } else {
+        const criticalIssues = locationDiagnostic.issues.filter(i => i.severity === 'critical');
+        if (criticalIssues.length > 0) {
+          locationDiagnostic.status = 'blocked';
+          diagnostic.summary.blocked++;
+        } else {
+          locationDiagnostic.status = 'warning';
+        }
+      }
+
+      diagnostic.locations.push(locationDiagnostic);
+    }
+
+    // Sort: blocked first, then warnings, then running
+    diagnostic.locations.sort((a, b) => {
+      const order = { blocked: 0, warning: 1, disabled: 2, running: 3 };
+      return (order[a.status] || 4) - (order[b.status] || 4);
+    });
+
+    res.json(diagnostic);
+  } catch (error) {
+    console.error('Error in full diagnostic:', error);
+    res.status(500).json({ error: 'Diagnostic failed', details: error.message });
+  }
+});
+
+/**
+ * Admin endpoint to re-enable all disabled locations for a user
+ */
+router.post('/admin/reenable-locations', async (req, res) => {
+  try {
+    const { userId, gbpAccountId } = req.body;
+
+    if (!userId) {
+      return res.status(400).json({ error: 'userId is required' });
+    }
+
+    const subscriptionGuard = (await import('../services/subscriptionGuard.js')).default;
+    const result = await subscriptionGuard.reEnableAllFeatures(userId, gbpAccountId, 'admin_manual_reenable');
+
+    if (result.success) {
+      // Reload automation scheduler
+      await automationScheduler.loadSettings();
+      await automationScheduler.initializeAutomations();
+
+      res.json({
+        success: true,
+        reenabledCount: result.reenabledCount,
+        message: `Re-enabled ${result.reenabledCount} location(s) and reloaded scheduler`
+      });
+    } else {
+      res.status(500).json({ success: false, error: result.error });
+    }
+  } catch (error) {
+    console.error('Error re-enabling locations:', error);
+    res.status(500).json({ error: 'Failed to re-enable locations', details: error.message });
   }
 });
 

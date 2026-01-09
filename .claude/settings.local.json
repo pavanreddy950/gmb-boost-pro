@@ -49,7 +49,10 @@
       "Bash(git restore:*)",
       "Bash(nslookup:*)",
       "WebFetch(domain:docs.render.com)",
-      "WebFetch(domain:render.com)"
+      "WebFetch(domain:render.com)",
+      "Bash(git reset:*)",
+      "Bash(git pull:*)",
+      "Bash(set NODE_OPTIONS=--experimental-modules)"
     ],
     "deny": [],
     "ask": []

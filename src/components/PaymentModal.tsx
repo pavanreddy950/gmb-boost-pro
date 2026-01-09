@@ -86,37 +86,33 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
 
     setIsCheckingSlots(true);
     try {
-      const response = await fetch(`${backendUrl}/api/payment/subscription/check-profile-payment`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          gbpAccountId: subscription?.gbpAccountId,
-          userId: currentUser.uid,
-          currentProfileCount: totalConnectedProfiles
-        })
+      const response = await fetch(`${backendUrl}/api/user-payment/user?email=${encodeURIComponent(currentUser.email || '')}`, {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json' }
       });
 
       if (response.ok) {
         const data = await response.json();
-        console.log('[PaymentModal] Slot check result:', data);
+        console.log('[PaymentModal] User data result:', data);
 
-        setPaidSlots(data.paidSlots || 0);
-        setAdditionalProfilesNeeded(data.additionalProfilesNeeded || 0);
+        // Use profileCount from user data
+        const currentPaidProfiles = data.profileCount || 0;
+        setPaidSlots(currentPaidProfiles);
 
-        if (!data.paymentNeeded) {
-          // User has enough paid slots - show success message and close modal
+        // Calculate additional profiles needed
+        const additionalNeeded = Math.max(0, totalConnectedProfiles - currentPaidProfiles);
+        setAdditionalProfilesNeeded(additionalNeeded);
+
+        if (additionalNeeded === 0 && currentPaidProfiles >= totalConnectedProfiles) {
           toast({
             title: "All Profiles Covered",
-            description: data.message,
+            description: `You have ${currentPaidProfiles} paid profile(s) covering your ${totalConnectedProfiles} connected profile(s).`,
           });
-          // Don't close modal automatically - let user see they have slots available
-        } else if (data.additionalProfilesNeeded > 0) {
-          // Set profile count to only the additional profiles needed
-          setProfileCount(data.additionalProfilesNeeded);
-
+        } else if (additionalNeeded > 0) {
+          setProfileCount(additionalNeeded);
           toast({
             title: "Additional Profiles Detected",
-            description: data.message,
+            description: `You have ${currentPaidProfiles} paid slot(s) but ${totalConnectedProfiles} profile(s). Please pay for ${additionalNeeded} additional profile(s).`,
           });
         }
       }
@@ -170,13 +166,13 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
         ? SubscriptionService.calculateTotalPrice(profileCount)
         : selectedPlan.amount;
       
-      const response = await fetch(`${backendUrl}/api/payment/coupon/validate`, {
+      const response = await fetch(`${backendUrl}/api/user-payment/coupon/validate`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           code: couponCode,
           amount: actualAmount, // Pass the actual total amount
-          userId: currentUser?.uid // Pass userId for one-time per user validation
+          email: currentUser?.email // Pass email for one-time per user validation
         })
       });
       
@@ -322,11 +318,10 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           userId: currentUser.uid,
-          email: currentUser.email,
+          email: currentUser.email, // Primary identifier
           name: currentUser.displayName || currentUser.email,
           contact: currentUser.phoneNumber || '',
           planId: plan.razorpayPlanId,
-          gbpAccountId: subscription?.gbpAccountId,
           // IMPORTANT: When coupon is applied, the plan amount is already the TOTAL (not per-profile)
           // So quantity should be 1, not profileCount, otherwise Razorpay multiplies the total by profileCount!
           profileCount: (selectedPlanId === 'per_profile_yearly' && !couponDetails) ? profileCount : 1,
@@ -367,8 +362,8 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
         handler: async (response) => {
           try {
             console.log('[Subscription] 💳 Payment completed, verifying...');
-            // Verify subscription payment on backend
-            const verifyResponse = await fetch(`${backendUrl}/api/payment/subscription/verify-payment`, {
+            // Verify subscription payment on backend using email
+            const verifyResponse = await fetch(`${backendUrl}/api/user-payment/verify-subscription`, {
               method: 'POST',
               headers: {
                 'Content-Type': 'application/json'
@@ -377,7 +372,8 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
                 razorpay_subscription_id: (response as any).razorpay_subscription_id,
                 razorpay_payment_id: (response as any).razorpay_payment_id,
                 razorpay_signature: (response as any).razorpay_signature,
-                gbpAccountId: subscription?.gbpAccountId
+                email: currentUser.email,
+                profileCount: profileCount
               })
             });
 
@@ -657,9 +653,9 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
                       id="profile-count"
                       type="number"
                       min="1"
-                      max="50"
+                      max="100"
                       value={profileCount}
-                      onChange={(e) => setProfileCount(Math.max(1, parseInt(e.target.value) || 1))}
+                      onChange={(e) => setProfileCount(Math.min(100, Math.max(1, parseInt(e.target.value) || 1)))}
                       className="w-20"
                     />
                   </div>

@@ -29,7 +29,6 @@ import AuthRedirect from "./components/AuthRedirect";
 import AdminRoute from "./components/AdminRoute";
 import GoogleOAuthCallback from "./pages/GoogleOAuthCallback";
 import { PaymentSuccess } from "./components/PaymentSuccess";
-import { TrialManager } from "./components/TrialManager";
 import EnvironmentIndicator from "./components/EnvironmentIndicator";
 
 // Admin Pages
@@ -124,9 +123,6 @@ const App = () => (
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
                 </Routes>
-
-                {/* Global Trial Setup Modal */}
-                <TrialManager />
                 </SubscriptionProvider>
               </NotificationProvider>
             </GoogleBusinessProfileProvider>

@@ -286,6 +286,32 @@ router.get('/coupons', async (req, res) => {
   }
 });
 
+// Ensure RAJATEST coupon exists (called on server startup, can also be called manually)
+router.post('/coupons/ensure-rajatest', async (req, res) => {
+  try {
+    await couponService.initialize();
+
+    // Check if RAJATEST exists
+    const validation = await couponService.validateCoupon('RAJATEST');
+
+    res.json({
+      success: true,
+      couponExists: validation.valid,
+      message: validation.valid
+        ? 'RAJATEST coupon is active and ready to use'
+        : 'RAJATEST coupon created or already exists',
+      details: validation
+    });
+  } catch (error) {
+    console.error('Error ensuring RAJATEST coupon:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to ensure RAJATEST coupon',
+      details: error.message
+    });
+  }
+});
+
 // Create Razorpay order with dynamic currency conversion
 router.post('/order', async (req, res) => {
   try {

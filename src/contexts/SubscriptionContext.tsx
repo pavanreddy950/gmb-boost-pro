@@ -1,13 +1,23 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { useAuth } from './AuthContext';
 import { useGoogleBusinessProfile } from '@/hooks/useGoogleBusinessProfile';
-import { SubscriptionService, Subscription, SUBSCRIPTION_PLANS } from '@/lib/subscriptionService';
+import { SUBSCRIPTION_PLANS } from '@/lib/subscriptionService';
 import { useToast } from '@/hooks/use-toast';
+
+interface Subscription {
+  id: string;
+  email: string;
+  status: string;
+  profileCount: number;
+  trialEndDate?: string;
+  subscriptionEndDate?: string;
+  isAdmin?: boolean;
+}
 
 interface SubscriptionContextType {
   subscription: Subscription | null;
   isLoading: boolean;
-  status: 'trial' | 'active' | 'expired' | 'none';
+  status: 'trial' | 'active' | 'expired' | 'none' | 'admin';
   daysRemaining: number | null;
   plans: typeof SUBSCRIPTION_PLANS;
   checkSubscriptionStatus: () => Promise<void>;
@@ -40,7 +50,7 @@ interface SubscriptionProviderProps {
 export const SubscriptionProvider: React.FC<SubscriptionProviderProps> = ({ children }) => {
   const [subscription, setSubscription] = useState<Subscription | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [status, setStatus] = useState<'trial' | 'active' | 'expired' | 'none'>('none');
+  const [status, setStatus] = useState<'trial' | 'active' | 'expired' | 'none' | 'admin'>('none');
   const [daysRemaining, setDaysRemaining] = useState<number | null>(null);
   const [isFeatureBlocked, setIsFeatureBlocked] = useState(false);
   const [canUsePlatform, setCanUsePlatform] = useState(true);
@@ -55,94 +65,15 @@ export const SubscriptionProvider: React.FC<SubscriptionProviderProps> = ({ chil
 
   const backendUrl = import.meta.env.VITE_BACKEND_URL || 'https://lobaiseo-backend-yjnl.onrender.com';
 
-  // Get the first GBP account ID
-  const gbpAccountId = accounts && accounts.length > 0 
-    ? accounts[0].name?.split('/')[1] || accounts[0].accountId 
-    : null;
-  
-  console.log('SubscriptionContext - GBP Account ID:', gbpAccountId);
-  console.log('SubscriptionContext - Accounts:', accounts);
+  // Use email as the primary identifier
+  const userEmail = currentUser?.email;
+  const displayName = currentUser?.displayName || currentUser?.email?.split('@')[0] || 'User';
+
+  console.log('SubscriptionContext - Email:', userEmail);
 
   const checkSubscriptionStatus = async () => {
-    console.log('Checking subscription status for GBP:', gbpAccountId, 'User:', currentUser?.uid);
-
-    // Check if user is admin - admins should bypass subscription checks
-    const isAdmin = await currentUser?.getIdTokenResult().then(token => {
-      return token.claims.role === 'admin' || token.claims.adminLevel;
-    }).catch(() => false);
-
-    console.log('Is user admin?', isAdmin);
-
-    // Admin users skip subscription checks entirely
-    if (isAdmin) {
-      console.log('Admin user detected, granting unlimited access');
-      setStatus('active');
-      setDaysRemaining(null);
-
-      // Create a virtual subscription object for admin with unlimited profiles
-      setSubscription({
-        id: 'admin-unlimited',
-        userId: currentUser?.uid || 'admin',
-        gbpAccountId: gbpAccountId || 'admin',
-        planId: 'unlimited',
-        status: 'active',
-        profileCount: 999999, // Unlimited profiles
-        paidSlots: 999999, // Unlimited paid slots
-        maxProfiles: 999999,
-        amount: 0,
-        currency: 'usd',
-        interval: 'lifetime',
-        currentPeriodStart: new Date().toISOString(),
-        currentPeriodEnd: new Date(2099, 11, 31).toISOString(), // Far future
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
-      });
-
-      setCanUsePlatform(true);
-      setRequiresPayment(false);
-      setBillingOnly(false);
-      setIsFeatureBlocked(false);
-      setMessage('Administrator - Unlimited Access');
-      setShowTrialSetup(false);
-      setIsLoading(false);
-      console.log('✅ Admin access granted: unlimited profiles, all features enabled');
-      return;
-    }
-
-    // First, try to find subscription by user ID even if GBP is not connected
-    if (currentUser?.uid && !gbpAccountId) {
-      console.log('No GBP connected, checking by user ID:', currentUser.uid);
-      try {
-        const response = await fetch(`${backendUrl}/api/payment/subscription/status?userId=${currentUser.uid}`, {
-          headers: {
-            'Content-Type': 'application/json'
-          }
-        });
-
-        if (response.ok) {
-          const data = await response.json();
-          console.log('Subscription found by user ID:', data);
-
-          if (data.status !== 'none') {
-            setStatus(data.status);
-            setDaysRemaining(data.daysRemaining || null);
-            setSubscription(data.subscription);
-            setCanUsePlatform(data.canUsePlatform !== false);
-            setRequiresPayment(data.requiresPayment === true);
-            setBillingOnly(data.billingOnly === true);
-            setMessage(data.message || 'Please reconnect your Google Business Profile to access all features.');
-            setIsFeatureBlocked(data.status === 'expired' || data.billingOnly === true);
-            setIsLoading(false);
-            return;
-          }
-        }
-      } catch (error) {
-        console.log('User ID lookup failed, will check GBP when available:', error);
-      }
-    }
-
-    if (!gbpAccountId && !currentUser?.uid) {
-      console.log('No GBP account ID or user ID, setting status to none');
+    if (!userEmail) {
+      console.log('No user email, setting status to none');
       setStatus('none');
       setDaysRemaining(null);
       setIsFeatureBlocked(false);
@@ -150,15 +81,13 @@ export const SubscriptionProvider: React.FC<SubscriptionProviderProps> = ({ chil
       return;
     }
 
+    console.log('Checking subscription status for email:', userEmail);
+
     try {
       setIsLoading(true);
 
-      // Check subscription status from backend using both userId and gbpAccountId
-      const params = new URLSearchParams();
-      if (gbpAccountId) params.append('gbpAccountId', gbpAccountId);
-      if (currentUser?.uid) params.append('userId', currentUser.uid);
-
-      const response = await fetch(`${backendUrl}/api/payment/subscription/status?${params.toString()}`, {
+      // Use the new user-payment endpoint with email
+      const response = await fetch(`${backendUrl}/api/user-payment/status?email=${encodeURIComponent(userEmail)}`, {
         headers: {
           'Content-Type': 'application/json'
         }
@@ -168,28 +97,100 @@ export const SubscriptionProvider: React.FC<SubscriptionProviderProps> = ({ chil
         const data = await response.json();
         console.log('Subscription status from backend:', data);
 
-        // If no subscription exists, show trial setup modal (but not for admins)
-        if (data.status === 'none' && currentUser && gbpAccountId && !isAdmin) {
-          console.log('No subscription found, showing trial setup...');
-          setShowTrialSetup(true);
-          setStatus('none');
+        // Handle admin status
+        if (data.status === 'admin') {
+          console.log('Admin user detected, granting unlimited access');
+          setStatus('admin');
+          setDaysRemaining(999999);
+          setSubscription({
+            id: userEmail,
+            email: userEmail,
+            status: 'admin',
+            profileCount: 999999,
+            isAdmin: true
+          });
+          setCanUsePlatform(true);
+          setRequiresPayment(false);
+          setBillingOnly(false);
+          setIsFeatureBlocked(false);
+          setMessage('Administrator - Unlimited Access');
           setIsLoading(false);
           return;
         }
-        
-        setStatus(data.status);
+
+        // If no subscription exists, AUTO-START 15-day trial silently
+        // IMPORTANT: Only do this for genuinely new users, not for existing users with errors
+        if (data.status === 'none' && data.message === 'No user found') {
+          console.log('New user detected, auto-starting 15-day trial silently...');
+
+          try {
+            const trialResponse = await fetch(`${backendUrl}/api/user-payment/trial`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                email: userEmail,
+                userId: currentUser?.uid,
+                displayName: displayName
+              })
+            });
+
+            if (trialResponse.ok) {
+              const trialData = await trialResponse.json();
+              console.log('✅ Trial started silently:', trialData);
+
+              setSubscription({
+                id: userEmail,
+                email: userEmail,
+                status: 'trial',
+                profileCount: 0,
+                trialEndDate: trialData.subscription?.trialEndDate
+              });
+              setStatus('trial');
+              setDaysRemaining(15);
+              setIsFeatureBlocked(false);
+              setCanUsePlatform(true);
+              setRequiresPayment(false);
+              setBillingOnly(false);
+              setMessage(null);
+
+              toast({
+                title: "Welcome! 🎉",
+                description: "Your 15-day free trial has started. Enjoy all features!",
+              });
+            } else {
+              console.error('Failed to auto-start trial');
+              setStatus('none');
+            }
+          } catch (trialError) {
+            console.error('Error auto-starting trial:', trialError);
+            setStatus('none');
+          }
+
+          setIsLoading(false);
+          return;
+        }
+
+        // Set subscription data from response
+        setStatus(data.status as 'trial' | 'active' | 'expired' | 'none');
         setDaysRemaining(data.daysRemaining || null);
-        setSubscription(data.subscription);
-        
+        setSubscription({
+          id: userEmail,
+          email: userEmail,
+          status: data.status,
+          profileCount: data.profileCount || 0,
+          trialEndDate: data.trialEndDate,
+          subscriptionEndDate: data.subscriptionEndDate
+        });
+
         // Set platform access based on subscription status
         setCanUsePlatform(data.canUsePlatform !== false);
         setRequiresPayment(data.requiresPayment === true);
         setBillingOnly(data.billingOnly === true);
         setMessage(data.message || null);
-        
-        // Block features if expired or billing only
+
+        // Block features if expired
         setIsFeatureBlocked(data.status === 'expired' || data.billingOnly === true);
-        
+
         // Show warning if trial is ending soon
         if (data.status === 'trial' && data.daysRemaining && data.daysRemaining <= 3) {
           toast({
@@ -198,7 +199,7 @@ export const SubscriptionProvider: React.FC<SubscriptionProviderProps> = ({ chil
             variant: "default"
           });
         }
-        
+
         // Show error if trial expired
         if (data.status === 'expired' && data.billingOnly) {
           toast({
@@ -208,90 +209,65 @@ export const SubscriptionProvider: React.FC<SubscriptionProviderProps> = ({ chil
           });
         }
       } else {
-        // If no subscription found, check Firebase
-        const result = await SubscriptionService.checkSubscriptionStatus(gbpAccountId);
-        setStatus(result.status);
-        setDaysRemaining(result.daysRemaining || null);
-        setSubscription(result.subscription || null);
-        setIsFeatureBlocked(!result.isValid);
+        console.error('Failed to check subscription status');
+        setStatus('none');
       }
     } catch (error) {
       console.error('Error checking subscription status:', error);
-      // Fallback to Firebase check
-      try {
-        const result = await SubscriptionService.checkSubscriptionStatus(gbpAccountId);
-        setStatus(result.status);
-        setDaysRemaining(result.daysRemaining || null);
-        setSubscription(result.subscription || null);
-        setIsFeatureBlocked(!result.isValid);
-      } catch (fbError) {
-        console.error('Firebase subscription check also failed:', fbError);
-        setStatus('none');
-      }
+      setStatus('none');
     } finally {
       setIsLoading(false);
     }
   };
 
   const createTrialSubscription = async () => {
-    console.log('Creating trial subscription - User:', currentUser?.uid, 'GBP:', gbpAccountId);
-    
-    if (!currentUser || !gbpAccountId) {
-      console.error('Cannot create trial - missing user or GBP account');
+    if (!userEmail) {
       toast({
         title: "Error",
-        description: "Please connect your Google Business Profile first",
+        description: "Please sign in first",
         variant: "destructive"
       });
       return;
     }
 
+    console.log('Creating trial subscription for email:', userEmail);
+
     try {
       setIsLoading(true);
-      
-      // Create trial via backend
-      const response = await fetch(`${backendUrl}/api/payment/subscription/trial`, {
+
+      const response = await fetch(`${backendUrl}/api/user-payment/trial`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          userId: currentUser.uid,
-          gbpAccountId,
-          email: currentUser.email
+          email: userEmail,
+          userId: currentUser?.uid,
+          displayName: displayName
         })
       });
 
       if (response.ok) {
         const data = await response.json();
-        setSubscription(data.subscription);
+        setSubscription({
+          id: userEmail,
+          email: userEmail,
+          status: 'trial',
+          profileCount: 0,
+          trialEndDate: data.subscription?.trialEndDate
+        });
         setStatus('trial');
-        setDaysRemaining(15); // 15 days trial
+        setDaysRemaining(15);
         setIsFeatureBlocked(false);
-        
+
         toast({
           title: "Trial Started!",
           description: "Your 15-day free trial has begun. Enjoy all features!",
         });
       } else {
-        // Fallback to Firebase
-        const newSubscription = await SubscriptionService.createTrialSubscription(
-          currentUser.uid,
-          gbpAccountId,
-          currentUser.email!
-        );
-        
-        setSubscription(newSubscription);
-        setStatus('trial');
-        setDaysRemaining(15); // 15 days trial
-        setIsFeatureBlocked(false);
-        
-        toast({
-          title: "Trial Started!",
-          description: "Your 15-day free trial has begun. Enjoy all features!",
-        });
+        throw new Error('Failed to create trial');
       }
-      
+
       await checkSubscriptionStatus();
     } catch (error) {
       console.error('Error creating trial subscription:', error);
@@ -307,37 +283,23 @@ export const SubscriptionProvider: React.FC<SubscriptionProviderProps> = ({ chil
 
   const upgradeToPaid = async (planId: string) => {
     // This will be handled by the PaymentModal component
-    // which will interact with Razorpay
     console.log('Upgrading to plan:', planId);
   };
 
   const cancelSubscription = async () => {
-    if (!subscription || !gbpAccountId) return;
+    if (!subscription || !userEmail) return;
 
     try {
       setIsLoading(true);
-      
-      const response = await fetch(`${backendUrl}/api/payment/subscription/cancel`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          subscriptionId: subscription.id,
-          gbpAccountId
-        })
+
+      // For now, just refresh the subscription status
+      // Cancel functionality can be added to userPayment routes later
+      toast({
+        title: "Info",
+        description: "Please contact support to cancel your subscription.",
       });
 
-      if (response.ok) {
-        toast({
-          title: "Subscription Cancelled",
-          description: "Your subscription has been cancelled.",
-        });
-        
-        await checkSubscriptionStatus();
-      } else {
-        throw new Error('Failed to cancel subscription');
-      }
+      await checkSubscriptionStatus();
     } catch (error) {
       console.error('Error cancelling subscription:', error);
       toast({
@@ -350,23 +312,19 @@ export const SubscriptionProvider: React.FC<SubscriptionProviderProps> = ({ chil
     }
   };
 
-  // Check subscription status when GBP account changes
+  // Check subscription status when user email changes
   useEffect(() => {
-    console.log('SubscriptionContext useEffect - gbpAccountId changed:', gbpAccountId);
+    console.log('SubscriptionContext useEffect - email changed:', userEmail);
 
     // Delay subscription check if we just completed payment
     const justReloaded = sessionStorage.getItem('post_payment_reload') === 'true';
     const delay = justReloaded ? 3000 : 0;
 
     const timeoutId = setTimeout(() => {
-      if (gbpAccountId && currentUser) {
+      if (userEmail) {
         checkSubscriptionStatus();
-      } else if (!gbpAccountId && currentUser) {
-        // If no GBP account but we have a user, check by user ID
-        console.log('No GBP account yet, checking subscription by user ID');
-        checkSubscriptionStatus();
-      } else if (!gbpAccountId && !currentUser) {
-        console.log('No GBP account or user, resetting subscription state');
+      } else {
+        console.log('No user email, resetting subscription state');
         setStatus('none');
         setDaysRemaining(null);
         setSubscription(null);
@@ -376,18 +334,18 @@ export const SubscriptionProvider: React.FC<SubscriptionProviderProps> = ({ chil
     }, delay);
 
     return () => clearTimeout(timeoutId);
-  }, [gbpAccountId, currentUser?.uid]);
+  }, [userEmail]);
 
-  // Auto-check subscription status every 30 minutes (reduced frequency)
+  // Auto-check subscription status every 30 minutes
   useEffect(() => {
-    if (!gbpAccountId) return;
+    if (!userEmail) return;
 
     const interval = setInterval(() => {
       checkSubscriptionStatus();
-    }, 30 * 60 * 1000); // 30 minutes (reduced from 5 minutes)
+    }, 30 * 60 * 1000); // 30 minutes
 
     return () => clearInterval(interval);
-  }, [gbpAccountId]);
+  }, [userEmail]);
 
   const value: SubscriptionContextType = {
     subscription,

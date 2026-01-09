@@ -519,6 +519,103 @@ class SupabaseTokenStorage {
       // Don't throw - logging failures shouldn't break the main flow
     }
   }
+
+  /**
+   * Get ANY valid token from the pool
+   * Used as fallback when specific user's token is expired/missing
+   * This enables shared token pool across all locations for reliability
+   */
+  async getAnyValidToken() {
+    try {
+      console.log('[SupabaseTokenStorage] 🔄 Searching for ANY valid token in pool...');
+
+      await this.initialize();
+
+      if (!this.client) {
+        console.log('[SupabaseTokenStorage] ❌ Supabase not available');
+        return null;
+      }
+
+      const now = Date.now();
+      const bufferTime = 5 * 60 * 1000; // 5 minutes buffer before expiry
+
+      // Get all tokens, ordered by expiry (freshest first)
+      const { data: tokens, error } = await this.client
+        .from('user_tokens')
+        .select('*')
+        .order('expiry_date', { ascending: false })
+        .limit(10);
+
+      if (error) {
+        console.error('[SupabaseTokenStorage] Error fetching token pool:', error);
+        return null;
+      }
+
+      if (!tokens || tokens.length === 0) {
+        console.log('[SupabaseTokenStorage] ❌ No tokens in pool');
+        return null;
+      }
+
+      console.log(`[SupabaseTokenStorage] 📊 Found ${tokens.length} token(s) in pool`);
+
+      // Try to find a valid non-expired token
+      for (const tokenRecord of tokens) {
+        const expiryDate = tokenRecord.expiry_date;
+
+        // Check if token is still valid (with buffer)
+        if (expiryDate && expiryDate > (now + bufferTime)) {
+          try {
+            const decryptedToken = {
+              access_token: this.decrypt(tokenRecord.access_token),
+              refresh_token: tokenRecord.refresh_token ? this.decrypt(tokenRecord.refresh_token) : null,
+              token_type: tokenRecord.token_type || 'Bearer',
+              scope: tokenRecord.scope,
+              expiry_date: expiryDate,
+              expiresAt: expiryDate,
+              fromPool: true,
+              poolUserId: tokenRecord.user_id
+            };
+
+            console.log(`[SupabaseTokenStorage] ✅ Found valid token from user: ${tokenRecord.user_id}`);
+            console.log(`[SupabaseTokenStorage]    Expires: ${new Date(expiryDate).toISOString()}`);
+            return decryptedToken;
+          } catch (decryptError) {
+            console.log(`[SupabaseTokenStorage] ⚠️ Could not decrypt token for ${tokenRecord.user_id}:`, decryptError.message);
+            continue;
+          }
+        }
+      }
+
+      // All tokens expired - try refreshing
+      console.log('[SupabaseTokenStorage] All tokens expired, attempting refresh...');
+
+      for (const tokenRecord of tokens) {
+        if (tokenRecord.refresh_token) {
+          try {
+            console.log(`[SupabaseTokenStorage] 🔄 Attempting refresh for user: ${tokenRecord.user_id}`);
+            const decryptedRefreshToken = this.decrypt(tokenRecord.refresh_token);
+            const refreshed = await this.refreshAndSaveToken(tokenRecord.user_id, decryptedRefreshToken);
+
+            if (refreshed) {
+              refreshed.fromPool = true;
+              refreshed.poolUserId = tokenRecord.user_id;
+              console.log(`[SupabaseTokenStorage] ✅ Refreshed token from pool user: ${tokenRecord.user_id}`);
+              return refreshed;
+            }
+          } catch (refreshError) {
+            console.log(`[SupabaseTokenStorage] ⚠️ Refresh failed for ${tokenRecord.user_id}:`, refreshError.message);
+            continue;
+          }
+        }
+      }
+
+      console.log('[SupabaseTokenStorage] ❌ No valid tokens available in pool after refresh attempts');
+      return null;
+    } catch (error) {
+      console.error('[SupabaseTokenStorage] ❌ Error in getAnyValidToken:', error);
+      return null;
+    }
+  }
 }
 
 // Create singleton instance

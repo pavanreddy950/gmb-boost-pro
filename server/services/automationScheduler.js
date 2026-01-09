@@ -897,30 +897,31 @@ class AutomationScheduler {
       });
 
       if (!userToken) {
-        // Try to find any available token from automation settings
+        // IMPROVED: Use shared token pool for better reliability
         console.log(`[AutomationScheduler] ❌ No token found for ${targetUserId}`);
-        console.log(`[AutomationScheduler] 🔍 Checking for tokens from other automation users...`);
+        console.log(`[AutomationScheduler] 🔄 Trying shared token pool...`);
 
-        // Get unique user IDs from automation settings
-        const userIds = this.getAutomationUserIds();
-        console.log(`[AutomationScheduler] Found ${userIds.length} user(s) with automations:`, userIds);
+        // Try the shared token pool first (more reliable)
+        userToken = await supabaseTokenStorage.getAnyValidToken();
 
-        if (userIds.length > 0) {
-          // Try each available user
-          for (const userId of userIds) {
-            if (userId === targetUserId) continue; // Already tried this one
-            console.log(`[AutomationScheduler] 🔄 Trying to get valid token for fallback user: ${userId}`);
-            const validToken = await this.getValidTokenForUser(userId);
-            if (validToken) {
-              userToken = validToken;
-              console.log(`[AutomationScheduler] ✅ Using valid token from fallback user: ${userId}`);
-              break;
-            } else {
-              console.log(`[AutomationScheduler] ❌ Token for fallback user ${userId} is invalid or expired`);
+        if (userToken) {
+          console.log(`[AutomationScheduler] ✅ Using token from pool (original user: ${userToken.poolUserId})`);
+        } else {
+          // Fallback: Try individual automation user tokens
+          console.log(`[AutomationScheduler] 🔍 Pool empty, checking individual automation users...`);
+          const userIds = this.getAutomationUserIds();
+
+          if (userIds.length > 0) {
+            for (const userId of userIds) {
+              if (userId === targetUserId) continue;
+              const validToken = await this.getValidTokenForUser(userId);
+              if (validToken) {
+                userToken = validToken;
+                console.log(`[AutomationScheduler] ✅ Using token from fallback user: ${userId}`);
+                break;
+              }
             }
           }
-        } else {
-          console.log(`[AutomationScheduler] ❌ No other automation users found`);
         }
 
         if (!userToken) {
@@ -928,22 +929,16 @@ class AutomationScheduler {
           console.error(`[AutomationScheduler] ❌ CRITICAL: No valid tokens available!`);
           console.error(`[AutomationScheduler] 💡 SOLUTION: User needs to reconnect to Google Business Profile.`);
           console.error(`[AutomationScheduler] 💡 Go to: Settings > Connections > Connect Google Business Profile`);
-          console.error(`[AutomationScheduler] 💡 Target User ID: ${targetUserId}`);
           console.error(`[AutomationScheduler] ========================================`);
 
-          // Log this as a failed attempt
           this.logAutomationActivity(locationId, 'post_failed', {
             error: 'No valid tokens available',
             timestamp: new Date().toISOString(),
             reason: 'authentication_required',
-            userId: targetUserId,
-            diagnostics: {
-              targetUserId: targetUserId,
-              automationUserIds: userIds,
-              automationUserCount: userIds.length
-            }
+            userId: targetUserId
           });
 
+          this.postingInProgress.set(locationId, false);
           return null;
         }
       }
@@ -1570,25 +1565,33 @@ Think of yourself as writing a quick, enthusiastic recommendation - SHORT but me
       let userToken = await this.getValidTokenForUser(targetUserId);
 
       if (!userToken) {
-        // Try to find any available valid token from automation users
-        console.log(`[AutomationScheduler] No token for ${targetUserId}, checking other automation users...`);
-        const userIds = this.getAutomationUserIds();
+        // IMPROVED: Use shared token pool for better reliability
+        console.log(`[AutomationScheduler] No token for ${targetUserId}, trying shared token pool...`);
 
-        if (userIds.length > 0) {
-          for (const userId of userIds) {
-            if (userId === targetUserId) continue;
-            const validToken = await this.getValidTokenForUser(userId);
-            if (validToken) {
-              userToken = validToken;
-              console.log(`[AutomationScheduler] ⚡ Using valid token from user: ${userId} for review checking`);
-              break;
+        // Try the shared token pool first
+        userToken = await supabaseTokenStorage.getAnyValidToken();
+
+        if (userToken) {
+          console.log(`[AutomationScheduler] ✅ Using token from pool for reviews (original user: ${userToken.poolUserId})`);
+        } else {
+          // Fallback: Try individual automation user tokens
+          const userIds = this.getAutomationUserIds();
+          if (userIds.length > 0) {
+            for (const userId of userIds) {
+              if (userId === targetUserId) continue;
+              const validToken = await this.getValidTokenForUser(userId);
+              if (validToken) {
+                userToken = validToken;
+                console.log(`[AutomationScheduler] ⚡ Using token from fallback user: ${userId} for reviews`);
+                break;
+              }
             }
           }
         }
 
         if (!userToken) {
-          console.error(`[AutomationScheduler] ⚠️ No valid tokens available. User needs to reconnect to Google Business Profile.`);
-          console.log(`[AutomationScheduler] 💡 Token will be saved when user reconnects via Settings > Connections`);
+          console.error(`[AutomationScheduler] ⚠️ No valid tokens available for reviews.`);
+          console.log(`[AutomationScheduler] 💡 User needs to reconnect via Settings > Connections`);
           return null;
         }
       }

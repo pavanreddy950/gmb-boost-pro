@@ -32,54 +32,10 @@ router.get('/:locationId', async (req, res) => {
       return res.status(404).json({ error: 'QR code not found for this location' });
     }
 
-    // 🔑 CRITICAL FIX: Always fetch latest keywords from automation settings
-    // This ensures the public review page uses current keywords, not cached ones
-    if (qrCode.userId && qrCode.userId !== 'anonymous') {
-      try {
-        console.log(`[QR Code] 🔄 Fetching latest keywords from automation settings for user ${qrCode.userId}, location ${locationId}`);
-        const supabaseAutomationService = (await import('../services/supabaseAutomationService.js')).default;
-        const automationSettings = await supabaseAutomationService.getSettings(qrCode.userId, locationId);
+    // Keywords are stored directly in qr_codes table - use them as-is
+    // No need to fetch from automation_settings (that table doesn't exist in new schema)
+    console.log(`[QR Code] 📤 Returning QR code for ${locationId} with keywords: "${qrCode.keywords || 'none'}"`);
 
-        if (automationSettings) {
-          // Check for keywords in autoPosting settings first (most specific)
-          // IMPORTANT: Don't fallback to qrCode.keywords - always use automation settings as source of truth
-          const latestKeywords = automationSettings.autoPosting?.keywords ||
-                                  automationSettings.keywords ||
-                                  '';
-
-          console.log(`[QR Code] 🔑 Automation keywords: "${latestKeywords}", Cached keywords: "${qrCode.keywords || 'none'}"`);
-
-          // Store original keywords before updating
-          const originalKeywords = qrCode.keywords || '';
-
-          // ALWAYS update qrCode object with latest keywords from automation settings
-          // This ensures the response always has the latest keywords
-          qrCode.keywords = latestKeywords;
-
-          // Only save to database if keywords actually changed
-          if (latestKeywords !== originalKeywords) {
-            console.log(`[QR Code] 💾 Keywords changed, updating database: "${originalKeywords}" → "${latestKeywords}"`);
-            await supabaseQRCodeService.saveQRCode({
-              ...qrCode,
-              code: locationId,
-              locationId: locationId,
-              keywords: latestKeywords
-            });
-          } else {
-            console.log(`[QR Code] ✅ Keywords unchanged, no database update needed`);
-          }
-        } else {
-          console.log(`[QR Code] ⚠️ No automation settings found for location ${locationId}, using cached keywords: "${qrCode.keywords || 'none'}"`);
-        }
-      } catch (error) {
-        console.error(`[QR Code] ⚠️ Error fetching automation settings, using cached keywords:`, error.message);
-        // Continue with cached keywords if automation settings fetch fails
-      }
-    } else {
-      console.log(`[QR Code] ⚠️ No userId or anonymous user, using cached keywords: "${qrCode.keywords || 'none'}"`);
-    }
-
-    console.log(`[QR Code] 📤 Returning QR code with keywords: "${qrCode.keywords || 'none'}"`);
     res.json({ qrCode });
   } catch (error) {
     console.error('Error fetching QR code:', error);
@@ -122,10 +78,12 @@ router.post('/', async (req, res) => {
       console.warn(`[QR Codes] ⚠️ No userId/gbpAccountId provided - skipping subscription check`);
     }
 
+    console.log(`[QR Codes] 🔑 Received keywords from form: "${keywords || 'none'}"`);
+
     // 🔍 Check if QR code already exists (unless forceRefresh is true)
     const existingQR = await supabaseQRCodeService.getQRCode(locationId);
     if (existingQR && !forceRefresh) {
-      console.log(`[QR Codes] ♻️ QR code already exists for ${locationName}, updating keywords only`);
+      console.log(`[QR Codes] ♻️ QR code already exists for ${locationName}, updating keywords: "${keywords || 'none'}"`);
 
       // Update only the keywords and other changed fields
       existingQR.keywords = keywords || '';
@@ -137,6 +95,8 @@ router.post('/', async (req, res) => {
       existingQR.code = locationId;
 
       await supabaseQRCodeService.saveQRCode(existingQR);
+
+      console.log(`[QR Codes] ✅ QR code updated with keywords: "${existingQR.keywords || 'none'}"`);
 
       return res.json({
         success: true,
@@ -691,40 +651,37 @@ router.post('/generate-with-auto-fetch', async (req, res) => {
     console.log(`[QR Code] 📦 Generating QR code for ${locationName}${forceRefresh ? ' (FORCE REFRESH)' : ''}`);
     console.log(`[QR Code] 📋 Business Category: ${businessCategory || 'not specified'}`);
 
-    // 🔑 FETCH KEYWORDS FROM AUTOMATION SETTINGS
+    // 🔑 Keywords come directly from user input in the QR generation form
+    // Keywords are passed in the request body - use them directly
     let finalKeywords = keywords || '';
 
-    if (userId) {
-      try {
-        console.log(`[QR Code] 🔍 Fetching automation settings for user ${userId}, location ${locationId} to get keywords...`);
-        const supabaseAutomationService = (await import('../services/supabaseAutomationService.js')).default;
-        const automationSettings = await supabaseAutomationService.getSettings(userId, locationId);
+    console.log(`[QR Code] 🔑 Keywords from request: "${finalKeywords || 'none'}"`);
 
-        if (automationSettings) {
-          // Check for keywords in autoPosting settings first (most specific)
-          if (automationSettings.autoPosting && automationSettings.autoPosting.keywords) {
-            finalKeywords = automationSettings.autoPosting.keywords;
-            console.log(`[QR Code] ✅ Found keywords from autoPosting settings: ${finalKeywords}`);
-          }
-          // Fallback to root-level keywords
-          else if (automationSettings.keywords) {
-            finalKeywords = automationSettings.keywords;
-            console.log(`[QR Code] ✅ Found keywords from automation settings: ${finalKeywords}`);
-          } else {
-            console.log(`[QR Code] ⚠️ No keywords found in automation settings for location ${locationId}`);
-          }
-        } else {
-          console.log(`[QR Code] ⚠️ No automation settings found for location ${locationId}`);
+    // If no keywords provided in request, try to get from user_locations table as fallback
+    if (!finalKeywords && userId) {
+      try {
+        const { createClient } = await import('@supabase/supabase-js');
+        const supabaseUrl = process.env.SUPABASE_URL;
+        const supabaseKey = process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_KEY;
+        const supabase = createClient(supabaseUrl, supabaseKey);
+
+        // Try to get keywords from user_locations table (new clean schema)
+        const { data: locationData } = await supabase
+          .from('user_locations')
+          .select('keywords')
+          .eq('location_id', locationId)
+          .maybeSingle();
+
+        if (locationData?.keywords) {
+          finalKeywords = locationData.keywords;
+          console.log(`[QR Code] ✅ Found keywords from user_locations: ${finalKeywords}`);
         }
       } catch (error) {
-        console.error(`[QR Code] ⚠️ Error fetching automation settings:`, error.message);
-        console.log(`[QR Code] Using provided keywords: ${finalKeywords || 'none'}`);
+        console.log(`[QR Code] ⚠️ Could not fetch keywords from user_locations: ${error.message}`);
       }
-    } else {
-      console.log(`[QR Code] ⚠️ No userId provided, cannot fetch automation settings. Using provided keywords: ${finalKeywords || 'none'}`);
     }
 
-    console.log(`[QR Code] 🔑 Final keywords to use: ${finalKeywords || 'none'}`);
+    console.log(`[QR Code] 🔑 Final keywords to save: "${finalKeywords || 'none'}"`);
 
     // 🔒 SUBSCRIPTION CHECK
     if (userId && gbpAccountId) {

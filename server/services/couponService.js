@@ -29,6 +29,9 @@ class CouponService {
       this.initialized = true;
       console.log('[CouponService] ✅ Initialized with Supabase');
 
+      // Ensure coupons table exists
+      await this.ensureCouponsTable();
+
       // Ensure default test coupon exists
       await this.ensureDefaultCoupon();
 
@@ -39,36 +42,129 @@ class CouponService {
     }
   }
 
+  /**
+   * Ensure the coupons table exists in Supabase
+   */
+  async ensureCouponsTable() {
+    try {
+      console.log('[CouponService] 🔍 Checking if coupons table exists...');
+
+      // Try to select from coupons table to check if it exists
+      const { error: checkError } = await this.client
+        .from('coupons')
+        .select('code')
+        .limit(1);
+
+      if (checkError && checkError.code === '42P01') {
+        // Table doesn't exist - create it
+        console.log('[CouponService] 📝 Creating coupons table...');
+
+        // Use raw SQL to create the table via RPC or direct query
+        const { error: createError } = await this.client.rpc('exec_sql', {
+          sql: `
+            CREATE TABLE IF NOT EXISTS coupons (
+              id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+              code TEXT UNIQUE NOT NULL,
+              discount_type TEXT NOT NULL DEFAULT 'percentage',
+              discount_value DECIMAL(10, 2) NOT NULL,
+              max_uses INTEGER,
+              used_count INTEGER DEFAULT 0,
+              valid_from TIMESTAMP WITH TIME ZONE,
+              valid_until TIMESTAMP WITH TIME ZONE,
+              applicable_plans TEXT[],
+              is_active BOOLEAN DEFAULT true,
+              single_use BOOLEAN DEFAULT false,
+              created_by TEXT,
+              created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+              updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+            );
+            CREATE INDEX IF NOT EXISTS idx_coupons_code ON coupons(code);
+            CREATE INDEX IF NOT EXISTS idx_coupons_is_active ON coupons(is_active);
+          `
+        });
+
+        if (createError) {
+          console.log('[CouponService] ⚠️ Could not create table via RPC, table may need manual creation');
+          console.log('[CouponService] 📋 Please run this SQL in Supabase:');
+          console.log(`
+            CREATE TABLE IF NOT EXISTS coupons (
+              id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+              code TEXT UNIQUE NOT NULL,
+              discount_type TEXT NOT NULL DEFAULT 'percentage',
+              discount_value DECIMAL(10, 2) NOT NULL,
+              max_uses INTEGER,
+              used_count INTEGER DEFAULT 0,
+              valid_from TIMESTAMP WITH TIME ZONE,
+              valid_until TIMESTAMP WITH TIME ZONE,
+              applicable_plans TEXT[],
+              is_active BOOLEAN DEFAULT true,
+              single_use BOOLEAN DEFAULT false,
+              created_by TEXT,
+              created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+              updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+            );
+          `);
+        } else {
+          console.log('[CouponService] ✅ Coupons table created successfully');
+        }
+      } else if (checkError) {
+        console.log('[CouponService] ⚠️ Error checking coupons table:', checkError.message);
+      } else {
+        console.log('[CouponService] ✅ Coupons table already exists');
+      }
+    } catch (error) {
+      console.error('[CouponService] ❌ Error ensuring coupons table:', error.message || error);
+    }
+  }
+
   async ensureDefaultCoupon() {
     try {
-      // Check if RAJATEST coupon exists
-      const { data: existing } = await this.client
+      console.log('[CouponService] 🔍 Checking if RAJATEST coupon exists...');
+
+      // Check if RAJATEST coupon exists - use maybeSingle() to avoid error when not found
+      const { data: existing, error: selectError } = await this.client
         .from('coupons')
         .select('*')
         .eq('code', 'RAJATEST')
+        .maybeSingle();
+
+      // Log the result
+      if (selectError) {
+        console.log('[CouponService] ⚠️ Error checking coupon (table may not exist):', selectError.message);
+      }
+
+      if (existing) {
+        console.log('[CouponService] ✅ RAJATEST coupon already exists:', existing.code);
+        return;
+      }
+
+      // Create default test coupon using upsert to avoid duplicates
+      console.log('[CouponService] 📝 Creating RAJATEST coupon...');
+      const { data: created, error: insertError } = await this.client
+        .from('coupons')
+        .upsert({
+          code: 'RAJATEST',
+          discount_type: 'percentage',
+          discount_value: 100,
+          max_uses: 10000,
+          used_count: 0,
+          is_active: true,
+          valid_until: '2030-12-31T23:59:59Z',
+          single_use: false,
+          created_by: 'system'
+        }, { onConflict: 'code' })
+        .select()
         .single();
 
-      if (!existing) {
-        // Create default test coupon
-        const { error } = await this.client
-          .from('coupons')
-          .insert({
-            code: 'RAJATEST',
-            discount_type: 'percentage',
-            discount_value: 100,
-            max_uses: 10000,
-            used_count: 0,
-            is_active: true,
-            valid_until: '2030-12-31T23:59:59Z',
-            single_use: false,
-            created_by: 'system'
-          });
-
-        if (error) throw error;
-        console.log('[CouponService] ✅ Created default RAJATEST coupon');
+      if (insertError) {
+        console.error('[CouponService] ❌ Failed to create RAJATEST coupon:', insertError.message);
+        throw insertError;
       }
+
+      console.log('[CouponService] ✅ Created default RAJATEST coupon successfully');
     } catch (error) {
-      console.error('[CouponService] Error ensuring default coupon:', error);
+      console.error('[CouponService] ❌ Error ensuring default coupon:', error.message || error);
+      // Don't throw - allow server to continue even if coupon creation fails
     }
   }
 

@@ -1,5 +1,6 @@
 import supabaseSubscriptionService from './supabaseSubscriptionService.js';
 import supabaseAutomationService from './supabaseAutomationService.js';
+import userService from './userService.js';
 // import admin from 'firebase-admin'; // DISABLED for Node.js v25 compatibility
 
 /**
@@ -17,26 +18,63 @@ class SubscriptionGuard {
   /**
    * Check if user is admin (bypasses subscription checks)
    * Checks against hardcoded admin email whitelist
+   * IMPROVED: Checks multiple sources for email to ensure admin is always detected
    */
   async isAdmin(userId) {
     try {
       // Admin email whitelist
       const adminEmails = [
-        'scalepointstrategy@gmail.com',
-        'meenakarjale73@gmail.com',
-        'hello.lobaiseo@gmail.com'
+        'scalepointstrategy@gmail.com'
       ];
 
-      // Get user email from Supabase user mapping or subscription
+      // Also check if userId itself is an admin email (sometimes userId IS the email)
+      if (adminEmails.includes(userId)) {
+        console.log(`[SubscriptionGuard] ✅ Admin detected (userId is email): ${userId}`);
+        return true;
+      }
+
+      // Try multiple sources to find the user's email
+      let userEmail = null;
+
+      // Source 1: Try subscription by userId
       const subscription = await supabaseSubscriptionService.getSubscriptionByUserId(userId);
-      const userEmail = subscription?.email;
+      if (subscription?.email) {
+        userEmail = subscription.email;
+      }
+
+      // Source 2: Try subscription by email (if userId looks like email)
+      if (!userEmail && userId && userId.includes('@')) {
+        const subByEmail = await supabaseSubscriptionService.getSubscriptionByEmail(userId);
+        if (subByEmail?.email) {
+          userEmail = subByEmail.email;
+        }
+      }
+
+      // Source 3: Check automation settings for email
+      if (!userEmail) {
+        const automationSettings = await supabaseAutomationService.getAllSettingsForUser(userId);
+        if (automationSettings.length > 0) {
+          // Check if any setting has email info
+          for (const setting of automationSettings) {
+            if (setting.email) {
+              userEmail = setting.email;
+              break;
+            }
+            // Also check nested settings
+            if (setting.autoPosting?.email) {
+              userEmail = setting.autoPosting.email;
+              break;
+            }
+          }
+        }
+      }
 
       if (!userEmail) {
         console.log('[SubscriptionGuard] ⚠️ Could not find email for userId:', userId);
         return false;
       }
 
-      const isAdminUser = adminEmails.includes(userEmail);
+      const isAdminUser = adminEmails.includes(userEmail.toLowerCase());
       if (isAdminUser) {
         console.log(`[SubscriptionGuard] ✅ Admin detected: ${userEmail}`);
       }
@@ -67,21 +105,159 @@ class SubscriptionGuard {
         }
       }
 
-      // Try to find subscription by GBP account ID first
-      let subscription = null;
+      // ========================================
+      // NEW: Check users table first (simplified schema)
+      // ========================================
+      let userFromUsersTable = null;
 
-      if (gbpAccountId) {
-        subscription = await supabaseSubscriptionService.getSubscriptionByGbpId(gbpAccountId);
+      // Strategy 0: Check users table by email (if userId looks like an email)
+      if (userId && userId.includes('@')) {
+        console.log(`[SubscriptionGuard] 🔄 Checking users table by email: ${userId}`);
+        const userStatus = await userService.checkSubscriptionStatus(userId);
+        if (userStatus && userStatus.status !== 'none') {
+          console.log(`[SubscriptionGuard] ✅ Found user in users table: ${userId}, status: ${userStatus.status}`);
+
+          // Return the result from userService
+          if (userStatus.status === 'admin') {
+            return {
+              hasAccess: true,
+              status: 'admin',
+              daysRemaining: 999999,
+              subscription: null,
+              message: 'Admin access - unlimited'
+            };
+          }
+
+          if (userStatus.status === 'active' || userStatus.status === 'trial') {
+            return {
+              hasAccess: true,
+              status: userStatus.status,
+              daysRemaining: userStatus.daysRemaining || 0,
+              subscription: {
+                status: userStatus.status,
+                profileCount: userStatus.profileCount,
+                subscriptionEndDate: userStatus.subscriptionEndDate,
+                trialEndDate: userStatus.trialEndDate
+              },
+              message: userStatus.message
+            };
+          }
+
+          // Expired
+          if (userStatus.status === 'expired') {
+            return {
+              hasAccess: false,
+              reason: 'expired',
+              status: 'expired',
+              message: userStatus.message,
+              requiresPayment: true
+            };
+          }
+        }
       }
 
-      // 🔧 FIX: If no subscription found by gbpAccountId, try to find by userId
+      // Strategy 0b: Check users table by firebase_uid
+      if (userId && !userId.includes('@')) {
+        console.log(`[SubscriptionGuard] 🔄 Checking users table by firebase_uid: ${userId}`);
+        const user = await userService.getUserByFirebaseUid(userId);
+        if (user) {
+          console.log(`[SubscriptionGuard] ✅ Found user by firebase_uid: ${user.gmail_id}`);
+          const userStatus = await userService.checkSubscriptionStatus(user.gmail_id);
+
+          if (userStatus && userStatus.status !== 'none') {
+            if (userStatus.status === 'admin') {
+              return {
+                hasAccess: true,
+                status: 'admin',
+                daysRemaining: 999999,
+                subscription: null,
+                message: 'Admin access - unlimited'
+              };
+            }
+
+            if (userStatus.status === 'active' || userStatus.status === 'trial') {
+              return {
+                hasAccess: true,
+                status: userStatus.status,
+                daysRemaining: userStatus.daysRemaining || 0,
+                subscription: {
+                  status: userStatus.status,
+                  profileCount: userStatus.profileCount,
+                  subscriptionEndDate: userStatus.subscriptionEndDate,
+                  trialEndDate: userStatus.trialEndDate
+                },
+                message: userStatus.message
+              };
+            }
+
+            if (userStatus.status === 'expired') {
+              return {
+                hasAccess: false,
+                reason: 'expired',
+                status: 'expired',
+                message: userStatus.message,
+                requiresPayment: true
+              };
+            }
+          }
+        }
+      }
+
+      // ========================================
+      // FALLBACK: Check old subscriptions table (for backward compatibility)
+      // ========================================
+      let subscription = null;
+
+      // Strategy 1: Try by GBP account ID
+      if (gbpAccountId) {
+        subscription = await supabaseSubscriptionService.getSubscriptionByGbpId(gbpAccountId);
+        if (subscription) {
+          console.log(`[SubscriptionGuard] ✅ Found subscription by gbpAccountId: ${gbpAccountId}`);
+        }
+      }
+
+      // Strategy 2: Try by userId
       if (!subscription && userId) {
         console.log(`[SubscriptionGuard] 🔄 No subscription found by GBP ID, trying userId: ${userId}`);
         subscription = await supabaseSubscriptionService.getSubscriptionByUserId(userId);
+        if (subscription) {
+          console.log(`[SubscriptionGuard] ✅ Found subscription by userId: ${userId}`);
+        }
+      }
+
+      // Strategy 3: Try by email (if userId looks like an email)
+      if (!subscription && userId && userId.includes('@')) {
+        console.log(`[SubscriptionGuard] 🔄 Trying email lookup: ${userId}`);
+        subscription = await supabaseSubscriptionService.getSubscriptionByEmail(userId);
+        if (subscription) {
+          console.log(`[SubscriptionGuard] ✅ Found subscription by email: ${userId}`);
+        }
+      }
+
+      // Strategy 4: Get email from automation settings and try lookup
+      if (!subscription && userId) {
+        try {
+          const automationSettings = await supabaseAutomationService.getAllSettingsForUser(userId);
+          for (const setting of automationSettings) {
+            const email = setting.email || setting.autoPosting?.email;
+            if (email) {
+              console.log(`[SubscriptionGuard] 🔄 Trying email from automation settings: ${email}`);
+              subscription = await supabaseSubscriptionService.getSubscriptionByEmail(email);
+              if (subscription) {
+                console.log(`[SubscriptionGuard] ✅ Found subscription by automation email: ${email}`);
+                break;
+              }
+            }
+          }
+        } catch (err) {
+          console.log(`[SubscriptionGuard] ⚠️ Could not check automation settings for email:`, err.message);
+        }
       }
 
       if (!subscription) {
-        console.log(`[SubscriptionGuard] ❌ No subscription found for gbpAccountId: ${gbpAccountId}, userId: ${userId}`);
+        console.log(`[SubscriptionGuard] ❌ No subscription found after all lookup strategies`);
+        console.log(`[SubscriptionGuard]    Tried: gbpAccountId=${gbpAccountId}, userId=${userId}`);
+
         return {
           hasAccess: false,
           reason: 'no_subscription',
@@ -142,13 +318,13 @@ class SubscriptionGuard {
       if (subscription.status === 'trial') {
         const trialEndDate = subscription.trialEndDate ? new Date(subscription.trialEndDate) : null;
 
-        // CRITICAL FIX: If trial has no end date, treat as active trial (30 days from creation)
+        // CRITICAL FIX: If trial has no end date, treat as active trial (15 days from creation)
         if (!trialEndDate) {
           console.log(`[SubscriptionGuard] ✅ Trial with no end date - treating as active trial`);
           return {
             hasAccess: true,
             status: 'trial',
-            daysRemaining: 30, // Default trial period
+            daysRemaining: 15, // Default trial period
             subscription,
             message: 'Free trial active'
           };
@@ -256,6 +432,75 @@ class SubscriptionGuard {
     } catch (error) {
       console.error('[SubscriptionGuard] Error disabling features:', error);
       return false;
+    }
+  }
+
+  /**
+   * Re-enable all automation features for a user
+   * Called when subscription/payment is renewed or trial starts
+   */
+  async reEnableAllFeatures(userId, gbpAccountId, reason) {
+    try {
+      console.log(`[SubscriptionGuard] 🔓 Re-enabling features for user ${userId} - Reason: ${reason}`);
+
+      // Get all automation settings for this user (including disabled ones)
+      const settings = await supabaseAutomationService.getAllSettingsForUser(userId);
+
+      let reenabledCount = 0;
+
+      for (const setting of settings) {
+        const locationId = setting.locationId || setting.location_id;
+
+        if (!locationId) {
+          console.warn(`[SubscriptionGuard] ⚠️ Skipping setting without valid locationId for user: ${userId}`);
+          continue;
+        }
+
+        // Only re-enable if it was disabled due to subscription/trial issues
+        const disabledReason = setting.disabledReason;
+        if (disabledReason && (
+          disabledReason.includes('expired') ||
+          disabledReason.includes('subscription') ||
+          disabledReason.includes('trial')
+        )) {
+          await supabaseAutomationService.saveSettings(userId, locationId, {
+            ...setting,
+            enabled: true,
+            autoPosting: {
+              ...setting.autoPosting,
+              enabled: true
+            },
+            // Keep autoReply at user's previous preference
+            disabledReason: null,
+            disabledAt: null,
+            reenabledReason: reason,
+            reenabledAt: new Date().toISOString()
+          });
+
+          console.log(`[SubscriptionGuard] ✅ Re-enabled automation for location: ${locationId}`);
+          reenabledCount++;
+        }
+      }
+
+      // Log this action
+      await supabaseAutomationService.logActivity(
+        userId,
+        'system',
+        'features_reenabled',
+        null,
+        'success',
+        {
+          reason,
+          locationsAffected: reenabledCount,
+          timestamp: new Date().toISOString()
+        }
+      );
+
+      console.log(`[SubscriptionGuard] ✅ Re-enabled ${reenabledCount} location(s) for user ${userId}`);
+      return { success: true, reenabledCount };
+    } catch (error) {
+      console.error('[SubscriptionGuard] Error re-enabling features:', error);
+      return { success: false, error: error.message };
     }
   }
 
