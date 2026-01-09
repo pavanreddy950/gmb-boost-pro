@@ -236,8 +236,175 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
 
     setIsProcessing(true);
 
-    // USE SUBSCRIPTION-BASED PAYMENT WITH AUTO-PAY MANDATE
-    return handleSubscriptionPayment();
+    // Calculate the final amount to determine payment method
+    let finalUsdAmount = selectedPlanId === 'per_profile_yearly'
+      ? SubscriptionService.calculateTotalPrice(profileCount)
+      : selectedPlan.amount;
+
+    if (couponDetails && couponDetails.finalAmount) {
+      finalUsdAmount = couponDetails.finalAmount;
+    }
+
+    // Convert to INR for comparison
+    const finalInrAmount = Math.round((finalUsdAmount / 100) * exchangeRate);
+
+    // Use ORDER-based payment for low amounts (test payments with coupons like RAJATEST)
+    // Use SUBSCRIPTION-based payment for normal amounts (enables auto-pay mandate)
+    if (finalInrAmount < 100) {
+      console.log(`[Payment] 💰 Low amount ₹${finalInrAmount} - using ORDER-based payment`);
+      return handleOrderPayment();
+    } else {
+      console.log(`[Payment] 💰 Normal amount ₹${finalInrAmount} - using SUBSCRIPTION-based payment`);
+      return handleSubscriptionPayment();
+    }
+  };
+
+  // ORDER-BASED PAYMENT (for test/low-amount payments like RAJATEST coupon)
+  const handleOrderPayment = async () => {
+    try {
+      // Calculate amount
+      let usdAmount = selectedPlanId === 'per_profile_yearly'
+        ? SubscriptionService.calculateTotalPrice(profileCount)
+        : selectedPlan.amount;
+
+      if (couponDetails && couponDetails.finalAmount) {
+        usdAmount = couponDetails.finalAmount;
+      }
+
+      const targetCurrency = 'INR';
+      const usdInDollars = usdAmount / 100;
+      const convertedAmount = Math.round(usdInDollars * exchangeRate);
+
+      console.log(`[Order Payment] 💱 Amount: $${usdInDollars} USD → ₹${convertedAmount} INR`);
+
+      // Create order
+      const orderResponse = await fetch(`${backendUrl}/api/user-payment/order`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          amount: convertedAmount,
+          currency: targetCurrency,
+          email: currentUser.email,
+          profileCount: profileCount,
+          couponCode: couponCode || undefined,
+          notes: {
+            planId: selectedPlan.id,
+            planName: selectedPlan.name,
+            profileCount: profileCount.toString(),
+            actualProfileCount: profileCount.toString()
+          }
+        })
+      });
+
+      if (!orderResponse.ok) {
+        throw new Error('Failed to create order');
+      }
+
+      const { order } = await orderResponse.json();
+      console.log('[Order Payment] ✅ Order created:', order.id);
+
+      // Open Razorpay Checkout
+      const options: any = {
+        key: razorpayKeyId,
+        amount: order.amount,
+        currency: order.currency,
+        order_id: order.id,
+        name: 'LOBAISEO',
+        description: `${selectedPlan.name} - ${profileCount} Profile(s)`,
+        handler: async (response: any) => {
+          try {
+            console.log('[Order Payment] 💳 Payment completed, verifying...');
+
+            const verifyResponse = await fetch(`${backendUrl}/api/user-payment/verify`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                razorpay_order_id: response.razorpay_order_id,
+                razorpay_payment_id: response.razorpay_payment_id,
+                razorpay_signature: response.razorpay_signature,
+                email: currentUser.email,
+                profileCount: profileCount
+              })
+            });
+
+            if (verifyResponse.ok) {
+              const verifyData = await verifyResponse.json();
+              console.log('[Order Payment] ✅ Payment verified:', verifyData);
+
+              if (verifyData.subscription) {
+                sessionStorage.setItem('verified_subscription', JSON.stringify(verifyData.subscription));
+              }
+
+              toast({
+                title: "Success!",
+                description: "Payment successful! Your subscription is now active.",
+              });
+
+              onClose();
+              sessionStorage.setItem('post_payment_reload', 'true');
+              await checkSubscriptionStatus();
+
+              setTimeout(() => {
+                navigate('/payment-success');
+              }, 500);
+            } else {
+              const errorData = await verifyResponse.json().catch(() => ({}));
+              throw new Error(errorData.error || 'Payment verification failed');
+            }
+          } catch (error) {
+            console.error('[Order Payment] Handler error:', error);
+            toast({
+              title: "Payment Error",
+              description: error.message || "Payment verification failed",
+              variant: "destructive"
+            });
+            setIsProcessing(false);
+          }
+        },
+        prefill: {
+          name: currentUser.displayName || '',
+          email: currentUser.email || '',
+          contact: currentUser.phoneNumber || ''
+        },
+        theme: {
+          color: '#1E2DCD'
+        },
+        modal: {
+          ondismiss: () => {
+            setIsProcessing(false);
+            toast({
+              title: "Payment Cancelled",
+              description: "You can complete payment later.",
+              variant: "default"
+            });
+          }
+        }
+      };
+
+      const razorpayInstance = new Razorpay(options);
+
+      razorpayInstance.on('payment.failed', (response: any) => {
+        console.error('[Order Payment] Failed:', response.error);
+        setIsProcessing(false);
+        toast({
+          title: "Payment Failed",
+          description: response.error.description || "Payment could not be processed",
+          variant: "destructive"
+        });
+      });
+
+      onClose();
+      setTimeout(() => razorpayInstance.open(), 100);
+
+    } catch (error) {
+      console.error('[Order Payment] Error:', error);
+      toast({
+        title: "Payment Error",
+        description: error.message || "Failed to process payment",
+        variant: "destructive"
+      });
+      setIsProcessing(false);
+    }
   };
 
   const handleSubscriptionPayment = async () => {
