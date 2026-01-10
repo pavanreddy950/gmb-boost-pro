@@ -561,6 +561,14 @@ class AutomationScheduler {
     let cronExpression;
 
     switch (config.frequency) {
+      case 'hourly':
+        // Every hour at the specified minute
+        cronExpression = `${minute} * * * *`;
+        break;
+      case 'every2hours':
+        // Every 2 hours at the specified minute
+        cronExpression = `${minute} */2 * * *`;
+        break;
       case 'daily':
         // Daily at effective time (user customized or previous post time)
         cronExpression = `${minute} ${hour} * * *`;

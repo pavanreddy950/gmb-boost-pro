@@ -1149,12 +1149,12 @@ router.post('/global-time', async (req, res) => {
 
     const results = [];
 
-    // 🔥 Handle "today" frequency - trigger immediate posts
-    const isImmediatePost = frequency === 'today';
-    const actualFrequency = isImmediatePost ? 'daily' : frequency; // Store as 'daily' in DB for future posts
+    // 🔥 Handle "today" and hourly frequencies - trigger immediate posts
+    const isImmediatePost = frequency === 'today' || frequency === 'hourly' || frequency === 'every2hours';
+    const actualFrequency = frequency === 'today' ? 'daily' : frequency; // Store as 'daily' for "today", keep hourly as-is
 
     if (isImmediatePost) {
-      console.log(`[Automation API] ⚡ IMMEDIATE POST requested - will post NOW for all locations`);
+      console.log(`[Automation API] ⚡ IMMEDIATE POST requested (frequency: ${frequency}) - will post NOW for all locations`);
     }
 
     // 🔥 NEW: Query user_locations table using gmail_id (email)
