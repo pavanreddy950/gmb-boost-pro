@@ -319,6 +319,102 @@ function calculateNextPostTime(schedule, frequency, lastRun) {
   return scheduledUtc;
 }
 
+/**
+ * Helper function to check if we should trigger an immediate post for hourly frequencies
+ * Based on the SCHEDULED TIME - if set for 6 PM, check if a post was made at 6 PM (current hour)
+ *
+ * @param {string} schedule - The scheduled time in HH:MM format (e.g., "18:00" for 6 PM)
+ * @param {string} frequency - "hourly" or "every2hours"
+ * @param {Date|string|null} lastRun - The last post timestamp
+ * @returns {boolean} - true if we should post now, false if a post was already made for this time slot
+ */
+function shouldTriggerHourlyPost(schedule, frequency, lastRun) {
+  if (!schedule) return false;
+
+  const [scheduleHour, scheduleMinute] = schedule.split(':').map(Number);
+  const now = new Date();
+
+  // Get current time in IST
+  const IST_OFFSET_MS = (5 * 60 + 30) * 60 * 1000;
+  const nowUtc = now.getTime();
+  const nowIst = new Date(nowUtc + IST_OFFSET_MS);
+  const currentHourIst = nowIst.getUTCHours();
+  const currentMinuteIst = nowIst.getUTCMinutes();
+
+  console.log(`[shouldTriggerHourlyPost] Checking time-slot:`, {
+    schedule,
+    frequency,
+    currentTimeIST: `${currentHourIst}:${currentMinuteIst.toString().padStart(2, '0')}`,
+    lastRun: lastRun || 'never'
+  });
+
+  // For hourly: Check if we're in the scheduled minute window and haven't posted this hour
+  // For every2hours: Check if we're in the scheduled minute window and haven't posted in this 2-hour window
+
+  // First, check if we're even close to the scheduled minute (within 5 min window)
+  const isInScheduledWindow = Math.abs(currentMinuteIst - scheduleMinute) <= 5 ||
+                               (scheduleMinute > 55 && currentMinuteIst < 5) ||
+                               (scheduleMinute < 5 && currentMinuteIst > 55);
+
+  if (!isInScheduledWindow) {
+    console.log(`[shouldTriggerHourlyPost] NOT in scheduled window. Current minute: ${currentMinuteIst}, Scheduled minute: ${scheduleMinute}`);
+    return false;
+  }
+
+  // If no last run, this is the first time - should post
+  if (!lastRun) {
+    console.log(`[shouldTriggerHourlyPost] No last run - SHOULD POST`);
+    return true;
+  }
+
+  // Check when the last post was made
+  const lastRunDate = new Date(lastRun);
+  const lastRunUtc = lastRunDate.getTime();
+  const lastRunIst = new Date(lastRunUtc + IST_OFFSET_MS);
+  const lastRunHourIst = lastRunIst.getUTCHours();
+
+  console.log(`[shouldTriggerHourlyPost] Last run hour (IST): ${lastRunHourIst}, Current hour (IST): ${currentHourIst}`);
+
+  if (frequency === 'hourly') {
+    // For hourly: Check if we already posted in this hour
+    const isSameHour = lastRunHourIst === currentHourIst &&
+                       lastRunIst.getUTCDate() === nowIst.getUTCDate() &&
+                       lastRunIst.getUTCMonth() === nowIst.getUTCMonth();
+
+    if (isSameHour) {
+      console.log(`[shouldTriggerHourlyPost] Already posted this hour - SKIP`);
+      return false;
+    }
+
+    console.log(`[shouldTriggerHourlyPost] Haven't posted this hour - SHOULD POST`);
+    return true;
+  }
+
+  if (frequency === 'every2hours') {
+    // For every 2 hours: Check if we're in the same 2-hour window
+    // If scheduled at 6 PM (:00 minute), windows are: 6-7, 8-9, 10-11, etc.
+    // If scheduled at 7 PM (:00 minute), windows are: 7-8, 9-10, 11-12, etc.
+    const currentWindow = Math.floor(currentHourIst / 2);
+    const lastRunWindow = Math.floor(lastRunHourIst / 2);
+
+    // Also check it's the same day
+    const isSameDay = lastRunIst.getUTCDate() === nowIst.getUTCDate() &&
+                      lastRunIst.getUTCMonth() === nowIst.getUTCMonth();
+
+    const isSameWindow = isSameDay && currentWindow === lastRunWindow;
+
+    if (isSameWindow) {
+      console.log(`[shouldTriggerHourlyPost] Already posted in this 2-hour window - SKIP`);
+      return false;
+    }
+
+    console.log(`[shouldTriggerHourlyPost] Haven't posted in this 2-hour window - SHOULD POST`);
+    return true;
+  }
+
+  return false;
+}
+
 // Update automation settings for a location
 router.post('/settings/:locationId', (req, res) => {
   try {
@@ -1150,11 +1246,18 @@ router.post('/global-time', async (req, res) => {
     const results = [];
 
     // 🔥 Handle "today" and hourly frequencies - trigger immediate posts
-    const isImmediatePost = frequency === 'today' || frequency === 'hourly' || frequency === 'every2hours';
+    // IMPORTANT: Only trigger immediate post if this is the FIRST time setting up hourly
+    // For subsequent API calls (like on login), we should NOT re-trigger posts
+    const isImmediatePost = frequency === 'today'; // Only "today" triggers immediate post unconditionally
+    const isHourlyFrequency = frequency === 'hourly' || frequency === 'every2hours';
     const actualFrequency = frequency === 'today' ? 'daily' : frequency; // Store as 'daily' for "today", keep hourly as-is
 
     if (isImmediatePost) {
       console.log(`[Automation API] ⚡ IMMEDIATE POST requested (frequency: ${frequency}) - will post NOW for all locations`);
+    }
+
+    if (isHourlyFrequency) {
+      console.log(`[Automation API] 🕐 HOURLY frequency (${frequency}) - will check time-slot before posting`);
     }
 
     // 🔥 NEW: Query user_locations table using gmail_id (email)
@@ -1237,7 +1340,17 @@ router.post('/global-time', async (req, res) => {
             }
 
             // 🔥 If immediate post requested, trigger post NOW
-            if (isImmediatePost) {
+            let shouldPostNow = isImmediatePost;
+
+            // For hourly frequencies, check if we should post based on time slot
+            if (isHourlyFrequency) {
+              // Check last_post_date from database for this location
+              const lastPostDate = null; // New location, no last post
+              shouldPostNow = shouldTriggerHourlyPost(schedule, frequency, lastPostDate);
+              console.log(`[Automation API] 🕐 Hourly check for ${businessName}: shouldPost=${shouldPostNow}`);
+            }
+
+            if (shouldPostNow) {
               console.log(`[Automation API] ⚡ Triggering IMMEDIATE post for ${businessName} (${locationId})`);
               // Run async - don't wait for completion
               automationScheduler.triggerImmediatePost(locationId, userEmail, businessName).catch(err => {
@@ -1246,7 +1359,7 @@ router.post('/global-time', async (req, res) => {
             }
 
             console.log(`[Automation API] ✅ Inserted & scheduled ${businessName} (${locationId})`);
-            results.push({ locationId, businessName, success: true, immediatePost: isImmediatePost });
+            results.push({ locationId, businessName, success: true, immediatePost: shouldPostNow });
           } catch (error) {
             console.error(`[Automation API] ❌ Error for ${locationId}:`, error);
             results.push({ locationId, businessName, success: false, error: error.message });
@@ -1319,7 +1432,16 @@ router.post('/global-time', async (req, res) => {
             };
 
             // 🔥 If immediate post requested, trigger post NOW
-            if (isImmediatePost) {
+            let shouldPostNow2 = isImmediatePost;
+
+            // For hourly frequencies, check if we should post based on time slot
+            if (isHourlyFrequency) {
+              const lastPostDate = config?.autoPosting?.lastRun || null;
+              shouldPostNow2 = shouldTriggerHourlyPost(schedule, frequency, lastPostDate);
+              console.log(`[Automation API] 🕐 Hourly check for ${businessName}: shouldPost=${shouldPostNow2}`);
+            }
+
+            if (shouldPostNow2) {
               console.log(`[Automation API] ⚡ Triggering IMMEDIATE post for ${businessName} (${locationId})`);
               automationScheduler.triggerImmediatePost(locationId, userEmail, businessName).catch(err => {
                 console.error(`[Automation API] ❌ Immediate post failed for ${locationId}:`, err.message);
@@ -1327,7 +1449,7 @@ router.post('/global-time', async (req, res) => {
             }
 
             console.log(`[Automation API] ✅ Inserted & updated ${businessName} (${locationId})`);
-            results.push({ locationId, businessName, success: true, immediatePost: isImmediatePost });
+            results.push({ locationId, businessName, success: true, immediatePost: shouldPostNow2 });
           } catch (error) {
             results.push({ locationId, businessName, success: false, error: error.message });
           }
@@ -1392,15 +1514,25 @@ router.post('/global-time', async (req, res) => {
           }
 
           // 🔥 If immediate post requested, trigger post NOW
-          if (isImmediatePost) {
+          let shouldPostNow3 = isImmediatePost;
+
+          // For hourly frequencies, check if we should post based on time slot
+          if (isHourlyFrequency) {
+            // Use last_post_date from database
+            const lastPostDate = location.last_post_date || null;
+            shouldPostNow3 = shouldTriggerHourlyPost(schedule, frequency, lastPostDate);
+            console.log(`[Automation API] 🕐 Hourly check for ${businessName}: shouldPost=${shouldPostNow3}, lastPost=${lastPostDate || 'never'}`);
+          }
+
+          if (shouldPostNow3) {
             console.log(`[Automation API] ⚡ Triggering IMMEDIATE post for ${businessName} (${locationId})`);
             automationScheduler.triggerImmediatePost(locationId, userEmail, businessName).catch(err => {
               console.error(`[Automation API] ❌ Immediate post failed for ${locationId}:`, err.message);
             });
           }
 
-          console.log(`[Automation API] ✅ Updated ${businessName} (${locationId}) to post at ${schedule} (${actualFrequency})${isImmediatePost ? ' + IMMEDIATE POST' : ''}`);
-          results.push({ locationId, businessName, success: true, immediatePost: isImmediatePost });
+          console.log(`[Automation API] ✅ Updated ${businessName} (${locationId}) to post at ${schedule} (${actualFrequency})${shouldPostNow3 ? ' + IMMEDIATE POST' : ''}`);
+          results.push({ locationId, businessName, success: true, immediatePost: shouldPostNow3 });
         } catch (error) {
           console.error(`[Automation API] ❌ Failed to update ${locationId}:`, error);
           results.push({ locationId, businessName, success: false, error: error.message || 'Unknown error' });

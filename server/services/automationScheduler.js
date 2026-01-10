@@ -311,6 +311,66 @@ class AutomationScheduler {
           continue;
         }
 
+        // For HOURLY/EVERY2HOURS frequencies: Check based on time slot
+        if (autoPosting.frequency === 'hourly' || autoPosting.frequency === 'every2hours') {
+          const currentHour = nowInIST.getHours();
+          const currentMinute = nowInIST.getMinutes();
+
+          // Check if we're within 5 minutes of the scheduled minute
+          const isInScheduledWindow = Math.abs(currentMinute - scheduleMinute) <= 5 ||
+                                       (scheduleMinute > 55 && currentMinute < 5) ||
+                                       (scheduleMinute < 5 && currentMinute > 55);
+
+          if (!isInScheduledWindow) {
+            console.log(`  - Not in scheduled window (minute: ${currentMinute} vs ${scheduleMinute})`);
+            continue;
+          }
+
+          // Check if we already posted in this time slot
+          let alreadyPostedThisSlot = false;
+          if (lastRun) {
+            const lastRunIST = new Date(lastRun.toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }));
+            const lastRunHour = lastRunIST.getHours();
+            const isSameDay = lastRunIST.toDateString() === nowInIST.toDateString();
+
+            if (autoPosting.frequency === 'hourly') {
+              alreadyPostedThisSlot = isSameDay && lastRunHour === currentHour;
+            } else if (autoPosting.frequency === 'every2hours') {
+              const currentWindow = Math.floor(currentHour / 2);
+              const lastRunWindow = Math.floor(lastRunHour / 2);
+              alreadyPostedThisSlot = isSameDay && currentWindow === lastRunWindow;
+            }
+          }
+
+          console.log(`  - In scheduled window: ${isInScheduledWindow}`);
+          console.log(`  - Already posted this slot: ${alreadyPostedThisSlot}`);
+
+          if (isInScheduledWindow && !alreadyPostedThisSlot) {
+            // 🔒 DYNAMIC SUBSCRIPTION CHECK
+            const targetUserId = autoPosting.userId || config.userId || 'default';
+            const gbpAccountId = autoPosting.gbpAccountId || autoPosting.accountId || config.gbpAccountId;
+
+            const validationResult = await subscriptionGuard.validateBeforeAutomation(targetUserId, gbpAccountId, 'auto_posting');
+
+            if (!validationResult.allowed) {
+              console.log(`[AutomationScheduler] ⏭️ SKIPPING ${locationId} - No valid subscription`);
+              continue;
+            }
+
+            console.log(`[AutomationScheduler] ⚡ HOURLY POST for ${locationId}!`);
+            console.log(`  - Business: ${autoPosting.businessName}`);
+            console.log(`  - Frequency: ${autoPosting.frequency}`);
+            console.log(`  - Current hour: ${currentHour}`);
+
+            this.settings.automations[locationId].autoPosting.lastRun = new Date().toISOString();
+            await this.updateAutomationSettings(locationId, this.settings.automations[locationId]);
+
+            await this.createAutomatedPost(locationId, autoPosting);
+            console.log(`[AutomationScheduler] ✅ Hourly post created for ${locationId}`);
+          }
+          continue;
+        }
+
         // For other frequencies, use the existing logic
         const nextScheduledTime = this.calculateNextScheduledTime(autoPosting, lastRun);
 
