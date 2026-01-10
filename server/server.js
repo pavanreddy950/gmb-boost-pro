@@ -1051,19 +1051,153 @@ app.get('/health/token-refresh', (req, res) => {
 app.get('/health/keep-alive', (req, res) => {
   try {
     const stats = keepAliveService.getStats();
+    const platform = process.env.RENDER ? 'Render' : (process.env.WEBSITE_HOSTNAME ? 'Azure' : 'Other');
     res.json({
       status: 'OK',
       service: 'Keep-Alive Service',
+      platform,
       ...stats,
       message: stats.isRunning ?
-        'Keep-alive service is running - server will stay awake 24/7' :
-        'Keep-alive service is NOT running - server may sleep on Azure!',
+        `Keep-alive service is running on ${platform} - server will stay awake 24/7` :
+        `Keep-alive service is NOT running - server may spin down on ${platform}!`,
+      tip: platform === 'Render' ?
+        'For guaranteed 24/7 operation, upgrade to Render Starter tier ($7/mo) or use UptimeRobot (free)' :
+        'Enable "Always On" in Azure App Service settings',
       timestamp: new Date().toISOString()
     });
   } catch (error) {
     res.status(500).json({
       status: 'ERROR',
       service: 'Keep-Alive Service',
+      error: error.message,
+      timestamp: new Date().toISOString()
+    });
+  }
+});
+
+// 🔄 Automation status and re-initialization endpoints
+// Check automation scheduler status
+app.get('/health/automations', async (req, res) => {
+  try {
+    const scheduledJobs = automationScheduler.scheduledJobs?.size || 0;
+    const reviewMonitors = automationScheduler.reviewCheckIntervals?.size || 0;
+    const settings = automationScheduler.settings?.automations || {};
+    const locationCount = Object.keys(settings).length;
+
+    res.json({
+      status: 'OK',
+      service: 'Automation Scheduler',
+      scheduledJobs,
+      reviewMonitors,
+      totalLocations: locationCount,
+      locations: Object.keys(settings).map(locationId => ({
+        locationId,
+        businessName: settings[locationId]?.autoPosting?.businessName || settings[locationId]?.businessName || 'Unknown',
+        autoPostingEnabled: settings[locationId]?.autoPosting?.enabled || false,
+        schedule: settings[locationId]?.autoPosting?.schedule || 'Not set',
+        frequency: settings[locationId]?.autoPosting?.frequency || 'daily',
+        lastRun: settings[locationId]?.autoPosting?.lastRun || 'Never'
+      })),
+      message: scheduledJobs > 0
+        ? `Auto-posting active for ${scheduledJobs} location(s)`
+        : 'No automations scheduled - check database or reinitialize',
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    res.status(500).json({
+      status: 'ERROR',
+      service: 'Automation Scheduler',
+      error: error.message,
+      timestamp: new Date().toISOString()
+    });
+  }
+});
+
+// Force reinitialize all automations (useful after deployment or if jobs stopped)
+app.post('/automation/reinitialize', async (req, res) => {
+  try {
+    console.log('========================================');
+    console.log('🔄 MANUAL AUTOMATION REINITIALIZE REQUESTED');
+    console.log('========================================');
+
+    // Stop all existing jobs first
+    if (automationScheduler.scheduledJobs) {
+      for (const [locationId, job] of automationScheduler.scheduledJobs.entries()) {
+        job.stop();
+        console.log(`[Reinitialize] Stopped job for location: ${locationId}`);
+      }
+      automationScheduler.scheduledJobs.clear();
+    }
+
+    // Reinitialize all automations from database
+    await automationScheduler.initializeAutomations();
+
+    const scheduledJobs = automationScheduler.scheduledJobs?.size || 0;
+
+    console.log(`✅ Reinitialization complete! ${scheduledJobs} job(s) scheduled`);
+    console.log('========================================');
+
+    res.json({
+      success: true,
+      message: `Automations reinitialized successfully`,
+      scheduledJobs,
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    console.error('❌ Reinitialize failed:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message,
+      timestamp: new Date().toISOString()
+    });
+  }
+});
+
+// Force trigger a missed post check (for debugging)
+app.post('/automation/check-missed-posts', async (req, res) => {
+  try {
+    console.log('========================================');
+    console.log('🔍 MANUAL MISSED POST CHECK REQUESTED');
+    console.log('========================================');
+
+    await automationScheduler.checkAndCreateMissedPosts();
+
+    res.json({
+      success: true,
+      message: 'Missed post check completed',
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    console.error('❌ Missed post check failed:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message,
+      timestamp: new Date().toISOString()
+    });
+  }
+});
+
+// Force refresh all tokens (for debugging token issues)
+app.post('/automation/refresh-tokens', async (req, res) => {
+  try {
+    console.log('========================================');
+    console.log('🔄 MANUAL TOKEN REFRESH REQUESTED');
+    console.log('========================================');
+
+    await tokenRefreshService.runRefreshCycle();
+
+    const stats = await tokenRefreshService.getStats();
+
+    res.json({
+      success: true,
+      message: 'Token refresh completed',
+      stats,
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    console.error('❌ Token refresh failed:', error);
+    res.status(500).json({
+      success: false,
       error: error.message,
       timestamp: new Date().toISOString()
     });

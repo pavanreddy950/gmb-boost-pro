@@ -1183,9 +1183,11 @@ class AutomationScheduler {
             city: addr.locality || addr.city || '',
             region: addr.administrativeArea || addr.region || addr.state || '',
             country: addr.regionCode || addr.country || 'India',
-            postalCode: addr.postalCode || ''
+            postalCode: addr.postalCode || '',
+            // IMPORTANT: Include the real business name from Google
+            businessName: data.locationName || data.title || null
           };
-          console.log('[AutomationScheduler] ✅ Parsed address:', result);
+          console.log('[AutomationScheduler] ✅ Parsed address with business name:', result);
           return result;
         }
 
@@ -1197,7 +1199,8 @@ class AutomationScheduler {
             city: '',
             region: '',
             country: 'India',
-            postalCode: ''
+            postalCode: '',
+            businessName: data.locationName || data.title || null
           };
         }
       } else {
@@ -1220,13 +1223,15 @@ class AutomationScheduler {
         const data = await response.json();
         console.log('[AutomationScheduler] 📍 V1 Location data:', JSON.stringify(data, null, 2).substring(0, 500));
 
-        if (data.storefrontAddress) {
+        if (data.storefrontAddress || data.title) {
           return {
-            fullAddress: data.storefrontAddress.addressLines?.join(', ') || '',
-            city: data.storefrontAddress.locality || '',
-            region: data.storefrontAddress.administrativeArea || '',
-            country: data.storefrontAddress.regionCode || 'India',
-            postalCode: data.storefrontAddress.postalCode || ''
+            fullAddress: data.storefrontAddress?.addressLines?.join(', ') || '',
+            city: data.storefrontAddress?.locality || '',
+            region: data.storefrontAddress?.administrativeArea || '',
+            country: data.storefrontAddress?.regionCode || 'India',
+            postalCode: data.storefrontAddress?.postalCode || '',
+            // IMPORTANT: Include the real business name from Google
+            businessName: data.title || null
           };
         }
       }
@@ -1246,7 +1251,7 @@ class AutomationScheduler {
     console.log(`[AutomationScheduler] Config received:`, JSON.stringify(config, null, 2));
 
     // Ensure we have proper business name and details
-    const businessName = config.businessName || 'Business';
+    let businessName = config.businessName || 'Business';
     const category = config.category || 'service';
     const keywords = config.keywords || 'quality, service, professional';
     let city = config.city || config.locationName || '';
@@ -1256,19 +1261,36 @@ class AutomationScheduler {
     const websiteUrl = config.websiteUrl || '';
     let postalCode = config.postalCode || config.pinCode || '';
 
-    console.log(`[AutomationScheduler] 📍 INITIAL ADDRESS DATA FROM CONFIG:`);
+    console.log(`[AutomationScheduler] 📍 INITIAL DATA FROM CONFIG:`);
+    console.log(`   - businessName: "${businessName}"`);
     console.log(`   - city: "${city}"`);
     console.log(`   - region: "${region}"`);
     console.log(`   - country: "${country}"`);
     console.log(`   - fullAddress: "${fullAddress}"`);
     console.log(`   - postalCode: "${postalCode}"`);
 
-    // If address is missing, fetch it from Google API
-    if ((!fullAddress || !city) && locationId && userId) {
-      console.log('[AutomationScheduler] 📍 Address incomplete in config, fetching from Google API...');
+    // Check if businessName looks like a location ID (starts with "locations/" or is just numbers)
+    const needsRealBusinessName = !businessName ||
+      businessName.startsWith('locations/') ||
+      /^\d+$/.test(businessName) ||
+      businessName === 'Business';
+
+    // If address is missing OR business name needs to be fetched, get from Google API
+    if (((!fullAddress || !city) || needsRealBusinessName) && locationId && userId) {
+      console.log('[AutomationScheduler] 📍 Fetching location data from Google API...');
+      if (needsRealBusinessName) {
+        console.log('[AutomationScheduler] 📍 Business name needs update (current: "' + businessName + '")');
+      }
+
       const addressData = await this.fetchLocationAddress(locationId, userId);
       if (addressData) {
-        // Only update if we got better data
+        // CRITICAL: Update business name if we got the real one from Google
+        if (needsRealBusinessName && addressData.businessName) {
+          businessName = addressData.businessName;
+          console.log('[AutomationScheduler] ✅ Got REAL business name from Google: "' + businessName + '"');
+        }
+
+        // Only update address if we got better data
         if (!fullAddress && addressData.fullAddress) {
           fullAddress = addressData.fullAddress;
         }
@@ -1284,8 +1306,8 @@ class AutomationScheduler {
         if (!postalCode && addressData.postalCode) {
           postalCode = addressData.postalCode;
         }
-        console.log('[AutomationScheduler] ✅ Address data after API fetch:', {
-          fullAddress, city, region, country, postalCode
+        console.log('[AutomationScheduler] ✅ Data after API fetch:', {
+          businessName, fullAddress, city, region, country, postalCode
         });
       }
     }
@@ -1403,10 +1425,11 @@ CRITICAL WRITING RULES - MUST FOLLOW ALL:
 9. Write in a storytelling style but KEEP IT BRIEF - make readers FEEL the experience in FEW words
 10. Use category-specific language that sounds authentic to the industry
 11. Be concise and impactful - every word counts!
+12. ⚠️ NEVER use markdown formatting like **bold**, *italic*, __underline__, or \`code\` - write plain text only!
 
 FORMAT REQUIREMENTS:
-12. Use bullet points (•) or emojis to break up text and improve readability
-13. ⚠️ CRITICAL: ALWAYS end with the address line in EXACTLY this format:
+13. Use bullet points (•) or emojis to break up text and improve readability - but NO markdown!
+14. ⚠️ CRITICAL: ALWAYS end with the address line in EXACTLY this format:
 
 [Main post content here - MAXIMUM 100 words, human-like, brief local focus]
 
@@ -1466,6 +1489,17 @@ Think of yourself as writing a quick, enthusiastic recommendation - SHORT but me
       if (response.ok) {
         const data = await response.json();
         let content = data.choices[0].message.content.trim();
+
+        // CRITICAL: Remove markdown formatting - Google doesn't render it
+        // Remove **bold** and *italic* markdown
+        content = content.replace(/\*\*([^*]+)\*\*/g, '$1'); // Remove **bold**
+        content = content.replace(/\*([^*]+)\*/g, '$1');     // Remove *italic*
+        content = content.replace(/__([^_]+)__/g, '$1');     // Remove __bold__
+        content = content.replace(/_([^_]+)_/g, '$1');       // Remove _italic_
+        content = content.replace(/`([^`]+)`/g, '$1');       // Remove `code`
+        content = content.replace(/#{1,6}\s/g, '');          // Remove # headers
+
+        console.log(`[AutomationScheduler] ✅ Markdown formatting removed from AI content`);
 
         // Ensure the address line is properly added if not already present
         const addressLine = `📍 Address: ${completeAddress}`;

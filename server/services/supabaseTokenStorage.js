@@ -5,7 +5,13 @@ import fetch from 'node-fetch';
 
 /**
  * Supabase Token Storage
- * Now using centralized connection pool and caching for scalability
+ * UPDATED: Now uses the NEW schema (users table) instead of user_tokens table
+ * Tokens are stored directly in the users table columns:
+ * - google_access_token
+ * - google_refresh_token
+ * - google_token_expiry
+ * - has_valid_token
+ * - token_last_refreshed
  */
 class SupabaseTokenStorage {
   constructor() {
@@ -33,7 +39,7 @@ class SupabaseTokenStorage {
       console.log('[SupabaseTokenStorage] Initializing connection from pool...');
       this.client = await connectionPool.getClient();
       this.initialized = true;
-      console.log('[SupabaseTokenStorage] ✅ Using centralized connection pool');
+      console.log('[SupabaseTokenStorage] ✅ Using centralized connection pool (NEW SCHEMA - users table)');
       return this.client;
     } catch (error) {
       console.error('[SupabaseTokenStorage] ❌ Failed to get connection:', error.message);
@@ -77,9 +83,15 @@ class SupabaseTokenStorage {
         return encryptedText.substring(12);
       }
 
+      // Handle plain tokens (not encrypted)
+      if (!encryptedText.includes(':') || encryptedText.startsWith('ya29.')) {
+        return encryptedText;
+      }
+
       const parts = encryptedText.split(':');
       if (parts.length !== 2) {
-        throw new Error('Invalid encrypted token format');
+        // Might be a plain token
+        return encryptedText;
       }
 
       const iv = Buffer.from(parts[0], 'hex');
@@ -93,12 +105,14 @@ class SupabaseTokenStorage {
       return decrypted;
     } catch (error) {
       console.error('[SupabaseTokenStorage] Decryption error:', error);
+      // Return as-is if decryption fails (might be a plain token)
       return encryptedText;
     }
   }
 
   /**
-   * Save user token to Supabase
+   * Save user token to users table
+   * userId can be firebase_uid or gmail_id
    */
   async saveUserToken(userId, tokenData) {
     try {
@@ -111,39 +125,41 @@ class SupabaseTokenStorage {
         throw new Error('Supabase not available');
       }
 
-      // Encrypt sensitive tokens
-      const encryptedAccessToken = this.encrypt(tokenData.access_token);
-      const encryptedRefreshToken = tokenData.refresh_token ? this.encrypt(tokenData.refresh_token) : null;
-
       // Calculate expiry timestamp
       const expiresAt = tokenData.expiry_date
         ? new Date(tokenData.expiry_date)
         : new Date(Date.now() + (tokenData.expires_in || 3600) * 1000);
 
-      // Prepare token record
-      const tokenRecord = {
-        user_id: userId,
-        access_token: encryptedAccessToken,
-        refresh_token: encryptedRefreshToken,
-        token_type: tokenData.token_type || 'Bearer',
-        scope: tokenData.scope || '',
-        expires_at: expiresAt.toISOString(),
-        expiry_date: tokenData.expiry_date || Date.now() + (tokenData.expires_in || 3600) * 1000,
-        user_info: tokenData.userInfo || null,
+      // Prepare update data for users table
+      const updateData = {
+        google_access_token: tokenData.access_token, // Store plain for now
+        google_refresh_token: tokenData.refresh_token || null,
+        google_token_expiry: expiresAt.getTime(),
+        has_valid_token: true,
+        token_last_refreshed: new Date().toISOString(),
+        token_error: null,
         updated_at: new Date().toISOString()
       };
 
-      // Upsert token (insert or update)
-      const { data, error } = await this.client
-        .from('user_tokens')
-        .upsert(tokenRecord, {
-          onConflict: 'user_id',
-          returning: 'minimal'
-        });
+      // Try to update by firebase_uid first, then by gmail_id
+      let updateResult;
+      if (!userId.includes('@')) {
+        // userId is firebase_uid
+        updateResult = await this.client
+          .from('users')
+          .update(updateData)
+          .eq('firebase_uid', userId);
+      } else {
+        // userId is gmail_id
+        updateResult = await this.client
+          .from('users')
+          .update(updateData)
+          .eq('gmail_id', userId);
+      }
 
-      if (error) {
-        console.error(`[SupabaseTokenStorage] ❌ Error saving token:`, error);
-        throw error;
+      if (updateResult.error) {
+        console.error(`[SupabaseTokenStorage] ❌ Error saving token:`, updateResult.error);
+        throw updateResult.error;
       }
 
       console.log(`[SupabaseTokenStorage] ✅ Token saved successfully for user ${userId}`);
@@ -152,7 +168,6 @@ class SupabaseTokenStorage {
       // Invalidate cache since token was updated
       const cacheKey = cacheManager.getTokenKey(userId);
       cacheManager.delete(cacheKey);
-      console.log(`[SupabaseTokenStorage] 🔄 Cache invalidated for user ${userId}`);
 
       console.log(`[SupabaseTokenStorage] ========================================`);
 
@@ -165,7 +180,7 @@ class SupabaseTokenStorage {
   }
 
   /**
-   * Get user token from Supabase (with caching)
+   * Get user token from users table (with caching)
    */
   async getUserToken(userId) {
     try {
@@ -192,17 +207,27 @@ class SupabaseTokenStorage {
         return null;
       }
 
-      // Fetch token from database
-      const { data, error } = await this.client
-        .from('user_tokens')
-        .select('*')
-        .eq('user_id', userId)
-        .single();
+      // Fetch user from users table
+      let query;
+      if (!userId.includes('@')) {
+        // userId is firebase_uid
+        query = this.client
+          .from('users')
+          .select('gmail_id, firebase_uid, google_access_token, google_refresh_token, google_token_expiry, has_valid_token')
+          .eq('firebase_uid', userId);
+      } else {
+        // userId is gmail_id
+        query = this.client
+          .from('users')
+          .select('gmail_id, firebase_uid, google_access_token, google_refresh_token, google_token_expiry, has_valid_token')
+          .eq('gmail_id', userId);
+      }
+
+      const { data, error } = await query.single();
 
       if (error) {
         if (error.code === 'PGRST116') {
-          // No rows found - user needs to connect
-          console.log(`[SupabaseTokenStorage] ❌ No token found for user ${userId}`);
+          console.log(`[SupabaseTokenStorage] ❌ No user found for: ${userId}`);
           console.log(`[SupabaseTokenStorage] 💡 User needs to connect Google Business Profile`);
           console.log(`[SupabaseTokenStorage] ========================================`);
           return null;
@@ -210,39 +235,39 @@ class SupabaseTokenStorage {
         throw error;
       }
 
-      if (!data) {
+      if (!data || !data.google_access_token) {
         console.log(`[SupabaseTokenStorage] ❌ No token data for user ${userId}`);
         console.log(`[SupabaseTokenStorage] ========================================`);
         return null;
       }
 
-      // Decrypt tokens
-      const decryptedTokens = {
-        access_token: this.decrypt(data.access_token),
-        refresh_token: data.refresh_token ? this.decrypt(data.refresh_token) : null,
-        token_type: data.token_type,
-        scope: data.scope,
-        expires_in: 3600, // Default
-        expiry_date: data.expiry_date,
-        userInfo: data.user_info
+      // Construct token object
+      const tokenData = {
+        access_token: this.decrypt(data.google_access_token),
+        refresh_token: data.google_refresh_token ? this.decrypt(data.google_refresh_token) : null,
+        token_type: 'Bearer',
+        expires_in: 3600,
+        expiry_date: data.google_token_expiry,
+        userId: data.gmail_id,
+        firebaseUid: data.firebase_uid
       };
 
       // Check if token is expired
       const now = Date.now();
-      if (data.expiry_date && data.expiry_date < now) {
+      if (data.google_token_expiry && data.google_token_expiry < now) {
         console.log(`[SupabaseTokenStorage] ⚠️ Token expired for user ${userId}`);
-        console.log(`[SupabaseTokenStorage] Expired at: ${new Date(data.expiry_date).toISOString()}`);
+        console.log(`[SupabaseTokenStorage] Expired at: ${new Date(data.google_token_expiry).toISOString()}`);
         console.log(`[SupabaseTokenStorage] Will attempt refresh if refresh_token exists`);
       } else {
         console.log(`[SupabaseTokenStorage] ✅ Token found for user ${userId}`);
-        console.log(`[SupabaseTokenStorage] Expires at: ${new Date(data.expiry_date).toISOString()}`);
+        console.log(`[SupabaseTokenStorage] Expires at: ${new Date(data.google_token_expiry).toISOString()}`);
 
         // Cache valid tokens for 2 minutes
-        cacheManager.set(cacheKey, decryptedTokens, 120);
+        cacheManager.set(cacheKey, tokenData, 120);
       }
 
       console.log(`[SupabaseTokenStorage] ========================================`);
-      return decryptedTokens;
+      return tokenData;
     } catch (error) {
       console.error(`[SupabaseTokenStorage] Error getting token for user ${userId}:`, error);
       console.log(`[SupabaseTokenStorage] ========================================`);
@@ -295,7 +320,6 @@ class SupabaseTokenStorage {
           console.log(`[SupabaseTokenStorage] ❌ Token refresh failed - returning existing token`);
           console.log(`[SupabaseTokenStorage] ⚠️ Warning: Token may expire soon!`);
           console.log(`[SupabaseTokenStorage] ========================================`);
-          // Return existing token even if refresh failed - it might still work
           return token;
         }
       }
@@ -339,8 +363,8 @@ class SupabaseTokenStorage {
         const error = await response.text();
         console.error(`[SupabaseTokenStorage] Token refresh failed:`, error);
 
-        // Log refresh failure
-        await this.logTokenFailure(userId, 'refresh_failed', error);
+        // Mark token as invalid in users table
+        await this.markTokenInvalid(userId, 'refresh_failed: ' + error);
 
         return null;
       }
@@ -368,8 +392,37 @@ class SupabaseTokenStorage {
       };
     } catch (error) {
       console.error(`[SupabaseTokenStorage] Error refreshing token:`, error);
-      await this.logTokenFailure(userId, 'refresh_error', error.message);
+      await this.markTokenInvalid(userId, error.message);
       return null;
+    }
+  }
+
+  /**
+   * Mark token as invalid in users table
+   */
+  async markTokenInvalid(userId, errorMessage) {
+    try {
+      await this.initialize();
+
+      const updateData = {
+        has_valid_token: false,
+        token_error: errorMessage,
+        updated_at: new Date().toISOString()
+      };
+
+      if (!userId.includes('@')) {
+        await this.client
+          .from('users')
+          .update(updateData)
+          .eq('firebase_uid', userId);
+      } else {
+        await this.client
+          .from('users')
+          .update(updateData)
+          .eq('gmail_id', userId);
+      }
+    } catch (error) {
+      console.error('[SupabaseTokenStorage] Error marking token invalid:', error);
     }
   }
 
@@ -383,18 +436,27 @@ class SupabaseTokenStorage {
       await this.initialize();
 
       if (!this.client) {
-        console.log(`[SupabaseTokenStorage] Supabase not available, cannot remove token`);
         return false;
       }
 
-      const { error } = await this.client
-        .from('user_tokens')
-        .delete()
-        .eq('user_id', userId);
+      const updateData = {
+        google_access_token: null,
+        google_refresh_token: null,
+        google_token_expiry: null,
+        has_valid_token: false,
+        updated_at: new Date().toISOString()
+      };
 
-      if (error) {
-        console.error(`[SupabaseTokenStorage] Error removing token:`, error);
-        return false;
+      if (!userId.includes('@')) {
+        await this.client
+          .from('users')
+          .update(updateData)
+          .eq('firebase_uid', userId);
+      } else {
+        await this.client
+          .from('users')
+          .update(updateData)
+          .eq('gmail_id', userId);
       }
 
       console.log(`[SupabaseTokenStorage] ✅ Token removed for user ${userId}`);
@@ -408,22 +470,35 @@ class SupabaseTokenStorage {
   /**
    * Log token failure for debugging
    */
-  async logTokenFailure(userId, errorType, errorMessage) {
+  async logTokenFailure(userId, failureData) {
+    if (!userId || !failureData) {
+      return;
+    }
+
     try {
       await this.initialize();
 
-      if (!this.client) return;
+      // Update users table with error info
+      const updateData = {
+        token_error: typeof failureData === 'string' ? failureData : JSON.stringify(failureData),
+        updated_at: new Date().toISOString()
+      };
 
-      await this.client
-        .from('token_failures')
-        .insert({
-          user_id: userId,
-          error_type: errorType,
-          error_message: String(errorMessage).substring(0, 1000),
-          error_details: { timestamp: new Date().toISOString() }
-        });
+      if (!userId.includes('@')) {
+        await this.client
+          .from('users')
+          .update(updateData)
+          .eq('firebase_uid', userId);
+      } else {
+        await this.client
+          .from('users')
+          .update(updateData)
+          .eq('gmail_id', userId);
+      }
+
+      console.log(`[SupabaseTokenStorage] 📝 Token failure logged for user ${userId}`);
     } catch (error) {
-      console.error('[SupabaseTokenStorage] Error logging token failure:', error);
+      console.error('[SupabaseTokenStorage] ❌ Error logging token failure:', error);
     }
   }
 
@@ -435,7 +510,7 @@ class SupabaseTokenStorage {
       if (!this.initialized) {
         return {
           status: 'not_initialized',
-          storage: 'supabase',
+          storage: 'supabase (users table)',
           message: 'Supabase not initialized'
         };
       }
@@ -443,87 +518,35 @@ class SupabaseTokenStorage {
       await this.initialize();
 
       const { data, error } = await this.client
-        .from('user_tokens')
-        .select('count')
+        .from('users')
+        .select('gmail_id')
         .limit(1);
 
       if (error) {
         return {
           status: 'error',
-          storage: 'supabase',
+          storage: 'supabase (users table)',
           message: error.message
         };
       }
 
       return {
         status: 'healthy',
-        storage: 'supabase',
-        message: 'Supabase token storage operational'
+        storage: 'supabase (users table)',
+        message: 'Supabase token storage operational (using users table)'
       };
     } catch (error) {
       return {
         status: 'error',
-        storage: 'supabase',
+        storage: 'supabase (users table)',
         message: error.message
       };
     }
   }
 
   /**
-   * Log token failure for monitoring and debugging
-   * Tracks automation failures due to expired/revoked tokens
-   *
-   * @param {string} userId - User ID
-   * @param {object} failureData - Failure details (operation, reason, locationId, etc.)
-   */
-  async logTokenFailure(userId, failureData) {
-    if (!userId || !failureData) {
-      console.warn('[SupabaseTokenStorage] logTokenFailure called with missing parameters');
-      return;
-    }
-
-    try {
-      await this.initialize();
-
-      const failureRecord = {
-        user_id: userId,
-        operation: failureData.operation || 'unknown',
-        reason: failureData.reason || 'unknown',
-        location_id: failureData.locationId || null,
-        error_details: JSON.stringify({
-          timestamp: new Date().toISOString(),
-          ...failureData
-        }),
-        created_at: new Date().toISOString()
-      };
-
-      console.log('[SupabaseTokenStorage] 📝 Logging token failure:', {
-        userId,
-        operation: failureRecord.operation,
-        reason: failureRecord.reason,
-        locationId: failureRecord.location_id
-      });
-
-      const { error } = await this.client
-        .from('token_failures')
-        .insert(failureRecord);
-
-      if (error) {
-        console.error('[SupabaseTokenStorage] ❌ Failed to log token failure:', error.message);
-      } else {
-        console.log('[SupabaseTokenStorage] ✅ Token failure logged successfully');
-      }
-
-    } catch (error) {
-      console.error('[SupabaseTokenStorage] ❌ Error logging token failure:', error);
-      // Don't throw - logging failures shouldn't break the main flow
-    }
-  }
-
-  /**
-   * Get ANY valid token from the pool
+   * Get ANY valid token from users with valid tokens
    * Used as fallback when specific user's token is expired/missing
-   * This enables shared token pool across all locations for reliability
    */
   async getAnyValidToken() {
     try {
@@ -539,11 +562,13 @@ class SupabaseTokenStorage {
       const now = Date.now();
       const bufferTime = 5 * 60 * 1000; // 5 minutes buffer before expiry
 
-      // Get all tokens, ordered by expiry (freshest first)
-      const { data: tokens, error } = await this.client
-        .from('user_tokens')
-        .select('*')
-        .order('expiry_date', { ascending: false })
+      // Get users with valid tokens, ordered by token expiry (freshest first)
+      const { data: users, error } = await this.client
+        .from('users')
+        .select('gmail_id, firebase_uid, google_access_token, google_refresh_token, google_token_expiry, has_valid_token')
+        .eq('has_valid_token', true)
+        .not('google_access_token', 'is', null)
+        .order('google_token_expiry', { ascending: false })
         .limit(10);
 
       if (error) {
@@ -551,36 +576,34 @@ class SupabaseTokenStorage {
         return null;
       }
 
-      if (!tokens || tokens.length === 0) {
-        console.log('[SupabaseTokenStorage] ❌ No tokens in pool');
+      if (!users || users.length === 0) {
+        console.log('[SupabaseTokenStorage] ❌ No users with valid tokens found');
         return null;
       }
 
-      console.log(`[SupabaseTokenStorage] 📊 Found ${tokens.length} token(s) in pool`);
+      console.log(`[SupabaseTokenStorage] 📊 Found ${users.length} user(s) with tokens`);
 
       // Try to find a valid non-expired token
-      for (const tokenRecord of tokens) {
-        const expiryDate = tokenRecord.expiry_date;
+      for (const user of users) {
+        const expiryDate = user.google_token_expiry;
 
         // Check if token is still valid (with buffer)
         if (expiryDate && expiryDate > (now + bufferTime)) {
           try {
-            const decryptedToken = {
-              access_token: this.decrypt(tokenRecord.access_token),
-              refresh_token: tokenRecord.refresh_token ? this.decrypt(tokenRecord.refresh_token) : null,
-              token_type: tokenRecord.token_type || 'Bearer',
-              scope: tokenRecord.scope,
+            const token = {
+              access_token: this.decrypt(user.google_access_token),
+              refresh_token: user.google_refresh_token ? this.decrypt(user.google_refresh_token) : null,
+              token_type: 'Bearer',
               expiry_date: expiryDate,
-              expiresAt: expiryDate,
               fromPool: true,
-              poolUserId: tokenRecord.user_id
+              poolUserId: user.gmail_id
             };
 
-            console.log(`[SupabaseTokenStorage] ✅ Found valid token from user: ${tokenRecord.user_id}`);
+            console.log(`[SupabaseTokenStorage] ✅ Found valid token from user: ${user.gmail_id}`);
             console.log(`[SupabaseTokenStorage]    Expires: ${new Date(expiryDate).toISOString()}`);
-            return decryptedToken;
+            return token;
           } catch (decryptError) {
-            console.log(`[SupabaseTokenStorage] ⚠️ Could not decrypt token for ${tokenRecord.user_id}:`, decryptError.message);
+            console.log(`[SupabaseTokenStorage] ⚠️ Could not process token for ${user.gmail_id}:`, decryptError.message);
             continue;
           }
         }
@@ -589,21 +612,21 @@ class SupabaseTokenStorage {
       // All tokens expired - try refreshing
       console.log('[SupabaseTokenStorage] All tokens expired, attempting refresh...');
 
-      for (const tokenRecord of tokens) {
-        if (tokenRecord.refresh_token) {
+      for (const user of users) {
+        if (user.google_refresh_token) {
           try {
-            console.log(`[SupabaseTokenStorage] 🔄 Attempting refresh for user: ${tokenRecord.user_id}`);
-            const decryptedRefreshToken = this.decrypt(tokenRecord.refresh_token);
-            const refreshed = await this.refreshAndSaveToken(tokenRecord.user_id, decryptedRefreshToken);
+            console.log(`[SupabaseTokenStorage] 🔄 Attempting refresh for user: ${user.gmail_id}`);
+            const decryptedRefreshToken = this.decrypt(user.google_refresh_token);
+            const refreshed = await this.refreshToken(user.gmail_id, decryptedRefreshToken);
 
             if (refreshed) {
               refreshed.fromPool = true;
-              refreshed.poolUserId = tokenRecord.user_id;
-              console.log(`[SupabaseTokenStorage] ✅ Refreshed token from pool user: ${tokenRecord.user_id}`);
+              refreshed.poolUserId = user.gmail_id;
+              console.log(`[SupabaseTokenStorage] ✅ Refreshed token from pool user: ${user.gmail_id}`);
               return refreshed;
             }
           } catch (refreshError) {
-            console.log(`[SupabaseTokenStorage] ⚠️ Refresh failed for ${tokenRecord.user_id}:`, refreshError.message);
+            console.log(`[SupabaseTokenStorage] ⚠️ Refresh failed for ${user.gmail_id}:`, refreshError.message);
             continue;
           }
         }
@@ -622,7 +645,3 @@ class SupabaseTokenStorage {
 const supabaseTokenStorage = new SupabaseTokenStorage();
 
 export default supabaseTokenStorage;
-
-
-
-
