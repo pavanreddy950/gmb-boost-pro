@@ -136,6 +136,12 @@ class AutomationScheduler {
   async initializeAutomations() {
     console.log('[AutomationScheduler] 🚀 Initializing all automations from Supabase...');
 
+    // 🔧 CRITICAL FIX: Clear all posting locks on initialization
+    // This prevents stuck locks from previous runs blocking new posts
+    console.log('[AutomationScheduler] 🔓 Clearing all posting locks from previous runs...');
+    this.postingInProgress.clear();
+    this.postCreationLocks.clear();
+
     // Load settings from Supabase first
     await this.loadSettings();
 
@@ -847,14 +853,24 @@ class AutomationScheduler {
       });
 
       // 🔒 CHECK IF POSTING IS ALREADY IN PROGRESS FOR THIS LOCATION
-      if (this.postingInProgress.get(locationId)) {
-        console.log(`[AutomationScheduler] ⏳ POSTING ALREADY IN PROGRESS for location ${locationId}`);
-        console.log(`[AutomationScheduler] ✅ Skipping this request - another post is being created`);
-        return null; // Exit early - another post operation is in progress
+      const postingStartTime = this.postingInProgress.get(locationId);
+      if (postingStartTime) {
+        const lockAge = Date.now() - postingStartTime;
+        const lockAgeSeconds = Math.floor(lockAge / 1000);
+
+        // 🔧 SAFETY: If lock is older than 5 minutes, it's probably stuck - clear it
+        if (lockAge > 5 * 60 * 1000) {
+          console.log(`[AutomationScheduler] ⚠️ STALE LOCK detected for location ${locationId} (${lockAgeSeconds}s old) - clearing it`);
+          this.postingInProgress.delete(locationId);
+        } else {
+          console.log(`[AutomationScheduler] ⏳ POSTING ALREADY IN PROGRESS for location ${locationId} (started ${lockAgeSeconds}s ago)`);
+          console.log(`[AutomationScheduler] ✅ Skipping this request - another post is being created`);
+          return null; // Exit early - another post operation is in progress
+        }
       }
 
-      // Set posting in progress flag IMMEDIATELY
-      this.postingInProgress.set(locationId, true);
+      // Set posting in progress flag with timestamp (for stale lock detection)
+      this.postingInProgress.set(locationId, Date.now());
 
       // 🔒 CHECK FOR DUPLICATE POST PREVENTION LOCK
       const now = Date.now();
@@ -868,7 +884,7 @@ class AutomationScheduler {
           console.log(`[AutomationScheduler] 🔒 DUPLICATE POST PREVENTED for location ${locationId}`);
           console.log(`[AutomationScheduler] ⏱️  Last post was ${secondsSinceLastPost} seconds ago (within ${this.DUPLICATE_POST_WINDOW / 1000}s window)`);
           console.log(`[AutomationScheduler] ✅ Skipping this post creation request to prevent duplicates`);
-          this.postingInProgress.set(locationId, false); // Release the lock
+          this.postingInProgress.delete(locationId); // Release the lock
           return null; // Exit early - don't create duplicate post
         }
       }
@@ -946,7 +962,7 @@ class AutomationScheduler {
             userId: targetUserId
           });
 
-          this.postingInProgress.set(locationId, false);
+          this.postingInProgress.delete(locationId);
           return null;
         }
       }
@@ -1010,7 +1026,7 @@ class AutomationScheduler {
       }
 
       // Release the posting-in-progress lock
-      this.postingInProgress.set(locationId, false);
+      this.postingInProgress.delete(locationId);
       return result;
 
     } catch (error) {
@@ -1031,7 +1047,7 @@ class AutomationScheduler {
       });
 
       // Release the posting-in-progress lock on error
-      this.postingInProgress.set(locationId, false);
+      this.postingInProgress.delete(locationId);
       return null;
     }
   }

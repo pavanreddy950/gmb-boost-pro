@@ -54,7 +54,10 @@
       "Bash(git pull:*)",
       "Bash(set NODE_OPTIONS=--experimental-modules)",
       "Bash(timeout 90 node:*)",
-      "Bash(timeout 120 node:*)"
+      "Bash(timeout 120 node:*)",
+      "Bash(timeout 10 node:*)",
+      "Bash(timeout 45 node:*)",
+      "Bash(timeout 180 node:*)"
     ],
     "deny": [],
     "ask": []
