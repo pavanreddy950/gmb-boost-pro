@@ -1149,6 +1149,14 @@ router.post('/global-time', async (req, res) => {
 
     const results = [];
 
+    // 🔥 Handle "today" frequency - trigger immediate posts
+    const isImmediatePost = frequency === 'today';
+    const actualFrequency = isImmediatePost ? 'daily' : frequency; // Store as 'daily' in DB for future posts
+
+    if (isImmediatePost) {
+      console.log(`[Automation API] ⚡ IMMEDIATE POST requested - will post NOW for all locations`);
+    }
+
     // 🔥 NEW: Query user_locations table using gmail_id (email)
     const { data: userLocations, error: dbError } = await supabase
       .from('user_locations')
@@ -1187,7 +1195,7 @@ router.post('/global-time', async (req, res) => {
                 address: address,
                 autoposting_enabled: true,
                 autoposting_schedule: schedule,
-                autoposting_frequency: frequency,
+                autoposting_frequency: actualFrequency,
                 autoposting_status: 'active',
                 autoposting_status_reason: 'Enabled via global time setting',
                 updated_at: new Date().toISOString()
@@ -1207,20 +1215,20 @@ router.post('/global-time', async (req, res) => {
               autoPosting: {
                 enabled: true,
                 schedule,
-                frequency,
+                frequency: actualFrequency,
                 businessName,
                 userCustomizedTime: true,
                 email: userEmail
               }
             };
 
-            // Schedule the automation
+            // Schedule the automation (for future posts)
             try {
               automationScheduler.stopAutoPosting(locationId);
               automationScheduler.scheduleAutoPosting(locationId, {
                 enabled: true,
                 schedule,
-                frequency,
+                frequency: actualFrequency,
                 businessName,
                 email: userEmail
               });
@@ -1228,8 +1236,17 @@ router.post('/global-time', async (req, res) => {
               console.warn(`[Automation API] ⚠️ Cron warning for ${locationId}:`, cronError.message);
             }
 
+            // 🔥 If immediate post requested, trigger post NOW
+            if (isImmediatePost) {
+              console.log(`[Automation API] ⚡ Triggering IMMEDIATE post for ${businessName} (${locationId})`);
+              // Run async - don't wait for completion
+              automationScheduler.triggerImmediatePost(locationId, userEmail, businessName).catch(err => {
+                console.error(`[Automation API] ❌ Immediate post failed for ${locationId}:`, err.message);
+              });
+            }
+
             console.log(`[Automation API] ✅ Inserted & scheduled ${businessName} (${locationId})`);
-            results.push({ locationId, businessName, success: true });
+            results.push({ locationId, businessName, success: true, immediatePost: isImmediatePost });
           } catch (error) {
             console.error(`[Automation API] ❌ Error for ${locationId}:`, error);
             results.push({ locationId, businessName, success: false, error: error.message });
@@ -1275,7 +1292,7 @@ router.post('/global-time', async (req, res) => {
                 business_name: businessName,
                 autoposting_enabled: true,
                 autoposting_schedule: schedule,
-                autoposting_frequency: frequency,
+                autoposting_frequency: actualFrequency,
                 autoposting_status: 'active',
                 autoposting_status_reason: 'Enabled via global time setting',
                 updated_at: new Date().toISOString()
@@ -1295,14 +1312,22 @@ router.post('/global-time', async (req, res) => {
                 ...config?.autoPosting,
                 enabled: true,
                 schedule,
-                frequency,
+                frequency: actualFrequency,
                 userCustomizedTime: true,
                 email: userEmail
               }
             };
 
+            // 🔥 If immediate post requested, trigger post NOW
+            if (isImmediatePost) {
+              console.log(`[Automation API] ⚡ Triggering IMMEDIATE post for ${businessName} (${locationId})`);
+              automationScheduler.triggerImmediatePost(locationId, userEmail, businessName).catch(err => {
+                console.error(`[Automation API] ❌ Immediate post failed for ${locationId}:`, err.message);
+              });
+            }
+
             console.log(`[Automation API] ✅ Inserted & updated ${businessName} (${locationId})`);
-            results.push({ locationId, businessName, success: true });
+            results.push({ locationId, businessName, success: true, immediatePost: isImmediatePost });
           } catch (error) {
             results.push({ locationId, businessName, success: false, error: error.message });
           }
@@ -1321,7 +1346,7 @@ router.post('/global-time', async (req, res) => {
             .update({
               autoposting_enabled: true,
               autoposting_schedule: schedule,
-              autoposting_frequency: frequency,
+              autoposting_frequency: actualFrequency,
               autoposting_status: 'active',
               autoposting_status_reason: 'Enabled via global time setting',
               updated_at: new Date().toISOString()
@@ -1345,20 +1370,20 @@ router.post('/global-time', async (req, res) => {
               ...(automationScheduler.settings.automations[locationId]?.autoPosting || {}),
               enabled: true,
               schedule,
-              frequency,
+              frequency: actualFrequency,
               businessName,
               userCustomizedTime: true,
               email: userEmail
             }
           };
 
-          // Reschedule cron job
+          // Reschedule cron job (for future posts)
           try {
             automationScheduler.stopAutoPosting(locationId);
             automationScheduler.scheduleAutoPosting(locationId, {
               enabled: true,
               schedule,
-              frequency,
+              frequency: actualFrequency,
               businessName,
               email: userEmail
             });
@@ -1366,8 +1391,16 @@ router.post('/global-time', async (req, res) => {
             console.warn(`[Automation API] ⚠️ Cron reschedule warning for ${locationId}:`, cronError.message);
           }
 
-          console.log(`[Automation API] ✅ Updated ${businessName} (${locationId}) to post at ${schedule} (${frequency})`);
-          results.push({ locationId, businessName, success: true });
+          // 🔥 If immediate post requested, trigger post NOW
+          if (isImmediatePost) {
+            console.log(`[Automation API] ⚡ Triggering IMMEDIATE post for ${businessName} (${locationId})`);
+            automationScheduler.triggerImmediatePost(locationId, userEmail, businessName).catch(err => {
+              console.error(`[Automation API] ❌ Immediate post failed for ${locationId}:`, err.message);
+            });
+          }
+
+          console.log(`[Automation API] ✅ Updated ${businessName} (${locationId}) to post at ${schedule} (${actualFrequency})${isImmediatePost ? ' + IMMEDIATE POST' : ''}`);
+          results.push({ locationId, businessName, success: true, immediatePost: isImmediatePost });
         } catch (error) {
           console.error(`[Automation API] ❌ Failed to update ${locationId}:`, error);
           results.push({ locationId, businessName, success: false, error: error.message || 'Unknown error' });

@@ -19,7 +19,7 @@ export function GlobalPostingTimeModal({ isOpen, onClose, profiles }: GlobalPost
   const [selectedHour, setSelectedHour] = useState('10'); // 1-12 format
   const [selectedMinute, setSelectedMinute] = useState('00'); // 00-59
   const [selectedPeriod, setSelectedPeriod] = useState<'AM' | 'PM'>('AM');
-  const [selectedFrequency, setSelectedFrequency] = useState<'daily' | 'alternative' | 'weekly'>('daily');
+  const [selectedFrequency, setSelectedFrequency] = useState<'today' | 'daily' | 'alternative' | 'weekly'>('daily');
   const [isUpdating, setIsUpdating] = useState(false);
   const [updateResults, setUpdateResults] = useState<{ locationId: string; name: string; success: boolean; error?: string }[]>([]);
   const [showResults, setShowResults] = useState(false);
@@ -164,7 +164,11 @@ export function GlobalPostingTimeModal({ isOpen, onClose, profiles }: GlobalPost
       const failCount = results.filter(r => !r.success).length;
 
       if (failCount === 0 && successCount > 0) {
-        toast.success(`✅ Updated ${successCount} profile(s) to post at ${getDisplayTime()}`);
+        if (selectedFrequency === 'today') {
+          toast.success(`✅ Posting NOW for ${successCount} profile(s)! Posts will appear on Google shortly.`);
+        } else {
+          toast.success(`✅ Updated ${successCount} profile(s) to post at ${getDisplayTime()}`);
+        }
 
         // Close modal after short delay - no page reload needed
         // The dashboard will fetch updated status on its own interval
@@ -194,6 +198,7 @@ export function GlobalPostingTimeModal({ isOpen, onClose, profiles }: GlobalPost
 
   const formatFrequency = (freq: string) => {
     switch (freq) {
+      case 'today': return 'Today Only (Immediate)';
       case 'daily': return 'Every Day';
       case 'alternative': return 'Every 2 Days';
       case 'weekly': return 'Weekly';
@@ -275,6 +280,7 @@ export function GlobalPostingTimeModal({ isOpen, onClose, profiles }: GlobalPost
                     <SelectValue placeholder="Select frequency" />
                   </SelectTrigger>
                   <SelectContent className="z-[9999]" position="popper" sideOffset={4}>
+                    <SelectItem value="today">Today (Post Now)</SelectItem>
                     <SelectItem value="daily">Daily</SelectItem>
                     <SelectItem value="alternative">Every 2 Days</SelectItem>
                     <SelectItem value="weekly">Weekly</SelectItem>
@@ -283,10 +289,19 @@ export function GlobalPostingTimeModal({ isOpen, onClose, profiles }: GlobalPost
               </div>
 
               {/* Profiles Summary */}
-              <div className="bg-blue-50 p-3 rounded-lg border border-blue-100">
-                <p className="text-sm text-blue-800">
-                  <strong>{profiles?.length || 0} profile(s)</strong> will be updated to post <strong>{formatFrequency(selectedFrequency)}</strong> at{' '}
-                  <strong>{getDisplayTime()}</strong>
+              <div className={`p-3 rounded-lg border ${selectedFrequency === 'today' ? 'bg-green-50 border-green-200' : 'bg-blue-50 border-blue-100'}`}>
+                <p className={`text-sm ${selectedFrequency === 'today' ? 'text-green-800' : 'text-blue-800'}`}>
+                  {selectedFrequency === 'today' ? (
+                    <>
+                      <strong>{profiles?.length || 0} profile(s)</strong> will post <strong>IMMEDIATELY</strong> when you click Apply.
+                      Future posts will be scheduled daily at <strong>{getDisplayTime()}</strong>.
+                    </>
+                  ) : (
+                    <>
+                      <strong>{profiles?.length || 0} profile(s)</strong> will be updated to post <strong>{formatFrequency(selectedFrequency)}</strong> at{' '}
+                      <strong>{getDisplayTime()}</strong>
+                    </>
+                  )}
                 </p>
               </div>
 

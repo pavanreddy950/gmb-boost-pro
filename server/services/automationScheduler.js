@@ -1028,6 +1028,50 @@ class AutomationScheduler {
     }
   }
 
+  /**
+   * Trigger an immediate post for a location (used by "Today" frequency option)
+   * This bypasses the cron scheduler and posts immediately
+   */
+  async triggerImmediatePost(locationId, userEmail, businessName) {
+    console.log(`[AutomationScheduler] ⚡ IMMEDIATE POST triggered for ${businessName} (${locationId})`);
+
+    try {
+      // Build config from settings or create minimal config
+      let config = this.settings.automations?.[locationId]?.autoPosting || {};
+
+      // Ensure we have required fields
+      config = {
+        ...config,
+        businessName: config.businessName || businessName || 'Business',
+        userId: config.userId || config.email || userEmail,
+        email: config.email || userEmail,
+        enabled: true,
+        frequency: 'daily', // For immediate post, treat as daily
+        schedule: new Date().toTimeString().slice(0, 5) // Current time
+      };
+
+      console.log(`[AutomationScheduler] ⚡ Immediate post config:`, {
+        locationId,
+        businessName: config.businessName,
+        userId: config.userId
+      });
+
+      // Call the existing createAutomatedPost method
+      const result = await this.createAutomatedPost(locationId, config);
+
+      if (result) {
+        console.log(`[AutomationScheduler] ✅ Immediate post SUCCESS for ${businessName}`);
+      } else {
+        console.log(`[AutomationScheduler] ⚠️ Immediate post returned null for ${businessName} (may be blocked by duplicate prevention)`);
+      }
+
+      return result;
+    } catch (error) {
+      console.error(`[AutomationScheduler] ❌ Immediate post FAILED for ${businessName}:`, error.message);
+      throw error;
+    }
+  }
+
   // Smart button type selection based on business category
   // CRITICAL: ALWAYS return 'call_now' as default for auto-posting
   // Google API automatically uses the business phone from profile
