@@ -284,23 +284,6 @@ function calculateNextPostTime(schedule, frequency, lastRun) {
 
   console.log(`[calculateNextPostTime] Current IST: ${nowIstHours}:${nowIstMinutes.toString().padStart(2, '0')}, Schedule: ${schedule}`);
 
-  // Check if we already posted today (in IST)
-  const lastRunDate = lastRun ? new Date(lastRun) : null;
-  let alreadyPostedToday = false;
-
-  if (lastRunDate) {
-    const lastRunIstHours = (lastRunDate.getUTCHours() + IST_OFFSET_HOURS + Math.floor((lastRunDate.getUTCMinutes() + IST_OFFSET_MINUTES) / 60)) % 24;
-    const lastRunDateAdjust = (lastRunDate.getUTCHours() + IST_OFFSET_HOURS + Math.floor((lastRunDate.getUTCMinutes() + IST_OFFSET_MINUTES) / 60)) >= 24 ? 1 : 0;
-    const lastRunIstDate = lastRunDate.getUTCDate() + lastRunDateAdjust;
-    const lastRunIstMonth = lastRunDate.getUTCMonth();
-    const lastRunIstYear = lastRunDate.getUTCFullYear();
-
-    alreadyPostedToday =
-      lastRunIstDate === nowIstDate &&
-      lastRunIstMonth === nowIstMonth &&
-      lastRunIstYear === nowIstYear;
-  }
-
   // Convert schedule time (IST) to total minutes for comparison
   const scheduleTotalMinutes = scheduleHours * 60 + scheduleMinutes;
   const nowTotalMinutes = nowIstHours * 60 + nowIstMinutes;
@@ -308,24 +291,51 @@ function calculateNextPostTime(schedule, frequency, lastRun) {
   // Has today's scheduled time passed?
   const scheduledTimePassed = nowTotalMinutes >= scheduleTotalMinutes;
 
-  console.log(`[calculateNextPostTime] Schedule: ${scheduleTotalMinutes}min, Now: ${nowTotalMinutes}min, Passed: ${scheduledTimePassed}, AlreadyPosted: ${alreadyPostedToday}`);
+  // Check if we already posted FOR TODAY'S SCHEDULED SLOT (in IST)
+  // A post only counts as "today's post" if it was made AT or AFTER the scheduled time
+  const lastRunDate = lastRun ? new Date(lastRun) : null;
+  let alreadyPostedForThisSlot = false;
+
+  if (lastRunDate) {
+    const lastRunIstHours = (lastRunDate.getUTCHours() + IST_OFFSET_HOURS + Math.floor((lastRunDate.getUTCMinutes() + IST_OFFSET_MINUTES) / 60)) % 24;
+    const lastRunIstMinutes = (lastRunDate.getUTCMinutes() + IST_OFFSET_MINUTES) % 60;
+    const lastRunDateAdjust = (lastRunDate.getUTCHours() + IST_OFFSET_HOURS + Math.floor((lastRunDate.getUTCMinutes() + IST_OFFSET_MINUTES) / 60)) >= 24 ? 1 : 0;
+    const lastRunIstDate = lastRunDate.getUTCDate() + lastRunDateAdjust;
+    const lastRunIstMonth = lastRunDate.getUTCMonth();
+    const lastRunIstYear = lastRunDate.getUTCFullYear();
+
+    const isSameDay = lastRunIstDate === nowIstDate &&
+                      lastRunIstMonth === nowIstMonth &&
+                      lastRunIstYear === nowIstYear;
+
+    // Only consider it "posted for this slot" if:
+    // 1. It's the same day AND
+    // 2. The post was made AT or AFTER the scheduled time
+    const lastRunTotalMinutes = lastRunIstHours * 60 + lastRunIstMinutes;
+    alreadyPostedForThisSlot = isSameDay && (lastRunTotalMinutes >= scheduleTotalMinutes);
+
+    console.log(`[calculateNextPostTime] LastRun IST: ${lastRunIstHours}:${lastRunIstMinutes.toString().padStart(2, '0')} (${lastRunTotalMinutes}min), Schedule: ${scheduleTotalMinutes}min`);
+    console.log(`[calculateNextPostTime] Same day: ${isSameDay}, Posted after schedule: ${lastRunTotalMinutes >= scheduleTotalMinutes}`);
+  }
+
+  console.log(`[calculateNextPostTime] Schedule: ${scheduleTotalMinutes}min, Now: ${nowTotalMinutes}min, Passed: ${scheduledTimePassed}, AlreadyPostedForSlot: ${alreadyPostedForThisSlot}`);
 
   // Calculate days to add based on frequency and whether we already posted/time passed
   let daysToAdd = 0;
 
   if (frequency === 'daily') {
     // If scheduled time passed OR already posted today, move to tomorrow
-    if (scheduledTimePassed || alreadyPostedToday) {
+    if (scheduledTimePassed || alreadyPostedForThisSlot) {
       daysToAdd = 1;
     }
   } else if (frequency === 'alternative' || frequency === 'every_2_days') {
     // Every 2 days
-    if (scheduledTimePassed || alreadyPostedToday) {
+    if (scheduledTimePassed || alreadyPostedForThisSlot) {
       daysToAdd = 2;
     }
   } else if (frequency === 'weekly') {
     // Weekly
-    if (scheduledTimePassed || alreadyPostedToday) {
+    if (scheduledTimePassed || alreadyPostedForThisSlot) {
       daysToAdd = 7;
     }
   }
