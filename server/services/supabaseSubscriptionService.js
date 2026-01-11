@@ -132,38 +132,30 @@ class SupabaseSubscriptionService {
 
   /**
    * Get subscription by GBP Account ID
+   * Updated to use 'users' table instead of non-existent 'subscriptions' table
    */
   async getSubscriptionByGbpId(gbpAccountId) {
     try {
       await this.initialize();
 
-      const { data: subscription, error: subError } = await this.client
-        .from('subscriptions')
+      // Look up user by google_account_id in users table
+      const { data: user, error } = await this.client
+        .from('users')
         .select('*')
-        .eq('gbp_account_id', gbpAccountId)
-        .single();
+        .eq('google_account_id', gbpAccountId)
+        .maybeSingle();
 
-      if (subError) {
-        if (subError.code === 'PGRST116') {
-          // No rows found
-          return null;
-        }
-        throw subError;
-      }
-
-      if (!subscription) {
+      if (error && error.code !== 'PGRST116') {
+        console.error('[SupabaseSubscriptionService] Error getting subscription by GBP ID:', error);
         return null;
       }
 
-      // Fetch payment history
-      const { data: payments, error: payError } = await this.client
-        .from('payment_history')
-        .select('*')
-        .eq('subscription_id', subscription.id)
-        .order('created_at', { ascending: false });
+      if (!user) {
+        return null;
+      }
 
-      // Convert to expected format
-      return this.formatSubscription(subscription, payments || []);
+      // Convert users table format to subscription format
+      return this.formatUserAsSubscription(user);
     } catch (error) {
       console.error('[SupabaseSubscriptionService] Error getting subscription:', error);
       return null;
@@ -172,37 +164,28 @@ class SupabaseSubscriptionService {
 
   /**
    * Get subscription by Email
-   * CRITICAL: Use this to prevent duplicate subscriptions
+   * Updated to use 'users' table instead of non-existent 'subscriptions' table
    */
   async getSubscriptionByEmail(email) {
     try {
       await this.initialize();
 
-      const { data: subscriptions, error } = await this.client
-        .from('subscriptions')
+      const { data: user, error } = await this.client
+        .from('users')
         .select('*')
-        .eq('email', email)
-        .order('status', { ascending: true }) // 'active' before 'expired'
-        .order('updated_at', { ascending: false });
+        .ilike('gmail_id', email)
+        .maybeSingle();
 
-      if (error) throw error;
-
-      if (!subscriptions || subscriptions.length === 0) {
+      if (error && error.code !== 'PGRST116') {
+        console.error('[SupabaseSubscriptionService] Error getting subscription by email:', error);
         return null;
       }
 
-      // Return the most recent active subscription (or first if none active)
-      const activeSubscription = subscriptions.find(s => s.status === 'active' || s.status === 'trial');
-      const targetSubscription = activeSubscription || subscriptions[0];
+      if (!user) {
+        return null;
+      }
 
-      // Fetch payment history
-      const { data: payments } = await this.client
-        .from('payment_history')
-        .select('*')
-        .eq('subscription_id', targetSubscription.id)
-        .order('created_at', { ascending: false });
-
-      return this.formatSubscription(targetSubscription, payments || []);
+      return this.formatUserAsSubscription(user);
     } catch (error) {
       console.error('[SupabaseSubscriptionService] Error getting subscription by email:', error);
       return null;
@@ -210,34 +193,66 @@ class SupabaseSubscriptionService {
   }
 
   /**
+   * Format user record as subscription (for backward compatibility)
+   */
+  formatUserAsSubscription(user) {
+    return {
+      id: user.id || user.firebase_uid,
+      userId: user.firebase_uid,
+      gbpAccountId: user.google_account_id,
+      email: user.gmail_id,
+      status: user.subscription_status || 'trial',
+      planId: 'standard',
+      profileCount: user.profile_count || 0,
+      paidSlots: user.profile_count || 0,
+      trialStartDate: user.trial_start_date,
+      trialEndDate: user.trial_end_date,
+      subscriptionStartDate: user.subscription_start_date,
+      subscriptionEndDate: user.subscription_end_date,
+      createdAt: user.created_at,
+      updatedAt: user.updated_at,
+      paymentHistory: [] // Payment history not stored in users table
+    };
+  }
+
+  /**
    * Get subscription by User ID
+   * Updated to use 'users' table instead of non-existent 'subscriptions' table
    */
   async getSubscriptionByUserId(userId) {
     try {
       await this.initialize();
 
-      const { data: subscriptions, error } = await this.client
-        .from('subscriptions')
+      // Try by firebase_uid first
+      let user = null;
+      const { data: userByUid, error: uidError } = await this.client
+        .from('users')
         .select('*')
-        .eq('user_id', userId);
+        .eq('firebase_uid', userId)
+        .maybeSingle();
 
-      if (error) throw error;
+      if (!uidError && userByUid) {
+        user = userByUid;
+      }
 
-      if (!subscriptions || subscriptions.length === 0) {
+      // If not found and userId looks like email, try by email
+      if (!user && userId && userId.includes('@')) {
+        const { data: userByEmail, error: emailError } = await this.client
+          .from('users')
+          .select('*')
+          .ilike('gmail_id', userId)
+          .maybeSingle();
+
+        if (!emailError && userByEmail) {
+          user = userByEmail;
+        }
+      }
+
+      if (!user) {
         return null;
       }
 
-      // Get the most recent active subscription
-      const activeSubscription = subscriptions.find(s => s.status === 'active') || subscriptions[0];
-
-      // Fetch payment history
-      const { data: payments } = await this.client
-        .from('payment_history')
-        .select('*')
-        .eq('subscription_id', activeSubscription.id)
-        .order('created_at', { ascending: false });
-
-      return this.formatSubscription(activeSubscription, payments || []);
+      return this.formatUserAsSubscription(user);
     } catch (error) {
       console.error('[SupabaseSubscriptionService] Error getting subscription by user:', error);
       return null;
@@ -246,32 +261,21 @@ class SupabaseSubscriptionService {
 
   /**
    * Get all subscriptions
+   * Updated to use 'users' table instead of non-existent 'subscriptions' table
    */
   async getAllSubscriptions() {
     try {
       await this.initialize();
 
-      const { data: subscriptions, error } = await this.client
-        .from('subscriptions')
+      const { data: users, error } = await this.client
+        .from('users')
         .select('*')
         .order('created_at', { ascending: false });
 
       if (error) throw error;
 
-      // Fetch payment history for all
-      const subscriptionsWithPayments = await Promise.all(
-        subscriptions.map(async (sub) => {
-          const { data: payments } = await this.client
-            .from('payment_history')
-            .select('*')
-            .eq('subscription_id', sub.id)
-            .order('created_at', { ascending: false });
-
-          return this.formatSubscription(sub, payments || []);
-        })
-      );
-
-      return subscriptionsWithPayments;
+      // Convert users to subscription format
+      return (users || []).map(user => this.formatUserAsSubscription(user));
     } catch (error) {
       console.error('[SupabaseSubscriptionService] Error getting all subscriptions:', error);
       return [];
@@ -280,18 +284,19 @@ class SupabaseSubscriptionService {
 
   /**
    * Update subscription status
+   * Updated to use 'users' table instead of non-existent 'subscriptions' table
    */
   async updateSubscriptionStatus(gbpAccountId, status) {
     try {
       await this.initialize();
 
       const { error } = await this.client
-        .from('subscriptions')
-        .update({ 
-          status,
+        .from('users')
+        .update({
+          subscription_status: status,
           updated_at: new Date().toISOString()
         })
-        .eq('gbp_account_id', gbpAccountId);
+        .eq('google_account_id', gbpAccountId);
 
       if (error) throw error;
 
@@ -327,45 +332,77 @@ class SupabaseSubscriptionService {
 
   /**
    * Save user-GBP mapping
+   * Updated to use 'users' table instead of non-existent 'user_gbp_mapping' table
    */
   async saveUserGbpMapping(userId, gbpAccountId) {
     try {
       await this.initialize();
 
-      const { error } = await this.client
-        .from('user_gbp_mapping')
-        .upsert({
-          user_id: userId,
-          gbp_account_id: gbpAccountId
-        }, {
-          onConflict: 'user_id, gbp_account_id'
-        });
+      // Store GBP account ID in users table using google_account_id column
+      // Try by firebase_uid first, then by email
+      let updateResult;
 
-      if (error) throw error;
+      if (userId && !userId.includes('@')) {
+        // userId is a firebase_uid
+        updateResult = await this.client
+          .from('users')
+          .update({ google_account_id: gbpAccountId })
+          .eq('firebase_uid', userId);
+      } else if (userId && userId.includes('@')) {
+        // userId is an email
+        updateResult = await this.client
+          .from('users')
+          .update({ google_account_id: gbpAccountId })
+          .ilike('gmail_id', userId);
+      }
 
-      console.log(`[SupabaseSubscriptionService] ✅ Saved mapping: ${userId} → ${gbpAccountId}`);
+      if (updateResult?.error) {
+        console.warn('[SupabaseSubscriptionService] Could not update users table:', updateResult.error.message);
+        // Don't throw - this is not critical
+      } else {
+        console.log(`[SupabaseSubscriptionService] ✅ Saved GBP mapping to users table: ${userId} → ${gbpAccountId}`);
+      }
+
       return true;
     } catch (error) {
       console.error('[SupabaseSubscriptionService] Error saving mapping:', error);
+      // Don't throw - this is not critical for the app to function
       return false;
     }
   }
 
   /**
    * Get GBP Account IDs for user
+   * Updated to use 'users' table instead of non-existent 'user_gbp_mapping' table
    */
   async getGbpAccountIdsForUser(userId) {
     try {
       await this.initialize();
 
-      const { data, error } = await this.client
-        .from('user_gbp_mapping')
-        .select('gbp_account_id')
-        .eq('user_id', userId);
+      let data;
 
-      if (error) throw error;
+      if (userId && !userId.includes('@')) {
+        // userId is a firebase_uid
+        const result = await this.client
+          .from('users')
+          .select('google_account_id')
+          .eq('firebase_uid', userId)
+          .maybeSingle();
+        data = result.data;
+      } else if (userId && userId.includes('@')) {
+        // userId is an email
+        const result = await this.client
+          .from('users')
+          .select('google_account_id')
+          .ilike('gmail_id', userId)
+          .maybeSingle();
+        data = result.data;
+      }
 
-      return data ? data.map(m => m.gbp_account_id) : [];
+      if (data?.google_account_id) {
+        return [data.google_account_id];
+      }
+      return [];
     } catch (error) {
       console.error('[SupabaseSubscriptionService] Error getting GBP IDs:', error);
       return [];

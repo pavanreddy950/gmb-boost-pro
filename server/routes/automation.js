@@ -348,16 +348,12 @@ function shouldTriggerHourlyPost(schedule, frequency, lastRun) {
     lastRun: lastRun || 'never'
   });
 
-  // For hourly: Check if we're in the scheduled minute window and haven't posted this hour
-  // For every2hours: Check if we're in the scheduled minute window and haven't posted in this 2-hour window
+  // Check if scheduled minute has passed this hour
+  // e.g., if schedule is 11:00 (minute 0) and current time is 11:12, scheduled time has passed
+  const scheduledMinutePassed = currentMinuteIst >= scheduleMinute;
 
-  // First, check if we're even close to the scheduled minute (within 5 min window)
-  const isInScheduledWindow = Math.abs(currentMinuteIst - scheduleMinute) <= 5 ||
-                               (scheduleMinute > 55 && currentMinuteIst < 5) ||
-                               (scheduleMinute < 5 && currentMinuteIst > 55);
-
-  if (!isInScheduledWindow) {
-    console.log(`[shouldTriggerHourlyPost] NOT in scheduled window. Current minute: ${currentMinuteIst}, Scheduled minute: ${scheduleMinute}`);
+  if (!scheduledMinutePassed) {
+    console.log(`[shouldTriggerHourlyPost] Scheduled minute not yet passed. Current: ${currentMinuteIst}, Scheduled: ${scheduleMinute}`);
     return false;
   }
 
@@ -392,8 +388,6 @@ function shouldTriggerHourlyPost(schedule, frequency, lastRun) {
 
   if (frequency === 'every2hours') {
     // For every 2 hours: Check if we're in the same 2-hour window
-    // If scheduled at 6 PM (:00 minute), windows are: 6-7, 8-9, 10-11, etc.
-    // If scheduled at 7 PM (:00 minute), windows are: 7-8, 9-10, 11-12, etc.
     const currentWindow = Math.floor(currentHourIst / 2);
     const lastRunWindow = Math.floor(lastRunHourIst / 2);
 

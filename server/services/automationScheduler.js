@@ -316,15 +316,9 @@ class AutomationScheduler {
           const currentHour = nowInIST.getHours();
           const currentMinute = nowInIST.getMinutes();
 
-          // Check if we're within 5 minutes of the scheduled minute
-          const isInScheduledWindow = Math.abs(currentMinute - scheduleMinute) <= 5 ||
-                                       (scheduleMinute > 55 && currentMinute < 5) ||
-                                       (scheduleMinute < 5 && currentMinute > 55);
-
-          if (!isInScheduledWindow) {
-            console.log(`  - Not in scheduled window (minute: ${currentMinute} vs ${scheduleMinute})`);
-            continue;
-          }
+          // For hourly: Check if scheduled minute has passed this hour
+          // e.g., if schedule is 11:00 (minute 0) and current time is 11:12, we should post
+          const scheduledMinutePassed = currentMinute >= scheduleMinute;
 
           // Check if we already posted in this time slot
           let alreadyPostedThisSlot = false;
@@ -334,18 +328,22 @@ class AutomationScheduler {
             const isSameDay = lastRunIST.toDateString() === nowInIST.toDateString();
 
             if (autoPosting.frequency === 'hourly') {
+              // Already posted this hour
               alreadyPostedThisSlot = isSameDay && lastRunHour === currentHour;
             } else if (autoPosting.frequency === 'every2hours') {
+              // Already posted in this 2-hour window
               const currentWindow = Math.floor(currentHour / 2);
               const lastRunWindow = Math.floor(lastRunHour / 2);
               alreadyPostedThisSlot = isSameDay && currentWindow === lastRunWindow;
             }
           }
 
-          console.log(`  - In scheduled window: ${isInScheduledWindow}`);
+          console.log(`  - Scheduled minute: ${scheduleMinute}, Current minute: ${currentMinute}`);
+          console.log(`  - Scheduled minute passed: ${scheduledMinutePassed}`);
           console.log(`  - Already posted this slot: ${alreadyPostedThisSlot}`);
 
-          if (isInScheduledWindow && !alreadyPostedThisSlot) {
+          // Post if: scheduled time has passed AND we haven't posted in this slot yet
+          if (scheduledMinutePassed && !alreadyPostedThisSlot) {
             // 🔒 DYNAMIC SUBSCRIPTION CHECK
             const targetUserId = autoPosting.userId || config.userId || 'default';
             const gbpAccountId = autoPosting.gbpAccountId || autoPosting.accountId || config.gbpAccountId;
