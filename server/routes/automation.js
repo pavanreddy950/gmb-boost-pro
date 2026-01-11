@@ -1239,19 +1239,31 @@ router.post('/global-time', async (req, res) => {
 
     const results = [];
 
-    // 🔥 Handle "today" and hourly frequencies - trigger immediate posts
-    // IMPORTANT: Only trigger immediate post if this is the FIRST time setting up hourly
-    // For subsequent API calls (like on login), we should NOT re-trigger posts
-    const isImmediatePost = frequency === 'today'; // Only "today" triggers immediate post unconditionally
-    const isHourlyFrequency = frequency === 'hourly' || frequency === 'every2hours';
-    const actualFrequency = frequency === 'today' ? 'daily' : frequency; // Store as 'daily' for "today", keep hourly as-is
+    // Check if scheduled time has already passed today
+    // If so, we should trigger an immediate post for new schedules
+    const hasScheduledTimePassed = () => {
+      const [scheduleHour, scheduleMinute] = schedule.split(':').map(Number);
+      const now = new Date();
+      // Get current time in IST
+      const IST_OFFSET_MS = (5 * 60 + 30) * 60 * 1000;
+      const nowIst = new Date(now.getTime() + IST_OFFSET_MS);
+      const currentHour = nowIst.getUTCHours();
+      const currentMinute = nowIst.getUTCMinutes();
 
-    if (isImmediatePost) {
-      console.log(`[Automation API] ⚡ IMMEDIATE POST requested (frequency: ${frequency}) - will post NOW for all locations`);
-    }
+      // If current time is past scheduled time, return true
+      if (currentHour > scheduleHour) return true;
+      if (currentHour === scheduleHour && currentMinute >= scheduleMinute) return true;
+      return false;
+    };
 
-    if (isHourlyFrequency) {
-      console.log(`[Automation API] 🕐 HOURLY frequency (${frequency}) - will check time-slot before posting`);
+    const scheduledTimePassed = hasScheduledTimePassed();
+    const actualFrequency = frequency;
+
+    console.log(`[Automation API] ⏰ Schedule: ${schedule}, Frequency: ${frequency}`);
+    console.log(`[Automation API] 📅 Scheduled time passed today: ${scheduledTimePassed}`);
+
+    if (scheduledTimePassed) {
+      console.log(`[Automation API] ⚡ Scheduled time has passed - will trigger immediate post for new/updated profiles`);
     }
 
     // 🔥 NEW: Query user_locations table using gmail_id (email)
@@ -1333,19 +1345,12 @@ router.post('/global-time', async (req, res) => {
               console.warn(`[Automation API] ⚠️ Cron warning for ${locationId}:`, cronError.message);
             }
 
-            // 🔥 If immediate post requested, trigger post NOW
-            let shouldPostNow = isImmediatePost;
-
-            // For hourly frequencies, check if we should post based on time slot
-            if (isHourlyFrequency) {
-              // Check last_post_date from database for this location
-              const lastPostDate = null; // New location, no last post
-              shouldPostNow = shouldTriggerHourlyPost(schedule, frequency, lastPostDate);
-              console.log(`[Automation API] 🕐 Hourly check for ${businessName}: shouldPost=${shouldPostNow}`);
-            }
+            // 🔥 If scheduled time has passed today, trigger post NOW for this new profile
+            // This is a NEW profile being added, so no need to check last_post_date
+            let shouldPostNow = scheduledTimePassed;
 
             if (shouldPostNow) {
-              console.log(`[Automation API] ⚡ Triggering IMMEDIATE post for ${businessName} (${locationId})`);
+              console.log(`[Automation API] ⚡ Scheduled time passed - triggering IMMEDIATE post for ${businessName} (${locationId})`);
               // Run async - don't wait for completion
               automationScheduler.triggerImmediatePost(locationId, userEmail, businessName).catch(err => {
                 console.error(`[Automation API] ❌ Immediate post failed for ${locationId}:`, err.message);
@@ -1425,21 +1430,25 @@ router.post('/global-time', async (req, res) => {
               }
             };
 
-            // 🔥 If immediate post requested, trigger post NOW
-            let shouldPostNow2 = isImmediatePost;
-
-            // For hourly frequencies, check if we should post based on time slot
-            if (isHourlyFrequency) {
-              const lastPostDate = config?.autoPosting?.lastRun || null;
-              shouldPostNow2 = shouldTriggerHourlyPost(schedule, frequency, lastPostDate);
-              console.log(`[Automation API] 🕐 Hourly check for ${businessName}: shouldPost=${shouldPostNow2}`);
+            // 🔥 If scheduled time has passed today, trigger post NOW
+            // Check if we already posted today before triggering
+            const lastPostDate = config?.autoPosting?.lastRun || null;
+            let alreadyPostedToday = false;
+            if (lastPostDate) {
+              const lastPost = new Date(lastPostDate);
+              const today = new Date();
+              alreadyPostedToday = lastPost.toDateString() === today.toDateString();
             }
 
+            let shouldPostNow2 = scheduledTimePassed && !alreadyPostedToday;
+
             if (shouldPostNow2) {
-              console.log(`[Automation API] ⚡ Triggering IMMEDIATE post for ${businessName} (${locationId})`);
+              console.log(`[Automation API] ⚡ Scheduled time passed - triggering IMMEDIATE post for ${businessName} (${locationId})`);
               automationScheduler.triggerImmediatePost(locationId, userEmail, businessName).catch(err => {
                 console.error(`[Automation API] ❌ Immediate post failed for ${locationId}:`, err.message);
               });
+            } else if (alreadyPostedToday) {
+              console.log(`[Automation API] ⏭️ Already posted today for ${businessName} - skipping immediate post`);
             }
 
             console.log(`[Automation API] ✅ Inserted & updated ${businessName} (${locationId})`);
@@ -1507,22 +1516,25 @@ router.post('/global-time', async (req, res) => {
             console.warn(`[Automation API] ⚠️ Cron reschedule warning for ${locationId}:`, cronError.message);
           }
 
-          // 🔥 If immediate post requested, trigger post NOW
-          let shouldPostNow3 = isImmediatePost;
-
-          // For hourly frequencies, check if we should post based on time slot
-          if (isHourlyFrequency) {
-            // Use last_post_date from database
-            const lastPostDate = location.last_post_date || null;
-            shouldPostNow3 = shouldTriggerHourlyPost(schedule, frequency, lastPostDate);
-            console.log(`[Automation API] 🕐 Hourly check for ${businessName}: shouldPost=${shouldPostNow3}, lastPost=${lastPostDate || 'never'}`);
+          // 🔥 If scheduled time has passed today, trigger post NOW
+          // Check if we already posted today before triggering
+          const lastPostDate3 = location.last_post_date || null;
+          let alreadyPostedToday3 = false;
+          if (lastPostDate3) {
+            const lastPost = new Date(lastPostDate3);
+            const today = new Date();
+            alreadyPostedToday3 = lastPost.toDateString() === today.toDateString();
           }
 
+          let shouldPostNow3 = scheduledTimePassed && !alreadyPostedToday3;
+
           if (shouldPostNow3) {
-            console.log(`[Automation API] ⚡ Triggering IMMEDIATE post for ${businessName} (${locationId})`);
+            console.log(`[Automation API] ⚡ Scheduled time passed - triggering IMMEDIATE post for ${businessName} (${locationId})`);
             automationScheduler.triggerImmediatePost(locationId, userEmail, businessName).catch(err => {
               console.error(`[Automation API] ❌ Immediate post failed for ${locationId}:`, err.message);
             });
+          } else if (alreadyPostedToday3) {
+            console.log(`[Automation API] ⏭️ Already posted today for ${businessName} - skipping immediate post`);
           }
 
           console.log(`[Automation API] ✅ Updated ${businessName} (${locationId}) to post at ${schedule} (${actualFrequency})${shouldPostNow3 ? ' + IMMEDIATE POST' : ''}`);

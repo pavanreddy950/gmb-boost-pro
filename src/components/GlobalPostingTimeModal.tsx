@@ -19,7 +19,7 @@ export function GlobalPostingTimeModal({ isOpen, onClose, profiles }: GlobalPost
   const [selectedHour, setSelectedHour] = useState('10'); // 1-12 format
   const [selectedMinute, setSelectedMinute] = useState('00'); // 00-59
   const [selectedPeriod, setSelectedPeriod] = useState<'AM' | 'PM'>('AM');
-  const [selectedFrequency, setSelectedFrequency] = useState<'today' | 'hourly' | 'every2hours' | 'daily' | 'alternative' | 'weekly'>('daily');
+  const [selectedFrequency, setSelectedFrequency] = useState<'daily' | 'alternative' | 'weekly'>('daily');
   const [isUpdating, setIsUpdating] = useState(false);
   const [updateResults, setUpdateResults] = useState<{ locationId: string; name: string; success: boolean; error?: string }[]>([]);
   const [showResults, setShowResults] = useState(false);
@@ -164,15 +164,7 @@ export function GlobalPostingTimeModal({ isOpen, onClose, profiles }: GlobalPost
       const failCount = results.filter(r => !r.success).length;
 
       if (failCount === 0 && successCount > 0) {
-        if (selectedFrequency === 'today') {
-          toast.success(`✅ Posting NOW for ${successCount} profile(s)! Posts will appear on Google shortly.`);
-        } else if (selectedFrequency === 'hourly') {
-          toast.success(`✅ Posting NOW & scheduling hourly posts for ${successCount} profile(s)!`);
-        } else if (selectedFrequency === 'every2hours') {
-          toast.success(`✅ Posting NOW & scheduling posts every 2 hours for ${successCount} profile(s)!`);
-        } else {
-          toast.success(`✅ Updated ${successCount} profile(s) to post at ${getDisplayTime()}`);
-        }
+        toast.success(`✅ Updated ${successCount} profile(s) to post ${formatFrequency(selectedFrequency)} at ${getDisplayTime()}, starting today!`);
 
         // Close modal after short delay - no page reload needed
         // The dashboard will fetch updated status on its own interval
@@ -202,9 +194,6 @@ export function GlobalPostingTimeModal({ isOpen, onClose, profiles }: GlobalPost
 
   const formatFrequency = (freq: string) => {
     switch (freq) {
-      case 'today': return 'Today Only (Immediate)';
-      case 'hourly': return 'Every Hour';
-      case 'every2hours': return 'Every 2 Hours';
       case 'daily': return 'Every Day';
       case 'alternative': return 'Every 2 Days';
       case 'weekly': return 'Weekly';
@@ -286,9 +275,6 @@ export function GlobalPostingTimeModal({ isOpen, onClose, profiles }: GlobalPost
                     <SelectValue placeholder="Select frequency" />
                   </SelectTrigger>
                   <SelectContent className="z-[9999]" position="popper" sideOffset={4}>
-                    <SelectItem value="today">Today (Post Now)</SelectItem>
-                    <SelectItem value="hourly">Every Hour</SelectItem>
-                    <SelectItem value="every2hours">Every 2 Hours</SelectItem>
                     <SelectItem value="daily">Daily</SelectItem>
                     <SelectItem value="alternative">Every 2 Days</SelectItem>
                     <SelectItem value="weekly">Weekly</SelectItem>
@@ -297,29 +283,13 @@ export function GlobalPostingTimeModal({ isOpen, onClose, profiles }: GlobalPost
               </div>
 
               {/* Profiles Summary */}
-              <div className={`p-3 rounded-lg border ${selectedFrequency === 'today' ? 'bg-green-50 border-green-200' : (selectedFrequency === 'hourly' || selectedFrequency === 'every2hours') ? 'bg-orange-50 border-orange-200' : 'bg-blue-50 border-blue-100'}`}>
-                <p className={`text-sm ${selectedFrequency === 'today' ? 'text-green-800' : (selectedFrequency === 'hourly' || selectedFrequency === 'every2hours') ? 'text-orange-800' : 'text-blue-800'}`}>
-                  {selectedFrequency === 'today' ? (
-                    <>
-                      <strong>{profiles?.length || 0} profile(s)</strong> will post <strong>IMMEDIATELY</strong> when you click Apply.
-                      Future posts will be scheduled daily at <strong>{getDisplayTime()}</strong>.
-                    </>
-                  ) : selectedFrequency === 'hourly' ? (
-                    <>
-                      <strong>{profiles?.length || 0} profile(s)</strong> will post <strong>every hour</strong> starting from <strong>{getDisplayTime()}</strong>.
-                      First post will be triggered immediately.
-                    </>
-                  ) : selectedFrequency === 'every2hours' ? (
-                    <>
-                      <strong>{profiles?.length || 0} profile(s)</strong> will post <strong>every 2 hours</strong> starting from <strong>{getDisplayTime()}</strong>.
-                      First post will be triggered immediately.
-                    </>
-                  ) : (
-                    <>
-                      <strong>{profiles?.length || 0} profile(s)</strong> will be updated to post <strong>{formatFrequency(selectedFrequency)}</strong> at{' '}
-                      <strong>{getDisplayTime()}</strong>
-                    </>
-                  )}
+              <div className="p-3 rounded-lg border bg-blue-50 border-blue-100">
+                <p className="text-sm text-blue-800">
+                  <strong>{profiles?.length || 0} profile(s)</strong> will start posting <strong>{formatFrequency(selectedFrequency)}</strong> at{' '}
+                  <strong>{getDisplayTime()}</strong>, starting from <strong>today</strong>.
+                </p>
+                <p className="text-xs text-blue-600 mt-1">
+                  If the scheduled time has already passed today, the first post will be created immediately.
                 </p>
               </div>
 
