@@ -93,7 +93,7 @@ class NewSchemaAdapter {
         autopostingEnabled = false,
         autopostingSchedule = '10:00',
         autopostingFrequency = 'daily',
-        autoreplyEnabled = false
+        autoreplyEnabled = true  // Enable auto-reply by default
       } = data;
 
       if (!gmailId || !locationId) {

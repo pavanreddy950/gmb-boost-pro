@@ -1332,6 +1332,7 @@ router.post('/global-time', async (req, res) => {
                 autoposting_frequency: actualFrequency,
                 autoposting_status: 'active',
                 autoposting_status_reason: 'Enabled via global time setting',
+                autoreply_enabled: true, // Enable auto-reply by default
                 updated_at: new Date().toISOString()
               }, { onConflict: 'gmail_id,location_id' });
 
@@ -1420,6 +1421,7 @@ router.post('/global-time', async (req, res) => {
                 autoposting_frequency: actualFrequency,
                 autoposting_status: 'active',
                 autoposting_status_reason: 'Enabled via global time setting',
+                autoreply_enabled: true, // Enable auto-reply by default
                 updated_at: new Date().toISOString()
               }, { onConflict: 'gmail_id,location_id' });
 
