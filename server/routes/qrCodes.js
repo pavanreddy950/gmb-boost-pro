@@ -11,13 +11,19 @@ const router = express.Router();
 router.get('/', async (req, res) => {
   try {
     const { userId } = req.query;
+    console.log(`[QR Codes] 📥 GET /api/qr-codes - userId: ${userId || 'NOT PROVIDED'}`);
+
     if (!userId) {
+      console.warn(`[QR Codes] ⚠️ No userId provided in request`);
       return res.status(400).json({ error: 'userId is required' });
     }
+
     const qrCodes = await supabaseQRCodeService.getQRCodesForUser(userId);
+    console.log(`[QR Codes] 📤 Returning ${qrCodes.length} QR codes for user: ${userId}`);
+
     res.json({ qrCodes });
   } catch (error) {
-    console.error('Error fetching QR codes:', error);
+    console.error('[QR Codes] ❌ Error fetching QR codes:', error);
     res.status(500).json({ error: 'Failed to fetch QR codes' });
   }
 });
@@ -46,9 +52,17 @@ router.get('/:locationId', async (req, res) => {
 // Create/Save QR code for location
 router.post('/', async (req, res) => {
   try {
-    const { locationId, locationName, address, placeId, googleReviewLink, keywords, userId, gbpAccountId, forceRefresh } = req.body;
+    const { locationId, locationName, address, placeId, googleReviewLink, keywords, userId, gbpAccountId, forceRefresh, qrCodeUrl, publicReviewUrl } = req.body;
+
+    console.log(`[QR Codes] 📥 POST /api/qr-codes received:`);
+    console.log(`[QR Codes] 📍 Location: ${locationId} (${locationName})`);
+    console.log(`[QR Codes] 👤 User ID: ${userId || 'NOT PROVIDED'}`);
+    console.log(`[QR Codes] 🏢 GBP Account: ${gbpAccountId || 'NOT PROVIDED'}`);
+    console.log(`[QR Codes] 🔗 Google Review Link: ${googleReviewLink ? 'YES' : 'NO'}`);
+    console.log(`[QR Codes] 🔄 Force Refresh: ${forceRefresh ? 'YES' : 'NO'}`);
 
     if (!locationId || !locationName || !googleReviewLink) {
+      console.error(`[QR Codes] ❌ Missing required fields - locationId: ${!!locationId}, locationName: ${!!locationName}, googleReviewLink: ${!!googleReviewLink}`);
       return res.status(400).json({
         error: 'Missing required fields: locationId, locationName, googleReviewLink'
       });
@@ -86,6 +100,7 @@ router.post('/', async (req, res) => {
       console.log(`[QR Codes] ♻️ QR code already exists for ${locationName}, updating keywords: "${keywords || 'none'}"`);
 
       // Update only the keywords and other changed fields
+      // IMPORTANT: Preserve the userId if not provided in the request
       existingQR.keywords = keywords || '';
       existingQR.googleReviewLink = googleReviewLink;
       existingQR.reviewLink = googleReviewLink;
@@ -93,6 +108,10 @@ router.post('/', async (req, res) => {
       existingQR.address = address || '';
       existingQR.placeId = placeId || '';
       existingQR.code = locationId;
+      // Preserve or update userId
+      if (userId) {
+        existingQR.userId = userId;
+      }
 
       await supabaseQRCodeService.saveQRCode(existingQR);
 

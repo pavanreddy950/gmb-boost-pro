@@ -32,16 +32,26 @@ class SupabaseQRCodeService {
     try {
       await this.initialize();
 
+      console.log(`[SupabaseQRCodeService] 📦 Saving QR code for location: ${qrCodeData.code || qrCodeData.locationId}`);
+      console.log(`[SupabaseQRCodeService] 👤 User ID: ${qrCodeData.userId || 'NOT PROVIDED'}`);
+      console.log(`[SupabaseQRCodeService] 📧 Gmail ID: ${qrCodeData.gmailId || qrCodeData.email || 'NOT PROVIDED'}`);
+
+      // Ensure we have a valid code (use locationId as fallback)
+      const code = qrCodeData.code || qrCodeData.locationId;
+      if (!code) {
+        throw new Error('Missing required field: code/locationId');
+      }
+
       const record = {
-        code: qrCodeData.code,
-        location_id: qrCodeData.locationId,
+        code: code,
+        location_id: qrCodeData.locationId || code,
         location_name: qrCodeData.locationName || null,
         address: qrCodeData.address || null,
-        user_id: qrCodeData.userId,
-        gmail_id: qrCodeData.gmailId || qrCodeData.email || null, // NEW: Support gmail_id for new schema
+        user_id: qrCodeData.userId || 'anonymous',
+        gmail_id: qrCodeData.gmailId || qrCodeData.email || null,
         place_id: qrCodeData.placeId || null,
         qr_data_url: qrCodeData.qrDataUrl || null,
-        review_link: qrCodeData.reviewLink || null,
+        review_link: qrCodeData.reviewLink || qrCodeData.googleReviewLink || null,
         public_review_url: qrCodeData.publicReviewUrl || null,
         keywords: qrCodeData.keywords || null,
         business_category: qrCodeData.businessCategory || null,
@@ -51,16 +61,31 @@ class SupabaseQRCodeService {
         updated_at: new Date().toISOString()
       };
 
-      const { error } = await this.client
+      console.log(`[SupabaseQRCodeService] 📝 Record to save:`, JSON.stringify({
+        code: record.code,
+        location_id: record.location_id,
+        user_id: record.user_id,
+        gmail_id: record.gmail_id,
+        hasQrDataUrl: !!record.qr_data_url,
+        hasReviewLink: !!record.review_link
+      }));
+
+      const { data, error } = await this.client
         .from('qr_codes')
-        .upsert(record, { onConflict: 'code' });
+        .upsert(record, { onConflict: 'code' })
+        .select();
 
-      if (error) throw error;
+      if (error) {
+        console.error(`[SupabaseQRCodeService] ❌ Database error:`, error);
+        throw error;
+      }
 
-      console.log(`[SupabaseQRCodeService] ✅ Saved QR code: ${qrCodeData.code} (${qrCodeData.locationName || 'Unknown'}) with keywords: "${qrCodeData.keywords || 'none'}"`);
+      console.log(`[SupabaseQRCodeService] ✅ Saved QR code: ${code} (${qrCodeData.locationName || 'Unknown'}) with keywords: "${qrCodeData.keywords || 'none'}"`);
+      console.log(`[SupabaseQRCodeService] 📊 Upsert result:`, data ? 'Success' : 'No data returned');
+
       return qrCodeData;
     } catch (error) {
-      console.error('[SupabaseQRCodeService] Error saving QR code:', error);
+      console.error('[SupabaseQRCodeService] ❌ Error saving QR code:', error);
       throw error;
     }
   }
@@ -92,18 +117,41 @@ class SupabaseQRCodeService {
 
   /**
    * Get all QR codes for user
+   * Searches by BOTH user_id (Firebase UID) and gmail_id (email) for maximum compatibility
    */
   async getQRCodesForUser(userId) {
     try {
       await this.initialize();
 
-      const { data, error } = await this.client
+      console.log(`[SupabaseQRCodeService] 🔍 Getting QR codes for user: ${userId}`);
+
+      // Try to find QR codes by user_id first
+      let { data, error } = await this.client
         .from('qr_codes')
         .select('*')
         .eq('user_id', userId)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
+
+      // If no results by user_id, try gmail_id (for email-based lookups)
+      if (!data || data.length === 0) {
+        console.log(`[SupabaseQRCodeService] No QR codes found by user_id, trying gmail_id...`);
+        const { data: gmailData, error: gmailError } = await this.client
+          .from('qr_codes')
+          .select('*')
+          .ilike('gmail_id', userId)
+          .order('created_at', { ascending: false });
+
+        if (gmailError) {
+          console.error('[SupabaseQRCodeService] Error querying by gmail_id:', gmailError);
+        } else if (gmailData && gmailData.length > 0) {
+          data = gmailData;
+          console.log(`[SupabaseQRCodeService] ✅ Found ${data.length} QR codes by gmail_id`);
+        }
+      } else {
+        console.log(`[SupabaseQRCodeService] ✅ Found ${data.length} QR codes by user_id`);
+      }
 
       return (data || []).map(qr => this.formatQRCode(qr));
     } catch (error) {

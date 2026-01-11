@@ -522,6 +522,16 @@ const AskForReviews = () => {
         const userId = googleBusinessProfileService.getUserId();
         const gbpAccountId = location.accountId;
 
+        console.log('📦 Saving QR code for location:', location.locationId);
+        console.log('📦 User ID:', userId || 'NOT AVAILABLE');
+        console.log('📦 GBP Account ID:', gbpAccountId || 'NOT AVAILABLE');
+        console.log('📦 Keywords:', keywords || 'NONE');
+        console.log('📦 Force Refresh:', forceRefresh ? 'YES' : 'NO');
+
+        if (!userId) {
+          console.warn('⚠️ No userId available - QR code may not be retrievable later');
+        }
+
         const qrData = {
           locationId: location.locationId,
           locationName: location.displayName,
@@ -537,21 +547,35 @@ const AskForReviews = () => {
           createdAt: new Date().toISOString()
         };
 
-        console.log('📦 Saving QR code for location:', location.locationId);
-        console.log('📦 Keywords:', keywords || 'NONE');
-        console.log('📦 Force Refresh:', forceRefresh ? 'YES' : 'NO');
-
-        await fetch(`${backendUrl}/api/qr-codes`, {
+        const saveResponse = await fetch(`${backendUrl}/api/qr-codes`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(qrData)
         });
-        
+
+        if (!saveResponse.ok) {
+          const errorData = await saveResponse.json();
+          console.error('❌ Failed to save QR code:', errorData);
+          toast({
+            title: "Warning",
+            description: "QR code generated but failed to save to database. It may not appear in your list.",
+            variant: "destructive"
+          });
+        } else {
+          const savedData = await saveResponse.json();
+          console.log('✅ QR code saved successfully:', savedData);
+        }
+
         // Reload existing QR codes to show the new one
         await loadExistingQRCodes();
-        
+
       } catch (saveError) {
-        console.warn('Failed to save QR code data:', saveError);
+        console.error('❌ Failed to save QR code data:', saveError);
+        toast({
+          title: "Warning",
+          description: "QR code generated but failed to save. Please try regenerating.",
+          variant: "destructive"
+        });
       }
       
       console.log('✅ QR code generated successfully');
