@@ -265,58 +265,97 @@ router.get('/next-post-time/:locationId', async (req, res) => {
 function calculateNextPostTime(schedule, frequency, lastRun) {
   if (!schedule) return null;
 
-  const [hours, minutes] = schedule.split(':').map(Number);
+  const [scheduleHours, scheduleMinutes] = schedule.split(':').map(Number);
   const now = new Date();
 
-  // IST offset is +5:30 from UTC (in milliseconds)
-  const IST_OFFSET_MS = (5 * 60 + 30) * 60 * 1000;
+  // IST offset is +5:30 from UTC
+  const IST_OFFSET_HOURS = 5;
+  const IST_OFFSET_MINUTES = 30;
 
-  // Get current UTC time
-  const nowUtc = now.getTime();
+  // Get current time in IST
+  const nowIstHours = (now.getUTCHours() + IST_OFFSET_HOURS + Math.floor((now.getUTCMinutes() + IST_OFFSET_MINUTES) / 60)) % 24;
+  const nowIstMinutes = (now.getUTCMinutes() + IST_OFFSET_MINUTES) % 60;
 
-  // Convert to IST for date calculations
-  const nowIst = new Date(nowUtc + IST_OFFSET_MS);
+  // Get today's date in IST
+  const istDateAdjust = (now.getUTCHours() + IST_OFFSET_HOURS + Math.floor((now.getUTCMinutes() + IST_OFFSET_MINUTES) / 60)) >= 24 ? 1 : 0;
+  const nowIstDate = now.getUTCDate() + istDateAdjust;
+  const nowIstMonth = now.getUTCMonth();
+  const nowIstYear = now.getUTCFullYear();
 
-  // Create scheduled time for today in IST (as UTC Date with IST values for calculation)
-  const scheduledIst = new Date(nowIst);
-  scheduledIst.setUTCHours(hours, minutes, 0, 0);
+  console.log(`[calculateNextPostTime] Current IST: ${nowIstHours}:${nowIstMinutes.toString().padStart(2, '0')}, Schedule: ${schedule}`);
 
   // Check if we already posted today (in IST)
   const lastRunDate = lastRun ? new Date(lastRun) : null;
   let alreadyPostedToday = false;
 
   if (lastRunDate) {
-    const lastRunUtc = lastRunDate.getTime();
-    const lastRunIst = new Date(lastRunUtc + IST_OFFSET_MS);
+    const lastRunIstHours = (lastRunDate.getUTCHours() + IST_OFFSET_HOURS + Math.floor((lastRunDate.getUTCMinutes() + IST_OFFSET_MINUTES) / 60)) % 24;
+    const lastRunDateAdjust = (lastRunDate.getUTCHours() + IST_OFFSET_HOURS + Math.floor((lastRunDate.getUTCMinutes() + IST_OFFSET_MINUTES) / 60)) >= 24 ? 1 : 0;
+    const lastRunIstDate = lastRunDate.getUTCDate() + lastRunDateAdjust;
+    const lastRunIstMonth = lastRunDate.getUTCMonth();
+    const lastRunIstYear = lastRunDate.getUTCFullYear();
 
     alreadyPostedToday =
-      lastRunIst.getUTCDate() === nowIst.getUTCDate() &&
-      lastRunIst.getUTCMonth() === nowIst.getUTCMonth() &&
-      lastRunIst.getUTCFullYear() === nowIst.getUTCFullYear();
+      lastRunIstDate === nowIstDate &&
+      lastRunIstMonth === nowIstMonth &&
+      lastRunIstYear === nowIstYear;
   }
+
+  // Convert schedule time (IST) to total minutes for comparison
+  const scheduleTotalMinutes = scheduleHours * 60 + scheduleMinutes;
+  const nowTotalMinutes = nowIstHours * 60 + nowIstMinutes;
+
+  // Has today's scheduled time passed?
+  const scheduledTimePassed = nowTotalMinutes >= scheduleTotalMinutes;
+
+  console.log(`[calculateNextPostTime] Schedule: ${scheduleTotalMinutes}min, Now: ${nowTotalMinutes}min, Passed: ${scheduledTimePassed}, AlreadyPosted: ${alreadyPostedToday}`);
+
+  // Calculate days to add based on frequency and whether we already posted/time passed
+  let daysToAdd = 0;
 
   if (frequency === 'daily') {
     // If scheduled time passed OR already posted today, move to tomorrow
-    if (scheduledIst <= nowIst || alreadyPostedToday) {
-      scheduledIst.setUTCDate(scheduledIst.getUTCDate() + 1);
+    if (scheduledTimePassed || alreadyPostedToday) {
+      daysToAdd = 1;
     }
   } else if (frequency === 'alternative' || frequency === 'every_2_days') {
     // Every 2 days
-    if (scheduledIst <= nowIst || alreadyPostedToday) {
-      scheduledIst.setUTCDate(scheduledIst.getUTCDate() + 2);
+    if (scheduledTimePassed || alreadyPostedToday) {
+      daysToAdd = 2;
     }
   } else if (frequency === 'weekly') {
     // Weekly
-    if (scheduledIst <= nowIst || alreadyPostedToday) {
-      scheduledIst.setUTCDate(scheduledIst.getUTCDate() + 7);
+    if (scheduledTimePassed || alreadyPostedToday) {
+      daysToAdd = 7;
     }
   }
 
-  // Convert scheduled IST time back to actual UTC
-  // scheduledIst contains IST values stored as UTC, so subtract IST offset to get real UTC
-  const scheduledUtc = new Date(scheduledIst.getTime() - IST_OFFSET_MS);
+  // Create the target date in IST, then convert to UTC
+  // Start with today's date at midnight UTC
+  const targetDate = new Date(Date.UTC(nowIstYear, nowIstMonth, nowIstDate + daysToAdd, 0, 0, 0, 0));
 
-  return scheduledUtc;
+  // Set the schedule time in IST, then subtract IST offset to get UTC
+  // Schedule is in IST, so we need to convert: UTC = IST - 5:30
+  let targetUtcHours = scheduleHours - IST_OFFSET_HOURS;
+  let targetUtcMinutes = scheduleMinutes - IST_OFFSET_MINUTES;
+
+  // Handle minute underflow
+  if (targetUtcMinutes < 0) {
+    targetUtcMinutes += 60;
+    targetUtcHours -= 1;
+  }
+
+  // Handle hour underflow (previous day)
+  if (targetUtcHours < 0) {
+    targetUtcHours += 24;
+    targetDate.setUTCDate(targetDate.getUTCDate() - 1);
+  }
+
+  targetDate.setUTCHours(targetUtcHours, targetUtcMinutes, 0, 0);
+
+  console.log(`[calculateNextPostTime] Next post: ${targetDate.toISOString()} (IST: ${targetDate.toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })})`);
+
+  return targetDate;
 }
 
 /**
@@ -1238,33 +1277,9 @@ router.post('/global-time', async (req, res) => {
     console.log(`[Automation API] ✅ User has valid subscription: ${subscriptionCheck.status}`);
 
     const results = [];
-
-    // Check if scheduled time has already passed today
-    // If so, we should trigger an immediate post for new schedules
-    const hasScheduledTimePassed = () => {
-      const [scheduleHour, scheduleMinute] = schedule.split(':').map(Number);
-      const now = new Date();
-      // Get current time in IST
-      const IST_OFFSET_MS = (5 * 60 + 30) * 60 * 1000;
-      const nowIst = new Date(now.getTime() + IST_OFFSET_MS);
-      const currentHour = nowIst.getUTCHours();
-      const currentMinute = nowIst.getUTCMinutes();
-
-      // If current time is past scheduled time, return true
-      if (currentHour > scheduleHour) return true;
-      if (currentHour === scheduleHour && currentMinute >= scheduleMinute) return true;
-      return false;
-    };
-
-    const scheduledTimePassed = hasScheduledTimePassed();
     const actualFrequency = frequency;
 
     console.log(`[Automation API] ⏰ Schedule: ${schedule}, Frequency: ${frequency}`);
-    console.log(`[Automation API] 📅 Scheduled time passed today: ${scheduledTimePassed}`);
-
-    if (scheduledTimePassed) {
-      console.log(`[Automation API] ⚡ Scheduled time has passed - will trigger immediate post for new/updated profiles`);
-    }
 
     // 🔥 NEW: Query user_locations table using gmail_id (email)
     const { data: userLocations, error: dbError } = await supabase
@@ -1345,20 +1360,8 @@ router.post('/global-time', async (req, res) => {
               console.warn(`[Automation API] ⚠️ Cron warning for ${locationId}:`, cronError.message);
             }
 
-            // 🔥 If scheduled time has passed today, trigger post NOW for this new profile
-            // This is a NEW profile being added, so no need to check last_post_date
-            let shouldPostNow = scheduledTimePassed;
-
-            if (shouldPostNow) {
-              console.log(`[Automation API] ⚡ Scheduled time passed - triggering IMMEDIATE post for ${businessName} (${locationId})`);
-              // Run async - don't wait for completion
-              automationScheduler.triggerImmediatePost(locationId, userEmail, businessName).catch(err => {
-                console.error(`[Automation API] ❌ Immediate post failed for ${locationId}:`, err.message);
-              });
-            }
-
             console.log(`[Automation API] ✅ Inserted & scheduled ${businessName} (${locationId})`);
-            results.push({ locationId, businessName, success: true, immediatePost: shouldPostNow });
+            results.push({ locationId, businessName, success: true });
           } catch (error) {
             console.error(`[Automation API] ❌ Error for ${locationId}:`, error);
             results.push({ locationId, businessName, success: false, error: error.message });
@@ -1430,29 +1433,8 @@ router.post('/global-time', async (req, res) => {
               }
             };
 
-            // 🔥 If scheduled time has passed today, trigger post NOW
-            // Check if we already posted today before triggering
-            const lastPostDate = config?.autoPosting?.lastRun || null;
-            let alreadyPostedToday = false;
-            if (lastPostDate) {
-              const lastPost = new Date(lastPostDate);
-              const today = new Date();
-              alreadyPostedToday = lastPost.toDateString() === today.toDateString();
-            }
-
-            let shouldPostNow2 = scheduledTimePassed && !alreadyPostedToday;
-
-            if (shouldPostNow2) {
-              console.log(`[Automation API] ⚡ Scheduled time passed - triggering IMMEDIATE post for ${businessName} (${locationId})`);
-              automationScheduler.triggerImmediatePost(locationId, userEmail, businessName).catch(err => {
-                console.error(`[Automation API] ❌ Immediate post failed for ${locationId}:`, err.message);
-              });
-            } else if (alreadyPostedToday) {
-              console.log(`[Automation API] ⏭️ Already posted today for ${businessName} - skipping immediate post`);
-            }
-
             console.log(`[Automation API] ✅ Inserted & updated ${businessName} (${locationId})`);
-            results.push({ locationId, businessName, success: true, immediatePost: shouldPostNow2 });
+            results.push({ locationId, businessName, success: true });
           } catch (error) {
             results.push({ locationId, businessName, success: false, error: error.message });
           }
@@ -1516,29 +1498,8 @@ router.post('/global-time', async (req, res) => {
             console.warn(`[Automation API] ⚠️ Cron reschedule warning for ${locationId}:`, cronError.message);
           }
 
-          // 🔥 If scheduled time has passed today, trigger post NOW
-          // Check if we already posted today before triggering
-          const lastPostDate3 = location.last_post_date || null;
-          let alreadyPostedToday3 = false;
-          if (lastPostDate3) {
-            const lastPost = new Date(lastPostDate3);
-            const today = new Date();
-            alreadyPostedToday3 = lastPost.toDateString() === today.toDateString();
-          }
-
-          let shouldPostNow3 = scheduledTimePassed && !alreadyPostedToday3;
-
-          if (shouldPostNow3) {
-            console.log(`[Automation API] ⚡ Scheduled time passed - triggering IMMEDIATE post for ${businessName} (${locationId})`);
-            automationScheduler.triggerImmediatePost(locationId, userEmail, businessName).catch(err => {
-              console.error(`[Automation API] ❌ Immediate post failed for ${locationId}:`, err.message);
-            });
-          } else if (alreadyPostedToday3) {
-            console.log(`[Automation API] ⏭️ Already posted today for ${businessName} - skipping immediate post`);
-          }
-
-          console.log(`[Automation API] ✅ Updated ${businessName} (${locationId}) to post at ${schedule} (${actualFrequency})${shouldPostNow3 ? ' + IMMEDIATE POST' : ''}`);
-          results.push({ locationId, businessName, success: true, immediatePost: shouldPostNow3 });
+          console.log(`[Automation API] ✅ Updated ${businessName} (${locationId}) to post at ${schedule} (${actualFrequency})`);
+          results.push({ locationId, businessName, success: true });
         } catch (error) {
           console.error(`[Automation API] ❌ Failed to update ${locationId}:`, error);
           results.push({ locationId, businessName, success: false, error: error.message || 'Unknown error' });

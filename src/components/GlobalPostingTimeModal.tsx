@@ -288,9 +288,6 @@ export function GlobalPostingTimeModal({ isOpen, onClose, profiles }: GlobalPost
                   <strong>{profiles?.length || 0} profile(s)</strong> will start posting <strong>{formatFrequency(selectedFrequency)}</strong> at{' '}
                   <strong>{getDisplayTime()}</strong>, starting from <strong>today</strong>.
                 </p>
-                <p className="text-xs text-blue-600 mt-1">
-                  If the scheduled time has already passed today, the first post will be created immediately.
-                </p>
               </div>
 
               {/* Action Buttons */}
