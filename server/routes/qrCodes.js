@@ -52,7 +52,7 @@ router.get('/:locationId', async (req, res) => {
 // Create/Save QR code for location
 router.post('/', async (req, res) => {
   try {
-    const { locationId, locationName, address, placeId, googleReviewLink, keywords, userId, gbpAccountId, forceRefresh, qrCodeUrl, publicReviewUrl } = req.body;
+    const { locationId, locationName, address, placeId, googleReviewLink, keywords, userId, gbpAccountId, forceRefresh } = req.body;
 
     console.log(`[QR Codes] 📥 POST /api/qr-codes received:`);
     console.log(`[QR Codes] 📍 Location: ${locationId} (${locationName})`);
