@@ -4748,7 +4748,7 @@ async function initializeServer() {
 
 // Start the server
 initializeServer().then(() => {
-  app.listen(PORT, () => {
+  app.listen(PORT, '0.0.0.0', () => {
     const summary = config.getSummary();
     console.log(`🚀 Backend server running on ${config.backendUrl}`);
     console.log(`🏗️ Configuration Mode: ${summary.mode} (${summary.environment})`);
