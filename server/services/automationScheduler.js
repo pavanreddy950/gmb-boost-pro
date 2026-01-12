@@ -280,35 +280,47 @@ class AutomationScheduler {
         const scheduleTime = autoPosting.schedule || '10:00';
         const [scheduleHour, scheduleMinute] = scheduleTime.split(':').map(Number);
 
-        // Check if we already posted today (in IST)
-        let postedToday = false;
-        let lastRunISTDateStr = 'NEVER';
-        if (lastRun) {
-          // Convert lastRun to IST
-          const lastRunISTMillis = lastRun.getTime() + istOffset;
-          const lastRunIST = new Date(lastRunISTMillis);
-          lastRunISTDateStr = lastRunIST.toISOString().split('T')[0];
-          postedToday = lastRunISTDateStr === currentISTDateStr;
-        }
-
         // Check if schedule time has passed today
         const currentMinutesFromMidnight = currentISTHour * 60 + currentISTMinute;
         const scheduleMinutesFromMidnight = scheduleHour * 60 + scheduleMinute;
         const isScheduleTimePassed = currentMinutesFromMidnight >= scheduleMinutesFromMidnight;
 
+        // Check if we already posted FOR THIS SCHEDULE SLOT today (in IST)
+        // A post counts as "done for this slot" only if:
+        // 1. It was posted today (same IST date), AND
+        // 2. It was posted AT or AFTER the current schedule time
+        let postedForThisSlot = false;
+        let lastRunISTDateStr = 'NEVER';
+        let lastRunISTTimeStr = 'NEVER';
+        if (lastRun) {
+          // Convert lastRun to IST
+          const lastRunISTMillis = lastRun.getTime() + istOffset;
+          const lastRunIST = new Date(lastRunISTMillis);
+          lastRunISTDateStr = lastRunIST.toISOString().split('T')[0];
+          const lastRunISTHour = lastRunIST.getUTCHours();
+          const lastRunISTMinute = lastRunIST.getUTCMinutes();
+          lastRunISTTimeStr = lastRunISTHour + ':' + lastRunISTMinute.toString().padStart(2, '0');
+          const lastRunMinutesFromMidnight = lastRunISTHour * 60 + lastRunISTMinute;
+
+          // Posted for this slot = same day AND posted at/after schedule time
+          const isSameDay = lastRunISTDateStr === currentISTDateStr;
+          const postedAtOrAfterSchedule = lastRunMinutesFromMidnight >= scheduleMinutesFromMidnight;
+          postedForThisSlot = isSameDay && postedAtOrAfterSchedule;
+        }
+
         console.log(`[AutomationScheduler] 📊 Location ${locationId} (${autoPosting.businessName || 'Unknown'}):`);
         console.log(`  - Configured schedule: ${scheduleTime} IST`);
-        console.log(`  - Current IST date: ${currentISTDateStr}, time: ${currentISTHour}:${currentISTMinute.toString().padStart(2, '0')}`);
+        console.log(`  - Current IST: ${currentISTDateStr} ${currentISTHour}:${currentISTMinute.toString().padStart(2, '0')}`);
         console.log(`  - Last run (UTC): ${lastRun ? lastRun.toISOString() : 'NEVER'}`);
-        console.log(`  - Last run (IST date): ${lastRunISTDateStr}`);
-        console.log(`  - Already posted today (IST): ${postedToday} (${lastRunISTDateStr} === ${currentISTDateStr})`);
+        console.log(`  - Last run (IST): ${lastRunISTDateStr} ${lastRunISTTimeStr}`);
         console.log(`  - Schedule time passed: ${isScheduleTimePassed}`);
+        console.log(`  - Already posted for this slot: ${postedForThisSlot}`);
         console.log(`  - Frequency: ${autoPosting.frequency}`);
 
-        // For DAILY frequency: Post if scheduled time passed today and we haven't posted today
+        // For DAILY frequency: Post if scheduled time passed today and we haven't posted for this slot
         if (autoPosting.frequency === 'daily') {
-          // isScheduleTimePassed is already calculated above using proper IST timezone
-          const shouldPost = isScheduleTimePassed && !postedToday;
+          // Post if: schedule time has passed AND we haven't already posted for this schedule slot
+          const shouldPost = isScheduleTimePassed && !postedForThisSlot;
 
           console.log(`  - Should post now: ${shouldPost}`);
 
