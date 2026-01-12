@@ -1885,4 +1885,77 @@ router.post('/admin/reenable-locations', async (req, res) => {
   }
 });
 
+/**
+ * Debug endpoint to reset lastRun timestamps for testing auto-posting
+ * This clears the lastRun so the system will post at the next scheduled time
+ */
+router.post('/debug/reset-last-run', async (req, res) => {
+  try {
+    const { locationId, resetAll } = req.body;
+
+    console.log(`[Automation API] 🔄 RESET LAST RUN request`);
+    console.log(`  - Location ID: ${locationId || 'ALL'}`);
+    console.log(`  - Reset All: ${resetAll}`);
+
+    // Get Supabase client
+    const { createClient } = await import('@supabase/supabase-js');
+    const supabaseUrl = process.env.SUPABASE_URL;
+    const supabaseKey = process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_KEY;
+    const supabase = createClient(supabaseUrl, supabaseKey);
+
+    let resetCount = 0;
+
+    if (resetAll) {
+      // Reset all locations
+      const { error } = await supabase
+        .from('user_locations')
+        .update({ last_post_date: null })
+        .eq('autoposting_enabled', true);
+
+      if (error) throw error;
+
+      // Also reset in-memory cache
+      const automations = automationScheduler.settings.automations || {};
+      for (const [locId, config] of Object.entries(automations)) {
+        if (config.autoPosting) {
+          config.autoPosting.lastRun = null;
+          resetCount++;
+        }
+      }
+
+      console.log(`[Automation API] ✅ Reset lastRun for ${resetCount} locations`);
+    } else if (locationId) {
+      // Reset specific location
+      const { error } = await supabase
+        .from('user_locations')
+        .update({ last_post_date: null })
+        .eq('location_id', locationId);
+
+      if (error) throw error;
+
+      // Also reset in-memory cache
+      if (automationScheduler.settings.automations?.[locationId]?.autoPosting) {
+        automationScheduler.settings.automations[locationId].autoPosting.lastRun = null;
+        resetCount = 1;
+      }
+
+      console.log(`[Automation API] ✅ Reset lastRun for location ${locationId}`);
+    } else {
+      return res.status(400).json({ error: 'Provide locationId or set resetAll: true' });
+    }
+
+    // Reload settings to ensure fresh data
+    await automationScheduler.loadSettings();
+
+    res.json({
+      success: true,
+      resetCount,
+      message: `Reset lastRun for ${resetCount} location(s). Next scheduler check will post if schedule time has passed.`
+    });
+  } catch (error) {
+    console.error('[Automation API] ❌ Error resetting lastRun:', error);
+    res.status(500).json({ error: 'Failed to reset lastRun', details: error.message });
+  }
+});
+
 export default router;

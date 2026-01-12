@@ -282,11 +282,12 @@ class AutomationScheduler {
 
         // Check if we already posted today (in IST)
         let postedToday = false;
+        let lastRunISTDateStr = 'NEVER';
         if (lastRun) {
           // Convert lastRun to IST
           const lastRunISTMillis = lastRun.getTime() + istOffset;
           const lastRunIST = new Date(lastRunISTMillis);
-          const lastRunISTDateStr = lastRunIST.toISOString().split('T')[0];
+          lastRunISTDateStr = lastRunIST.toISOString().split('T')[0];
           postedToday = lastRunISTDateStr === currentISTDateStr;
         }
 
@@ -297,9 +298,10 @@ class AutomationScheduler {
 
         console.log(`[AutomationScheduler] 📊 Location ${locationId} (${autoPosting.businessName || 'Unknown'}):`);
         console.log(`  - Configured schedule: ${scheduleTime} IST`);
-        console.log(`  - Current IST time: ${currentISTHour}:${currentISTMinute.toString().padStart(2, '0')}`);
-        console.log(`  - Last run: ${lastRun ? lastRun.toISOString() : 'NEVER'}`);
-        console.log(`  - Already posted today (IST): ${postedToday}`);
+        console.log(`  - Current IST date: ${currentISTDateStr}, time: ${currentISTHour}:${currentISTMinute.toString().padStart(2, '0')}`);
+        console.log(`  - Last run (UTC): ${lastRun ? lastRun.toISOString() : 'NEVER'}`);
+        console.log(`  - Last run (IST date): ${lastRunISTDateStr}`);
+        console.log(`  - Already posted today (IST): ${postedToday} (${lastRunISTDateStr} === ${currentISTDateStr})`);
         console.log(`  - Schedule time passed: ${isScheduleTimePassed}`);
         console.log(`  - Frequency: ${autoPosting.frequency}`);
 
