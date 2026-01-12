@@ -179,22 +179,90 @@ class DynamicDailyActivityScheduler {
   }
 
   /**
-   * Get user's connected locations count
+   * Get user's connected locations count from user_locations table
    */
-  async getUserLocationsCount(gbpAccountId) {
+  async getUserLocationsCount(userId, firebaseUid) {
     try {
-      // Query user's connected GBP locations
-      const tokens = await supabaseTokenStorage.getTokens(gbpAccountId);
+      await supabaseAuditService.initialize();
 
-      if (!tokens || !tokens.length) {
-        return 1; // Default to 1 if no tokens found
+      // Query user_locations table to get real count
+      const { data, error, count } = await supabaseAuditService.client
+        .from('user_locations')
+        .select('*', { count: 'exact' })
+        .eq('firebase_uid', firebaseUid);
+
+      if (error) {
+        console.error('[DynamicDailyActivityScheduler] Error fetching locations count:', error);
+        return 0;
       }
 
-      // You could also query the actual locations from GBP API here
-      return tokens.length;
+      const locationsCount = data?.length || 0;
+      console.log(`[DynamicDailyActivityScheduler] 📍 Found ${locationsCount} locations for user ${firebaseUid}`);
+      return locationsCount;
     } catch (error) {
       console.error('[DynamicDailyActivityScheduler] Error getting locations count:', error);
-      return 1;
+      return 0;
+    }
+  }
+
+  /**
+   * Get real posts created today from user_locations table
+   */
+  async getRealPostsCount(firebaseUid) {
+    try {
+      await supabaseAuditService.initialize();
+
+      // Get today's date in IST
+      const now = new Date();
+      const istOffset = 5.5 * 60 * 60 * 1000;
+      const nowIST = new Date(now.getTime() + istOffset);
+      const todayIST = nowIST.toISOString().split('T')[0];
+
+      // Query user_locations to count posts made today
+      const { data, error } = await supabaseAuditService.client
+        .from('user_locations')
+        .select('last_post_date, business_name')
+        .eq('firebase_uid', firebaseUid)
+        .eq('autoposting_enabled', true);
+
+      if (error) {
+        console.error('[DynamicDailyActivityScheduler] Error fetching posts count:', error);
+        return 0;
+      }
+
+      // Count locations where last_post_date is today
+      let postsToday = 0;
+      if (data) {
+        for (const loc of data) {
+          if (loc.last_post_date) {
+            const postDate = new Date(loc.last_post_date);
+            const postDateIST = new Date(postDate.getTime() + istOffset);
+            const postDateStr = postDateIST.toISOString().split('T')[0];
+            if (postDateStr === todayIST) {
+              postsToday++;
+            }
+          }
+        }
+      }
+
+      console.log(`[DynamicDailyActivityScheduler] 📝 Found ${postsToday} posts today for user ${firebaseUid}`);
+      return postsToday;
+    } catch (error) {
+      console.error('[DynamicDailyActivityScheduler] Error getting posts count:', error);
+      return 0;
+    }
+  }
+
+  /**
+   * Get real reviews replied count (placeholder - needs automation_logs or similar)
+   */
+  async getRealReviewsCount(firebaseUid) {
+    try {
+      // For now return 0 - would need to track review replies in a table
+      // This could be enhanced to query automation_logs if review replies are tracked there
+      return 0;
+    } catch (error) {
+      return 0;
     }
   }
 
@@ -236,13 +304,10 @@ class DynamicDailyActivityScheduler {
     try {
       const userId = subscription.user_id || subscription.userId;
       const email = subscription.email;
-      const gbpAccountId = subscription.gbp_account_id || subscription.gbpAccountId;
+      const firebaseUid = subscription.firebase_uid || subscription.firebaseUid || userId;
 
       console.log(`[DynamicDailyActivityScheduler] 📧 Sending daily email to ${email} (Status: ${subscription.status})`);
-
-      // 🔧 REMOVED shouldSendEmail() check - Cron ONLY runs at 6 PM daily
-      // No timing issues - guaranteed to send at EXACTLY 6 PM every day
-      console.log(`[DynamicDailyActivityScheduler] ✅ Email will be sent - no blocking checks`);
+      console.log(`[DynamicDailyActivityScheduler] Firebase UID: ${firebaseUid}`);
 
       // Determine if user is in trial
       const isTrialUser = this.isUserInTrial(subscription);
@@ -260,21 +325,30 @@ class DynamicDailyActivityScheduler {
         willShowUpgradeButton: isTrialUser && !isTrialExpired
       });
 
-      // Get user name from email (you could also store this in subscriptions table)
+      // Get user name from email
       const userName = email.split('@')[0];
 
-      // Fetch real activity data
-      const timeframe = subscription.status === 'trial' ? 'today' : 'week';
-      const activityData = await this.getUserActivityData(userId, timeframe);
+      // 🔧 FETCH REAL DATA from database
+      // Get real locations count
+      const locationsCount = await this.getUserLocationsCount(userId, firebaseUid);
 
-      // Add locations count
-      const locationsCount = await this.getUserLocationsCount(gbpAccountId);
-      activityData.locations = Array(locationsCount).fill({ id: 'location', name: 'Location' });
+      // Get real posts created today
+      const postsToday = await this.getRealPostsCount(firebaseUid);
 
-      // Fetch real audit data
+      // Get real reviews replied (currently placeholder)
+      const reviewsReplied = await this.getRealReviewsCount(firebaseUid);
+
+      // Build activity data with real counts
+      const activityData = {
+        postsCreated: Array(postsToday).fill({ id: 'post', content: 'Auto-posted content' }),
+        reviewsReplied: Array(reviewsReplied).fill({ id: 'review', reply: 'Auto-reply' }),
+        locations: Array(locationsCount).fill({ id: 'location', name: 'Location' })
+      };
+
+      // Fetch real audit data (if available)
       const auditData = await this.getUserAuditData(userId);
 
-      // Prepare user data
+      // Prepare user data with REAL trial days
       const userData = {
         userName: userName,
         userEmail: email,
@@ -283,13 +357,13 @@ class DynamicDailyActivityScheduler {
         isTrialExpired: isTrialExpired
       };
 
-      console.log(`[DynamicDailyActivityScheduler] 📊 Sending email to ${email}:`, {
+      console.log(`[DynamicDailyActivityScheduler] 📊 REAL DATA for ${email}:`, {
         status: subscription.status,
         isTrialUser,
         trialDaysRemaining,
-        postsCreated: activityData.postsCreated.length,
-        reviewsReplied: activityData.reviewsReplied.length,
-        locations: activityData.locations.length,
+        postsCreated: postsToday,
+        reviewsReplied: reviewsReplied,
+        locations: locationsCount,
         hasAuditData: !!auditData
       });
 
