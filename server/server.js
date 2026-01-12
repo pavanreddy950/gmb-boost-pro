@@ -4884,19 +4884,31 @@ initializeServer().then(() => {
       }
     }, 7000); // Start after trial email scheduler
 
-    // 🏥 CRITICAL: Start Keep-Alive Service to prevent Azure sleep
-    console.log('🏥 [KEEP-ALIVE] Starting keep-alive service to prevent Azure App Service sleep...');
+    // 🏥 CRITICAL: Start Keep-Alive Service to prevent server sleep
+    console.log('🏥 [KEEP-ALIVE] Starting keep-alive service...');
     setTimeout(() => {
       try {
         keepAliveService.start();
         console.log('✅ [KEEP-ALIVE] Keep-alive service started!');
-        console.log('   🏓 Server will self-ping every 5 minutes');
-        console.log('   ⏰ This prevents Azure from sleeping and stops automation');
+        console.log('   🏓 Server will self-ping every 4 minutes');
         console.log('   📊 Monitor status at: /health/keep-alive');
-        console.log('   ⚠️  IMPORTANT: For production, enable "Always On" in Azure App Service settings');
+        console.log('');
+        console.log('⚠️  ═══════════════════════════════════════════════════════════════');
+        console.log('⚠️  IMPORTANT: EXTERNAL PING REQUIRED FOR 24/7 AUTO-POSTING');
+        console.log('⚠️  ═══════════════════════════════════════════════════════════════');
+        console.log('⚠️  Render Free tier sleeps after 15 mins of no EXTERNAL traffic.');
+        console.log('⚠️  Internal keep-alive CANNOT prevent sleep - server process stops!');
+        console.log('');
+        console.log('⚠️  SET UP ONE OF THESE FREE EXTERNAL PING SERVICES:');
+        console.log('   1️⃣  UptimeRobot (free): https://uptimerobot.com');
+        console.log('   2️⃣  Cron-job.org (free): https://cron-job.org');
+        console.log('   3️⃣  Freshping (free): https://freshping.io');
+        console.log('');
+        console.log('⚠️  PING URL: https://lobaiseo-backend-yjnl.onrender.com/health');
+        console.log('⚠️  PING INTERVAL: Every 5 minutes');
+        console.log('⚠️  ═══════════════════════════════════════════════════════════════');
       } catch (error) {
         console.error('❌ [KEEP-ALIVE] Failed to start keep-alive service:', error);
-        console.error('   ⚠️  Server may sleep on Azure! Enable "Always On" in Azure App Service.');
       }
     }, 8000); // Start after all other services
   });

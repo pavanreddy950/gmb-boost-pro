@@ -214,19 +214,22 @@ class AutomationScheduler {
     this.checkAndCreateMissedPosts();
   }
 
-  // Start a background checker for missed posts (runs every 2 minutes for more reliability)
+  // Start a background checker for missed posts (runs every 1 minute for maximum reliability)
   startMissedPostChecker() {
     if (this.missedPostCheckerInterval) {
       clearInterval(this.missedPostCheckerInterval);
     }
 
-    console.log('[AutomationScheduler] ⏰ Starting missed post checker (every 2 minutes)');
+    console.log('[AutomationScheduler] ⏰ Starting missed post checker (every 1 minute)');
+    console.log('[AutomationScheduler] ⚠️  IMPORTANT: For 24/7 auto-posting, use external ping service!');
+    console.log('[AutomationScheduler] 💡 Free options: UptimeRobot, Cron-job.org, or Render Cron Jobs');
+    console.log('[AutomationScheduler] 💡 Set up ping to: https://lobaiseo-backend-yjnl.onrender.com/health every 5 minutes');
 
-    // Check every 2 minutes for any posts that should have been created
+    // Check every 1 minute for any posts that should have been created
     this.missedPostCheckerInterval = setInterval(async () => {
       console.log('[AutomationScheduler] 🔍 Running periodic check for missed posts...');
       await this.checkAndCreateMissedPosts();
-    }, 2 * 60 * 1000); // 2 minutes for more reliable posting
+    }, 1 * 60 * 1000); // 1 minute for maximum reliability
   }
 
   // Check for missed posts and create them
