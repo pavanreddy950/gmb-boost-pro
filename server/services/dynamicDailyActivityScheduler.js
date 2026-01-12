@@ -358,7 +358,7 @@ class DynamicDailyActivityScheduler {
 
       if (result.success) {
         // Update email tracking (for logging only, not for blocking)
-        this.emailTracking.set(userId, new Date());
+        this.emailTracking.set(email, new Date());
         console.log(`[DynamicDailyActivityScheduler] ✅ Email successfully sent to ${email} at ${new Date().toLocaleString('en-US', { timeZone: 'Asia/Kolkata' })}`);
       } else {
         console.error(`[DynamicDailyActivityScheduler] ❌ Failed to send email to ${email}:`, result.error);
