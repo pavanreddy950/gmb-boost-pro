@@ -1356,7 +1356,7 @@ class AutomationScheduler {
         return null;
       }
 
-      const HARDCODED_ACCOUNT_ID = '106433552101751461082';
+      const HARDCODED_ACCOUNT_ID = process.env.HARDCODED_ACCOUNT_ID || '102242055729678854724';
 
       // Try Google My Business API v4 first (same format as posting API)
       console.log('[AutomationScheduler] 📍 Fetching location address from Google API...');
@@ -1833,7 +1833,7 @@ Think of yourself as writing a quick, enthusiastic recommendation - SHORT but me
       let reviews = [];
 
       // Use Google Business Profile API v4 (current version)
-      const accountId = config.accountId || '106433552101751461082';
+      const accountId = config.accountId || config.gbpAccountId || process.env.HARDCODED_ACCOUNT_ID || '102242055729678854724';
       console.log(`[AutomationScheduler] Fetching reviews using API v4 for location ${locationId}...`);
       response = await fetch(
         `https://mybusiness.googleapis.com/v4/accounts/${accountId}/locations/${locationId}/reviews`,
@@ -1943,7 +1943,7 @@ Think of yourself as writing a quick, enthusiastic recommendation - SHORT but me
       let success = false;
 
       // Use Google Business Profile API v4
-      const accountId = config.accountId || '106433552101751461082';
+      const accountId = config.accountId || config.gbpAccountId || process.env.HARDCODED_ACCOUNT_ID || '102242055729678854724';
       console.log(`[AutomationScheduler] Attempting to reply using API v4...`);
       const apiResponse = await fetch(
         `https://mybusiness.googleapis.com/v4/accounts/${accountId}/locations/${locationId}/reviews/${reviewId}/reply`,

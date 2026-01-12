@@ -50,7 +50,7 @@ import leaderElection from './services/leaderElection.js';
 // Deployment: Azure App Service
 
 // Hardcoded account ID for Google Business Profile API
-const HARDCODED_ACCOUNT_ID = process.env.HARDCODED_ACCOUNT_ID || '106433552101751461082';
+const HARDCODED_ACCOUNT_ID = process.env.HARDCODED_ACCOUNT_ID || '102242055729678854724';
 
 // Get __dirname equivalent in ES modules
 const __filename = fileURLToPath(import.meta.url);

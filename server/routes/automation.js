@@ -507,7 +507,7 @@ router.post('/settings/:locationId', (req, res) => {
         settings.autoPosting.userId = settings.userId || 'default';
       }
       if (!settings.autoPosting.accountId) {
-        settings.autoPosting.accountId = settings.accountId || '106433552101751461082';
+        settings.autoPosting.accountId = settings.accountId || process.env.HARDCODED_ACCOUNT_ID || '102242055729678854724';
       }
       // Ensure phone number and button config are preserved
       if (settings.phoneNumber && !settings.autoPosting.phoneNumber) {
@@ -526,12 +526,12 @@ router.post('/settings/:locationId', (req, res) => {
         keywords: settings.keywords || settings.autoPosting?.keywords || 'quality service, customer satisfaction',
         replyToAll: true,
         userId: settings.userId || 'default',
-        accountId: settings.accountId || '106433552101751461082'
+        accountId: settings.accountId || process.env.HARDCODED_ACCOUNT_ID || '102242055729678854724'
       };
     } else {
       // Preserve all incoming autoReply properties (including keywords!)
       settings.autoReply.userId = settings.userId || settings.autoReply.userId || 'default';
-      settings.autoReply.accountId = settings.accountId || settings.autoReply.accountId || '106433552101751461082';
+      settings.autoReply.accountId = settings.accountId || settings.autoReply.accountId || process.env.HARDCODED_ACCOUNT_ID || '102242055729678854724';
       // Ensure keywords from autoReply settings are preserved
       if (settings.autoReply.keywords === undefined && (settings.keywords || settings.autoPosting?.keywords)) {
         settings.autoReply.keywords = settings.keywords || settings.autoPosting?.keywords;
@@ -749,7 +749,7 @@ router.post('/test-post-now/:locationId', async (req, res) => {
           keywords: keywords || 'quality service, customer satisfaction, professional',
           replyToAll: true,
           userId: 'default',
-          accountId: '106433552101751461082'
+          accountId: process.env.HARDCODED_ACCOUNT_ID || '102242055729678854724'
         }
       };
 
@@ -773,7 +773,7 @@ router.post('/test-post-now/:locationId', async (req, res) => {
       phoneNumber: phoneNumber || settings.autoPosting.phoneNumber || '',
       button: button || settings.autoPosting.button || { enabled: false, type: 'none' },
       userId: finalUserId || settings.autoPosting.userId || 'default',
-      accountId: settings.autoPosting.accountId || settings.accountId || '106433552101751461082',
+      accountId: settings.autoPosting.accountId || settings.accountId || process.env.HARDCODED_ACCOUNT_ID || '102242055729678854724',
       test: true
     };
 
@@ -882,7 +882,7 @@ router.post('/test-review-check/:locationId', async (req, res) => {
           replyToNegative: true,
           replyToNeutral: true,
           userId: 'default',
-          accountId: '106433552101751461082'
+          accountId: process.env.HARDCODED_ACCOUNT_ID || '102242055729678854724'
         },
         autoPosting: {
           enabled: true,
@@ -905,7 +905,7 @@ router.post('/test-review-check/:locationId', async (req, res) => {
     const testConfig = {
       ...settings.autoReply,
       userId: settings.autoReply.userId || 'default',
-      accountId: settings.autoReply.accountId || settings.accountId || '106433552101751461082',
+      accountId: settings.autoReply.accountId || settings.accountId || process.env.HARDCODED_ACCOUNT_ID || '102242055729678854724',
       test: true
     };
 

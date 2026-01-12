@@ -23,7 +23,7 @@ services:
       - key: GOOGLE_REDIRECT_URI
         value: https://www.app.lobaiseo.com/auth/google/callback
       - key: HARDCODED_ACCOUNT_ID
-        value: 106433552101751461082
+        value: 102242055729678854724
       - key: RAZORPAY_KEY_ID
         sync: false
       - key: RAZORPAY_KEY_SECRET
