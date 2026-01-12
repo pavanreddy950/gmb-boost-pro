@@ -19,7 +19,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import CreatePostModal from "@/components/ProfileDetails/CreatePostModal";
-import { ScheduledPostsSection } from "@/components/ScheduledPostsSection";
 import { useGoogleBusinessProfile } from "@/hooks/useGoogleBusinessProfile";
 import { googleBusinessProfileService } from "@/lib/googleBusinessProfile";
 import { useNotifications } from "@/contexts/NotificationContext";
@@ -440,9 +439,6 @@ const Posts = () => {
             </CardContent>
           </Card>
         </div>
-
-        {/* Scheduled Posts Section - Shows upcoming auto-posts */}
-        <ScheduledPostsSection />
 
         {/* Filters */}
         <Card className="shadow-card border border-border">
