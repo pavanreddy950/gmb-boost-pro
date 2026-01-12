@@ -1958,4 +1958,81 @@ router.post('/debug/reset-last-run', async (req, res) => {
   }
 });
 
+// Debug endpoint to see all schedules and trigger manual check
+router.get('/debug/show-schedules', async (req, res) => {
+  try {
+    console.log(`[Automation API] 📋 SHOW SCHEDULES request`);
+
+    const automations = automationScheduler.settings.automations || {};
+    const schedules = [];
+
+    // Calculate current IST time
+    const nowUTC = new Date();
+    const istOffset = 5.5 * 60 * 60 * 1000;
+    const nowISTMillis = nowUTC.getTime() + istOffset;
+    const nowIST = new Date(nowISTMillis);
+    const currentISTHour = nowIST.getUTCHours();
+    const currentISTMinute = nowIST.getUTCMinutes();
+    const currentISTTime = `${currentISTHour}:${currentISTMinute.toString().padStart(2, '0')}`;
+
+    for (const [locationId, config] of Object.entries(automations)) {
+      if (config.autoPosting && config.autoPosting.enabled) {
+        const autoPosting = config.autoPosting;
+        const schedule = autoPosting.schedule || 'NOT SET';
+        const lastRun = autoPosting.lastRun;
+
+        let lastRunIST = 'NEVER';
+        if (lastRun) {
+          const lastRunDate = new Date(lastRun);
+          const lastRunISTMillis = lastRunDate.getTime() + istOffset;
+          const lastRunISTDate = new Date(lastRunISTMillis);
+          lastRunIST = `${lastRunISTDate.getUTCHours()}:${lastRunISTDate.getUTCMinutes().toString().padStart(2, '0')} IST`;
+        }
+
+        schedules.push({
+          locationId,
+          businessName: autoPosting.businessName || 'Unknown',
+          schedule: schedule,
+          frequency: autoPosting.frequency || 'daily',
+          lastRun: lastRunIST,
+          enabled: autoPosting.enabled
+        });
+      }
+    }
+
+    res.json({
+      success: true,
+      currentTime: {
+        utc: nowUTC.toISOString(),
+        ist: currentISTTime + ' IST',
+        istFull: nowIST.toISOString()
+      },
+      scheduledLocations: schedules.length,
+      schedules
+    });
+  } catch (error) {
+    console.error('[Automation API] ❌ Error showing schedules:', error);
+    res.status(500).json({ error: 'Failed to show schedules', details: error.message });
+  }
+});
+
+// Debug endpoint to manually trigger the scheduler check
+router.post('/debug/trigger-check', async (req, res) => {
+  try {
+    console.log(`[Automation API] ⚡ MANUAL TRIGGER CHECK request`);
+    console.log(`[Automation API] This will run checkAndRunAutomations() NOW`);
+
+    // Trigger the scheduler check
+    await automationScheduler.checkAndRunAutomations();
+
+    res.json({
+      success: true,
+      message: 'Manual check triggered! Check server logs for results.'
+    });
+  } catch (error) {
+    console.error('[Automation API] ❌ Error triggering check:', error);
+    res.status(500).json({ error: 'Failed to trigger check', details: error.message });
+  }
+});
+
 export default router;
