@@ -1036,7 +1036,10 @@ router.get('/debug/settings-cache', (req, res) => {
       schedule: config.autoPosting?.schedule,
       frequency: config.autoPosting?.frequency,
       lastRun: config.autoPosting?.lastRun,
-      updatedAt: config.updatedAt
+      updatedAt: config.updatedAt,
+      // Add userId and accountId for debugging
+      userId: config.userId || config.autoPosting?.userId || 'NOT SET',
+      gbpAccountId: config.gbpAccountId || config.accountId || config.autoPosting?.gbpAccountId || config.autoPosting?.accountId || 'NOT SET'
     }));
 
     res.json({
