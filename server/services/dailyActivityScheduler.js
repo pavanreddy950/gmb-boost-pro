@@ -347,21 +347,29 @@ class DailyActivityScheduler {
 
   /**
    * Initialize daily report scheduler
-   * Runs every day at 6 PM (18:00)
+   * Runs every day at 6 PM IST (18:00 IST = 12:30 UTC)
    */
   initializeDailyReportScheduler() {
-    // Schedule for 6 PM daily (18:00 in 24-hour format)
+    // Schedule for 6 PM IST daily
+    // IST is UTC + 5:30, so 18:00 IST = 12:30 UTC
     const cronExpression = '0 18 * * *';
 
     const job = cron.schedule(cronExpression, async () => {
-      console.log('[DailyActivityScheduler] ⏰ Daily report schedule triggered at 6 PM');
+      const now = new Date();
+      const istTime = new Date(now.getTime() + (5.5 * 60 * 60 * 1000));
+      console.log('[DailyActivityScheduler] ⏰ Daily report schedule triggered');
+      console.log(`[DailyActivityScheduler] Current UTC: ${now.toISOString()}`);
+      console.log(`[DailyActivityScheduler] Current IST: ${istTime.toISOString()}`);
       await this.sendAllDailyReports();
+    }, {
+      scheduled: true,
+      timezone: 'Asia/Kolkata'  // Run at 6 PM IST
     });
 
     this.scheduledJobs.push(job);
 
-    console.log('[DailyActivityScheduler] ✅ Daily report scheduler initialized (6 PM daily)');
-    console.log('[DailyActivityScheduler] Schedule: Daily at 6:00 PM for trial users, Weekly on Sundays for active users');
+    console.log('[DailyActivityScheduler] ✅ Daily report scheduler initialized (6 PM IST daily)');
+    console.log('[DailyActivityScheduler] Schedule: Daily at 6:00 PM IST for trial users, Weekly on Sundays for active users');
   }
 
   /**

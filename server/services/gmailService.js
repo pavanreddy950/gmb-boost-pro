@@ -93,10 +93,12 @@ class GmailService {
         mailOptions.attachments = attachments.map(att => ({
           filename: att.filename,
           content: att.content,
-          encoding: 'base64',
-          cid: att.content_id || att.cid
+          encoding: att.encoding || 'base64',
+          cid: att.content_id || att.cid,
+          contentDisposition: 'inline',  // Display inline, not as downloadable attachment
+          contentType: att.contentType || 'image/png'
         }));
-        console.log(`[GmailService] 📎 Including ${attachments.length} attachment(s)`);
+        console.log(`[GmailService] 📎 Including ${attachments.length} inline attachment(s)`);
       }
 
       const result = await this.transporter.sendMail(mailOptions);
