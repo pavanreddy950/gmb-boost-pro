@@ -274,57 +274,27 @@ class AutomationScheduler {
         }
 
         const autoPosting = config.autoPosting;
-        const lastRun = autoPosting.lastRun ? new Date(autoPosting.lastRun) : null;
 
         // Get the configured schedule time
         const scheduleTime = autoPosting.schedule || '10:00';
         const [scheduleHour, scheduleMinute] = scheduleTime.split(':').map(Number);
 
-        // Check if schedule time has passed today
-        const currentMinutesFromMidnight = currentISTHour * 60 + currentISTMinute;
-        const scheduleMinutesFromMidnight = scheduleHour * 60 + scheduleMinute;
-        const isScheduleTimePassed = currentMinutesFromMidnight >= scheduleMinutesFromMidnight;
-
-        // Check if we already posted FOR THIS SCHEDULE SLOT today (in IST)
-        // A post counts as "done for this slot" only if:
-        // 1. It was posted today (same IST date), AND
-        // 2. It was posted AT or AFTER the current schedule time
-        let postedForThisSlot = false;
-        let lastRunISTDateStr = 'NEVER';
-        let lastRunISTTimeStr = 'NEVER';
-        if (lastRun) {
-          // Convert lastRun to IST
-          const lastRunISTMillis = lastRun.getTime() + istOffset;
-          const lastRunIST = new Date(lastRunISTMillis);
-          lastRunISTDateStr = lastRunIST.toISOString().split('T')[0];
-          const lastRunISTHour = lastRunIST.getUTCHours();
-          const lastRunISTMinute = lastRunIST.getUTCMinutes();
-          lastRunISTTimeStr = lastRunISTHour + ':' + lastRunISTMinute.toString().padStart(2, '0');
-          const lastRunMinutesFromMidnight = lastRunISTHour * 60 + lastRunISTMinute;
-
-          // Posted for this slot = same day AND posted at/after schedule time
-          const isSameDay = lastRunISTDateStr === currentISTDateStr;
-          const postedAtOrAfterSchedule = lastRunMinutesFromMidnight >= scheduleMinutesFromMidnight;
-          postedForThisSlot = isSameDay && postedAtOrAfterSchedule;
-        }
+        // Check if we are EXACTLY at the schedule time (within the current minute)
+        // This ensures posts happen ONCE at the exact scheduled time
+        const isExactScheduleTime = (currentISTHour === scheduleHour && currentISTMinute === scheduleMinute);
 
         console.log(`[AutomationScheduler] 📊 Location ${locationId} (${autoPosting.businessName || 'Unknown'}):`);
         console.log(`  - Configured schedule: ${scheduleTime} IST`);
         console.log(`  - Current IST: ${currentISTDateStr} ${currentISTHour}:${currentISTMinute.toString().padStart(2, '0')}`);
-        console.log(`  - Last run (UTC): ${lastRun ? lastRun.toISOString() : 'NEVER'}`);
-        console.log(`  - Last run (IST): ${lastRunISTDateStr} ${lastRunISTTimeStr}`);
-        console.log(`  - Schedule time passed: ${isScheduleTimePassed}`);
-        console.log(`  - Already posted for this slot: ${postedForThisSlot}`);
+        console.log(`  - Is exact schedule time: ${isExactScheduleTime}`);
         console.log(`  - Frequency: ${autoPosting.frequency}`);
 
-        // For DAILY frequency: Post if scheduled time passed today and we haven't posted for this slot
+        // For DAILY frequency: Post ONLY at the exact scheduled time
+        // NO "already posted" check - if it's the scheduled time, POST!
         if (autoPosting.frequency === 'daily') {
-          // Post if: schedule time has passed AND we haven't already posted for this schedule slot
-          const shouldPost = isScheduleTimePassed && !postedForThisSlot;
+          console.log(`  - Should post now: ${isExactScheduleTime}`);
 
-          console.log(`  - Should post now: ${shouldPost}`);
-
-          if (shouldPost) {
+          if (isExactScheduleTime) {
             // 🔒 DYNAMIC SUBSCRIPTION CHECK - Only post for subscribed profiles
             const targetUserId = autoPosting.userId || config.userId || 'default';
             const gbpAccountId = autoPosting.gbpAccountId || autoPosting.accountId || config.gbpAccountId;
@@ -345,10 +315,7 @@ class AutomationScheduler {
             console.log(`  - Configured time: ${scheduleTime} IST`);
             console.log(`  - 🕐 Current IST time: ${currentISTHour}:${currentISTMinute.toString().padStart(2, '0')}`);
 
-            // NOTE: lastRun is now updated INSIDE createAutomatedPost ONLY after successful API call
-            // This prevents marking as "posted" when the actual Google API call fails
-
-            // Create the post (subscription already validated above)
+            // Create the post - NO "already posted" check!
             const postResult = await this.createAutomatedPost(locationId, autoPosting);
             if (postResult) {
               console.log(`[AutomationScheduler] ✅ Post created successfully for ${locationId}`);
@@ -359,43 +326,27 @@ class AutomationScheduler {
           continue;
         }
 
-        // For HOURLY/EVERY2HOURS frequencies: Check based on time slot
+        // For HOURLY/EVERY2HOURS frequencies: Post at exact scheduled minute each hour
         if (autoPosting.frequency === 'hourly' || autoPosting.frequency === 'every2hours') {
-          // Use the already calculated IST time components
-          const currentHour = currentISTHour;
           const currentMinute = currentISTMinute;
+          const currentHour = currentISTHour;
 
-          // For hourly: Check if scheduled minute has passed this hour
-          // e.g., if schedule is 11:00 (minute 0) and current time is 11:12, we should post
-          const scheduledMinutePassed = currentMinute >= scheduleMinute;
+          // Check if current minute matches scheduled minute
+          const isExactMinute = (currentMinute === scheduleMinute);
 
-          // Check if we already posted in this time slot
-          let alreadyPostedThisSlot = false;
-          if (lastRun) {
-            // Convert lastRun to IST using the same method
-            const lastRunISTMillis = lastRun.getTime() + istOffset;
-            const lastRunIST = new Date(lastRunISTMillis);
-            const lastRunHour = lastRunIST.getUTCHours();
-            const lastRunISTDateStr = lastRunIST.toISOString().split('T')[0];
-            const isSameDay = lastRunISTDateStr === currentISTDateStr;
-
-            if (autoPosting.frequency === 'hourly') {
-              // Already posted this hour
-              alreadyPostedThisSlot = isSameDay && lastRunHour === currentHour;
-            } else if (autoPosting.frequency === 'every2hours') {
-              // Already posted in this 2-hour window
-              const currentWindow = Math.floor(currentHour / 2);
-              const lastRunWindow = Math.floor(lastRunHour / 2);
-              alreadyPostedThisSlot = isSameDay && currentWindow === lastRunWindow;
-            }
+          // For every2hours, also check if it's the right hour (even hours: 0, 2, 4, 6, etc.)
+          let shouldPostHourly = false;
+          if (autoPosting.frequency === 'hourly') {
+            shouldPostHourly = isExactMinute;
+          } else if (autoPosting.frequency === 'every2hours') {
+            shouldPostHourly = isExactMinute && (currentHour % 2 === 0);
           }
 
           console.log(`  - Scheduled minute: ${scheduleMinute}, Current minute: ${currentMinute}`);
-          console.log(`  - Scheduled minute passed: ${scheduledMinutePassed}`);
-          console.log(`  - Already posted this slot: ${alreadyPostedThisSlot}`);
+          console.log(`  - Is exact minute: ${isExactMinute}`);
+          console.log(`  - Should post (${autoPosting.frequency}): ${shouldPostHourly}`);
 
-          // Post if: scheduled time has passed AND we haven't posted in this slot yet
-          if (scheduledMinutePassed && !alreadyPostedThisSlot) {
+          if (shouldPostHourly) {
             // 🔒 DYNAMIC SUBSCRIPTION CHECK
             const targetUserId = autoPosting.userId || config.userId || 'default';
             const gbpAccountId = autoPosting.gbpAccountId || autoPosting.accountId || config.gbpAccountId;
@@ -412,7 +363,6 @@ class AutomationScheduler {
             console.log(`  - Frequency: ${autoPosting.frequency}`);
             console.log(`  - Current hour: ${currentHour}`);
 
-            // NOTE: lastRun is updated INSIDE createAutomatedPost ONLY after successful API call
             const postResult = await this.createAutomatedPost(locationId, autoPosting);
             if (postResult) {
               console.log(`[AutomationScheduler] ✅ Hourly post created successfully for ${locationId}`);
@@ -423,48 +373,8 @@ class AutomationScheduler {
           continue;
         }
 
-        // For other frequencies, use the existing logic
-        const nextScheduledTime = this.calculateNextScheduledTime(autoPosting, lastRun);
-
-        if (!nextScheduledTime) {
-          console.log(`  - ⏭️ Skipping - no schedule configured`);
-          continue;
-        }
-
-        // Compare using UTC timestamps for accuracy
-        const isOverdue = nowUTC.getTime() >= nextScheduledTime.getTime();
-        console.log(`  - Next scheduled: ${nextScheduledTime.toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })}`);
-        console.log(`  - Is overdue: ${isOverdue}`);
-
-        // If we're past the scheduled time, create the post
-        if (isOverdue) {
-          // 🔒 DYNAMIC SUBSCRIPTION CHECK - Only post for subscribed profiles
-          const targetUserId = autoPosting.userId || config.userId || 'default';
-          const gbpAccountId = autoPosting.gbpAccountId || autoPosting.accountId || config.gbpAccountId;
-
-          console.log(`[AutomationScheduler] 🔒 Pre-check subscription for ${autoPosting.businessName}...`);
-          const validationResult = await subscriptionGuard.validateBeforeAutomation(targetUserId, gbpAccountId, 'auto_posting');
-
-          if (!validationResult.allowed) {
-            console.log(`[AutomationScheduler] ⏭️ SKIPPING ${locationId} - No valid subscription`);
-            console.log(`  - Reason: ${validationResult.reason}`);
-            continue; // Skip this profile - no valid subscription
-          }
-
-          console.log(`[AutomationScheduler] ✅ Subscription valid for ${autoPosting.businessName}`);
-          console.log(`[AutomationScheduler] ⚡ MISSED POST DETECTED for ${locationId}! Creating now...`);
-          console.log(`  - Business: ${autoPosting.businessName}`);
-          console.log(`  - Frequency: ${autoPosting.frequency}`);
-          console.log(`  - Schedule: ${autoPosting.schedule}`);
-
-          // NOTE: lastRun is updated INSIDE createAutomatedPost ONLY after successful API call
-          const postResult = await this.createAutomatedPost(locationId, autoPosting);
-          if (postResult) {
-            console.log(`[AutomationScheduler] ✅ Missed post created successfully for ${locationId}`);
-          } else {
-            console.log(`[AutomationScheduler] ⚠️ Missed post creation returned null for ${locationId}`);
-          }
-        }
+        // For any other frequency not handled above, log and skip
+        console.log(`  - ⏭️ Unknown frequency: ${autoPosting.frequency}, skipping`);
       }
     } catch (error) {
       console.error('[AutomationScheduler] ❌ Error checking missed posts:', error);
