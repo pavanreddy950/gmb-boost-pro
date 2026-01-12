@@ -251,12 +251,22 @@ class AutomationScheduler {
       }
 
       const automations = this.settings.automations || {};
-      // Use IST time for consistent comparison with scheduled times
-      const nowInIST = new Date(
-        new Date().toLocaleString('en-US', { timeZone: 'Asia/Kolkata' })
-      );
 
-      console.log(`[AutomationScheduler] 📅 Checking ${Object.keys(automations).length} locations for missed posts at ${nowInIST.toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })} (IST)`);
+      // Get current time in UTC
+      const nowUTC = new Date();
+
+      // Get IST time components (IST = UTC + 5:30)
+      const istOffset = 5.5 * 60 * 60 * 1000; // 5 hours 30 minutes in milliseconds
+      const nowISTMillis = nowUTC.getTime() + istOffset;
+      const nowIST = new Date(nowISTMillis);
+
+      // Extract IST time components
+      const currentISTHour = nowIST.getUTCHours();
+      const currentISTMinute = nowIST.getUTCMinutes();
+      const currentISTDateStr = nowIST.toISOString().split('T')[0]; // YYYY-MM-DD in IST
+
+      console.log(`[AutomationScheduler] 📅 Checking ${Object.keys(automations).length} locations for missed posts`);
+      console.log(`[AutomationScheduler] ⏰ Current IST time: ${currentISTHour}:${currentISTMinute.toString().padStart(2, '0')} (${currentISTDateStr})`);
 
       for (const [locationId, config] of Object.entries(automations)) {
         if (!config.autoPosting?.enabled) {
@@ -270,31 +280,34 @@ class AutomationScheduler {
         const scheduleTime = autoPosting.schedule || '10:00';
         const [scheduleHour, scheduleMinute] = scheduleTime.split(':').map(Number);
 
-        // Create scheduled time for TODAY
-        const scheduledTimeToday = new Date(nowInIST);
-        scheduledTimeToday.setHours(scheduleHour, scheduleMinute, 0, 0);
-
-        // Check if we already posted today
+        // Check if we already posted today (in IST)
         let postedToday = false;
         if (lastRun) {
-          const lastRunIST = new Date(lastRun.toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }));
-          postedToday = lastRunIST.toDateString() === nowInIST.toDateString();
+          // Convert lastRun to IST
+          const lastRunISTMillis = lastRun.getTime() + istOffset;
+          const lastRunIST = new Date(lastRunISTMillis);
+          const lastRunISTDateStr = lastRunIST.toISOString().split('T')[0];
+          postedToday = lastRunISTDateStr === currentISTDateStr;
         }
 
+        // Check if schedule time has passed today
+        const currentMinutesFromMidnight = currentISTHour * 60 + currentISTMinute;
+        const scheduleMinutesFromMidnight = scheduleHour * 60 + scheduleMinute;
+        const isScheduleTimePassed = currentMinutesFromMidnight >= scheduleMinutesFromMidnight;
+
         console.log(`[AutomationScheduler] 📊 Location ${locationId} (${autoPosting.businessName || 'Unknown'}):`);
-        console.log(`  - Configured schedule: ${scheduleTime}`);
-        console.log(`  - Last run: ${lastRun ? lastRun.toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' }) : 'NEVER'}`);
-        console.log(`  - Already posted today: ${postedToday}`);
-        console.log(`  - Scheduled time today: ${scheduledTimeToday.toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })}`);
-        console.log(`  - Current time (IST): ${nowInIST.toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })}`);
+        console.log(`  - Configured schedule: ${scheduleTime} IST`);
+        console.log(`  - Current IST time: ${currentISTHour}:${currentISTMinute.toString().padStart(2, '0')}`);
+        console.log(`  - Last run: ${lastRun ? lastRun.toISOString() : 'NEVER'}`);
+        console.log(`  - Already posted today (IST): ${postedToday}`);
+        console.log(`  - Schedule time passed: ${isScheduleTimePassed}`);
         console.log(`  - Frequency: ${autoPosting.frequency}`);
 
         // For DAILY frequency: Post if scheduled time passed today and we haven't posted today
         if (autoPosting.frequency === 'daily') {
-          const isScheduleTimePassed = nowInIST >= scheduledTimeToday;
+          // isScheduleTimePassed is already calculated above using proper IST timezone
           const shouldPost = isScheduleTimePassed && !postedToday;
 
-          console.log(`  - Schedule time passed today: ${isScheduleTimePassed}`);
           console.log(`  - Should post now: ${shouldPost}`);
 
           if (shouldPost) {
@@ -315,8 +328,8 @@ class AutomationScheduler {
             console.log(`[AutomationScheduler] ✅ Subscription valid for ${autoPosting.businessName}`);
             console.log(`[AutomationScheduler] ⚡ POSTING NOW for ${locationId}!`);
             console.log(`  - Business: ${autoPosting.businessName}`);
-            console.log(`  - Configured time: ${scheduleTime}`);
-            console.log(`  - 🕐 Current time (IST): ${nowInIST.toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })}`);
+            console.log(`  - Configured time: ${scheduleTime} IST`);
+            console.log(`  - 🕐 Current IST time: ${currentISTHour}:${currentISTMinute.toString().padStart(2, '0')}`);
 
             // Update last run time BEFORE posting to prevent duplicate posts
             this.settings.automations[locationId].autoPosting.lastRun = new Date().toISOString();
@@ -331,8 +344,9 @@ class AutomationScheduler {
 
         // For HOURLY/EVERY2HOURS frequencies: Check based on time slot
         if (autoPosting.frequency === 'hourly' || autoPosting.frequency === 'every2hours') {
-          const currentHour = nowInIST.getHours();
-          const currentMinute = nowInIST.getMinutes();
+          // Use the already calculated IST time components
+          const currentHour = currentISTHour;
+          const currentMinute = currentISTMinute;
 
           // For hourly: Check if scheduled minute has passed this hour
           // e.g., if schedule is 11:00 (minute 0) and current time is 11:12, we should post
@@ -341,9 +355,12 @@ class AutomationScheduler {
           // Check if we already posted in this time slot
           let alreadyPostedThisSlot = false;
           if (lastRun) {
-            const lastRunIST = new Date(lastRun.toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }));
-            const lastRunHour = lastRunIST.getHours();
-            const isSameDay = lastRunIST.toDateString() === nowInIST.toDateString();
+            // Convert lastRun to IST using the same method
+            const lastRunISTMillis = lastRun.getTime() + istOffset;
+            const lastRunIST = new Date(lastRunISTMillis);
+            const lastRunHour = lastRunIST.getUTCHours();
+            const lastRunISTDateStr = lastRunIST.toISOString().split('T')[0];
+            const isSameDay = lastRunISTDateStr === currentISTDateStr;
 
             if (autoPosting.frequency === 'hourly') {
               // Already posted this hour
@@ -395,11 +412,13 @@ class AutomationScheduler {
           continue;
         }
 
+        // Compare using UTC timestamps for accuracy
+        const isOverdue = nowUTC.getTime() >= nextScheduledTime.getTime();
         console.log(`  - Next scheduled: ${nextScheduledTime.toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })}`);
-        console.log(`  - Is overdue: ${nowInIST >= nextScheduledTime}`);
+        console.log(`  - Is overdue: ${isOverdue}`);
 
         // If we're past the scheduled time, create the post
-        if (nowInIST >= nextScheduledTime) {
+        if (isOverdue) {
           // 🔒 DYNAMIC SUBSCRIPTION CHECK - Only post for subscribed profiles
           const targetUserId = autoPosting.userId || config.userId || 'default';
           const gbpAccountId = autoPosting.gbpAccountId || autoPosting.accountId || config.gbpAccountId;
@@ -457,101 +476,121 @@ class AutomationScheduler {
     const effectiveSchedule = this.getEffectiveScheduleTime(config, lastRun);
     const [hour, minute] = effectiveSchedule.split(':').map(Number);
 
-    // Get current time in IST for consistent comparison
-    const nowInIST = new Date(
-      new Date().toLocaleString('en-US', { timeZone: 'Asia/Kolkata' })
-    );
+    // IST offset: 5 hours and 30 minutes
+    const IST_OFFSET_MS = 5.5 * 60 * 60 * 1000;
 
-    // Create scheduled time for TODAY in IST
-    const scheduledToday = new Date(nowInIST);
-    scheduledToday.setHours(hour, minute, 0, 0);
+    // Get current UTC time
+    const nowUTC = new Date();
+
+    // Calculate current IST components
+    const nowISTMillis = nowUTC.getTime() + IST_OFFSET_MS;
+    const nowISTDate = new Date(nowISTMillis);
+    const currentISTHour = nowISTDate.getUTCHours();
+    const currentISTMinute = nowISTDate.getUTCMinutes();
+    const currentISTYear = nowISTDate.getUTCFullYear();
+    const currentISTMonth = nowISTDate.getUTCMonth();
+    const currentISTDay = nowISTDate.getUTCDate();
+
+    // Create scheduled time for TODAY in UTC that corresponds to the IST schedule time
+    // If schedule is 13:00 IST, that's 07:30 UTC
+    const scheduledTodayUTC = new Date(Date.UTC(currentISTYear, currentISTMonth, currentISTDay, hour, minute, 0, 0));
+    // Subtract IST offset to convert IST time to UTC
+    scheduledTodayUTC.setTime(scheduledTodayUTC.getTime() - IST_OFFSET_MS);
 
     console.log(`[AutomationScheduler] 🕐 Schedule Calculation:`);
-    console.log(`  - Configured time: ${effectiveSchedule}`);
-    console.log(`  - Current IST time: ${nowInIST.toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })}`);
-    console.log(`  - Scheduled time today: ${scheduledToday.toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })}`);
-    console.log(`  - Last run: ${lastRun ? new Date(lastRun).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' }) : 'NEVER'}`);
+    console.log(`  - Configured time: ${effectiveSchedule} IST`);
+    console.log(`  - Current IST time: ${currentISTHour}:${currentISTMinute.toString().padStart(2, '0')}`);
+    console.log(`  - Current UTC time: ${nowUTC.toISOString()}`);
+    console.log(`  - Scheduled time today (UTC): ${scheduledTodayUTC.toISOString()}`);
+    console.log(`  - Last run: ${lastRun ? new Date(lastRun).toISOString() : 'NEVER'}`);
     console.log(`  - Frequency: ${config.frequency}`);
 
     // If never run before, schedule for today (or tomorrow if time has passed)
     if (!lastRun) {
       // If time already passed TODAY → schedule for tomorrow
-      if (nowInIST > scheduledToday) {
+      if (nowUTC.getTime() > scheduledTodayUTC.getTime()) {
         console.log(`[AutomationScheduler] ⏰ Time has passed for today, scheduling for tomorrow`);
-        scheduledToday.setDate(scheduledToday.getDate() + 1);
+        scheduledTodayUTC.setTime(scheduledTodayUTC.getTime() + 24 * 60 * 60 * 1000); // Add 1 day
       } else {
-        console.log(`[AutomationScheduler] ✅ Scheduled time is still ahead today - will post at ${effectiveSchedule}`);
+        console.log(`[AutomationScheduler] ✅ Scheduled time is still ahead today - will post at ${effectiveSchedule} IST`);
       }
-      return scheduledToday;
+      return scheduledTodayUTC;
     }
 
     // Check if we already posted TODAY at the scheduled time
     const lastRunDate = new Date(lastRun);
-    const lastRunIST = new Date(lastRunDate.toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }));
-    const isSameDay = lastRunIST.toDateString() === nowInIST.toDateString();
+    const lastRunISTMillis = lastRunDate.getTime() + IST_OFFSET_MS;
+    const lastRunISTDate = new Date(lastRunISTMillis);
+    const lastRunISTDateStr = lastRunISTDate.toISOString().split('T')[0];
+    const currentISTDateStr = nowISTDate.toISOString().split('T')[0];
+    const isSameDay = lastRunISTDateStr === currentISTDateStr;
 
-    console.log(`  - Last run was same day as today: ${isSameDay}`);
+    console.log(`  - Last run was same day as today (IST): ${isSameDay}`);
 
     // For daily frequency: Check if scheduled time TODAY is still ahead
     if (config.frequency === 'daily') {
       // If we already posted today, next post is tomorrow
       if (isSameDay) {
-        console.log(`[AutomationScheduler] 📅 Already posted today, next post tomorrow at ${effectiveSchedule}`);
-        scheduledToday.setDate(scheduledToday.getDate() + 1);
-        return scheduledToday;
+        console.log(`[AutomationScheduler] 📅 Already posted today, next post tomorrow at ${effectiveSchedule} IST`);
+        scheduledTodayUTC.setTime(scheduledTodayUTC.getTime() + 24 * 60 * 60 * 1000); // Add 1 day
+        return scheduledTodayUTC;
       }
 
       // If scheduled time hasn't passed today, post today
-      if (nowInIST < scheduledToday) {
-        console.log(`[AutomationScheduler] ✅ Scheduled time hasn't passed - will post TODAY at ${effectiveSchedule}`);
-        return scheduledToday;
+      if (nowUTC.getTime() < scheduledTodayUTC.getTime()) {
+        console.log(`[AutomationScheduler] ✅ Scheduled time hasn't passed - will post TODAY at ${effectiveSchedule} IST`);
+        return scheduledTodayUTC;
       }
 
       // Time passed and we haven't posted today - this is overdue!
-      console.log(`[AutomationScheduler] ⚠️ OVERDUE! Should have posted today at ${effectiveSchedule}`);
-      return scheduledToday; // Return today's time so it triggers immediately
+      console.log(`[AutomationScheduler] ⚠️ OVERDUE! Should have posted today at ${effectiveSchedule} IST`);
+      return scheduledTodayUTC; // Return today's time so it triggers immediately
     }
 
     // For other frequencies, calculate based on last run
-    const nextRun = new Date(lastRunIST);
-    nextRun.setHours(hour, minute, 0, 0);
+    // Create next run time in UTC based on lastRun date
+    const lastRunISTYear = lastRunISTDate.getUTCFullYear();
+    const lastRunISTMonth = lastRunISTDate.getUTCMonth();
+    const lastRunISTDay = lastRunISTDate.getUTCDate();
+    const nextRunUTC = new Date(Date.UTC(lastRunISTYear, lastRunISTMonth, lastRunISTDay, hour, minute, 0, 0));
+    nextRunUTC.setTime(nextRunUTC.getTime() - IST_OFFSET_MS); // Convert IST to UTC
 
     switch (config.frequency) {
       case 'alternative':
         // Every 2 days
-        nextRun.setDate(nextRun.getDate() + 2);
+        nextRunUTC.setTime(nextRunUTC.getTime() + 2 * 24 * 60 * 60 * 1000);
         break;
 
       case 'weekly':
         // Next week same day
-        nextRun.setDate(nextRun.getDate() + 7);
+        nextRunUTC.setTime(nextRunUTC.getTime() + 7 * 24 * 60 * 60 * 1000);
         break;
 
       case 'twice-weekly':
         // Next occurrence (3 or 4 days based on current day)
-        const currentDay = nextRun.getDay();
-        if (currentDay === 1) { // Monday -> Thursday
-          nextRun.setDate(nextRun.getDate() + 3);
-        } else { // Thursday -> Monday
-          nextRun.setDate(nextRun.getDate() + 4);
+        const currentDay = lastRunISTDate.getUTCDay();
+        if (currentDay === 1) { // Monday -> Thursday (3 days)
+          nextRunUTC.setTime(nextRunUTC.getTime() + 3 * 24 * 60 * 60 * 1000);
+        } else { // Thursday -> Monday (4 days)
+          nextRunUTC.setTime(nextRunUTC.getTime() + 4 * 24 * 60 * 60 * 1000);
         }
         break;
 
       case 'test30s':
         // Every 30 seconds from now
-        return new Date(nowInIST.getTime() + 30 * 1000);
+        return new Date(nowUTC.getTime() + 30 * 1000);
 
       default:
         // Unknown frequency, schedule for tomorrow
-        nextRun.setDate(nextRun.getDate() + 1);
+        nextRunUTC.setTime(nextRunUTC.getTime() + 24 * 60 * 60 * 1000);
     }
 
     // If next run is in the past, it's overdue
-    if (nextRun <= nowInIST) {
+    if (nextRunUTC.getTime() <= nowUTC.getTime()) {
       console.log(`[AutomationScheduler] ⚠️ OVERDUE! Next scheduled time has passed`);
     }
 
-    return nextRun;
+    return nextRunUTC;
   }
 
   // Update automation settings (now updates Supabase AND in-memory cache)
