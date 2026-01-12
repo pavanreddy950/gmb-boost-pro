@@ -345,13 +345,16 @@ class AutomationScheduler {
             console.log(`  - Configured time: ${scheduleTime} IST`);
             console.log(`  - 🕐 Current IST time: ${currentISTHour}:${currentISTMinute.toString().padStart(2, '0')}`);
 
-            // Update last run time BEFORE posting to prevent duplicate posts
-            this.settings.automations[locationId].autoPosting.lastRun = new Date().toISOString();
-            await this.updateAutomationSettings(locationId, this.settings.automations[locationId]);
+            // NOTE: lastRun is now updated INSIDE createAutomatedPost ONLY after successful API call
+            // This prevents marking as "posted" when the actual Google API call fails
 
             // Create the post (subscription already validated above)
-            await this.createAutomatedPost(locationId, autoPosting);
-            console.log(`[AutomationScheduler] ✅ Post created for ${locationId}`);
+            const postResult = await this.createAutomatedPost(locationId, autoPosting);
+            if (postResult) {
+              console.log(`[AutomationScheduler] ✅ Post created successfully for ${locationId}`);
+            } else {
+              console.log(`[AutomationScheduler] ⚠️ Post creation returned null for ${locationId} - may have failed or been blocked`);
+            }
           }
           continue;
         }
@@ -409,11 +412,13 @@ class AutomationScheduler {
             console.log(`  - Frequency: ${autoPosting.frequency}`);
             console.log(`  - Current hour: ${currentHour}`);
 
-            this.settings.automations[locationId].autoPosting.lastRun = new Date().toISOString();
-            await this.updateAutomationSettings(locationId, this.settings.automations[locationId]);
-
-            await this.createAutomatedPost(locationId, autoPosting);
-            console.log(`[AutomationScheduler] ✅ Hourly post created for ${locationId}`);
+            // NOTE: lastRun is updated INSIDE createAutomatedPost ONLY after successful API call
+            const postResult = await this.createAutomatedPost(locationId, autoPosting);
+            if (postResult) {
+              console.log(`[AutomationScheduler] ✅ Hourly post created successfully for ${locationId}`);
+            } else {
+              console.log(`[AutomationScheduler] ⚠️ Hourly post creation returned null for ${locationId}`);
+            }
           }
           continue;
         }
@@ -452,13 +457,13 @@ class AutomationScheduler {
           console.log(`  - Frequency: ${autoPosting.frequency}`);
           console.log(`  - Schedule: ${autoPosting.schedule}`);
 
-          // Update last run time in cache AND Supabase
-          this.settings.automations[locationId].autoPosting.lastRun = new Date().toISOString();
-          await this.updateAutomationSettings(locationId, this.settings.automations[locationId]);
-
-          // Create the post (subscription already validated above)
-          await this.createAutomatedPost(locationId, autoPosting);
-          console.log(`[AutomationScheduler] ✅ Missed post created for ${locationId}`);
+          // NOTE: lastRun is updated INSIDE createAutomatedPost ONLY after successful API call
+          const postResult = await this.createAutomatedPost(locationId, autoPosting);
+          if (postResult) {
+            console.log(`[AutomationScheduler] ✅ Missed post created successfully for ${locationId}`);
+          } else {
+            console.log(`[AutomationScheduler] ⚠️ Missed post creation returned null for ${locationId}`);
+          }
         }
       }
     } catch (error) {
@@ -1033,17 +1038,9 @@ class AutomationScheduler {
         }
       }
 
-      // Set lock IMMEDIATELY to prevent race conditions
+      // Set lock IMMEDIATELY to prevent race conditions (but DON'T update lastRun yet!)
+      // lastRun will be updated ONLY after successful post creation
       this.postCreationLocks.set(locationId, now);
-      if (this.settings.automations?.[locationId]?.autoPosting) {
-        this.settings.automations[locationId].autoPosting.lastRun =
-          new Date().toISOString();
-
-        await this.updateAutomationSettings(
-          locationId,
-          this.settings.automations[locationId]
-        );
-      }
       console.log(`[AutomationScheduler] 🔓 Lock acquired for location ${locationId} at ${new Date(now).toISOString()}`);
 
       // Try to get a valid token for the configured user first
