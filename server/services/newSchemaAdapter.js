@@ -269,6 +269,46 @@ class NewSchemaAdapter {
       return null;
     }
   }
+
+  /**
+   * Update user's google_account_id
+   * Called when user loads their GBP accounts
+   */
+  async updateUserAccountId(userId, googleAccountId) {
+    try {
+      if (!userId || !googleAccountId) {
+        console.warn('[NewSchemaAdapter] ⚠️ userId and googleAccountId are required');
+        return false;
+      }
+
+      console.log(`[NewSchemaAdapter] 🔄 Updating google_account_id for user: ${userId}`);
+
+      // Try by firebase_uid first
+      let result = await supabase
+        .from('users')
+        .update({ google_account_id: googleAccountId, updated_at: new Date().toISOString() })
+        .eq('firebase_uid', userId);
+
+      if (result.error) {
+        // Try by gmail_id if firebase_uid didn't match
+        result = await supabase
+          .from('users')
+          .update({ google_account_id: googleAccountId, updated_at: new Date().toISOString() })
+          .eq('gmail_id', userId);
+      }
+
+      if (result.error) {
+        console.error('[NewSchemaAdapter] ❌ Error updating account ID:', result.error);
+        return false;
+      }
+
+      console.log(`[NewSchemaAdapter] ✅ google_account_id updated to: ${googleAccountId}`);
+      return true;
+    } catch (error) {
+      console.error('[NewSchemaAdapter] ❌ Exception in updateUserAccountId:', error);
+      return false;
+    }
+  }
 }
 
 // Export singleton

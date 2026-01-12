@@ -1937,7 +1937,7 @@ app.post('/auth/google/save-tokens', async (req, res) => {
         googleAccessToken: tokenData.access_token,
         googleRefreshToken: tokenData.refresh_token,
         googleTokenExpiry: tokenData.expiry_date,
-        googleAccountId: accountId || '106433552101751461082'
+        googleAccountId: accountId || null // Don't use hardcoded fallback - will be set when user loads accounts
       });
 
       console.log('[SAVE TOKENS] ✅ Saved to NEW CLEAN SCHEMA (users table)');
@@ -2107,6 +2107,23 @@ app.get('/api/accounts', async (req, res) => {
     const accounts = accountsResponse.data.accounts || [];
 
     console.log(`Found ${accounts.length} business accounts`);
+
+    // 🔄 Save the first account ID to the user's record in database
+    // This ensures auto-posting has access to the correct account ID
+    if (accounts.length > 0 && tokenData.userId) {
+      const firstAccountId = accounts[0].name?.split('/')[1];
+      if (firstAccountId) {
+        console.log(`[API ACCOUNTS] 📝 Saving google_account_id: ${firstAccountId} for user: ${tokenData.userId}`);
+        try {
+          const newSchemaAdapter = (await import('./services/newSchemaAdapter.js')).default;
+          await newSchemaAdapter.updateUserAccountId(tokenData.userId, firstAccountId);
+          console.log(`[API ACCOUNTS] ✅ Account ID saved to database`);
+        } catch (saveError) {
+          console.warn(`[API ACCOUNTS] ⚠️ Failed to save account ID (non-critical):`, saveError.message);
+        }
+      }
+    }
+
     res.json({ accounts });
 
   } catch (error) {
