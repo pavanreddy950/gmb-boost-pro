@@ -162,6 +162,12 @@ export const useGoogleBusinessProfile = (): UseGoogleBusinessProfileReturn => {
         const firstAccountId = businessAccounts[0].accountId;
         console.log('[Profile Count] Updating subscription with total count:', totalProfileCount);
         await updateProfileCount(firstAccountId, totalProfileCount);
+
+        // Store account ID in localStorage for automation triggers
+        if (firstAccountId) {
+          localStorage.setItem('google_business_account_id', firstAccountId);
+          console.log('[useGoogleBusinessProfile] ✅ Stored account ID in localStorage:', firstAccountId);
+        }
       }
 
       // Auto-select first account if only one exists

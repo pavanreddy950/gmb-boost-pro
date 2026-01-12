@@ -795,8 +795,17 @@ class AutomationScheduler {
 
       // Create the post via Google Business Profile API (v4 - current version)
       // v4 requires accountId in the path
-      // CRITICAL: Always use hardcoded account ID from environment, ignore config.accountId
-      const accountId = process.env.HARDCODED_ACCOUNT_ID || '106433552101751461082';
+      // Use the account ID from config (passed from user's GBP connection)
+      const accountId = config.accountId || config.gbpAccountId || process.env.HARDCODED_ACCOUNT_ID;
+
+      if (!accountId) {
+        console.error(`[AutomationScheduler] ❌ No account ID available for location ${locationId}`);
+        console.error(`[AutomationScheduler] config.accountId: ${config.accountId}`);
+        console.error(`[AutomationScheduler] config.gbpAccountId: ${config.gbpAccountId}`);
+        return null;
+      }
+
+      console.log(`[AutomationScheduler] 🏢 Using Account ID: ${accountId}`);
       const postUrl = `https://mybusiness.googleapis.com/v4/accounts/${accountId}/locations/${locationId}/localPosts`;
       console.log(`[AutomationScheduler] Posting to URL: ${postUrl}`);
 
@@ -858,8 +867,14 @@ class AutomationScheduler {
   async createPostWithFallbackAPI(locationId, postContent, accessToken, config) {
     try {
       // Use Google My Business API v4 as fallback
-      // CRITICAL: Always use hardcoded account ID from environment, ignore config.accountId
-      const accountId = process.env.HARDCODED_ACCOUNT_ID || '106433552101751461082';
+      // Use the account ID from config (passed from user's GBP connection)
+      const accountId = config.accountId || config.gbpAccountId || process.env.HARDCODED_ACCOUNT_ID;
+
+      if (!accountId) {
+        console.error(`[AutomationScheduler] ❌ Fallback: No account ID available for location ${locationId}`);
+        return null;
+      }
+
       const fallbackUrl = `https://mybusiness.googleapis.com/v4/accounts/${accountId}/locations/${locationId}/localPosts`;
 
       console.log(`[AutomationScheduler] Using fallback API: ${fallbackUrl}`);
@@ -1029,8 +1044,47 @@ class AutomationScheduler {
       console.log(`[AutomationScheduler] ========================================`);
 
       // 🔒 SUBSCRIPTION CHECK - Verify user has valid trial or active subscription
-      const gbpAccountId = config.gbpAccountId || config.accountId;
-      console.log(`[AutomationScheduler] 🔒 Validating subscription for user ${targetUserId}, GBP Account: ${gbpAccountId}`);
+      // Try to get account ID from config first, then fall back to database lookup
+      let gbpAccountId = config.gbpAccountId || config.accountId;
+
+      // If no account ID in config, try to fetch from database
+      if (!gbpAccountId && targetUserId && targetUserId !== 'default') {
+        console.log(`[AutomationScheduler] 🔍 No accountId in config, looking up in database for user: ${targetUserId}`);
+        try {
+          const supabase = await supabaseConfig.ensureInitialized();
+
+          // Try by firebase_uid first
+          let { data: user, error } = await supabase
+            .from('users')
+            .select('google_account_id, gmail_id')
+            .eq('firebase_uid', targetUserId)
+            .single();
+
+          // If not found by firebase_uid, try by gmail_id
+          if (!user && !error) {
+            const result = await supabase
+              .from('users')
+              .select('google_account_id, gmail_id')
+              .eq('gmail_id', targetUserId)
+              .single();
+            user = result.data;
+          }
+
+          if (user?.google_account_id) {
+            gbpAccountId = user.google_account_id;
+            console.log(`[AutomationScheduler] ✅ Found account ID from database: ${gbpAccountId}`);
+            // Update config so it's available in createAutomatedPostWithToken
+            config.accountId = gbpAccountId;
+            config.gbpAccountId = gbpAccountId;
+          } else {
+            console.warn(`[AutomationScheduler] ⚠️ No google_account_id found in database for user: ${targetUserId}`);
+          }
+        } catch (dbError) {
+          console.error(`[AutomationScheduler] ❌ Error looking up account ID:`, dbError.message);
+        }
+      }
+
+      console.log(`[AutomationScheduler] 🔒 Validating subscription for user ${targetUserId}, GBP Account: ${gbpAccountId || 'NOT FOUND'}`);
 
       const validationResult = await subscriptionGuard.validateBeforeAutomation(targetUserId, gbpAccountId, 'auto_posting');
 
