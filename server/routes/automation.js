@@ -2020,10 +2020,10 @@ router.get('/debug/show-schedules', async (req, res) => {
 router.post('/debug/trigger-check', async (req, res) => {
   try {
     console.log(`[Automation API] ⚡ MANUAL TRIGGER CHECK request`);
-    console.log(`[Automation API] This will run checkAndRunAutomations() NOW`);
+    console.log(`[Automation API] This will run checkAndCreateMissedPosts() NOW`);
 
     // Trigger the scheduler check
-    await automationScheduler.checkAndRunAutomations();
+    await automationScheduler.checkAndCreateMissedPosts();
 
     res.json({
       success: true,
