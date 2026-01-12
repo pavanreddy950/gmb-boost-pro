@@ -100,7 +100,7 @@ class SupabaseAutomationService {
 
       const { data, error } = await this.client
         .from('user_locations')
-        .select('*, users!inner(gmail_id, firebase_uid, google_access_token, google_refresh_token, google_token_expiry, subscription_status, trial_end_date, subscription_end_date, is_admin, has_valid_token)')
+        .select('*, users!inner(gmail_id, firebase_uid, google_access_token, google_refresh_token, google_token_expiry, google_account_id, subscription_status, trial_end_date, subscription_end_date, is_admin, has_valid_token)')
         .eq('location_id', locationId)
         .single();
 
@@ -142,7 +142,7 @@ class SupabaseAutomationService {
 
       const { data, error } = await this.client
         .from('user_locations')
-        .select('*, users!inner(gmail_id, firebase_uid, google_access_token, google_refresh_token, google_token_expiry, subscription_status, trial_end_date, subscription_end_date, is_admin, has_valid_token)')
+        .select('*, users!inner(gmail_id, firebase_uid, google_access_token, google_refresh_token, google_token_expiry, google_account_id, subscription_status, trial_end_date, subscription_end_date, is_admin, has_valid_token)')
         .eq('gmail_id', gmailId);
 
       if (error) throw error;
@@ -176,6 +176,7 @@ class SupabaseAutomationService {
             google_access_token,
             google_refresh_token,
             google_token_expiry,
+            google_account_id,
             subscription_status,
             trial_end_date,
             subscription_end_date,
@@ -222,6 +223,10 @@ class SupabaseAutomationService {
       userId: user.gmail_id || data.gmail_id,
       firebaseUid: user.firebase_uid,
 
+      // Google Business Profile account ID (for API calls)
+      gbpAccountId: user.google_account_id || process.env.HARDCODED_ACCOUNT_ID,
+      accountId: user.google_account_id || process.env.HARDCODED_ACCOUNT_ID,
+
       // Business info
       businessName: data.business_name,
       category: data.category || 'business',
@@ -242,7 +247,9 @@ class SupabaseAutomationService {
         keywords: data.keywords,
         category: data.category || 'business',
         userId: user.gmail_id || data.gmail_id,
-        gbpAccountId: process.env.HARDCODED_ACCOUNT_ID || '106433552101751461082'
+        // Use user's actual google_account_id from database, fall back to env var only if not found
+        gbpAccountId: user.google_account_id || process.env.HARDCODED_ACCOUNT_ID,
+        accountId: user.google_account_id || process.env.HARDCODED_ACCOUNT_ID
       },
 
       // Auto-reply config

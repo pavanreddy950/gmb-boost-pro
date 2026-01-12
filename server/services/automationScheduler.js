@@ -85,7 +85,10 @@ class AutomationScheduler {
             enabled: true,
             schedule: '10:20',
             frequency: 'daily',
-            timezone: 'Asia/Kolkata'
+            timezone: 'Asia/Kolkata',
+            userId: setting.userId,
+            gbpAccountId: setting.gbpAccountId || setting.accountId,
+            accountId: setting.gbpAccountId || setting.accountId
           };
           this.settings.automations[locationId].autoPosting = setting.autoPosting;
         }
@@ -103,9 +106,12 @@ class AutomationScheduler {
           databaseEnabled: setting.enabled,
           hasAutoPosting: !!setting?.autoPosting,
           autoPostingEnabled: setting?.autoPosting?.enabled,
+          schedule: setting?.autoPosting?.schedule,
+          frequency: setting?.autoPosting?.frequency,
           hasAutoReply: !!setting?.autoReply,
           autoReplyEnabled: setting?.autoReply?.enabled,
-          userId: setting.userId
+          userId: setting.userId,
+          gbpAccountId: setting.gbpAccountId || setting.accountId || 'NOT SET'
         });
       }
 
@@ -221,9 +227,7 @@ class AutomationScheduler {
     }
 
     console.log('[AutomationScheduler] ⏰ Starting missed post checker (every 1 minute)');
-    console.log('[AutomationScheduler] ⚠️  IMPORTANT: For 24/7 auto-posting, use external ping service!');
-    console.log('[AutomationScheduler] 💡 Free options: UptimeRobot, Cron-job.org, or Render Cron Jobs');
-    console.log('[AutomationScheduler] 💡 Set up ping to: https://lobaiseo-backend-yjnl.onrender.com/health every 5 minutes');
+    console.log('[AutomationScheduler] ✅ Settings will reload from database every 5 minutes for freshness');
 
     // Check every 1 minute for any posts that should have been created
     this.missedPostCheckerInterval = setInterval(async () => {
@@ -235,6 +239,17 @@ class AutomationScheduler {
   // Check for missed posts and create them
   async checkAndCreateMissedPosts() {
     try {
+      // IMPORTANT: Reload settings from database every 5 minutes to ensure we have latest data
+      // This catches cases where settings were updated but server wasn't notified
+      const now = Date.now();
+      const SETTINGS_RELOAD_INTERVAL = 5 * 60 * 1000; // 5 minutes
+
+      if (!this.lastSettingsReload || (now - this.lastSettingsReload) > SETTINGS_RELOAD_INTERVAL) {
+        console.log('[AutomationScheduler] 🔄 Reloading settings from database to ensure freshness...');
+        await this.loadSettings();
+        this.lastSettingsReload = now;
+      }
+
       const automations = this.settings.automations || {};
       // Use IST time for consistent comparison with scheduled times
       const nowInIST = new Date(
