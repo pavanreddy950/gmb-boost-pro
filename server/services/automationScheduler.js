@@ -194,14 +194,17 @@ class AutomationScheduler {
       if (config.autoReply?.enabled) {
         console.log(`[AutomationScheduler] ✅ Starting review monitoring for location ${locationId}`);
         // Merge full config with autoReply settings to include businessName, keywords, etc.
+        // 🔧 FIX: Also include autoPosting settings as fallback for businessName and keywords
         const fullAutoReplyConfig = {
           ...config.autoReply,
-          businessName: config.businessName,
-          keywords: config.keywords,
-          category: config.category,
+          businessName: config.businessName || config.autoPosting?.businessName,
+          keywords: config.keywords || config.autoPosting?.keywords,
+          category: config.category || config.autoPosting?.category,
           userId: config.userId,
           accountId: config.accountId,
-          gbpAccountId: config.gbpAccountId
+          gbpAccountId: config.gbpAccountId,
+          locationId: locationId, // Include locationId for DB lookup fallback
+          autoPosting: config.autoPosting // Include full autoPosting config for fallback data
         };
         this.startReviewMonitoring(locationId, fullAutoReplyConfig);
       } else {
@@ -574,14 +577,17 @@ class AutomationScheduler {
       this.stopReviewMonitoring(locationId);
       if (settings.autoReply?.enabled) {
         // Merge full settings with autoReply config to include businessName, keywords, etc.
+        // 🔧 FIX: Also include autoPosting settings as fallback for businessName and keywords
         const fullAutoReplyConfig = {
           ...settings.autoReply,
-          businessName: settings.businessName,
-          keywords: settings.keywords,
-          category: settings.category,
+          businessName: settings.businessName || settings.autoPosting?.businessName,
+          keywords: settings.keywords || settings.autoPosting?.keywords,
+          category: settings.category || settings.autoPosting?.category,
           userId: settings.userId,
           accountId: settings.accountId,
-          gbpAccountId: settings.gbpAccountId
+          gbpAccountId: settings.gbpAccountId,
+          locationId: locationId, // Include locationId for DB lookup fallback
+          autoPosting: settings.autoPosting // Include full autoPosting config for fallback data
         };
         this.startReviewMonitoring(locationId, fullAutoReplyConfig);
       }
@@ -1979,10 +1985,52 @@ Think of yourself as writing a quick, enthusiastic recommendation - SHORT but me
     }
 
     const reviewText = review.comment || '';
-    const businessName = config.businessName || 'our business';
     const reviewerName = review.reviewer?.displayName || 'valued customer';
-    const keywords = config.keywords || '';
     const category = config.category || 'business';
+
+    // 🔧 FIX: Clean up businessName - it might be a location path like "locations/123456789"
+    // instead of the actual business name. Also try to get it from autoPosting settings.
+    let businessName = config.businessName || config.autoPosting?.businessName || 'our business';
+
+    // If businessName looks like a location path (e.g., "locations/143639376938647655"),
+    // try to get the real name from other sources or use a fallback
+    if (businessName.startsWith('locations/') || businessName.match(/^[0-9]+$/)) {
+      console.log(`[AutomationScheduler] ⚠️ businessName is a location ID: "${businessName}", looking for real name...`);
+
+      // Try to get real business name from config.locationName or autoPosting.locationName
+      const realName = config.locationName || config.autoPosting?.locationName ||
+                       config.displayName || config.autoPosting?.displayName ||
+                       config.title || config.autoPosting?.title;
+
+      if (realName && !realName.startsWith('locations/') && !realName.match(/^[0-9]+$/)) {
+        businessName = realName;
+        console.log(`[AutomationScheduler] ✅ Found real business name: "${businessName}"`);
+      } else {
+        // Last resort: fetch from Supabase using locationId
+        const locationId = businessName.replace('locations/', '') || config.locationId;
+        try {
+          const { data } = await supabaseAutomationService.client
+            .from('user_locations')
+            .select('business_name')
+            .eq('location_id', locationId)
+            .single();
+
+          if (data?.business_name && !data.business_name.startsWith('locations/')) {
+            businessName = data.business_name;
+            console.log(`[AutomationScheduler] ✅ Fetched real business name from DB: "${businessName}"`);
+          } else {
+            businessName = 'our team';
+            console.log(`[AutomationScheduler] ⚠️ Could not find real business name, using fallback: "${businessName}"`);
+          }
+        } catch (err) {
+          businessName = 'our team';
+          console.log(`[AutomationScheduler] ⚠️ Error fetching business name, using fallback: "${businessName}"`);
+        }
+      }
+    }
+
+    // 🔧 FIX: Get keywords from config OR from autoPosting settings
+    const keywords = config.keywords || config.autoPosting?.keywords || '';
 
     if (!this.openaiApiKey || !this.openaiEndpoint) {
       throw new Error('[AutomationScheduler] OpenAI not configured - AI generation is required for review replies');
