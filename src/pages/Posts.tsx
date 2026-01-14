@@ -142,8 +142,16 @@ const Posts = () => {
           }
         });
 
+        // 🔧 FIX: Sort ALL posts by date (most recent first) across all locations
+        // This ensures posts are displayed in chronological order, not grouped by location
+        allPosts.sort((a, b) => {
+          const dateA = a.postedAt ? new Date(a.postedAt).getTime() : 0;
+          const dateB = b.postedAt ? new Date(b.postedAt).getTime() : 0;
+          return dateB - dateA; // Descending order (newest first)
+        });
+
         const loadTime = Date.now() - startTime;
-        console.log(`✅ Parallel loading completed in ${loadTime}ms: Loaded ${allPosts.length} posts from ${locationTasks.length} locations`);
+        console.log(`✅ Parallel loading completed in ${loadTime}ms: Loaded ${allPosts.length} posts from ${locationTasks.length} locations (sorted by date)`);
         setPosts(allPosts);
         setLoading(false);
       } catch (error) {
