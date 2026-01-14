@@ -30,7 +30,7 @@ const Sidebar = ({ isOpen = false, onClose }: SidebarProps) => {
     { label: "Posts", href: "/dashboard/posts", icon: FileText },
     { label: "Reviews", href: "/dashboard/reviews", icon: Star },
     { label: "Audit Tool", href: "/dashboard/audit", icon: Search },
-    { label: "Magic QR", href: "/dashboard/request-reviews", icon: Mail },
+    { label: "Request for Reviews", href: "/dashboard/request-reviews", icon: Mail },
     { label: "Billing", href: "/dashboard/billing", icon: CreditCard },
   ];
 
