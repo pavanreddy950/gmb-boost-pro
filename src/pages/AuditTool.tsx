@@ -44,7 +44,6 @@ import {
 import { useGoogleBusinessProfileContext } from "@/contexts/GoogleBusinessProfileContext";
 import { useSubscription } from "@/contexts/SubscriptionContext";
 import { toast } from "@/hooks/use-toast";
-import { generateAIResponse } from "@/lib/openaiService";
 import { useAuth } from "@/contexts/AuthContext";
 
 interface PerformanceMetrics {
@@ -778,9 +777,24 @@ TOP 3 ACTIONS
 
 Keep it professional, specific with numbers, and under 200 words total.`;
 
-      const response = await generateAIResponse(prompt, 'gpt-4o');
-      setAiInsights(response);
-      
+      // Call backend API instead of frontend OpenAI service
+      const backendUrl = import.meta.env.VITE_BACKEND_URL || 'https://lobaiseo-backend-yjnl.onrender.com';
+      const response = await fetch(`${backendUrl}/api/ai-insights/generate`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ prompt })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to generate insights');
+      }
+
+      const data = await response.json();
+      setAiInsights(data.content);
+
       toast({
         title: "AI Insights Generated",
         description: "Detailed analysis and recommendations are ready.",
@@ -789,7 +803,7 @@ Keep it professional, specific with numbers, and under 200 words total.`;
       console.error('Error generating AI insights:', error);
       toast({
         title: "Error Generating Insights",
-        description: "Unable to generate AI insights. Please try again.",
+        description: error instanceof Error ? error.message : "Unable to generate AI insights. Please try again.",
         variant: "destructive"
       });
     } finally {
