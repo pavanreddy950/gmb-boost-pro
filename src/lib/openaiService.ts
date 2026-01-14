@@ -18,24 +18,33 @@ export class OpenAIService {
   private apiKey: string;
   private endpoint: string;
   private model: string;
+  // Azure OpenAI specific properties
+  private subscriptionKey: string;
+  private deployment: string;
+  private apiVersion: string;
   private lastRequestTime = 0;
   private minRequestInterval = 1000; // 1 second between requests
 
   constructor() {
-    // OpenAI API configuration from environment variables
+    // Azure OpenAI API configuration from environment variables
     this.apiKey = import.meta.env.VITE_OPENAI_API_KEY || '';
-    this.endpoint = import.meta.env.VITE_OPENAI_ENDPOINT || 'https://api.openai.com/v1/chat/completions';
+    this.endpoint = import.meta.env.VITE_OPENAI_ENDPOINT || '';
     this.model = import.meta.env.VITE_OPENAI_MODEL || 'gpt-4o-mini';
 
-    console.log('✅ OpenAI configuration loaded successfully');
+    // Azure OpenAI specific config - reuse apiKey as subscriptionKey for Azure
+    this.subscriptionKey = this.apiKey;
+    this.deployment = this.model; // In Azure, deployment name is similar to model
+    this.apiVersion = import.meta.env.VITE_AZURE_API_VERSION || '2024-02-15-preview';
+
+    console.log('✅ Azure OpenAI configuration loaded successfully');
     console.log('🔑 Endpoint:', this.endpoint);
-    console.log('🚀 Model:', this.model);
+    console.log('🚀 Model/Deployment:', this.model);
     console.log('🔑 API key:', this.apiKey ? '✅ Configured' : '❌ NOT SET');
 
     // Test the API configuration validity
     if (this.apiKey) {
       this.testApiKey().catch(error => {
-        console.warn('⚠️ OpenAI API test failed:', error.message);
+        console.warn('⚠️ Azure OpenAI API test failed:', error.message);
       });
     }
   }
@@ -360,8 +369,8 @@ export class OpenAIService {
     return {
       configured: isConfigured,
       format: isConfigured ? 'Azure OpenAI' : 'None',
-      preview: isConfigured ? 
-        `Endpoint: ${this.endpoint}, Deployment: ${this.deployment}` : 
+      preview: isConfigured ?
+        `Endpoint: ${this.endpoint}, Deployment: ${this.deployment}` :
         'Not configured'
     };
   }

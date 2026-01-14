@@ -271,52 +271,6 @@ const ProfileDetails = () => {
           </CardContent>
         </Card>
 
-        {/* Today's Statistics */}
-        {globalStats && (
-          <Card className="shadow-sm">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-1.5 sm:gap-2 text-sm sm:text-base md:text-lg">
-                <BarChart3 className="h-3.5 w-3.5 sm:h-4 sm:w-4 md:h-5 md:w-5" />
-                <span className="text-xs sm:text-sm md:text-base">Today's Statistics</span>
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-2 gap-2 sm:gap-3 md:gap-4">
-                {/* Successful Posts Box */}
-                <Card className="border border-green-200 bg-green-50">
-                  <CardContent className="p-2 sm:p-3 md:p-4 text-center">
-                    <div className="text-lg sm:text-xl md:text-2xl font-bold text-green-600">{globalStats.successfulPostsToday}</div>
-                    <div className="text-[10px] sm:text-xs md:text-sm text-muted-foreground leading-tight">Successful</div>
-                  </CardContent>
-                </Card>
-                
-                {/* Failed Posts Box */}
-                <Card className="border border-red-200 bg-red-50">
-                  <CardContent className="p-2 sm:p-3 md:p-4 text-center">
-                    <div className="text-lg sm:text-xl md:text-2xl font-bold text-red-600">{globalStats.failedPostsToday}</div>
-                    <div className="text-[10px] sm:text-xs md:text-sm text-muted-foreground leading-tight">Failed</div>
-                  </CardContent>
-                </Card>
-                
-                {/* Active Locations Box */}
-                <Card className="border border-blue-200 bg-blue-50">
-                  <CardContent className="p-2 sm:p-3 md:p-4 text-center">
-                    <div className="text-lg sm:text-xl md:text-2xl font-bold text-blue-600">{globalStats.activeConfigurations}</div>
-                    <div className="text-[10px] sm:text-xs md:text-sm text-muted-foreground leading-tight">Active</div>
-                  </CardContent>
-                </Card>
-                
-                {/* Total Posts Box */}
-                <Card className="border border-gray-200 bg-gray-50">
-                  <CardContent className="p-2 sm:p-3 md:p-4 text-center">
-                    <div className="text-lg sm:text-xl md:text-2xl font-bold text-gray-700">{globalStats.totalPostsToday}</div>
-                    <div className="text-[10px] sm:text-xs md:text-sm text-muted-foreground leading-tight">Total</div>
-                  </CardContent>
-                </Card>
-              </div>
-            </CardContent>
-          </Card>
-        )}
       </div>
 
       {/* Tabs */}
