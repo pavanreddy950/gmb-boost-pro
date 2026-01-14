@@ -758,7 +758,7 @@ const AskForReviews = () => {
     <div className="space-y-6">
       {/* Header */}
       <div className="text-center">
-        <h1 className="text-3xl font-bold tracking-tight">Ask for Reviews</h1>
+        <h1 className="text-3xl font-bold tracking-tight">Magic QR</h1>
         <p className="text-muted-foreground mt-1">
           Generate QR codes and AI-powered review suggestions for your business locations
         </p>

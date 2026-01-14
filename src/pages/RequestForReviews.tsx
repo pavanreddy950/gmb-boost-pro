@@ -289,7 +289,7 @@ const RequestForReviews = () => {
 
       {/* Header */}
       <div>
-        <h1 className="text-3xl font-bold">Request for Reviews</h1>
+        <h1 className="text-3xl font-bold">Magic QR</h1>
         <p className="text-muted-foreground">
           Upload customer data, analyze review status, and send automated review requests
         </p>

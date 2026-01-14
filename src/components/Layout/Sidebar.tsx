@@ -30,7 +30,7 @@ const Sidebar = ({ isOpen = false, onClose }: SidebarProps) => {
     { label: "Posts", href: "/dashboard/posts", icon: FileText },
     { label: "Reviews", href: "/dashboard/reviews", icon: Star },
     { label: "Audit Tool", href: "/dashboard/audit", icon: Search },
-    { label: "Request for Reviews", href: "/dashboard/request-reviews", icon: Mail },
+    { label: "Magic QR", href: "/dashboard/request-reviews", icon: Mail },
     { label: "Billing", href: "/dashboard/billing", icon: CreditCard },
   ];
 
@@ -142,11 +142,11 @@ const Sidebar = ({ isOpen = false, onClose }: SidebarProps) => {
 
       {/* Bottom CTA Section */}
       <div className="absolute bottom-4 left-4 right-4">
-        {/* Ask for Reviews */}
+        {/* Magic QR */}
         <div className="bg-gradient-primary p-3 sm:p-4 rounded-lg text-primary-foreground shadow-lg">
           <div className="flex items-center gap-3 mb-3">
             <MessageSquarePlus className="h-5 w-5 sm:h-6 sm:w-6" />
-            <h3 className="font-semibold text-sm sm:text-base">Ask for Reviews</h3>
+            <h3 className="font-semibold text-sm sm:text-base">Magic QR</h3>
           </div>
           <p className="text-xs sm:text-sm opacity-90 mb-3">
             Generate QR codes for easy reviews
