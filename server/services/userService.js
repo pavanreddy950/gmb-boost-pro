@@ -287,10 +287,12 @@ class UserService {
         };
       }
 
-      console.log(`[UserService] checkSubscriptionStatus: Found user with status: ${user.subscription_status}, profile_count: ${user.profile_count}`);
+      // 🔧 FIX: Trim subscription_status to handle any whitespace issues in database
+      const subscriptionStatus = (user.subscription_status || '').trim();
+      console.log(`[UserService] checkSubscriptionStatus: Found user with status: "${subscriptionStatus}" (raw: "${user.subscription_status}"), profile_count: ${user.profile_count}`);
 
       // Admin bypass
-      if (user.is_admin || user.subscription_status === 'admin') {
+      if (user.is_admin || subscriptionStatus === 'admin') {
         return {
           status: 'admin',
           isValid: true,
@@ -304,7 +306,7 @@ class UserService {
       const now = new Date();
 
       // Check active subscription
-      if (user.subscription_status === 'active') {
+      if (subscriptionStatus === 'active') {
         const endDate = new Date(user.subscription_end_date);
         if (endDate > now) {
           const daysRemaining = Math.ceil((endDate - now) / (1000 * 60 * 60 * 24));
@@ -331,7 +333,7 @@ class UserService {
       }
 
       // Check trial
-      if (user.subscription_status === 'trial') {
+      if (subscriptionStatus === 'trial') {
         const trialEnd = new Date(user.trial_end_date);
         if (trialEnd > now) {
           const daysRemaining = Math.ceil((trialEnd - now) / (1000 * 60 * 60 * 24));
@@ -359,7 +361,7 @@ class UserService {
 
       // Expired or other status
       return {
-        status: user.subscription_status,
+        status: subscriptionStatus, // Use trimmed value
         isValid: false,
         canUsePlatform: false,
         requiresPayment: true,
