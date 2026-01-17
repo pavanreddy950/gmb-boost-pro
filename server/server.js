@@ -1068,8 +1068,14 @@ app.post('/api/debug/backfill-account-ids', async (req, res) => {
   try {
     console.log('[BACKFILL] Starting backfill of missing google_account_id...');
 
+    // Get Supabase client from supabaseTokenStorage
+    const supabaseClient = supabaseTokenStorage.client;
+    if (!supabaseClient) {
+      return res.status(500).json({ error: 'Supabase client not initialized' });
+    }
+
     // 1. Get all users with missing google_account_id but have valid tokens
-    const { data: usersToFix, error: fetchError } = await supabase
+    const { data: usersToFix, error: fetchError } = await supabaseClient
       .from('users')
       .select('gmail_id, display_name, google_access_token, google_refresh_token, google_account_id, has_valid_token')
       .or('google_account_id.is.null,google_account_id.eq.');
@@ -1125,7 +1131,7 @@ app.post('/api/debug/backfill-account-ids', async (req, res) => {
         console.log(`[BACKFILL] Found GBP account ${gbpAccountId} for ${user.gmail_id}`);
 
         // Update user's google_account_id
-        const { error: updateError } = await supabase
+        const { error: updateError } = await supabaseClient
           .from('users')
           .update({
             google_account_id: gbpAccountId,
@@ -1233,8 +1239,14 @@ app.post('/api/debug/sync-user-locations', async (req, res) => {
 
     console.log(`[DEBUG] Syncing user_locations for: ${gmailId}`);
 
+    // Get Supabase client
+    const supabaseClient = supabaseTokenStorage.client;
+    if (!supabaseClient) {
+      return res.status(500).json({ error: 'Supabase client not initialized' });
+    }
+
     // 1. Check if user exists in users table
-    const { data: user, error: userError } = await supabase
+    const { data: user, error: userError } = await supabaseClient
       .from('users')
       .select('*')
       .eq('gmail_id', gmailId)
@@ -1251,7 +1263,7 @@ app.post('/api/debug/sync-user-locations', async (req, res) => {
     console.log(`[DEBUG] Found user: ${user.display_name}, has_valid_token: ${user.has_valid_token}`);
 
     // 2. Check existing locations in user_locations
-    const { data: existingLocations, error: locError } = await supabase
+    const { data: existingLocations, error: locError } = await supabaseClient
       .from('user_locations')
       .select('*')
       .eq('gmail_id', gmailId);
@@ -1302,7 +1314,7 @@ app.post('/api/debug/sync-user-locations', async (req, res) => {
     // Update user's google_account_id if missing
     if (!user.google_account_id || user.google_account_id !== gbpAccountId) {
       console.log(`[DEBUG] Updating user's google_account_id from ${user.google_account_id} to ${gbpAccountId}`);
-      await supabase
+      await supabaseClient
         .from('users')
         .update({ google_account_id: gbpAccountId, updated_at: new Date().toISOString() })
         .eq('gmail_id', gmailId);
