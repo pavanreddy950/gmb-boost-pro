@@ -31,7 +31,8 @@ export const useProfileLimitations = (): ProfileLimitations => {
   const { accounts, selectedAccount } = useGoogleBusinessProfileContext();
 
   // Check plan types
-  const isAdminPlan = subscription?.planId === 'unlimited'; // Admin users
+  // 🔧 FIX: Check both planId AND status for admin users
+  const isAdminPlan = subscription?.planId === 'unlimited' || status === 'admin' || subscription?.isAdmin === true;
   const isPerProfilePlan = subscription?.planId === 'per_profile_yearly';
   const isProPlan = subscription?.planId === 'yearly_pro'; // Legacy plan
   const isFreeTrial = subscription?.status === 'trial';
