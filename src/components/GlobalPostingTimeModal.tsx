@@ -110,9 +110,11 @@ export function GlobalPostingTimeModal({ isOpen, onClose, profiles }: GlobalPost
       console.log(`[GlobalPostingTime] Updating all profiles to ${selectedTime} (${selectedFrequency})`);
       
       // Prepare profiles data for backend to insert into user_locations if needed
+      // 🔧 FIX: p.name is the full path (accounts/xxx/locations/xxx), NOT the business name
+      // Use p.title (actual business name) or p.businessName, NEVER p.name for business name
       const profilesData = profiles?.map(p => ({
         locationId: p.name?.split('/').pop() || p.locationId || p.id,
-        businessName: p.title || p.name || p.businessName || 'Unknown',
+        businessName: p.title || p.businessName || 'Unknown', // Removed p.name - it's the location path, not business name!
         address: p.storefrontAddress?.addressLines?.join(', ') || p.address || ''
       })) || [];
 
