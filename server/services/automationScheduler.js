@@ -167,9 +167,19 @@ class AutomationScheduler {
         autoReplyEnabled: config.autoReply?.enabled
       });
 
+      // 🔧 FIX: Check if user has their own google_account_id - SKIP if missing!
+      const gbpAccountId = config.autoPosting?.gbpAccountId || config.autoPosting?.accountId || config.gbpAccountId;
+
+      if (!gbpAccountId) {
+        console.log(`[AutomationScheduler] ⚠️ SKIPPING ${locationId} (${config.autoPosting?.businessName || 'Unknown'}) - NO google_account_id!`);
+        console.log(`  - User: ${config.userId}`);
+        console.log(`  - Fix: User needs to reconnect their Google Business Profile, or run /api/debug/backfill-account-ids`);
+        noSubscriptionCount++;
+        continue; // Skip - don't use wrong account ID!
+      }
+
       // 🔒 DYNAMIC SUBSCRIPTION CHECK - Only schedule for subscribed profiles
       const targetUserId = config.autoPosting?.userId || config.userId || 'default';
-      const gbpAccountId = config.autoPosting?.gbpAccountId || config.autoPosting?.accountId || config.gbpAccountId;
 
       const validationResult = await subscriptionGuard.validateBeforeAutomation(targetUserId, gbpAccountId, 'auto_posting');
 

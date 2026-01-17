@@ -1063,6 +1063,165 @@ app.post('/api/ai-insights/generate', async (req, res) => {
   }
 });
 
+// 🔧 BACKFILL ENDPOINT: Fix missing google_account_id for ALL users
+app.post('/api/debug/backfill-account-ids', async (req, res) => {
+  try {
+    console.log('[BACKFILL] Starting backfill of missing google_account_id...');
+
+    // 1. Get all users with missing google_account_id but have valid tokens
+    const { data: usersToFix, error: fetchError } = await supabase
+      .from('users')
+      .select('gmail_id, display_name, google_access_token, google_refresh_token, google_account_id, has_valid_token')
+      .or('google_account_id.is.null,google_account_id.eq.');
+
+    if (fetchError) {
+      console.error('[BACKFILL] Error fetching users:', fetchError);
+      return res.status(500).json({ error: fetchError.message });
+    }
+
+    console.log(`[BACKFILL] Found ${usersToFix?.length || 0} users with missing google_account_id`);
+
+    const results = [];
+    const newSchemaAdapter = (await import('./services/newSchemaAdapter.js')).default;
+
+    for (const user of (usersToFix || [])) {
+      console.log(`[BACKFILL] Processing: ${user.gmail_id}`);
+
+      if (!user.google_access_token || !user.google_refresh_token) {
+        results.push({
+          gmail_id: user.gmail_id,
+          status: 'skipped',
+          reason: 'No tokens available'
+        });
+        continue;
+      }
+
+      try {
+        // Set credentials for this user
+        oauth2Client.setCredentials({
+          access_token: user.google_access_token,
+          refresh_token: user.google_refresh_token
+        });
+
+        // Fetch their GBP accounts
+        const mybusiness = google.mybusinessaccountmanagement({
+          version: 'v1',
+          auth: oauth2Client
+        });
+
+        const accountsResponse = await mybusiness.accounts.list();
+        const accounts = accountsResponse.data.accounts || [];
+
+        if (accounts.length === 0) {
+          results.push({
+            gmail_id: user.gmail_id,
+            status: 'skipped',
+            reason: 'No GBP accounts found'
+          });
+          continue;
+        }
+
+        const gbpAccountId = accounts[0].name.split('/')[1];
+        console.log(`[BACKFILL] Found GBP account ${gbpAccountId} for ${user.gmail_id}`);
+
+        // Update user's google_account_id
+        const { error: updateError } = await supabase
+          .from('users')
+          .update({
+            google_account_id: gbpAccountId,
+            updated_at: new Date().toISOString()
+          })
+          .eq('gmail_id', user.gmail_id);
+
+        if (updateError) {
+          results.push({
+            gmail_id: user.gmail_id,
+            status: 'error',
+            reason: updateError.message
+          });
+        } else {
+          // Also sync their locations
+          const mybusinessInfo = google.mybusinessbusinessinformation({
+            version: 'v1',
+            auth: oauth2Client
+          });
+
+          const locationsResponse = await mybusinessInfo.accounts.locations.list({
+            parent: accounts[0].name,
+            readMask: 'name,title,storefrontAddress,categories'
+          });
+
+          const locations = locationsResponse.data.locations || [];
+          let locationssynced = 0;
+
+          for (const location of locations) {
+            const locationId = location.name.split('/').pop();
+            const businessName = location.title || 'Business';
+            const category = location.categories?.[0]?.name || 'business';
+            const address = location.storefrontAddress;
+            const fullAddress = [
+              ...(address?.addressLines || []),
+              address?.locality,
+              address?.administrativeArea
+            ].filter(Boolean).join(', ');
+
+            await newSchemaAdapter.upsertLocation({
+              gmailId: user.gmail_id,
+              locationId: locationId,
+              businessName: businessName,
+              address: fullAddress,
+              category: category,
+              keywords: 'quality service',
+              autopostingEnabled: true,
+              autopostingSchedule: '10:20',
+              autopostingFrequency: 'daily',
+              autoreplyEnabled: true
+            });
+            locationssynced++;
+          }
+
+          results.push({
+            gmail_id: user.gmail_id,
+            status: 'fixed',
+            google_account_id: gbpAccountId,
+            locations_synced: locationssynced
+          });
+        }
+      } catch (userError) {
+        console.error(`[BACKFILL] Error processing ${user.gmail_id}:`, userError.message);
+        results.push({
+          gmail_id: user.gmail_id,
+          status: 'error',
+          reason: userError.message
+        });
+      }
+    }
+
+    // Reload automations
+    if (automationScheduler && typeof automationScheduler.initializeAutomations === 'function') {
+      console.log('[BACKFILL] Reloading automation scheduler...');
+      await automationScheduler.initializeAutomations();
+    }
+
+    const fixed = results.filter(r => r.status === 'fixed').length;
+    const skipped = results.filter(r => r.status === 'skipped').length;
+    const errors = results.filter(r => r.status === 'error').length;
+
+    console.log(`[BACKFILL] Complete! Fixed: ${fixed}, Skipped: ${skipped}, Errors: ${errors}`);
+
+    res.json({
+      success: true,
+      message: `Backfill complete: ${fixed} fixed, ${skipped} skipped, ${errors} errors`,
+      summary: { fixed, skipped, errors },
+      results
+    });
+
+  } catch (error) {
+    console.error('[BACKFILL] Error:', error);
+    res.status(500).json({ error: error.message, stack: error.stack });
+  }
+});
+
 // Debug endpoint to check and sync user_locations for a specific user
 app.post('/api/debug/sync-user-locations', async (req, res) => {
   try {
@@ -1659,8 +1818,31 @@ app.post('/auth/google/callback', async (req, res) => {
       // Don't throw - Firestore tokens are already saved, this is just for auto-posting feature
     }
 
-    // 🆕 SAVE TO NEW CLEAN SCHEMA (users table)
-    console.log('1️⃣5️⃣.6️⃣ Saving user to NEW CLEAN SCHEMA (users table)...');
+    // 🔧 FIX: Check GBP accounts FIRST so we have the account ID ready before saving user
+    console.log('1️⃣5️⃣.6️⃣ Checking for GBP accounts FIRST (to get google_account_id)...');
+    let gbpAccountId = null;
+    let gbpAccounts = [];
+    try {
+      oauth2Client.setCredentials(tokens);
+      const mybusiness = google.mybusinessaccountmanagement({
+        version: 'v1',
+        auth: oauth2Client
+      });
+
+      const accountsResponse = await mybusiness.accounts.list();
+      gbpAccounts = accountsResponse.data.accounts || [];
+      console.log(`1️⃣5️⃣.6️⃣ Found ${gbpAccounts.length} GBP account(s)`);
+
+      if (gbpAccounts.length > 0) {
+        gbpAccountId = gbpAccounts[0].name.split('/')[1];
+        console.log(`1️⃣5️⃣.6️⃣ ✅ Got GBP Account ID: ${gbpAccountId}`);
+      }
+    } catch (gbpCheckError) {
+      console.warn('⚠️ Could not check GBP accounts (non-critical):', gbpCheckError.message);
+    }
+
+    // 🆕 SAVE TO NEW CLEAN SCHEMA (users table) - NOW WITH google_account_id!
+    console.log('1️⃣5️⃣.7️⃣ Saving user to NEW CLEAN SCHEMA (users table)...');
     try {
       const newSchemaAdapter = (await import('./services/newSchemaAdapter.js')).default;
 
@@ -1672,12 +1854,13 @@ app.post('/auth/google/callback', async (req, res) => {
         googleAccessToken: tokens.access_token,
         googleRefreshToken: tokens.refresh_token,
         googleTokenExpiry: tokens.expiry_date,
-        googleAccountId: null // Will be set later when we check GBP accounts
+        googleAccountId: gbpAccountId // 🔧 FIX: Now we have the account ID from the check above!
       });
 
-      console.log('1️⃣5️⃣.6️⃣ ✅ User saved to NEW CLEAN SCHEMA (users table)');
-      console.log(`1️⃣5️⃣.6️⃣ 📧 Gmail: ${userInfo.data.email}`);
-      console.log(`1️⃣5️⃣.6️⃣ 🆔 Firebase UID: ${userId}`);
+      console.log('1️⃣5️⃣.7️⃣ ✅ User saved to NEW CLEAN SCHEMA (users table)');
+      console.log(`1️⃣5️⃣.7️⃣ 📧 Gmail: ${userInfo.data.email}`);
+      console.log(`1️⃣5️⃣.7️⃣ 🆔 Firebase UID: ${userId}`);
+      console.log(`1️⃣5️⃣.7️⃣ 🏢 GBP Account ID: ${gbpAccountId || 'NOT FOUND'}`);
     } catch (newSchemaError) {
       console.error('⚠️ Failed to save to new schema (non-critical):', {
         message: newSchemaError.message,
@@ -1686,18 +1869,11 @@ app.post('/auth/google/callback', async (req, res) => {
       // Don't throw - old tables still work
     }
 
-    // Check if user has a Google Business Profile account
-    console.log('1️⃣6️⃣ Checking for GBP accounts...');
+    // Continue with GBP account setup if accounts were found
+    console.log('1️⃣6️⃣ Setting up GBP accounts...');
+    const accounts = gbpAccounts; // Use the accounts we already fetched
     try {
-      oauth2Client.setCredentials(tokens);
-      const mybusiness = google.mybusinessaccountmanagement({
-        version: 'v1',
-        auth: oauth2Client
-      });
-
-      const accountsResponse = await mybusiness.accounts.list();
-      const accounts = accountsResponse.data.accounts || [];
-      console.log(`1️⃣7️⃣ Found ${accounts.length} GBP account(s)`);
+      console.log(`1️⃣7️⃣ Processing ${accounts.length} GBP account(s)`);
 
       // If user has GBP accounts, create trial subscription for the first one
       if (accounts.length > 0) {

@@ -224,8 +224,10 @@ class SupabaseAutomationService {
       firebaseUid: user.firebase_uid,
 
       // Google Business Profile account ID (for API calls)
-      gbpAccountId: user.google_account_id || process.env.HARDCODED_ACCOUNT_ID,
-      accountId: user.google_account_id || process.env.HARDCODED_ACCOUNT_ID,
+      // 🔧 FIX: Do NOT fall back to HARDCODED_ACCOUNT_ID - each user MUST have their own account ID
+      // If missing, the automation will be skipped for this user (prevents posting to wrong account)
+      gbpAccountId: user.google_account_id || null,
+      accountId: user.google_account_id || null,
 
       // Business info
       businessName: data.business_name,
@@ -247,9 +249,9 @@ class SupabaseAutomationService {
         keywords: data.keywords,
         category: data.category || 'business',
         userId: user.gmail_id || data.gmail_id,
-        // Use user's actual google_account_id from database, fall back to env var only if not found
-        gbpAccountId: user.google_account_id || process.env.HARDCODED_ACCOUNT_ID,
-        accountId: user.google_account_id || process.env.HARDCODED_ACCOUNT_ID
+        // 🔧 FIX: Use user's actual google_account_id - do NOT fall back to hardcoded ID
+        gbpAccountId: user.google_account_id || null,
+        accountId: user.google_account_id || null
       },
 
       // Auto-reply config
