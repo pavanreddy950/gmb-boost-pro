@@ -1063,6 +1063,176 @@ app.post('/api/ai-insights/generate', async (req, res) => {
   }
 });
 
+// Debug endpoint to check and sync user_locations for a specific user
+app.post('/api/debug/sync-user-locations', async (req, res) => {
+  try {
+    const { gmailId } = req.body;
+
+    if (!gmailId) {
+      return res.status(400).json({ error: 'gmailId is required' });
+    }
+
+    console.log(`[DEBUG] Syncing user_locations for: ${gmailId}`);
+
+    // 1. Check if user exists in users table
+    const { data: user, error: userError } = await supabase
+      .from('users')
+      .select('*')
+      .eq('gmail_id', gmailId)
+      .single();
+
+    if (userError || !user) {
+      return res.status(404).json({
+        error: 'User not found in users table',
+        gmailId,
+        suggestion: 'User needs to reconnect their Google Business Profile'
+      });
+    }
+
+    console.log(`[DEBUG] Found user: ${user.display_name}, has_valid_token: ${user.has_valid_token}`);
+
+    // 2. Check existing locations in user_locations
+    const { data: existingLocations, error: locError } = await supabase
+      .from('user_locations')
+      .select('*')
+      .eq('gmail_id', gmailId);
+
+    console.log(`[DEBUG] Found ${existingLocations?.length || 0} existing locations`);
+
+    // 3. If user has valid token, fetch their GBP locations and sync
+    if (!user.google_access_token) {
+      return res.json({
+        success: false,
+        message: 'User has no Google access token - needs to reconnect GBP',
+        user: {
+          gmail_id: user.gmail_id,
+          display_name: user.display_name,
+          has_valid_token: user.has_valid_token,
+          google_account_id: user.google_account_id
+        },
+        existingLocations: existingLocations || []
+      });
+    }
+
+    // 4. Fetch locations from Google API
+    oauth2Client.setCredentials({
+      access_token: user.google_access_token,
+      refresh_token: user.google_refresh_token
+    });
+
+    const mybusiness = google.mybusinessaccountmanagement({
+      version: 'v1',
+      auth: oauth2Client
+    });
+
+    const accountsResponse = await mybusiness.accounts.list();
+    const accounts = accountsResponse.data.accounts || [];
+
+    if (accounts.length === 0) {
+      return res.json({
+        success: false,
+        message: 'No GBP accounts found for this user',
+        user: { gmail_id: user.gmail_id, display_name: user.display_name },
+        existingLocations: existingLocations || []
+      });
+    }
+
+    const gbpAccountId = accounts[0].name.split('/')[1];
+    console.log(`[DEBUG] GBP Account ID: ${gbpAccountId}`);
+
+    // Update user's google_account_id if missing
+    if (!user.google_account_id || user.google_account_id !== gbpAccountId) {
+      console.log(`[DEBUG] Updating user's google_account_id from ${user.google_account_id} to ${gbpAccountId}`);
+      await supabase
+        .from('users')
+        .update({ google_account_id: gbpAccountId, updated_at: new Date().toISOString() })
+        .eq('gmail_id', gmailId);
+    }
+
+    // Fetch locations
+    const mybusinessInfo = google.mybusinessbusinessinformation({
+      version: 'v1',
+      auth: oauth2Client
+    });
+
+    const locationsResponse = await mybusinessInfo.accounts.locations.list({
+      parent: accounts[0].name,
+      readMask: 'name,title,storefrontAddress,websiteUri,phoneNumbers,categories'
+    });
+
+    const locations = locationsResponse.data.locations || [];
+    console.log(`[DEBUG] Found ${locations.length} locations from Google API`);
+
+    // 5. Sync each location to user_locations
+    const syncResults = [];
+    const newSchemaAdapter = (await import('./services/newSchemaAdapter.js')).default;
+
+    for (const location of locations) {
+      const locationId = location.name.split('/').pop();
+      const businessName = location.title || 'Business';
+      const category = location.categories?.[0]?.name || location.categories?.[0]?.displayName || 'business';
+      const address = location.storefrontAddress;
+
+      const fullAddress = [
+        ...(address?.addressLines || []),
+        address?.locality,
+        address?.administrativeArea,
+        address?.postalCode,
+        address?.regionCode || address?.countryCode
+      ].filter(Boolean).join(', ');
+
+      console.log(`[DEBUG] Syncing location: ${businessName} (${locationId})`);
+
+      const result = await newSchemaAdapter.upsertLocation({
+        gmailId: gmailId,
+        locationId: locationId,
+        businessName: businessName,
+        address: fullAddress,
+        category: category,
+        keywords: 'quality service, customer satisfaction',
+        autopostingEnabled: true,
+        autopostingSchedule: '10:20',
+        autopostingFrequency: 'daily',
+        autoreplyEnabled: true
+      });
+
+      syncResults.push({
+        locationId,
+        businessName,
+        synced: !!result,
+        status: result?.autoposting_status,
+        reason: result?.autoposting_status_reason
+      });
+    }
+
+    // 6. Reload automations
+    if (automationScheduler && typeof automationScheduler.initializeAutomations === 'function') {
+      console.log('[DEBUG] Reloading automation scheduler...');
+      await automationScheduler.initializeAutomations();
+    }
+
+    res.json({
+      success: true,
+      message: `Synced ${syncResults.length} locations for ${gmailId}`,
+      user: {
+        gmail_id: user.gmail_id,
+        display_name: user.display_name,
+        google_account_id: gbpAccountId,
+        has_valid_token: user.has_valid_token
+      },
+      syncResults,
+      previousLocations: existingLocations || []
+    });
+
+  } catch (error) {
+    console.error('[DEBUG] Error syncing user_locations:', error);
+    res.status(500).json({
+      error: error.message,
+      stack: error.stack
+    });
+  }
+});
+
 // Apply subscription check middleware to all routes
 // This will enforce payment after 15-day trial expiry
 app.use((req, res, next) => {
