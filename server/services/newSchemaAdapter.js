@@ -26,7 +26,7 @@ class NewSchemaAdapter {
         gmailId,           // REQUIRED
         firebaseUid,
         displayName,
-        subscriptionStatus = 'trial',
+        subscriptionStatus,  // Don't default to 'trial' - preserve existing value
         trialEndDate,
         googleAccessToken,
         googleRefreshToken,
@@ -39,15 +39,30 @@ class NewSchemaAdapter {
         return null;
       }
 
-      // Calculate trial end date if not provided (15 days from now)
-      const calculatedTrialEndDate = trialEndDate || new Date(Date.now() + 15 * 24 * 60 * 60 * 1000).toISOString();
+      // 🔧 FIX: Check if user already exists to preserve subscription_status
+      const { data: existingUser } = await supabase
+        .from('users')
+        .select('subscription_status, trial_start_date, trial_end_date')
+        .eq('gmail_id', gmailId)
+        .single();
+
+      // Only set trial dates for NEW users (not existing ones)
+      const isNewUser = !existingUser;
+
+      // Calculate trial end date only for new users
+      const calculatedTrialEndDate = isNewUser
+        ? (trialEndDate || new Date(Date.now() + 15 * 24 * 60 * 60 * 1000).toISOString())
+        : existingUser.trial_end_date;
 
       const userData = {
         gmail_id: gmailId,
         firebase_uid: firebaseUid,
         display_name: displayName,
-        subscription_status: subscriptionStatus,
-        trial_start_date: new Date().toISOString(),
+        // 🔧 FIX: Only set subscription_status if explicitly provided OR for new users
+        // This prevents overwriting 'active' with 'trial' on every login
+        subscription_status: subscriptionStatus || (isNewUser ? 'trial' : existingUser.subscription_status),
+        // Only set trial_start_date for new users
+        ...(isNewUser && { trial_start_date: new Date().toISOString() }),
         trial_end_date: calculatedTrialEndDate,
         google_access_token: googleAccessToken,
         google_refresh_token: googleRefreshToken,

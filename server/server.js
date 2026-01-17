@@ -1862,7 +1862,8 @@ app.post('/auth/google/callback', async (req, res) => {
         gmailId: userInfo.data.email,
         firebaseUid: userId,
         displayName: userInfo.data.name || userInfo.data.email.split('@')[0],
-        subscriptionStatus: 'trial',
+        // 🔧 FIX: Don't set subscriptionStatus - let the adapter preserve existing value
+        // New users will default to 'trial', existing users keep their current status
         googleAccessToken: tokens.access_token,
         googleRefreshToken: tokens.refresh_token,
         googleTokenExpiry: tokens.expiry_date,
@@ -1909,7 +1910,7 @@ app.post('/auth/google/callback', async (req, res) => {
             gmailId: userInfo.data.email,
             firebaseUid: userId,
             displayName: userInfo.data.name || userInfo.data.email.split('@')[0],
-            subscriptionStatus: 'trial',
+            // 🔧 FIX: Don't set subscriptionStatus - preserve existing value
             googleAccessToken: tokens.access_token,
             googleRefreshToken: tokens.refresh_token,
             googleTokenExpiry: tokens.expiry_date,
@@ -2358,7 +2359,7 @@ app.post('/auth/google/save-tokens', async (req, res) => {
         gmailId: email || `${userId}@temp.user`,
         firebaseUid: userId,
         displayName: email ? email.split('@')[0] : 'User',
-        subscriptionStatus: 'trial',
+        // 🔧 FIX: Don't set subscriptionStatus - preserve existing value for existing users
         googleAccessToken: tokenData.access_token,
         googleRefreshToken: tokenData.refresh_token,
         googleTokenExpiry: tokenData.expiry_date,
