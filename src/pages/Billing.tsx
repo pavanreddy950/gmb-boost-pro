@@ -226,70 +226,22 @@ const Billing = () => {
             <CardDescription>Your subscription is active and all features are unlocked</CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
-            {/* Main Stats - Prominent Display */}
-            <div className="bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-xl p-6 shadow-lg">
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <div className="text-center">
-                  <p className="text-3xl font-bold">{subscription.paidSlots || 0}</p>
-                  <p className="text-sm opacity-90">Paid Slots</p>
-                </div>
-                <div className="text-center">
-                  <p className="text-3xl font-bold">{subscription.connectedProfiles || 0}</p>
-                  <p className="text-sm opacity-90">Connected</p>
-                </div>
-                <div className="text-center">
-                  <p className="text-3xl font-bold">{subscription.availableSlots || 0}</p>
-                  <p className="text-sm opacity-90">Available</p>
-                </div>
-                <div className="text-center">
-                  <p className="text-3xl font-bold">{daysRemaining || 0}</p>
-                  <p className="text-sm opacity-90">Days Left</p>
-                </div>
+            {/* Main Stats - Separate Boxes */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div className="bg-blue-50 rounded-xl p-5 border-2 border-blue-200 text-center">
+                <p className="text-4xl font-bold text-blue-600">{subscription.paidSlots || 0}</p>
+                <p className="text-sm text-blue-700 mt-1 font-medium">Paid Slots</p>
               </div>
-            </div>
-
-            {/* Detailed Breakdown */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="bg-blue-50 rounded-lg p-4 border border-blue-200">
-                <div className="flex items-center space-x-2 mb-2">
-                  <CreditCard className="h-5 w-5 text-blue-600" />
-                  <span className="font-semibold text-blue-900">Paid Profiles</span>
-                </div>
-                <p className="text-3xl font-bold text-blue-600">{subscription.paidSlots || 0}</p>
-                <p className="text-xs text-blue-700 mt-1">
-                  Profiles you have paid for subscription
-                </p>
+              <div className="bg-green-50 rounded-xl p-5 border-2 border-green-200 text-center">
+                <p className="text-4xl font-bold text-green-600">{subscription.connectedProfiles || 0}</p>
+                <p className="text-sm text-green-700 mt-1 font-medium">Connected</p>
               </div>
-
-              <div className="bg-green-50 rounded-lg p-4 border border-green-200">
-                <div className="flex items-center space-x-2 mb-2">
-                  <CheckCircle className="h-5 w-5 text-green-600" />
-                  <span className="font-semibold text-green-900">Connected Profiles</span>
-                </div>
-                <p className="text-3xl font-bold text-green-600">{subscription.connectedProfiles || 0}</p>
-                <p className="text-xs text-green-700 mt-1">
-                  Profiles currently connected to your account
-                </p>
-              </div>
-
-              <div className={`rounded-lg p-4 border ${
+              <div className={`rounded-xl p-5 border-2 text-center ${
                 (subscription.availableSlots || 0) > 0
                   ? 'bg-purple-50 border-purple-200'
                   : 'bg-orange-50 border-orange-200'
               }`}>
-                <div className="flex items-center space-x-2 mb-2">
-                  {(subscription.availableSlots || 0) > 0 ? (
-                    <Sparkles className="h-5 w-5 text-purple-600" />
-                  ) : (
-                    <AlertCircle className="h-5 w-5 text-orange-600" />
-                  )}
-                  <span className={`font-semibold ${
-                    (subscription.availableSlots || 0) > 0 ? 'text-purple-900' : 'text-orange-900'
-                  }`}>
-                    {(subscription.availableSlots || 0) > 0 ? 'Available Slots' : 'Need More Slots'}
-                  </span>
-                </div>
-                <p className={`text-3xl font-bold ${
+                <p className={`text-4xl font-bold ${
                   (subscription.availableSlots || 0) > 0 ? 'text-purple-600' : 'text-orange-600'
                 }`}>
                   {(subscription.availableSlots || 0) > 0
@@ -297,14 +249,15 @@ const Billing = () => {
                     : Math.abs((subscription.connectedProfiles || 0) - (subscription.paidSlots || 0))
                   }
                 </p>
-                <p className={`text-xs mt-1 ${
+                <p className={`text-sm mt-1 font-medium ${
                   (subscription.availableSlots || 0) > 0 ? 'text-purple-700' : 'text-orange-700'
                 }`}>
-                  {(subscription.availableSlots || 0) > 0
-                    ? 'Slots available to add more profiles'
-                    : 'Extra profiles need subscription'
-                  }
+                  {(subscription.availableSlots || 0) > 0 ? 'Available' : 'Need More'}
                 </p>
+              </div>
+              <div className="bg-indigo-50 rounded-xl p-5 border-2 border-indigo-200 text-center">
+                <p className="text-4xl font-bold text-indigo-600">{daysRemaining || 0}</p>
+                <p className="text-sm text-indigo-700 mt-1 font-medium">Days Left</p>
               </div>
             </div>
 
