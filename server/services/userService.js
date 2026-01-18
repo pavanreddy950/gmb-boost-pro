@@ -268,6 +268,11 @@ class UserService {
 
   /**
    * Check subscription status
+   * Returns complete subscription info including:
+   * - paidSlots: How many profiles user paid for (profile_count in users table)
+   * - connectedProfiles: How many profiles user has connected (count from user_locations)
+   * - availableSlots: paidSlots - connectedProfiles (how many more they can connect)
+   * - needsMoreSlots: connectedProfiles > paidSlots (they need to pay for more)
    */
   async checkSubscriptionStatus(email) {
     try {
@@ -289,7 +294,28 @@ class UserService {
 
       // 🔧 FIX: Trim subscription_status to handle any whitespace issues in database
       const subscriptionStatus = (user.subscription_status || '').trim();
-      console.log(`[UserService] checkSubscriptionStatus: Found user with status: "${subscriptionStatus}" (raw: "${user.subscription_status}"), profile_count: ${user.profile_count}`);
+
+      // 📊 Get count of connected profiles from user_locations table
+      let connectedProfiles = 0;
+      try {
+        const { count, error } = await this.client
+          .from('user_locations')
+          .select('*', { count: 'exact', head: true })
+          .eq('gmail_id', email);
+
+        if (!error) {
+          connectedProfiles = count || 0;
+        }
+      } catch (countError) {
+        console.error('[UserService] Error counting connected profiles:', countError);
+      }
+
+      // Calculate slot information
+      const paidSlots = user.profile_count || 0;
+      const availableSlots = Math.max(0, paidSlots - connectedProfiles);
+      const needsMoreSlots = connectedProfiles > paidSlots && subscriptionStatus === 'active';
+
+      console.log(`[UserService] checkSubscriptionStatus: Found user with status: "${subscriptionStatus}", paidSlots: ${paidSlots}, connectedProfiles: ${connectedProfiles}`);
 
       // Admin bypass
       if (user.is_admin || subscriptionStatus === 'admin') {
@@ -299,6 +325,10 @@ class UserService {
           canUsePlatform: true,
           daysRemaining: 999999,
           profileCount: user.profile_count,
+          paidSlots: 999999,
+          connectedProfiles,
+          availableSlots: 999999,
+          needsMoreSlots: false,
           message: 'Admin - Unlimited access'
         };
       }
@@ -316,7 +346,13 @@ class UserService {
             canUsePlatform: true,
             daysRemaining,
             profileCount: user.profile_count,
+            paidSlots,
+            connectedProfiles,
+            availableSlots,
+            needsMoreSlots,
             subscriptionEndDate: user.subscription_end_date,
+            subscriptionStartDate: user.subscription_start_date,
+            amountPaid: user.amount_paid,
             message: `Subscription active - ${daysRemaining} days remaining`
           };
         } else {
@@ -327,6 +363,10 @@ class UserService {
             isValid: false,
             canUsePlatform: false,
             requiresPayment: true,
+            paidSlots,
+            connectedProfiles,
+            availableSlots: 0,
+            needsMoreSlots: true,
             message: 'Subscription expired. Please renew.'
           };
         }
@@ -343,6 +383,10 @@ class UserService {
             canUsePlatform: true,
             daysRemaining,
             trialEndDate: user.trial_end_date,
+            paidSlots: 0,
+            connectedProfiles,
+            availableSlots: 0,
+            needsMoreSlots: false, // Trial users don't need slots
             message: `Trial active - ${daysRemaining} days remaining`
           };
         } else {
@@ -354,6 +398,10 @@ class UserService {
             canUsePlatform: false,
             requiresPayment: true,
             billingOnly: true,
+            paidSlots: 0,
+            connectedProfiles,
+            availableSlots: 0,
+            needsMoreSlots: true,
             message: 'Trial expired. Please upgrade.'
           };
         }
@@ -365,6 +413,10 @@ class UserService {
         isValid: false,
         canUsePlatform: false,
         requiresPayment: true,
+        paidSlots,
+        connectedProfiles,
+        availableSlots: 0,
+        needsMoreSlots: true,
         message: 'Please subscribe to continue.'
       };
     } catch (error) {

@@ -11,7 +11,14 @@ interface Subscription {
   profileCount: number;
   trialEndDate?: string;
   subscriptionEndDate?: string;
+  subscriptionStartDate?: string;
   isAdmin?: boolean;
+  // New billing info
+  paidSlots?: number;           // How many profiles user paid for
+  connectedProfiles?: number;   // How many profiles are actually connected
+  availableSlots?: number;      // paidSlots - connectedProfiles
+  needsMoreSlots?: boolean;     // connectedProfiles > paidSlots
+  amountPaid?: number;          // Total amount paid in paise
 }
 
 interface SubscriptionContextType {
@@ -170,7 +177,7 @@ export const SubscriptionProvider: React.FC<SubscriptionProviderProps> = ({ chil
           return;
         }
 
-        // Set subscription data from response
+        // Set subscription data from response (including new billing info)
         setStatus(data.status as 'trial' | 'active' | 'expired' | 'none');
         setDaysRemaining(data.daysRemaining || null);
         setSubscription({
@@ -179,7 +186,14 @@ export const SubscriptionProvider: React.FC<SubscriptionProviderProps> = ({ chil
           status: data.status,
           profileCount: data.profileCount || 0,
           trialEndDate: data.trialEndDate,
-          subscriptionEndDate: data.subscriptionEndDate
+          subscriptionEndDate: data.subscriptionEndDate,
+          subscriptionStartDate: data.subscriptionStartDate,
+          // New billing info from backend
+          paidSlots: data.paidSlots || 0,
+          connectedProfiles: data.connectedProfiles || 0,
+          availableSlots: data.availableSlots || 0,
+          needsMoreSlots: data.needsMoreSlots || false,
+          amountPaid: data.amountPaid || 0
         });
 
         // Set platform access based on subscription status

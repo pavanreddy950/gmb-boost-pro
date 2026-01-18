@@ -214,183 +214,275 @@ const Billing = () => {
             </div>
           </CardContent>
         </Card>
-      ) : (
-        // Regular User View - Show actual subscription
-        <Card className={status === 'active' ? 'border-green-500' : ''}>
+      ) : status === 'active' && subscription ? (
+        // Active Subscription View - Show comprehensive billing breakdown
+        <Card className="border-2 border-green-500">
           <CardHeader>
             <CardTitle className="flex items-center space-x-2">
-              <span>Current Subscription</span>
-              {status === 'active' && <CheckCircle className="h-5 w-5 text-green-500" />}
+              <CheckCircle className="h-6 w-6 text-green-600" />
+              <span>Active Subscription</span>
+              <Badge className="bg-green-600">Active</Badge>
             </CardTitle>
-            <CardDescription>Your active plan and billing details</CardDescription>
+            <CardDescription>Your subscription is active and all features are unlocked</CardDescription>
           </CardHeader>
-          <CardContent className="space-y-4">
-            {/* Subscription Profile Count Header - Prominent Display */}
-            {status === 'active' && subscription?.paidSlots && subscription.paidSlots > 0 && (
-              <div className="bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-xl p-5 mb-4 shadow-lg">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium opacity-90 mb-1">Your Current Subscription</p>
-                    <p className="text-3xl font-bold">
-                      {subscription.paidSlots} Profile{subscription.paidSlots > 1 ? 's' : ''}
-                    </p>
-                    <p className="text-sm mt-2 opacity-90">
-                      {subscription.profileCount || 0} active • {subscription.paidSlots - (subscription.profileCount || 0)} available
-                    </p>
-                  </div>
-                  <div className="bg-white/20 backdrop-blur-sm rounded-lg px-4 py-3 text-center">
-                    <p className="text-2xl font-bold">${((subscription.paidSlots * 99) / 1).toFixed(0)}</p>
-                    <p className="text-xs opacity-90">per year</p>
-                  </div>
+          <CardContent className="space-y-6">
+            {/* Main Stats - Prominent Display */}
+            <div className="bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-xl p-6 shadow-lg">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div className="text-center">
+                  <p className="text-3xl font-bold">{subscription.paidSlots || 0}</p>
+                  <p className="text-sm opacity-90">Paid Slots</p>
+                </div>
+                <div className="text-center">
+                  <p className="text-3xl font-bold">{subscription.connectedProfiles || 0}</p>
+                  <p className="text-sm opacity-90">Connected</p>
+                </div>
+                <div className="text-center">
+                  <p className="text-3xl font-bold">{subscription.availableSlots || 0}</p>
+                  <p className="text-sm opacity-90">Available</p>
+                </div>
+                <div className="text-center">
+                  <p className="text-3xl font-bold">{daysRemaining || 0}</p>
+                  <p className="text-sm opacity-90">Days Left</p>
                 </div>
               </div>
-            )}
-
-            <div className="flex items-center justify-between flex-wrap gap-4">
-              <div className="space-y-1">
-                <div className="flex items-center space-x-2">
-                  <span className="font-medium">Status:</span>
-                  {getStatusBadge(status)}
-                </div>
-                {daysRemaining !== null && status === 'trial' && (
-                  <p className="text-sm text-muted-foreground">
-                    {daysRemaining} days remaining in your free trial
-                  </p>
-                )}
-                {status === 'active' && subscription?.subscriptionEndDate && (
-                  <p className="text-sm text-muted-foreground">
-                    Next billing date: {format(new Date(subscription.subscriptionEndDate), 'MMM dd, yyyy')}
-                  </p>
-                )}
-              </div>
-
-              {status === 'expired' || status === 'none' ? (
-                <Button onClick={() => setIsPaymentModalOpen(true)}>
-                  <CreditCard className="mr-2 h-4 w-4" />
-                  Get Started
-                </Button>
-              ) : status === 'trial' ? (
-                <Button variant="outline" onClick={() => setIsPaymentModalOpen(true)}>
-                  <CreditCard className="mr-2 h-4 w-4" />
-                  Upgrade to Pro
-                </Button>
-              ) : status === 'active' ? (
-                <Button variant="outline" onClick={() => setIsPaymentModalOpen(true)}>
-                  <CreditCard className="mr-2 h-4 w-4" />
-                  Add More Profiles
-                </Button>
-              ) : null}
             </div>
 
-          {currentPlan && status === 'active' && (
-            <div className="border-t pt-4">
-              <div className="bg-green-50 rounded-lg p-4 mb-3">
-                <h4 className="font-semibold text-green-900 mb-1">{currentPlan.name}</h4>
-                <p className="text-sm text-green-700">Your premium plan is active</p>
-              </div>
-              {/* Slot-Based Subscription Display */}
-              {subscription?.paidSlots && subscription.paidSlots > 0 && (
-                <div className="mb-4 bg-gradient-to-r from-purple-50 to-blue-50 border border-purple-200 rounded-lg p-4">
-                  <div className="flex items-center space-x-2 mb-3">
-                    <Shield className="h-5 w-5 text-purple-600" />
-                    <h4 className="font-semibold text-purple-900">Your Subscription Slots</h4>
-                  </div>
-                  <div className="grid grid-cols-3 gap-3 text-center">
-                    <div className="bg-white rounded-md p-3 border border-purple-200">
-                      <p className="text-2xl font-bold text-purple-600">{subscription.paidSlots}</p>
-                      <p className="text-xs text-gray-600">Paid Slots</p>
-                    </div>
-                    <div className="bg-white rounded-md p-3 border border-blue-200">
-                      <p className="text-2xl font-bold text-blue-600">{subscription.profileCount || 0}</p>
-                      <p className="text-xs text-gray-600">Active Profiles</p>
-                    </div>
-                    <div className={`bg-white rounded-md p-3 border ${(subscription.paidSlots - (subscription.profileCount || 0)) > 0 ? 'border-green-200' : 'border-gray-200'}`}>
-                      <p className={`text-2xl font-bold ${(subscription.paidSlots - (subscription.profileCount || 0)) > 0 ? 'text-green-600' : 'text-gray-600'}`}>
-                        {subscription.paidSlots - (subscription.profileCount || 0)}
-                      </p>
-                      <p className="text-xs text-gray-600">Unused Slots</p>
-                    </div>
-                  </div>
-                  <p className="text-xs text-purple-700 mt-3">
-                    💡 Your paid slots stay valid for the entire year. Add/delete profiles freely - you only pay when exceeding your paid slots!
-                  </p>
+            {/* Detailed Breakdown */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="bg-blue-50 rounded-lg p-4 border border-blue-200">
+                <div className="flex items-center space-x-2 mb-2">
+                  <CreditCard className="h-5 w-5 text-blue-600" />
+                  <span className="font-semibold text-blue-900">Paid Profiles</span>
                 </div>
-              )}
+                <p className="text-3xl font-bold text-blue-600">{subscription.paidSlots || 0}</p>
+                <p className="text-xs text-blue-700 mt-1">
+                  Profiles you have paid for subscription
+                </p>
+              </div>
 
-              <div className="grid grid-cols-2 gap-4 text-sm">
-                <div>
-                  <span className="text-muted-foreground">Billing Amount:</span>
-                  {subscription?.profileCount && subscription?.pricePerProfile ? (
-                    <div>
-                      <p className="font-medium text-lg">${(subscription.amount / 100).toFixed(0)}/{currentPlan.interval}</p>
-                      <p className="text-sm text-muted-foreground">
-                        {subscription.paidSlots || subscription.profileCount} slot{(subscription.paidSlots || subscription.profileCount) > 1 ? 's' : ''} × ${(subscription.pricePerProfile / 100).toFixed(0)}/year
-                      </p>
-                    </div>
-                  ) : (
-                    <p className="font-medium text-lg">${(currentPlan.amount / 100).toFixed(0)}/{currentPlan.interval}</p>
-                  )}
+              <div className="bg-green-50 rounded-lg p-4 border border-green-200">
+                <div className="flex items-center space-x-2 mb-2">
+                  <CheckCircle className="h-5 w-5 text-green-600" />
+                  <span className="font-semibold text-green-900">Connected Profiles</span>
                 </div>
-                {subscription?.lastPaymentDate && (
-                  <div>
-                    <span className="text-muted-foreground">Last Payment:</span>
-                    <p className="font-medium">
-                      {format(new Date(subscription.lastPaymentDate), 'MMM dd, yyyy')}
-                    </p>
-                  </div>
-                )}
-                {subscription?.subscriptionStartDate && (
-                  <div>
-                    <span className="text-muted-foreground">Started:</span>
-                    <p className="font-medium">
-                      {format(
-                        new Date(
-                          typeof subscription.subscriptionStartDate === 'string' 
-                            ? subscription.subscriptionStartDate 
-                            : subscription.subscriptionStartDate.seconds * 1000
-                        ), 
-                        'MMM dd, yyyy'
-                      )}
-                    </p>
-                  </div>
-                )}
-                {subscription?.subscriptionEndDate && (
-                  <div>
-                    <span className="text-muted-foreground">Next Billing:</span>
-                    <p className="font-medium">
-                      {format(new Date(subscription.subscriptionEndDate), 'MMM dd, yyyy')}
-                    </p>
-                  </div>
-                )}
+                <p className="text-3xl font-bold text-green-600">{subscription.connectedProfiles || 0}</p>
+                <p className="text-xs text-green-700 mt-1">
+                  Profiles currently connected to your account
+                </p>
               </div>
-              <div className="mt-4 p-3 bg-blue-50 rounded-lg">
-                <p className="text-sm text-blue-800">
-                  <strong>Premium Features Unlocked:</strong>
-                  {subscription?.profileCount ?
-                    `Managing ${subscription.profileCount} profile${subscription.profileCount > 1 ? 's' : ''}, unlimited posts, priority support` :
-                    'All limits removed, unlimited posts, priority support'
+
+              <div className={`rounded-lg p-4 border ${
+                (subscription.availableSlots || 0) > 0
+                  ? 'bg-purple-50 border-purple-200'
+                  : 'bg-orange-50 border-orange-200'
+              }`}>
+                <div className="flex items-center space-x-2 mb-2">
+                  {(subscription.availableSlots || 0) > 0 ? (
+                    <Sparkles className="h-5 w-5 text-purple-600" />
+                  ) : (
+                    <AlertCircle className="h-5 w-5 text-orange-600" />
+                  )}
+                  <span className={`font-semibold ${
+                    (subscription.availableSlots || 0) > 0 ? 'text-purple-900' : 'text-orange-900'
+                  }`}>
+                    {(subscription.availableSlots || 0) > 0 ? 'Available Slots' : 'Need More Slots'}
+                  </span>
+                </div>
+                <p className={`text-3xl font-bold ${
+                  (subscription.availableSlots || 0) > 0 ? 'text-purple-600' : 'text-orange-600'
+                }`}>
+                  {(subscription.availableSlots || 0) > 0
+                    ? subscription.availableSlots
+                    : Math.abs((subscription.connectedProfiles || 0) - (subscription.paidSlots || 0))
+                  }
+                </p>
+                <p className={`text-xs mt-1 ${
+                  (subscription.availableSlots || 0) > 0 ? 'text-purple-700' : 'text-orange-700'
+                }`}>
+                  {(subscription.availableSlots || 0) > 0
+                    ? 'Slots available to add more profiles'
+                    : 'Extra profiles need subscription'
                   }
                 </p>
               </div>
-              {subscription?.profileCount && subscription.profileCount < 5 && (
-                <div className="mt-3 p-3 bg-green-50 rounded-lg border border-green-200">
-                  <p className="text-sm text-green-800">
-                    💡 <strong>Need more profiles?</strong> Scale your business by adding more Google Business Profiles at just $99/profile/year.
-                  </p>
-                </div>
-              )}
             </div>
-          )}
-          
-            {status === 'trial' && currentPlan && (
-              <div className="border-t pt-4">
-                <h4 className="font-medium mb-2">Trial Plan</h4>
-                <p className="text-sm text-muted-foreground mb-3">
-                  Enjoying full access during your {daysRemaining}-day trial period
-                </p>
-              </div>
+
+            {/* Warning if need more slots */}
+            {subscription.needsMoreSlots && (
+              <Alert className="bg-orange-50 border-orange-200">
+                <AlertCircle className="h-4 w-4 text-orange-600" />
+                <AlertDescription className="text-orange-800">
+                  <strong>Action Required:</strong> You have {subscription.connectedProfiles} connected profiles but only paid for {subscription.paidSlots}.
+                  Please purchase {(subscription.connectedProfiles || 0) - (subscription.paidSlots || 0)} more slot(s) to continue using all features.
+                </AlertDescription>
+              </Alert>
             )}
 
+            {/* Subscription Details */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+              <div className="bg-gray-50 rounded-lg p-3">
+                <span className="text-muted-foreground block">Amount Paid</span>
+                <p className="font-semibold text-lg">₹{subscription.amountPaid || 0}</p>
+              </div>
+              {subscription.subscriptionStartDate && (
+                <div className="bg-gray-50 rounded-lg p-3">
+                  <span className="text-muted-foreground block">Started On</span>
+                  <p className="font-semibold">{format(new Date(subscription.subscriptionStartDate), 'MMM dd, yyyy')}</p>
+                </div>
+              )}
+              {subscription.subscriptionEndDate && (
+                <div className="bg-gray-50 rounded-lg p-3">
+                  <span className="text-muted-foreground block">Expires On</span>
+                  <p className="font-semibold">{format(new Date(subscription.subscriptionEndDate), 'MMM dd, yyyy')}</p>
+                </div>
+              )}
+              <div className="bg-gray-50 rounded-lg p-3">
+                <span className="text-muted-foreground block">Price Per Profile</span>
+                <p className="font-semibold">₹99/year</p>
+              </div>
+            </div>
+
+            {/* Add More Profiles Button */}
+            <div className="flex justify-center pt-2">
+              <Button onClick={() => setIsPaymentModalOpen(true)} className="bg-gradient-to-r from-blue-600 to-purple-600">
+                <CreditCard className="mr-2 h-4 w-4" />
+                Add More Profiles
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      ) : (
+        // Trial/Expired/None User View
+        <Card className={status === 'trial' ? 'border-blue-500' : status === 'expired' ? 'border-red-500' : ''}>
+          <CardHeader>
+            <CardTitle className="flex items-center space-x-2">
+              <span>Current Subscription</span>
+              {status === 'trial' && <Clock className="h-5 w-5 text-blue-500" />}
+              {status === 'expired' && <XCircle className="h-5 w-5 text-red-500" />}
+            </CardTitle>
+            <CardDescription>
+              {status === 'trial' ? 'You are on a free trial' :
+               status === 'expired' ? 'Your subscription has expired' :
+               'Start your subscription today'}
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {/* Trial View */}
+            {status === 'trial' && (
+              <>
+                <div className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl p-6 shadow-lg">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium opacity-90 mb-1">Free Trial</p>
+                      <p className="text-3xl font-bold">{daysRemaining} Days Left</p>
+                      <p className="text-sm mt-2 opacity-90">
+                        Full access to all features
+                      </p>
+                    </div>
+                    <div className="bg-white/20 backdrop-blur-sm rounded-lg px-4 py-3 text-center">
+                      <Clock className="h-8 w-8 mx-auto mb-1" />
+                      <p className="text-xs opacity-90">Trial Period</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="bg-blue-50 rounded-lg p-4 border border-blue-200">
+                    <p className="text-sm text-blue-700 font-medium">Connected Profiles</p>
+                    <p className="text-2xl font-bold text-blue-600">{subscription?.connectedProfiles || 0}</p>
+                  </div>
+                  <div className="bg-green-50 rounded-lg p-4 border border-green-200">
+                    <p className="text-sm text-green-700 font-medium">Features</p>
+                    <p className="text-2xl font-bold text-green-600">All</p>
+                  </div>
+                  <div className="bg-purple-50 rounded-lg p-4 border border-purple-200">
+                    <p className="text-sm text-purple-700 font-medium">Trial Ends</p>
+                    <p className="text-lg font-bold text-purple-600">
+                      {subscription?.trialEndDate ? format(new Date(subscription.trialEndDate), 'MMM dd') : 'N/A'}
+                    </p>
+                  </div>
+                </div>
+
+                <Alert className="bg-blue-50 border-blue-200">
+                  <Sparkles className="h-4 w-4 text-blue-600" />
+                  <AlertDescription className="text-blue-800">
+                    <strong>Upgrade Now:</strong> Subscribe before your trial ends to keep all your profiles and settings!
+                  </AlertDescription>
+                </Alert>
+
+                <div className="flex justify-center">
+                  <Button onClick={() => setIsPaymentModalOpen(true)} className="bg-gradient-to-r from-blue-600 to-purple-600">
+                    <CreditCard className="mr-2 h-4 w-4" />
+                    Upgrade to Pro - ₹99/profile/year
+                  </Button>
+                </div>
+              </>
+            )}
+
+            {/* Expired View */}
+            {status === 'expired' && (
+              <>
+                <div className="bg-gradient-to-r from-red-600 to-orange-600 text-white rounded-xl p-6 shadow-lg">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium opacity-90 mb-1">Subscription Status</p>
+                      <p className="text-3xl font-bold">Expired</p>
+                      <p className="text-sm mt-2 opacity-90">
+                        Renew to continue using all features
+                      </p>
+                    </div>
+                    <div className="bg-white/20 backdrop-blur-sm rounded-lg px-4 py-3 text-center">
+                      <XCircle className="h-8 w-8 mx-auto mb-1" />
+                      <p className="text-xs opacity-90">Action Required</p>
+                    </div>
+                  </div>
+                </div>
+
+                <Alert className="bg-red-50 border-red-200">
+                  <AlertCircle className="h-4 w-4 text-red-600" />
+                  <AlertDescription className="text-red-800">
+                    <strong>Your subscription has expired.</strong> Auto-posting and other features are paused.
+                    Renew now to continue managing your business profiles.
+                  </AlertDescription>
+                </Alert>
+
+                <div className="flex justify-center">
+                  <Button onClick={() => setIsPaymentModalOpen(true)} className="bg-gradient-to-r from-green-600 to-emerald-600">
+                    <CreditCard className="mr-2 h-4 w-4" />
+                    Renew Subscription
+                  </Button>
+                </div>
+              </>
+            )}
+
+            {/* No Subscription View */}
+            {(status === 'none' || (!status)) && (
+              <>
+                <div className="bg-gradient-to-r from-gray-600 to-gray-700 text-white rounded-xl p-6 shadow-lg">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium opacity-90 mb-1">No Active Subscription</p>
+                      <p className="text-3xl font-bold">Get Started</p>
+                      <p className="text-sm mt-2 opacity-90">
+                        Start your journey with a free trial
+                      </p>
+                    </div>
+                    <div className="bg-white/20 backdrop-blur-sm rounded-lg px-4 py-3 text-center">
+                      <Sparkles className="h-8 w-8 mx-auto mb-1" />
+                      <p className="text-xs opacity-90">15 Day Trial</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex justify-center">
+                  <Button onClick={() => setIsPaymentModalOpen(true)} className="bg-gradient-to-r from-blue-600 to-purple-600">
+                    <CreditCard className="mr-2 h-4 w-4" />
+                    Start Free Trial
+                  </Button>
+                </div>
+              </>
+            )}
           </CardContent>
         </Card>
       )}
