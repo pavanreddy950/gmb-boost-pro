@@ -45,6 +45,9 @@ export interface BusinessLocation {
     suspended?: boolean;
     canDelete?: boolean;
     canUpdate?: boolean;
+    placeId?: string;
+    mapsUri?: string;
+    newReviewUri?: string;
   };
   // Debug fields
   _debug_phoneNumbers?: any;

@@ -3,10 +3,9 @@ import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Textarea } from "@/components/ui/textarea";
-import { Star, MessageSquare, Bot, Calendar, Search, Filter, RefreshCw, ArrowUpDown, ArrowDown, ArrowUp, Download, Edit2, Send, X, Heart, Frown, Meh, Copy, Check, Info } from "lucide-react";
+import { Star, MessageSquare, Bot, Calendar, Filter, RefreshCw, Edit2, Send, X, Heart, Frown, Meh, Copy, Check, Info } from "lucide-react";
 import {
   Select,
   SelectContent,
@@ -757,14 +756,14 @@ const Reviews = () => {
 
       {/* Stats Cards */}
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3 sm:gap-4">
-        <Card className="shadow-card border border-border">
+        <Card className="shadow-card border border-blue-200">
           <CardContent className="pt-6">
             <div className="text-2xl font-bold">{stats.total}</div>
             <p className="text-xs text-muted-foreground">Total Reviews</p>
           </CardContent>
         </Card>
-        
-        <Card className="shadow-card border border-border">
+
+        <Card className="shadow-card border border-blue-200">
           <CardContent className="pt-6">
             <div className="flex items-center gap-2">
               <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
@@ -773,22 +772,22 @@ const Reviews = () => {
             <p className="text-xs text-muted-foreground">Average Rating</p>
           </CardContent>
         </Card>
-        
-        <Card className="shadow-card border border-border">
+
+        <Card className="shadow-card border border-blue-200">
           <CardContent className="pt-6">
             <div className="text-2xl font-bold text-green-600">{stats.replied}</div>
             <p className="text-xs text-muted-foreground">Replied</p>
           </CardContent>
         </Card>
-        
-        <Card className="shadow-card border border-border">
+
+        <Card className="shadow-card border border-blue-200">
           <CardContent className="pt-6">
             <div className="text-2xl font-bold text-orange-600">{stats.needReply}</div>
             <p className="text-xs text-muted-foreground">Need Reply</p>
           </CardContent>
         </Card>
-        
-        <Card className="shadow-card border border-border">
+
+        <Card className="shadow-card border border-blue-200">
           <CardContent className="pt-6">
             <div className="flex items-center gap-1">
               {getSentimentIcon('positive')}
@@ -799,167 +798,55 @@ const Reviews = () => {
         </Card>
       </div>
 
-      {/* Enhanced Filters and Actions */}
-      <Card className="shadow-card border border-border">
+      {/* Filters */}
+      <Card className="shadow-card border border-blue-200">
         <CardContent className="pt-6">
-          <div className="space-y-4">
-            {/* Search, Refresh, and Export */}
-            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-4">
-              <div className="relative flex-1">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder="Search reviews..."
-                  value={filters.search}
-                  onChange={(e) => updateFilter('search', e.target.value)}
-                  className="pl-10 text-sm"
-                />
-              </div>
-              <div className="flex items-center gap-3 sm:gap-4">
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      variant="outline"
-                      size="icon"
-                      onClick={handleRefresh}
-                      disabled={refreshing}
-                    >
-                      <RefreshCw className={cn("h-4 w-4", refreshing && "animate-spin")} />
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>Refresh Reviews</TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-              
-              {/* Export Dropdown */}
-              <Select onValueChange={(value) => value && exportReviews(value as 'csv' | 'json')}>
-                <SelectTrigger className="w-32 sm:w-36">
-                  <Download className="mr-1 sm:mr-2 h-4 w-4" />
-                  <SelectValue placeholder="Export" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="csv">Export CSV</SelectItem>
-                  <SelectItem value="json">Export JSON</SelectItem>
-                </SelectContent>
-              </Select>
-              </div>
-            </div>
-            
-            {/* Filter Row */}
-            <div className="flex flex-wrap gap-2 sm:gap-3">
-              <Select value={filters.rating} onValueChange={(value) => updateFilter('rating', value)}>
-                <SelectTrigger className="w-28 sm:w-36">
-                  <Filter className="mr-1 sm:mr-2 h-4 w-4" />
-                  <SelectValue placeholder="Rating" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Ratings</SelectItem>
-                  <SelectItem value="5">5 Stars</SelectItem>
-                  <SelectItem value="4">4 Stars</SelectItem>
-                  <SelectItem value="3">3 Stars</SelectItem>
-                  <SelectItem value="2">2 Stars</SelectItem>
-                  <SelectItem value="1">1 Star</SelectItem>
-                </SelectContent>
-              </Select>
-              
-              <Select value={filters.reply} onValueChange={(value) => updateFilter('reply', value)}>
-                <SelectTrigger className="w-32 sm:w-40">
-                  <MessageSquare className="mr-1 sm:mr-2 h-4 w-4" />
-                  <SelectValue placeholder="Reply" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All</SelectItem>
-                  <SelectItem value="replied">Replied</SelectItem>
-                  <SelectItem value="not-replied">Need Reply</SelectItem>
-                </SelectContent>
-              </Select>
-              
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 justify-between">
+            <div className="flex flex-col sm:flex-row gap-3">
               <Select value={filters.location} onValueChange={(value) => updateFilter('location', value)}>
-                <SelectTrigger className="w-36 sm:w-48">
-                  <Filter className="mr-1 sm:mr-2 h-4 w-4" />
-                  <SelectValue placeholder="Location" />
+                <SelectTrigger className="w-full sm:w-64 border-blue-200">
+                  <Filter className="mr-2 h-4 w-4 text-blue-600" />
+                  <SelectValue placeholder="All Locations" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">All Locations</SelectItem>
+                  <SelectItem value="all" className="font-semibold">All Locations</SelectItem>
                   {stats.locations.map(location => (
                     <SelectItem key={location} value={location}>{location}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
-              
-              <Select value={filters.sentiment} onValueChange={(value) => updateFilter('sentiment', value)}>
-                <SelectTrigger className="w-32 sm:w-36">
-                  <Heart className="mr-1 sm:mr-2 h-4 w-4" />
-                  <SelectValue placeholder="Sentiment" />
+
+              <Select value={filters.reply} onValueChange={(value) => updateFilter('reply', value)}>
+                <SelectTrigger className="w-full sm:w-48 border-blue-200">
+                  <MessageSquare className="mr-2 h-4 w-4 text-blue-600" />
+                  <SelectValue placeholder="All Reviews" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">All</SelectItem>
-                  <SelectItem value="positive">Positive</SelectItem>
-                  <SelectItem value="neutral">Neutral</SelectItem>
-                  <SelectItem value="negative">Negative</SelectItem>
-                </SelectContent>
-              </Select>
-              
-              <Select value={filters.dateRange} onValueChange={(value) => updateFilter('dateRange', value)}>
-                <SelectTrigger className="w-28 sm:w-36">
-                  <Calendar className="mr-1 sm:mr-2 h-4 w-4" />
-                  <SelectValue placeholder="Date" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Time</SelectItem>
-                  <SelectItem value="7d">Last 7 days</SelectItem>
-                  <SelectItem value="30d">Last 30 days</SelectItem>
-                  <SelectItem value="90d">Last 3 months</SelectItem>
-                  <SelectItem value="1y">Last year</SelectItem>
+                  <SelectItem value="all">All Reviews</SelectItem>
+                  <SelectItem value="replied">Replied</SelectItem>
+                  <SelectItem value="not-replied">Need Reply</SelectItem>
                 </SelectContent>
               </Select>
             </div>
-            
-            {/* Sort Options */}
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <span>Sort by:</span>
-              <Button
-                variant="ghost"
-                size="sm"
-                className={cn("h-7", sortConfig.field === 'date' && "bg-muted")}
-                onClick={() => handleSort('date')}
-              >
-                Date
-                {sortConfig.field === 'date' && (
-                  sortConfig.direction === 'desc' ? <ArrowDown className="ml-1 h-3 w-3" /> : <ArrowUp className="ml-1 h-3 w-3" />
-                )}
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                className={cn("h-7", sortConfig.field === 'rating' && "bg-muted")}
-                onClick={() => handleSort('rating')}
-              >
-                Rating
-                {sortConfig.field === 'rating' && (
-                  sortConfig.direction === 'desc' ? <ArrowDown className="ml-1 h-3 w-3" /> : <ArrowUp className="ml-1 h-3 w-3" />
-                )}
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                className={cn("h-7", sortConfig.field === 'author' && "bg-muted")}
-                onClick={() => handleSort('author')}
-              >
-                Author
-                {sortConfig.field === 'author' && (
-                  sortConfig.direction === 'desc' ? <ArrowDown className="ml-1 h-3 w-3" /> : <ArrowUp className="ml-1 h-3 w-3" />
-                )}
-              </Button>
-            </div>
+
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleRefresh}
+              disabled={refreshing}
+              className="border-blue-200"
+            >
+              <RefreshCw className={cn("mr-2 h-4 w-4", refreshing && "animate-spin")} />
+              Refresh
+            </Button>
           </div>
         </CardContent>
       </Card>
 
       {/* Reviews List */}
-      <Card className="shadow-card border border-border">
-        <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-2">
-          <CardTitle className="text-lg sm:text-xl">All Reviews ({filteredAndSortedReviews.length})</CardTitle>
+      <Card className="shadow-card border border-blue-200">
+        <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-2 border-b border-blue-100 bg-gradient-to-r from-blue-50 to-indigo-50">
+          <CardTitle className="text-lg sm:text-xl text-blue-900">All Reviews ({filteredAndSortedReviews.length})</CardTitle>
           <div className="flex items-center gap-2">
             {refreshing && (
               <div className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -1007,7 +894,7 @@ const Reviews = () => {
           ) : (
             <div className="space-y-6">
               {filteredAndSortedReviews.map((review, index) => (
-                <div key={review.id} className="border border-border rounded-lg p-3 sm:p-4 shadow-sm hover:bg-muted/30 transition-colors">
+                <div key={review.id} className="border-2 border-blue-200 rounded-lg p-3 sm:p-4 shadow-sm hover:border-blue-300 hover:shadow-md transition-all duration-200 bg-white">
                   <div className="flex gap-3 sm:gap-4">
                     <Avatar className="h-8 w-8 sm:h-10 sm:w-10 flex-shrink-0">
                       <AvatarFallback className="bg-primary/10 text-primary text-xs sm:text-sm">
@@ -1025,9 +912,9 @@ const Reviews = () => {
                               <div className="flex items-center gap-1">
                                 {renderStars(review.rating)}
                               </div>
-                              <Badge variant="outline" className="text-xs truncate max-w-[120px]">
+                              <span className="inline-flex items-center px-2.5 py-1 rounded-md bg-blue-50 text-blue-700 text-xs font-medium border border-blue-200 truncate max-w-[150px]">
                                 {review.profileName}
-                              </Badge>
+                              </span>
                               {review.sentiment && (
                                 <Badge variant="outline" className={cn("text-xs hidden sm:flex", getSentimentColor(review.sentiment))}>
                                   <div className="flex items-center gap-1">

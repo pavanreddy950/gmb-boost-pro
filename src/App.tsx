@@ -18,6 +18,9 @@ import AuditTool from "./pages/AuditTool";
 import Upgrade from "./pages/Upgrade";
 import Billing from "./pages/Billing";
 import PublicReviewSuggestions from "./pages/PublicReviewSuggestions";
+import SocialMedia from "./pages/SocialMedia";
+import ProfileOptimization from "./pages/ProfileOptimization";
+import PhotosDump from "./pages/PhotosDump";
 import { AuthProvider } from "./contexts/AuthContext";
 import { NotificationProvider } from "./contexts/NotificationContext";
 import { SubscriptionProvider } from "./contexts/SubscriptionContext";
@@ -88,6 +91,9 @@ const App = () => (
               <Route path="settings" element={<Settings />} />
               <Route path="audit" element={<AuditTool />} />
               <Route path="billing" element={<Billing />} />
+              <Route path="social-media" element={<SocialMedia />} />
+              <Route path="profile-optimization" element={<ProfileOptimization />} />
+              <Route path="photos-dump" element={<PhotosDump />} />
             </Route>
             
             {/* Upgrade page without layout and without subscription guard (billing-related) */}

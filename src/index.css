@@ -201,9 +201,32 @@ All colors MUST be HSL.
     -ms-overflow-style: none;
     scrollbar-width: none;
   }
-  
+
   .scrollbar-hide::-webkit-scrollbar {
     display: none;
+  }
+
+  /* Custom themed scrollbar */
+  .scrollbar-themed {
+    scrollbar-width: thin;
+    scrollbar-color: #1B29CB transparent;
+  }
+
+  .scrollbar-themed::-webkit-scrollbar {
+    width: 3px;
+  }
+
+  .scrollbar-themed::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .scrollbar-themed::-webkit-scrollbar-thumb {
+    background-color: #1B29CB;
+    border-radius: 2px;
+  }
+
+  .scrollbar-themed::-webkit-scrollbar-thumb:hover {
+    background-color: #1520a8;
   }
 
   /* Responsive grid auto-fit */

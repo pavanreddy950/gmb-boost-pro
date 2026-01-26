@@ -166,7 +166,7 @@ const Dashboard = () => {
 
       {/* Stats Cards */}
       <div className="grid gap-3 sm:gap-4 grid-cols-2 lg:grid-cols-4">
-        <Card>
+        <Card className="border-blue-200">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Total Profiles</CardTitle>
             <Users className="h-4 w-4 text-muted-foreground" />
@@ -177,7 +177,7 @@ const Dashboard = () => {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="border-blue-200">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Locations</CardTitle>
             <MapPin className="h-4 w-4 text-muted-foreground" />
@@ -188,7 +188,7 @@ const Dashboard = () => {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="border-blue-200">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Avg Rating</CardTitle>
             <Star className="h-4 w-4 text-muted-foreground" />
@@ -199,7 +199,7 @@ const Dashboard = () => {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="border-blue-200">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Last Sync</CardTitle>
             <Calendar className="h-4 w-4 text-muted-foreground" />
@@ -259,7 +259,7 @@ const Dashboard = () => {
                 const locationId = location.locationId || location.name?.split('/').pop() || index;
                 
                 return (
-                  <div key={index} className="bg-white rounded-lg shadow-sm border border-gray-200 p-3 sm:p-4 cursor-pointer hover:shadow-md transition-shadow flex flex-col h-full">
+                  <div key={index} className="bg-white rounded-lg shadow-sm border border-blue-200 p-3 sm:p-4 cursor-pointer hover:shadow-md transition-shadow flex flex-col h-full">
                     {/* Content area that grows */}
                     <div className="flex-1">
                       {/* Header with name and verification badge */}

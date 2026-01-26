@@ -29,7 +29,7 @@ interface PaymentModalProps {
 export const PaymentModal: React.FC<PaymentModalProps> = ({
   isOpen,
   onClose,
-  defaultPlanId = 'per_profile_yearly'
+  defaultPlanId = 'yearly'
 }) => {
   const [selectedPlanId, setSelectedPlanId] = useState(defaultPlanId);
   const [profileCount, setProfileCount] = useState(1);
@@ -271,11 +271,21 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
         usdAmount = couponDetails.finalAmount;
       }
 
+      // Check if plan is already in INR (don't convert if already INR)
+      const isAlreadyINR = selectedPlan.currency === 'INR';
       const targetCurrency = 'INR';
-      const usdInDollars = usdAmount / 100;
-      const convertedAmount = Math.round(usdInDollars * exchangeRate);
 
-      console.log(`[Order Payment] 💱 Amount: $${usdInDollars} USD → ₹${convertedAmount} INR`);
+      let convertedAmount;
+      if (isAlreadyINR) {
+        // Amount is already in paise (INR), convert to whole rupees
+        convertedAmount = Math.round(usdAmount / 100);
+        console.log(`[Order Payment] 💰 Amount: ₹${convertedAmount} INR (already in INR, no conversion)`);
+      } else {
+        // Amount is in USD cents, convert to INR
+        const usdInDollars = usdAmount / 100;
+        convertedAmount = Math.round(usdInDollars * exchangeRate);
+        console.log(`[Order Payment] 💱 Amount: $${usdInDollars} USD → ₹${convertedAmount} INR`);
+      }
 
       // Create order
       const orderResponse = await fetch(`${backendUrl}/api/user-payment/order`, {
@@ -450,12 +460,21 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
         console.log('[Subscription] ⚠️ Coupon NOT applied - couponDetails:', couponDetails);
       }
 
-      // Use INR for all payments (Razorpay subscriptions work best with INR)
+      // Check if plan is already in INR (don't convert if already INR)
+      const isAlreadyINR = selectedPlan.currency === 'INR';
       const targetCurrency = 'INR';
-      const usdInDollars = usdAmount / 100;
-      const convertedAmount = Math.round(usdInDollars * exchangeRate); // Convert to INR (whole rupees)
 
-      console.log(`[Subscription] 💱 Amount: $${usdInDollars} USD → ₹${convertedAmount} INR (rate: ${exchangeRate})`);
+      let convertedAmount;
+      if (isAlreadyINR) {
+        // Amount is already in paise (INR), convert to whole rupees
+        convertedAmount = Math.round(usdAmount / 100);
+        console.log(`[Subscription] 💰 Amount: ₹${convertedAmount} INR (already in INR, no conversion)`);
+      } else {
+        // Amount is in USD cents, convert to INR
+        const usdInDollars = usdAmount / 100;
+        convertedAmount = Math.round(usdInDollars * exchangeRate);
+        console.log(`[Subscription] 💱 Amount: $${usdInDollars} USD → ₹${convertedAmount} INR (rate: ${exchangeRate})`);
+      }
 
       // Step 1: Create Razorpay Plan
       console.log('[Subscription] 📋 Creating Razorpay plan...');
@@ -700,13 +719,13 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
               <div className="space-y-1">
                 <p>You currently have {paidSlots} paid slot{paidSlots !== 1 ? 's' : ''} and {totalConnectedProfiles} profile{totalConnectedProfiles !== 1 ? 's' : ''}.</p>
                 {additionalProfilesNeeded > 0 ? (
-                  <p className="text-primary font-medium">Pay only for {additionalProfilesNeeded} additional profile{additionalProfilesNeeded !== 1 ? 's' : ''} at $99/profile/year.</p>
+                  <p className="text-primary font-medium">Pay only for {additionalProfilesNeeded} additional profile{additionalProfilesNeeded !== 1 ? 's' : ''}.</p>
                 ) : (
                   <p className="text-green-600 font-medium">All your profiles are covered! You have {paidSlots - totalConnectedProfiles} unused slot{(paidSlots - totalConnectedProfiles) !== 1 ? 's' : ''}.</p>
                 )}
               </div>
             ) : (
-              <p>Choose how many Google Business Profiles you want to manage. Pay only for what you need at $99 per profile per year.</p>
+              <p>Choose how many Google Business Profiles you want to manage. Pay ₹6,000/profile for 6 months or ₹9,000/profile for 1 year.</p>
             )}
           </DialogDescription>
         </DialogHeader>
@@ -744,16 +763,13 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
                       <div>
                         <CardTitle className="text-lg">{plan.name}</CardTitle>
                         <CardDescription className="mt-1">
-                          {plan.id === 'per_profile_yearly'
-                            ? `$${(SubscriptionService.calculateTotalPrice(profileCount) / 100).toFixed(0)}/year (₹${Math.round((SubscriptionService.calculateTotalPrice(profileCount) / 100) * exchangeRate)}/year)`
-                            : `$${(plan.amount / 100).toFixed(0)}/${plan.interval === 'monthly' ? 'month' : 'year'} (₹${Math.round((plan.amount / 100) * exchangeRate)}/${plan.interval === 'monthly' ? 'month' : 'year'})`
-                          }
+                          ₹{((plan.amount * profileCount) / 100).toLocaleString('en-IN')} ({profileCount} profile{profileCount > 1 ? 's' : ''})
                         </CardDescription>
                       </div>
                     </div>
-                    {plan.interval === 'yearly' && (
+                    {plan.popular && (
                       <div className="bg-green-100 text-green-800 px-2 py-1 rounded-md text-sm font-medium">
-                        Save 80%
+                        Best Value
                       </div>
                     )}
                   </div>
@@ -805,8 +821,8 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
             </div>
           )}
 
-          {/* Profile Count Selector for Per-Profile Plan */}
-          {selectedPlanId === 'per_profile_yearly' && (
+          {/* Profile Count Selector for Per-Profile Plans */}
+          {(selectedPlanId === 'per_profile_yearly' || selectedPlanId === 'per_profile_half_yearly') && (
             <div className="mt-6 bg-blue-50 border border-blue-200 rounded-lg p-4">
               <div className="space-y-3">
                 <div className="flex items-center space-x-2">
@@ -827,9 +843,8 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
                     />
                   </div>
                   <div className="text-sm text-gray-600">
-                    × $99/year = <span className="font-semibold text-green-600">
-                      ${(SubscriptionService.calculateTotalPrice(profileCount) / 100).toFixed(0)}/year
-                      (₹{Math.round((SubscriptionService.calculateTotalPrice(profileCount) / 100) * exchangeRate)}/year)
+                    × ₹{(selectedPlan?.amount || 0) / 100}/{selectedPlanId === 'per_profile_half_yearly' ? '6 months' : 'year'} = <span className="font-semibold text-green-600">
+                      ₹{(SubscriptionService.calculateTotalPrice(profileCount, selectedPlanId) / 100).toLocaleString('en-IN')}
                     </span>
                   </div>
                 </div>
@@ -936,37 +951,23 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
               {couponDetails && couponDetails.success ? (
                 <div>
                   <p className="text-sm text-gray-500 line-through">
-                    {selectedPlanId === 'per_profile_yearly'
-                      ? `$${(SubscriptionService.calculateTotalPrice(profileCount) / 100).toFixed(0)}`
-                      : `$${(selectedPlan?.amount / 100).toFixed(0)}`
-                    }
+                    ₹{(((selectedPlan?.amount || 0) * profileCount) / 100).toLocaleString('en-IN')}
                   </p>
                   <p className="text-2xl font-bold text-green-600">
-                    ${(getFinalAmount() / 100).toFixed(0)}
-                    <span className="text-sm font-normal text-gray-500 ml-1">
-                      /{selectedPlan?.interval === 'monthly' ? 'month' : 'year'}
-                    </span>
+                    ₹{(getFinalAmount() / 100).toLocaleString('en-IN')}
                   </p>
                   <p className="text-sm text-gray-600">
-                    ₹{Math.round((getFinalAmount() / 100) * exchangeRate)}/{selectedPlan?.interval === 'monthly' ? 'month' : 'year'}
+                    {selectedPlan?.id === 'per_profile_half_yearly' ? '6 months' : '1 year'}
                   </p>
                 </div>
               ) : (
                 <div>
                   <p className="text-2xl font-bold">
-                    ${(getFinalAmount() / 100).toFixed(0)}
-                    <span className="text-sm font-normal text-gray-500 ml-1">
-                      /{selectedPlan?.interval === 'monthly' ? 'month' : 'year'}
-                    </span>
+                    ₹{(((selectedPlan?.amount || 0) * profileCount) / 100).toLocaleString('en-IN')}
                   </p>
                   <p className="text-sm text-gray-600">
-                    ₹{Math.round((getFinalAmount() / 100) * exchangeRate)}/{selectedPlan?.interval === 'monthly' ? 'month' : 'year'}
+                    {profileCount} profile{profileCount > 1 ? 's' : ''} × ₹{(selectedPlan?.amount || 0) / 100}/{selectedPlan?.id === 'per_profile_half_yearly' ? '6 months' : 'year'}
                   </p>
-                  {selectedPlanId === 'per_profile_yearly' && (
-                    <p className="text-sm text-gray-600">
-                      {profileCount} profile{profileCount > 1 ? 's' : ''} × $99/year
-                    </p>
-                  )}
                 </div>
               )}
               <p className="text-sm text-gray-500">
@@ -992,7 +993,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
                 ) : (
                   <>
                     <CreditCard className="mr-2 h-4 w-4" />
-                    Upgrade Profiles
+                    Subscribe Now
                   </>
                 )}
               </Button>

@@ -3,14 +3,20 @@ import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
-import { Plus, Calendar, Clock, Image, Search, Filter, MoreHorizontal, Users, Info, RefreshCw } from "lucide-react";
+import { Plus, Calendar, Clock, Image, Filter, MoreHorizontal, Users, Info, RefreshCw } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
 import {
   Select,
   SelectContent,
@@ -23,6 +29,7 @@ import { useGoogleBusinessProfile } from "@/hooks/useGoogleBusinessProfile";
 import { googleBusinessProfileService } from "@/lib/googleBusinessProfile";
 import { useNotifications } from "@/contexts/NotificationContext";
 import { useProfileLimitations } from "@/hooks/useProfileLimitations";
+import { toast } from "@/hooks/use-toast";
 
 interface Post {
   id: string;
@@ -33,17 +40,19 @@ interface Post {
   postedAt?: string;
   status: 'draft' | 'scheduled' | 'published' | 'failed';
   imageUrl?: string;
+  callToAction?: string;
 }
 
 const Posts = () => {
   const [posts, setPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);
   const [showCreateModal, setShowCreateModal] = useState(false);
-  const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [selectedProfileFilter, setSelectedProfileFilter] = useState<string>("all");
   const [refreshKey, setRefreshKey] = useState(0);
   const [lastRefreshed, setLastRefreshed] = useState<Date | null>(null);
+  const [selectedPost, setSelectedPost] = useState<Post | null>(null);
+  const [showDetailsModal, setShowDetailsModal] = useState(false);
 
   // Get real-time Google Business Profile data
   const {
@@ -113,7 +122,8 @@ const Posts = () => {
                   profileName: location.displayName,
                   content: post.summary || '',
                   status: 'published' as const,
-                  postedAt: post.createTime
+                  postedAt: post.createTime,
+                  callToAction: (post as any).callToAction?.actionType || undefined
                 }));
 
                 return convertedPosts;
@@ -220,11 +230,9 @@ const Posts = () => {
   );
 
   const filteredPosts = posts.filter(post => {
-    const matchesSearch = post.content.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      post.profileName.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesStatus = statusFilter === "all" || post.status === statusFilter;
     const matchesProfile = selectedProfileFilter === "all" || post.profileId === selectedProfileFilter;
-    return matchesSearch && matchesStatus && matchesProfile;
+    return matchesStatus && matchesProfile;
   });
 
   const handleCreatePost = async (postData: any) => {
@@ -265,7 +273,8 @@ const Posts = () => {
         status: postStatus === 'PENDING' || postStatus === 'UNDER_REVIEW' ? 'scheduled' :
           postStatus === 'LIVE' ? 'published' : 'draft',
         postedAt: createdPost.createTime,
-        scheduledAt: postStatus === 'PENDING' ? createdPost.createTime : undefined
+        scheduledAt: postStatus === 'PENDING' ? createdPost.createTime : undefined,
+        callToAction: postData.callToAction || undefined
       };
 
       setPosts(prev => [newPost, ...prev]);
@@ -419,28 +428,28 @@ const Posts = () => {
 
         {/* Stats Cards */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-          <Card className="shadow-card border border-border">
+          <Card className="shadow-card border border-blue-200">
             <CardContent className="pt-6">
               <div className="text-2xl font-bold">{statusCounts.all}</div>
               <p className="text-xs text-muted-foreground">Total Posts</p>
             </CardContent>
           </Card>
 
-          <Card className="shadow-card border border-border">
+          <Card className="shadow-card border border-blue-200">
             <CardContent className="pt-6">
               <div className="text-2xl font-bold text-success">{statusCounts.published}</div>
               <p className="text-xs text-muted-foreground">Published</p>
             </CardContent>
           </Card>
 
-          <Card className="shadow-card border border-border">
+          <Card className="shadow-card border border-blue-200">
             <CardContent className="pt-6">
               <div className="text-2xl font-bold text-warning">{statusCounts.scheduled}</div>
               <p className="text-xs text-muted-foreground">Scheduled</p>
             </CardContent>
           </Card>
 
-          <Card className="shadow-card border border-border">
+          <Card className="shadow-card border border-blue-200">
             <CardContent className="pt-6">
               <div className="text-2xl font-bold text-muted-foreground">{statusCounts.draft}</div>
               <p className="text-xs text-muted-foreground">Drafts</p>
@@ -449,42 +458,31 @@ const Posts = () => {
         </div>
 
         {/* Filters */}
-        <Card className="shadow-card border border-border">
+        <Card className="shadow-card border border-blue-200">
           <CardContent className="pt-6">
-            <div className="flex flex-col sm:flex-row gap-4">
-              <div className="relative flex-1">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder="Search posts..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-10"
-                />
-              </div>
-
+            <div className="flex flex-col sm:flex-row gap-3">
               {/* Business Profile Filter */}
               <Select value={selectedProfileFilter} onValueChange={setSelectedProfileFilter}>
-                <SelectTrigger className="w-full sm:w-64">
-                  <Users className="mr-2 h-4 w-4" />
-                  <SelectValue placeholder="Select business profile" />
+                <SelectTrigger className="w-full sm:w-64 border-blue-200">
+                  <Users className="mr-2 h-4 w-4 text-blue-600" />
+                  <SelectValue placeholder="All Profiles" />
                 </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Profiles</SelectItem>
+                <SelectContent className="max-h-[300px]">
+                  <SelectItem value="all" className="font-semibold">
+                    All Profiles
+                  </SelectItem>
                   {availableProfiles.map(profile => (
                     <SelectItem key={profile.id} value={profile.id}>
-                      <div className="flex flex-col">
-                        <span className="font-medium">{profile.name}</span>
-                        <span className="text-xs text-muted-foreground">{profile.accountName}</span>
-                      </div>
+                      {profile.name}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
 
               <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger className="w-full sm:w-48">
-                  <Filter className="mr-2 h-4 w-4" />
-                  <SelectValue placeholder="Filter by status" />
+                <SelectTrigger className="w-full sm:w-48 border-blue-200">
+                  <Filter className="mr-2 h-4 w-4 text-blue-600" />
+                  <SelectValue placeholder="All Status" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Status</SelectItem>
@@ -499,19 +497,19 @@ const Posts = () => {
         </Card>
 
         {/* Posts List */}
-        <Card className="shadow-card border border-border">
-          <CardHeader>
-            <CardTitle>All Posts</CardTitle>
+        <Card className="shadow-card border border-blue-200">
+          <CardHeader className="border-b border-blue-100 bg-gradient-to-r from-blue-50 to-indigo-50">
+            <CardTitle className="text-blue-900">All Posts</CardTitle>
           </CardHeader>
 
-          <CardContent>
+          <CardContent className="pt-6">
             {loading ? (
               <div className="space-y-4">
                 {Array.from({ length: 5 }).map((_, index) => (
-                  <div key={index} className="border border-border rounded-lg p-4 animate-pulse shadow-sm">
+                  <div key={index} className="border border-blue-200 rounded-lg p-4 animate-pulse shadow-sm">
                     <div className="flex items-start justify-between mb-3">
-                      <div className="h-4 bg-muted rounded w-1/4"></div>
-                      <div className="h-6 bg-muted rounded w-20"></div>
+                      <div className="h-4 bg-blue-100 rounded w-1/4"></div>
+                      <div className="h-6 bg-blue-100 rounded w-20"></div>
                     </div>
                     <div className="h-3 bg-muted rounded w-full mb-1"></div>
                     <div className="h-3 bg-muted rounded w-3/4"></div>
@@ -520,49 +518,39 @@ const Posts = () => {
               </div>
             ) : filteredPosts.length === 0 ? (
               <div className="text-center py-12">
-                <Calendar className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                <div className="mx-auto mb-4 p-4 bg-blue-50 rounded-full w-fit">
+                  <Calendar className="h-12 w-12 text-blue-600" />
+                </div>
                 <h3 className="text-lg font-medium mb-2">
-                  {searchQuery || statusFilter !== "all" ? "No posts found" : "No posts yet"}
+                  {statusFilter !== "all" || selectedProfileFilter !== "all" ? "No posts found" : "No posts yet"}
                 </h3>
                 <p className="text-muted-foreground mb-4">
-                  {searchQuery || statusFilter !== "all"
-                    ? "Try adjusting your search or filters"
+                  {statusFilter !== "all" || selectedProfileFilter !== "all"
+                    ? "Try adjusting your filters"
                     : "Create your first post to start engaging with customers"
                   }
                 </p>
-                {!searchQuery && statusFilter === "all" && (
-                  <Button onClick={() => setShowCreateModal(true)} variant="outline">
+                {statusFilter === "all" && selectedProfileFilter === "all" && (
+                  <Button onClick={() => setShowCreateModal(true)} className="bg-blue-600 hover:bg-blue-700">
                     <Plus className="mr-2 h-4 w-4" />
                     Create First Post
                   </Button>
                 )}
               </div>
             ) : (
-              <div className="space-y-4">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                 {filteredPosts.map((post) => (
-                  <div key={post.id} className="border border-border rounded-lg p-4 hover:bg-muted/30 transition-colors shadow-sm">
+                  <div key={post.id} className="border-2 border-blue-200 rounded-xl p-5 hover:border-blue-300 hover:shadow-lg transition-all duration-200 bg-white flex flex-col">
+                    {/* Header */}
                     <div className="flex items-start justify-between mb-3">
-                      <div className="flex items-center gap-2">
-                        <span className="font-medium text-sm">{post.profileName}</span>
+                      <div className="flex items-center gap-3">
+                        <span className="font-semibold text-base text-gray-900">{post.profileName}</span>
                         {getStatusBadge(post.status)}
-                        {post.scheduledAt && (
-                          <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                            <Clock className="h-3 w-3" />
-                            {formatDateTime(post.scheduledAt)}
-                          </div>
-                        )}
-                        {post.postedAt && (
-                          <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                            <Calendar className="h-3 w-3" />
-                            Posted {formatDateTime(post.postedAt)}
-                          </div>
-                        )}
                       </div>
-
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                            <MoreHorizontal className="h-4 w-4" />
+                          <Button variant="ghost" size="sm" className="h-8 w-8 p-0 hover:bg-gray-100">
+                            <MoreHorizontal className="h-4 w-4 text-gray-600" />
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
@@ -574,20 +562,89 @@ const Posts = () => {
                       </DropdownMenu>
                     </div>
 
-                    <div className="flex gap-4">
-                      {post.imageUrl && (
-                        <div className="flex-shrink-0">
-                          <img
-                            src={post.imageUrl}
-                            alt="Post image"
-                            className="w-16 h-16 object-cover rounded-md"
-                          />
-                        </div>
-                      )}
-                      <div className="flex-1">
-                        <p className="text-sm leading-relaxed">{post.content}</p>
+                    {/* Date */}
+                    {post.postedAt && (
+                      <div className="flex items-center gap-1 text-sm text-gray-600 mb-4">
+                        <Calendar className="h-4 w-4" />
+                        <span>{formatDateTime(post.postedAt)}</span>
                       </div>
+                    )}
+                    {post.scheduledAt && (
+                      <div className="flex items-center gap-1 text-sm text-orange-600 mb-4">
+                        <Clock className="h-4 w-4" />
+                        <span>Scheduled {formatDateTime(post.scheduledAt)}</span>
+                      </div>
+                    )}
+
+                    {/* Content - Flex grow to push CTA to bottom */}
+                    <div className="flex-1 mb-4">
+                      <p className="text-sm leading-relaxed text-gray-700 line-clamp-6">{post.content}</p>
                     </div>
+
+                    {/* Image if available */}
+                    {post.imageUrl && (
+                      <div className="mb-4">
+                        <img
+                          src={post.imageUrl}
+                          alt="Post image"
+                          className="w-full h-48 object-cover rounded-lg"
+                        />
+                      </div>
+                    )}
+
+                    {/* CTA Button - Always at bottom */}
+                    {post.callToAction && (
+                      <div className="flex items-center gap-2 pt-3 border-t border-gray-200">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="flex-1 bg-green-50 border-green-200 text-green-700 hover:bg-green-100 hover:text-green-800 font-medium"
+                        >
+                          {post.callToAction === 'CALL' && (
+                            <>
+                              <span className="text-green-600 mr-2">📞</span>
+                              Call Now
+                            </>
+                          )}
+                          {post.callToAction === 'LEARN_MORE' && (
+                            <>
+                              <span className="mr-2">🔗</span>
+                              Learn More
+                            </>
+                          )}
+                          {post.callToAction === 'ORDER' && (
+                            <>
+                              <span className="mr-2">🛒</span>
+                              Order
+                            </>
+                          )}
+                          {post.callToAction === 'BOOK' && (
+                            <>
+                              <span className="mr-2">📅</span>
+                              Book
+                            </>
+                          )}
+                          {post.callToAction === 'SIGN_UP' && (
+                            <>
+                              <span className="mr-2">✍️</span>
+                              Sign Up
+                            </>
+                          )}
+                          {!['CALL', 'LEARN_MORE', 'ORDER', 'BOOK', 'SIGN_UP'].includes(post.callToAction) && post.callToAction}
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                          onClick={() => {
+                            setSelectedPost(post);
+                            setShowDetailsModal(true);
+                          }}
+                        >
+                          →
+                        </Button>
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
@@ -603,6 +660,163 @@ const Posts = () => {
         profileId={selectedProfileFilter !== "all" ? selectedProfileFilter : ""}
         availableProfiles={availableProfiles}
       />
+
+      {/* Post Details Modal */}
+      <Dialog open={showDetailsModal} onOpenChange={setShowDetailsModal}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="text-2xl font-semibold">Post Details</DialogTitle>
+          </DialogHeader>
+
+          {selectedPost && (
+            <div className="space-y-6 py-4">
+              {/* Header with Business Name and Status */}
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <h3 className="text-xl font-semibold text-gray-900">{selectedPost.profileName}</h3>
+                  {selectedPost.status === 'published' && (
+                    <Badge className="bg-green-600 text-white hover:bg-green-700">Published</Badge>
+                  )}
+                  {selectedPost.status === 'scheduled' && (
+                    <Badge className="bg-orange-500 text-white hover:bg-orange-600">Scheduled</Badge>
+                  )}
+                  {selectedPost.status === 'draft' && (
+                    <Badge variant="outline">Draft</Badge>
+                  )}
+                </div>
+
+                {/* Posted Date */}
+                {selectedPost.postedAt && (
+                  <div className="flex items-center gap-2 text-sm text-gray-600">
+                    <Calendar className="h-4 w-4" />
+                    <span>Posted {formatDateTime(selectedPost.postedAt)}</span>
+                  </div>
+                )}
+              </div>
+
+              {/* Full Content */}
+              <div className="space-y-4">
+                <p className="text-base leading-relaxed text-gray-800 whitespace-pre-wrap">
+                  {selectedPost.content}
+                </p>
+              </div>
+
+              {/* Image if available */}
+              {selectedPost.imageUrl && (
+                <div className="rounded-lg overflow-hidden border border-gray-200">
+                  <img
+                    src={selectedPost.imageUrl}
+                    alt="Post image"
+                    className="w-full h-auto object-cover"
+                  />
+                </div>
+              )}
+
+              {/* CTA Button Display */}
+              {selectedPost.callToAction && (
+                <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="text-sm font-medium text-gray-700">CTA Button:</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {selectedPost.callToAction === 'CALL' && (
+                      <div className="flex items-center gap-2 px-4 py-2 bg-green-50 border border-green-200 rounded-md text-green-700 font-medium">
+                        <span className="text-green-600">📞</span>
+                        <span>Call Now</span>
+                      </div>
+                    )}
+                    {selectedPost.callToAction === 'LEARN_MORE' && (
+                      <div className="flex items-center gap-2 px-4 py-2 bg-blue-50 border border-blue-200 rounded-md text-blue-700 font-medium">
+                        <span>🔗</span>
+                        <span>Learn More</span>
+                      </div>
+                    )}
+                    {selectedPost.callToAction === 'ORDER' && (
+                      <div className="flex items-center gap-2 px-4 py-2 bg-blue-50 border border-blue-200 rounded-md text-blue-700 font-medium">
+                        <span>🛒</span>
+                        <span>Order</span>
+                      </div>
+                    )}
+                    {selectedPost.callToAction === 'BOOK' && (
+                      <div className="flex items-center gap-2 px-4 py-2 bg-blue-50 border border-blue-200 rounded-md text-blue-700 font-medium">
+                        <span>📅</span>
+                        <span>Book</span>
+                      </div>
+                    )}
+                    {selectedPost.callToAction === 'SIGN_UP' && (
+                      <div className="flex items-center gap-2 px-4 py-2 bg-blue-50 border border-blue-200 rounded-md text-blue-700 font-medium">
+                        <span>✍️</span>
+                        <span>Sign Up</span>
+                      </div>
+                    )}
+                    {!['CALL', 'LEARN_MORE', 'ORDER', 'BOOK', 'SIGN_UP'].includes(selectedPost.callToAction) && (
+                      <div className="flex items-center gap-2 px-4 py-2 bg-gray-50 border border-gray-200 rounded-md text-gray-700 font-medium">
+                        {selectedPost.callToAction}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Action Buttons */}
+              <div className="flex gap-3 pt-4 border-t border-gray-200">
+                <Button
+                  variant="outline"
+                  className="flex-1"
+                  onClick={() => setShowDetailsModal(false)}
+                >
+                  Close
+                </Button>
+                <DropdownMenu modal={false}>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline" className="flex-1">
+                      <MoreHorizontal className="mr-2 h-4 w-4" />
+                      Actions
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-48 z-[9999]">
+                    <DropdownMenuItem onClick={() => {
+                      setShowDetailsModal(false);
+                      setShowCreateModal(true);
+                    }}>
+                      Edit Post
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => {
+                      if (selectedPost) {
+                        // Create a duplicate post
+                        const duplicatePost = { ...selectedPost };
+                        setShowDetailsModal(false);
+                        toast({ title: "Duplicated", description: "Post duplicated successfully" });
+                      }
+                    }}>
+                      Duplicate
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => {
+                      setShowDetailsModal(false);
+                      setShowCreateModal(true);
+                      toast({ title: "Reschedule", description: "Update the posting schedule" });
+                    }}>
+                      Reschedule
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      className="text-red-600 focus:text-red-600"
+                      onClick={() => {
+                        if (confirm('Are you sure you want to delete this post?')) {
+                          // Add delete functionality here
+                          setShowDetailsModal(false);
+                          toast({ title: "Deleted", description: "Post deleted successfully" });
+                        }
+                      }}
+                    >
+                      Delete
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </>
   );
 };

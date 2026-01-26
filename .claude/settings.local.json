@@ -58,7 +58,8 @@
       "Bash(timeout 10 node:*)",
       "Bash(timeout 45 node:*)",
       "Bash(timeout 180 node:*)",
-      "Bash(git fetch:*)"
+      "Bash(git fetch:*)",
+      "Bash(npm install:*)"
     ],
     "deny": [],
     "ask": []

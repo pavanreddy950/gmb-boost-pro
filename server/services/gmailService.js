@@ -1,8 +1,18 @@
 import nodemailer from 'nodemailer';
 import dotenv from 'dotenv';
+import path from 'path';
+import { fileURLToPath } from 'url';
 
-// Load environment variables
-dotenv.config();
+// Get __dirname equivalent for ES modules
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+// Load environment variables from .env.local
+dotenv.config({ path: path.join(__dirname, '..', '.env.local') });
+
+console.log('[GmailService] Loading config...');
+console.log('[GmailService] GMAIL_USER:', process.env.GMAIL_USER ? '✅ Set' : '❌ Not set');
+console.log('[GmailService] GMAIL_APP_PASSWORD:', process.env.GMAIL_APP_PASSWORD ? '✅ Set' : '❌ Not set');
 
 /**
  * Gmail SMTP Email Service
@@ -67,21 +77,26 @@ class GmailService {
    * @param {string} emailOptions.subject - Email subject
    * @param {string} emailOptions.html - HTML body
    * @param {string} [emailOptions.text] - Plain text body (optional)
+   * @param {string} [emailOptions.senderName] - Custom sender name (optional)
    * @param {Array} [emailOptions.attachments] - Email attachments (optional)
    * @returns {Promise<Object>} Send result
    */
-  async sendEmail({ to, subject, html, text, attachments }) {
+  async sendEmail({ to, subject, html, text, senderName, attachments }) {
     if (this.disabled) {
       console.warn('[GmailService] Email service is disabled - skipping email send');
       return { success: false, error: 'Email service disabled' };
     }
 
     try {
+      // Use custom sender name if provided, otherwise use default
+      const fromName = senderName || this.fromName;
+
       console.log(`[GmailService] 📧 Sending email to: ${to}`);
       console.log(`[GmailService] Subject: ${subject}`);
+      console.log(`[GmailService] From Name: ${fromName}`);
 
       const mailOptions = {
-        from: `${this.fromName} <${this.fromEmail}>`,
+        from: `${fromName} <${this.fromEmail}>`,
         to,
         subject,
         html,

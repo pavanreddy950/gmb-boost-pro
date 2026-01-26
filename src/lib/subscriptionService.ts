@@ -62,20 +62,47 @@ export interface SubscriptionPlan {
 
 export const SUBSCRIPTION_PLANS: SubscriptionPlan[] = [
   {
-    id: 'per_profile_yearly',
-    name: 'Pro Plan',
-    amount: 9900, // Base amount per profile in cents ($99.00)
-    currency: 'USD',
-    interval: 'yearly',
+    id: 'per_profile_half_yearly',
+    name: 'Semi-Annual Plan',
+    amount: 600000, // ₹6,000 per profile in paise (6000 * 100)
+    currency: 'INR',
+    interval: 'yearly', // Using yearly interval for 6 months duration
     features: [
-      '$99 per Google Business Profile/year',
+      '₹6,000 per Google Business Profile/6 months',
       'Auto-Post Scheduling',
+      'Post with Photos',
       'Review Management & Auto-Reply',
+      'Request for Reviews',
+      'Profile Optimization',
+      'Social Media Access',
       'Performance Analytics',
       'Advanced Analytics',
       'API Access',
       'Priority Support',
-      'Scale as you grow - unlimited profiles'
+      'Scale as you grow'
+    ],
+    trialDays: 15,
+    popular: false
+  },
+  {
+    id: 'per_profile_yearly',
+    name: 'Annual Plan',
+    amount: 900000, // ₹9,000 per profile in paise (9000 * 100)
+    currency: 'INR',
+    interval: 'yearly',
+    features: [
+      '₹9,000 per Google Business Profile/year',
+      'Auto-Post Scheduling',
+      'Post with Photos',
+      'Review Management & Auto-Reply',
+      'Request for Reviews',
+      'Profile Optimization',
+      'Social Media Access',
+      'Performance Analytics',
+      'Advanced Analytics',
+      'API Access',
+      'Priority Support',
+      'Scale as you grow - Best Value'
     ],
     trialDays: 15,
     popular: true
@@ -85,29 +112,36 @@ export const SUBSCRIPTION_PLANS: SubscriptionPlan[] = [
 export class SubscriptionService {
   private static COLLECTION_NAME = 'subscriptions';
   private static TRIAL_DAYS = 15;
-  private static BASE_PRICE_PER_PROFILE = 9900; // $99 in cents
+  private static BASE_PRICE_PER_PROFILE_YEARLY = 900000; // ₹9,000 in paise (per profile per year)
+  private static BASE_PRICE_PER_PROFILE_HALF_YEARLY = 600000; // ₹6,000 in paise (per profile per 6 months)
 
-  static calculateTotalPrice(profileCount: number): number {
-    return profileCount * this.BASE_PRICE_PER_PROFILE;
+  static calculateTotalPrice(profileCount: number, planId: string = 'per_profile_yearly'): number {
+    const pricePerProfile = planId === 'per_profile_half_yearly'
+      ? this.BASE_PRICE_PER_PROFILE_HALF_YEARLY
+      : this.BASE_PRICE_PER_PROFILE_YEARLY;
+    return profileCount * pricePerProfile;
   }
 
-  static formatPriceDisplay(profileCount: number): string {
-    const total = this.calculateTotalPrice(profileCount);
-    return `$${(total / 100).toFixed(0)}`;
+  static formatPriceDisplay(profileCount: number, planId: string = 'per_profile_yearly'): string {
+    const total = this.calculateTotalPrice(profileCount, planId);
+    return `₹${(total / 100).toLocaleString('en-IN')}`;
   }
 
-  static getPricingBreakdown(profileCount: number): {
+  static getPricingBreakdown(profileCount: number, planId: string = 'per_profile_yearly'): {
     profileCount: number;
     pricePerProfile: number;
     totalPrice: number;
     displayPrice: string;
   } {
-    const totalPrice = this.calculateTotalPrice(profileCount);
+    const pricePerProfile = planId === 'per_profile_half_yearly'
+      ? this.BASE_PRICE_PER_PROFILE_HALF_YEARLY
+      : this.BASE_PRICE_PER_PROFILE_YEARLY;
+    const totalPrice = this.calculateTotalPrice(profileCount, planId);
     return {
       profileCount,
-      pricePerProfile: this.BASE_PRICE_PER_PROFILE,
+      pricePerProfile,
       totalPrice,
-      displayPrice: this.formatPriceDisplay(profileCount)
+      displayPrice: this.formatPriceDisplay(profileCount, planId)
     };
   }
 
@@ -302,9 +336,9 @@ export class SubscriptionService {
       trialStartDate: now,
       trialEndDate: Timestamp.fromDate(trialEndDate),
       profileCount,
-      pricePerProfile: this.BASE_PRICE_PER_PROFILE,
-      amount: this.calculateTotalPrice(profileCount),
-      currency: 'USD',
+      pricePerProfile: this.BASE_PRICE_PER_PROFILE_YEARLY,
+      amount: this.calculateTotalPrice(profileCount, 'per_profile_yearly'),
+      currency: 'INR',
       razorpayCustomerId,
       createdAt: now,
       updatedAt: now,
@@ -338,7 +372,13 @@ export class SubscriptionService {
       endDate.setFullYear(endDate.getFullYear() + 1);
     }
 
-    const totalAmount = planId === 'per_profile_yearly' ? this.calculateTotalPrice(profileCount) : plan.amount;
+    const isPerProfile = planId === 'per_profile_yearly' || planId === 'per_profile_half_yearly';
+    const totalAmount = isPerProfile ? this.calculateTotalPrice(profileCount, planId) : plan.amount;
+    const pricePerProfile = planId === 'per_profile_half_yearly'
+      ? this.BASE_PRICE_PER_PROFILE_HALF_YEARLY
+      : planId === 'per_profile_yearly'
+      ? this.BASE_PRICE_PER_PROFILE_YEARLY
+      : undefined;
 
     await this.updateSubscription(subscriptionId, {
       status: 'active',
@@ -346,8 +386,8 @@ export class SubscriptionService {
       planName: plan.name,
       amount: totalAmount,
       currency: plan.currency,
-      profileCount: planId === 'per_profile_yearly' ? profileCount : undefined,
-      pricePerProfile: planId === 'per_profile_yearly' ? this.BASE_PRICE_PER_PROFILE : undefined,
+      profileCount: isPerProfile ? profileCount : undefined,
+      pricePerProfile: isPerProfile ? pricePerProfile : undefined,
       razorpaySubscriptionId,
       razorpayCustomerId,
       subscriptionStartDate: Timestamp.fromDate(now),

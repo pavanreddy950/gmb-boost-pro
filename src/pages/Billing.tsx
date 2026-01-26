@@ -3,23 +3,16 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   CreditCard,
-  Calendar,
-  Download,
   CheckCircle,
-  XCircle,
-  Clock,
-  RefreshCw,
   AlertCircle,
-  Receipt,
-  Sparkles,
   Headphones,
   Mail,
   MessageCircle,
   Shield,
-  Infinity
+  Infinity,
+  Sparkles
 } from 'lucide-react';
 import { useSubscription } from '@/contexts/SubscriptionContext';
 import { PaymentModal } from '@/components/PaymentModal';
@@ -29,8 +22,6 @@ import { format } from 'date-fns';
 
 const Billing = () => {
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
-  const [paymentHistory, setPaymentHistory] = useState<any[]>([]);
-  const [isLoadingHistory, setIsLoadingHistory] = useState(false);
   const [showUpgradeSuccess, setShowUpgradeSuccess] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
 
@@ -65,11 +56,9 @@ const Billing = () => {
     checkAdminStatus();
   }, [currentUser]);
 
-  // Fetch payment history and check for recent upgrade
+  // Check for recent upgrade
   useEffect(() => {
     if (subscription?.gbpAccountId) {
-      fetchPaymentHistory();
-      
       // Check if recently upgraded (within last 5 minutes)
       if (subscription?.status === 'active' && subscription?.lastPaymentDate) {
         const lastPayment = new Date(subscription.lastPaymentDate);
@@ -82,32 +71,6 @@ const Billing = () => {
       }
     }
   }, [subscription]);
-
-  const fetchPaymentHistory = async () => {
-    if (!subscription?.gbpAccountId) return;
-    
-    setIsLoadingHistory(true);
-    try {
-      const response = await fetch(
-        `${backendUrl}/api/payment/subscription/${subscription.gbpAccountId}/payments`
-      );
-      
-      if (response.ok) {
-        const data = await response.json();
-        // Use payment history from subscription if available
-        const payments = data.payments || subscription?.paymentHistory || [];
-        setPaymentHistory(payments);
-      }
-    } catch (error) {
-      console.error('Error fetching payment history:', error);
-      // Fallback to subscription payment history if fetch fails
-      if (subscription?.paymentHistory) {
-        setPaymentHistory(subscription.paymentHistory);
-      }
-    } finally {
-      setIsLoadingHistory(false);
-    }
-  };
 
   const handleCancelSubscription = async () => {
     if (!window.confirm('Are you sure you want to cancel your subscription?')) {
@@ -291,8 +254,8 @@ const Billing = () => {
                 </div>
               )}
               <div className="bg-gray-50 rounded-lg p-3">
-                <span className="text-muted-foreground block">Price Per Profile</span>
-                <p className="font-semibold">₹99/year</p>
+                <span className="text-muted-foreground block">Plan Type</span>
+                <p className="font-semibold">{currentPlan?.name || 'Active Plan'}</p>
               </div>
             </div>
 
@@ -367,7 +330,7 @@ const Billing = () => {
                 <div className="flex justify-center">
                   <Button onClick={() => setIsPaymentModalOpen(true)} className="bg-gradient-to-r from-blue-600 to-purple-600">
                     <CreditCard className="mr-2 h-4 w-4" />
-                    Upgrade to Pro - ₹99/profile/year
+                    Upgrade Now - ₹6,000/profile
                   </Button>
                 </div>
               </>
@@ -440,83 +403,80 @@ const Billing = () => {
         </Card>
       )}
 
-      {/* Tabs for Plans and History */}
-      <Tabs defaultValue="plans" className="space-y-4">
-        <TabsList>
-          <TabsTrigger value="plans">Available Plans</TabsTrigger>
-          <TabsTrigger value="history">Payment History</TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="plans" className="space-y-4">
-          <div className="grid gap-6 md:grid-cols-1 lg:grid-cols-2 mt-8">
+      {/* Available Plans */}
+      <div className="space-y-4 mt-8">
+          <div className="grid gap-6 md:grid-cols-1 lg:grid-cols-2 mt-8 items-stretch">
             {plans.map((plan) => (
-              <div key={plan.id} className="relative pt-4">
-                {currentPlan?.id === plan.id && (
-                  <div className="absolute top-0 left-1/2 transform -translate-x-1/2 z-10">
-                    <div className="bg-gradient-to-r from-green-600 to-green-700 text-white px-4 py-1.5 rounded-full text-xs font-bold shadow-lg whitespace-nowrap">
-                      CURRENT PLAN
-                    </div>
-                  </div>
-                )}
-                {plan.popular && currentPlan?.id !== plan.id && (
-                  <div className="absolute top-0 left-1/2 transform -translate-x-1/2 z-10">
-                    <div className="bg-gradient-to-r from-purple-600 to-blue-600 text-white px-4 py-1.5 rounded-full text-xs font-bold shadow-lg whitespace-nowrap">
-                      MOST POPULAR
-                    </div>
-                  </div>
-                )}
-                <Card className={`mt-3 ${
+              <div key={plan.id} className="relative flex">
+                <Card className={`flex flex-col w-full relative overflow-visible ${
                   currentPlan?.id === plan.id
                     ? 'border-green-500 ring-2 ring-green-200'
                     : plan.popular
-                    ? 'border-primary/50'
-                    : ''
+                    ? 'border-2 border-purple-500 ring-2 ring-purple-200'
+                    : 'border-2'
                 }`}>
-                  <CardHeader>
+                  {currentPlan?.id === plan.id && (
+                    <div className="absolute -top-3 left-1/2 transform -translate-x-1/2 z-10">
+                      <div className="bg-gradient-to-r from-green-500 to-emerald-600 text-white px-4 py-1.5 rounded-full text-xs font-bold shadow-lg flex items-center gap-1.5">
+                        <Shield className="h-3.5 w-3.5" />
+                        CURRENT PLAN
+                      </div>
+                    </div>
+                  )}
+                  {plan.popular && currentPlan?.id !== plan.id && (
+                    <div className="absolute -top-3 left-1/2 transform -translate-x-1/2 z-10">
+                      <div className="bg-gradient-to-r from-purple-600 via-pink-600 to-red-500 text-white px-4 py-1.5 rounded-full text-xs font-bold shadow-xl flex items-center gap-1.5">
+                        <Infinity className="h-3.5 w-3.5" />
+                        MOST POPULAR
+                      </div>
+                    </div>
+                  )}
+                  <CardHeader className="flex-shrink-0">
                     <div className="flex items-center justify-between">
                       <CardTitle className="text-lg">{plan.name}</CardTitle>
-                      {plan.interval === 'yearly' && (
-                        <Badge className="bg-green-100 text-green-800">Save 80%</Badge>
+                      {plan.popular && (
+                        <Badge className="bg-green-100 text-green-800">Best Value</Badge>
                       )}
                     </div>
-                    {plan.id === 'per_profile_yearly' ? (
-                      <div className="mt-2">
-                        <div className="flex items-baseline gap-2">
-                          <span className="text-3xl font-bold text-foreground">$99</span>
-                          <span className="text-xl text-muted-foreground line-through">$499</span>
-                        </div>
-                        <CardDescription className="mt-1">per Google Business Profile/year</CardDescription>
+                    <div className="mt-2">
+                      <div className="flex items-baseline gap-2">
+                        <span className="text-3xl font-bold text-foreground">₹{(plan.amount / 100).toLocaleString('en-IN')}</span>
+                        <span className="text-lg text-muted-foreground">/profile</span>
                       </div>
-                    ) : (
-                      <CardDescription className="text-2xl font-bold text-foreground mt-2">
-                        ${(plan.amount / 100).toFixed(0)}/{plan.interval}
+                      <CardDescription className="mt-1">
+                        {plan.id === 'per_profile_half_yearly' ? 'per profile for 6 months' : 'per profile per year'}
                       </CardDescription>
-                    )}
+                      {plan.id === 'per_profile_yearly' && (
+                        <p className="text-sm text-green-600 font-medium mt-1">Save ₹3,000 vs 6-month plan</p>
+                      )}
+                    </div>
                   </CardHeader>
-                  <CardContent>
-                    <ul className="space-y-2">
+                  <CardContent className="flex-1 flex flex-col">
+                    <ul className="space-y-2 flex-1">
                       {plan.features.map((feature, index) => (
                         <li key={index} className="flex items-start space-x-2">
-                          <CheckCircle className="h-4 w-4 text-green-500 mt-0.5" />
+                          <CheckCircle className="h-4 w-4 text-green-500 mt-0.5 flex-shrink-0" />
                           <span className="text-sm">{feature}</span>
                         </li>
                       ))}
                     </ul>
-                    
-                    {currentPlan?.id !== plan.id && (
-                      <Button
-                        className="w-full mt-4"
-                        onClick={() => setIsPaymentModalOpen(true)}
-                      >
-                        {status === 'active' ? 'Access More Profiles' : 'Get Started'}
-                      </Button>
-                    )}
-                    
-                    {currentPlan?.id === plan.id && (
-                      <div className="mt-4 text-center text-sm text-muted-foreground">
-                        Current Plan
-                      </div>
-                    )}
+
+                    <div className="mt-4">
+                      {currentPlan?.id !== plan.id && (
+                        <Button
+                          className="w-full"
+                          onClick={() => setIsPaymentModalOpen(true)}
+                        >
+                          {status === 'active' ? 'Access More Profiles' : 'Get Started'}
+                        </Button>
+                      )}
+
+                      {currentPlan?.id === plan.id && (
+                        <div className="text-center text-sm text-muted-foreground">
+                          Current Plan
+                        </div>
+                      )}
+                    </div>
                   </CardContent>
                 </Card>
               </div>
@@ -588,77 +548,7 @@ const Billing = () => {
               </CardContent>
             </Card>
           </div>
-        </TabsContent>
-
-        <TabsContent value="history" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Payment History</CardTitle>
-              <CardDescription>Your past transactions and invoices</CardDescription>
-            </CardHeader>
-            <CardContent>
-              {isLoadingHistory ? (
-                <div className="flex items-center justify-center py-8">
-                  <RefreshCw className="h-6 w-6 animate-spin text-muted-foreground" />
-                </div>
-              ) : paymentHistory.length > 0 ? (
-                <div className="space-y-3">
-                  {paymentHistory.map((payment, index) => (
-                    <div key={payment.razorpayPaymentId || index} className="flex items-center justify-between py-3 border-b last:border-0">
-                      <div className="flex items-center space-x-3">
-                        {payment.status === 'success' ? (
-                          <CheckCircle className="h-5 w-5 text-green-500" />
-                        ) : payment.status === 'failed' ? (
-                          <XCircle className="h-5 w-5 text-red-500" />
-                        ) : (
-                          <Clock className="h-5 w-5 text-yellow-500" />
-                        )}
-                        <div>
-                          <p className="font-medium">₹{payment.amount}</p>
-                          <p className="text-sm text-muted-foreground">
-                            {payment.paidAt ? format(new Date(payment.paidAt), 'MMM dd, yyyy HH:mm') : 
-                             payment.createdAt ? format(
-                               new Date(
-                                 typeof payment.createdAt === 'string' 
-                                   ? payment.createdAt 
-                                   : payment.createdAt.seconds * 1000
-                               ), 
-                               'MMM dd, yyyy'
-                             ) : 
-                             'Date not available'}
-                          </p>
-                          {payment.description && (
-                            <p className="text-xs text-muted-foreground">{payment.description}</p>
-                          )}
-                        </div>
-                      </div>
-                      
-                      <div className="flex items-center space-x-2">
-                        <Badge variant={
-                          payment.status === 'success' ? 'default' :
-                          payment.status === 'failed' ? 'destructive' : 'secondary'
-                        }>
-                          {payment.status}
-                        </Badge>
-                        {payment.razorpayPaymentId && (
-                          <Button variant="ghost" size="sm">
-                            <Receipt className="h-4 w-4" />
-                          </Button>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="text-center py-8 text-muted-foreground">
-                  <Receipt className="h-12 w-12 mx-auto mb-3 opacity-50" />
-                  <p>No payment history yet</p>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
+        </div>
 
       {/* Payment Modal */}
       <PaymentModal 
