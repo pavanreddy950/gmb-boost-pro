@@ -12,7 +12,9 @@ import {
   MessageCircle,
   Shield,
   Infinity,
-  Sparkles
+  Sparkles,
+  Clock,
+  XCircle
 } from 'lucide-react';
 import { useSubscription } from '@/contexts/SubscriptionContext';
 import { PaymentModal } from '@/components/PaymentModal';
