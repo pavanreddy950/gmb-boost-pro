@@ -29,10 +29,10 @@ const Sidebar = ({ isOpen = false, onClose }: SidebarProps) => {
     { label: "Reviews", href: "/dashboard/reviews", icon: Star },
     { label: "Audit Tool", href: "/dashboard/audit", icon: Search },
     { label: "Magic QR", href: "/dashboard/ask-for-reviews", icon: MessageSquarePlus },
+    { label: "Auto Gallery", href: "/dashboard/photos-dump", icon: Images, badge: "New" },
     { label: "Request for Reviews", href: "/dashboard/request-reviews", icon: Mail, badge: "Beta" },
     { label: "Social Media", href: "/dashboard/social-media", icon: Share2, badge: "Coming Soon" },
     { label: "Profile Optimization", href: "/dashboard/profile-optimization", icon: Sparkles, badge: "Coming Soon" },
-    { label: "Photos Dump", href: "/dashboard/photos-dump", icon: Images, badge: "Coming Soon" },
   ];
 
   const isActive = (href: string) => {
@@ -115,9 +115,9 @@ const Sidebar = ({ isOpen = false, onClose }: SidebarProps) => {
               {item.badge && (
                 <span className={cn(
                   "flex-shrink-0 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide rounded-full text-white shadow-sm",
-                  item.badge === "Coming Soon"
-                    ? "bg-gradient-to-r from-blue-500 to-blue-600"
-                    : "bg-gradient-to-r from-violet-500 to-pink-500"
+                  item.badge === "Coming Soon" && "bg-gradient-to-r from-blue-500 to-blue-600",
+                  item.badge === "Beta" && "bg-gradient-to-r from-violet-500 to-pink-500",
+                  item.badge === "New" && "bg-gradient-to-r from-green-500 to-emerald-500"
                 )}>
                   {item.badge}
                 </span>

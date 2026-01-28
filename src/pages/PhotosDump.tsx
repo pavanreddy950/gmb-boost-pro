@@ -290,7 +290,7 @@ const PhotosDump = () => {
               </div>
               <div>
                 <h1 className="text-2xl md:text-3xl font-bold text-white">
-                  Photos Dump
+                  Auto Gallery
                 </h1>
                 <p className="text-green-100 text-sm md:text-base">
                   Upload photos once, auto-post daily for up to 60 days
