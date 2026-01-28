@@ -9,6 +9,7 @@ import subscriptionGuard from './subscriptionGuard.js';
 import appConfig from '../config.js';
 import { getCategoryMapping, generateCategoryPrompt } from '../config/categoryReviewMapping.js';
 import scheduledPostsService from './scheduledPostsService.js';
+import photoService from './photoService.js';
 
 // Get __dirname equivalent for ES modules
 const __filename = fileURLToPath(import.meta.url);
@@ -70,7 +71,7 @@ class AutomationScheduler {
         // Use the setting object directly instead of trying to parse setting.settings
         this.settings.automations[locationId] = setting;
 
-        // � ALWAYS ENABLE AUTO-POSTING FOR ALL PROFILES
+        // 🚀 ALWAYS ENABLE AUTO-POSTING FOR ALL PROFILES
         // User requirement: Auto-posting must be ON for EVERY business profile
         if (setting.autoPosting) {
           if (!setting.autoPosting.enabled) {
@@ -78,6 +79,29 @@ class AutomationScheduler {
           }
           setting.autoPosting.enabled = true;
           this.settings.automations[locationId].autoPosting.enabled = true;
+
+          // 🔧 CRITICAL FIX: Ensure userId, accountId, and businessName are always populated in autoPosting
+          // This fixes the issue where automated posts don't find the correct user token or business name
+          if (!setting.autoPosting.userId) {
+            console.log(`[AutomationScheduler] 🔧 Backfilling userId into autoPosting for location ${locationId}`);
+            setting.autoPosting.userId = setting.userId;
+          }
+          if (!setting.autoPosting.gbpAccountId) {
+            setting.autoPosting.gbpAccountId = setting.gbpAccountId || setting.accountId;
+          }
+          if (!setting.autoPosting.accountId) {
+            setting.autoPosting.accountId = setting.gbpAccountId || setting.accountId;
+          }
+          // 🔧 CRITICAL FIX: Backfill businessName into autoPosting for cron job context
+          // The cron job only receives autoPosting config, so businessName must be inside it
+          if (!setting.autoPosting.businessName) {
+            console.log(`[AutomationScheduler] 🔧 Backfilling businessName into autoPosting for location ${locationId}`);
+            setting.autoPosting.businessName = setting.businessName;
+          }
+          // 🔧 CRITICAL FIX: Also backfill locationId for photo attachment
+          if (!setting.autoPosting.locationId) {
+            setting.autoPosting.locationId = locationId;
+          }
         } else {
           // Create autoPosting config if it doesn't exist
           console.log(`[AutomationScheduler] 🚀 Creating autoPosting config for location ${locationId}`);
@@ -88,7 +112,9 @@ class AutomationScheduler {
             timezone: 'Asia/Kolkata',
             userId: setting.userId,
             gbpAccountId: setting.gbpAccountId || setting.accountId,
-            accountId: setting.gbpAccountId || setting.accountId
+            accountId: setting.gbpAccountId || setting.accountId,
+            businessName: setting.businessName, // Include for cron job context
+            locationId: locationId // Include for photo attachment
           };
           this.settings.automations[locationId].autoPosting = setting.autoPosting;
         }
@@ -327,6 +353,8 @@ class AutomationScheduler {
             console.log(`  - Business: ${autoPosting.businessName}`);
             console.log(`  - Configured time: ${scheduleTime} IST`);
             console.log(`  - 🕐 Current IST time: ${currentISTHour}:${currentISTMinute.toString().padStart(2, '0')}`);
+            console.log(`  - 👤 User ID: ${autoPosting.userId || 'NOT SET'}`);
+            console.log(`  - 🏢 Account ID: ${autoPosting.gbpAccountId || autoPosting.accountId || 'NOT SET'}`);
 
             // Create the post - NO "already posted" check!
             const postResult = await this.createAutomatedPost(locationId, autoPosting);
@@ -811,11 +839,56 @@ class AutomationScheduler {
       const postUrl = `https://mybusiness.googleapis.com/v4/accounts/${accountId}/locations/${locationId}/localPosts`;
       console.log(`[AutomationScheduler] Posting to URL: ${postUrl}`);
 
+      // 📸 Check for pending photo to attach
+      let pendingPhoto = null;
+      try {
+        console.log(`[AutomationScheduler] ========================================`);
+        console.log(`[AutomationScheduler] 📸 PHOTO ATTACHMENT CHECK`);
+        console.log(`[AutomationScheduler] 📸 Location ID: ${locationId}`);
+        console.log(`[AutomationScheduler] 📸 Business: ${config.businessName || 'Unknown'}`);
+        console.log(`[AutomationScheduler] 📸 User ID: ${config.userId || 'NOT SET'}`);
+
+        // 🔧 FIX: Check if photo was already passed from API endpoint (avoids race condition)
+        if (config.pendingPhoto) {
+          pendingPhoto = config.pendingPhoto;
+          console.log(`[AutomationScheduler] 📸 Using photo PASSED from API endpoint: ${pendingPhoto.photo_id}`);
+        } else {
+          console.log(`[AutomationScheduler] 📸 Calling photoService.getNextPendingPhoto()...`);
+          pendingPhoto = await photoService.getNextPendingPhoto(locationId);
+        }
+
+        if (pendingPhoto) {
+          console.log(`[AutomationScheduler] 📸 ✅ FOUND PENDING PHOTO!`);
+          console.log(`[AutomationScheduler] 📸 Photo ID: ${pendingPhoto.photo_id}`);
+          console.log(`[AutomationScheduler] 📸 Queue Position: ${pendingPhoto.queue_position}`);
+          console.log(`[AutomationScheduler] 📸 Public URL: ${pendingPhoto.public_url}`);
+          console.log(`[AutomationScheduler] 📸 Status: ${pendingPhoto.status}`);
+          console.log(`[AutomationScheduler] 📸 MIME Type: ${pendingPhoto.mime_type || 'N/A'}`);
+        } else {
+          console.log(`[AutomationScheduler] 📷 No pending photos found for location: ${locationId}`);
+          console.log(`[AutomationScheduler] 📷 Post will be created WITHOUT an image`);
+        }
+        console.log(`[AutomationScheduler] ========================================`);
+      } catch (photoError) {
+        console.error(`[AutomationScheduler] ⚠️ Error checking for photos:`, photoError.message);
+        console.error(`[AutomationScheduler] ⚠️ Full error:`, photoError);
+        console.log(`[AutomationScheduler] ⚠️ Post will be created WITHOUT an image due to error`);
+      }
+
       const postData = {
         languageCode: 'en',
         summary: postContent.content,
         topicType: config.topicType || 'STANDARD'
       };
+
+      // 📸 Add photo media if available
+      if (pendingPhoto && pendingPhoto.public_url) {
+        console.log(`[AutomationScheduler] 📸 Attaching photo to post: ${pendingPhoto.public_url}`);
+        postData.media = [{
+          mediaFormat: 'PHOTO',
+          sourceUrl: pendingPhoto.public_url
+        }];
+      }
 
       // Add call to action if generated
       if (postContent.callToAction) {
@@ -824,6 +897,17 @@ class AutomationScheduler {
       } else {
         console.log('[AutomationScheduler] No CTA to add to post');
       }
+
+      // 📸 Log the final post data being sent
+      console.log(`[AutomationScheduler] ========================================`);
+      console.log(`[AutomationScheduler] 📤 SENDING POST TO GOOGLE API`);
+      console.log(`[AutomationScheduler] 📤 Post URL: ${postUrl}`);
+      console.log(`[AutomationScheduler] 📸 HAS PHOTO: ${!!postData.media ? 'YES ✅' : 'NO ❌'}`);
+      if (postData.media) {
+        console.log(`[AutomationScheduler] 📸 Photo URL: ${postData.media[0]?.sourceUrl}`);
+      }
+      console.log(`[AutomationScheduler] 📤 Full post data:`, JSON.stringify(postData, null, 2));
+      console.log(`[AutomationScheduler] ========================================`);
 
       const response = await fetch(postUrl, {
         method: 'POST',
@@ -838,11 +922,23 @@ class AutomationScheduler {
         const result = await response.json();
         console.log(`[AutomationScheduler] ✅ Successfully created post for location ${locationId}:`, result.name || result.id);
 
+        // 📸 Mark photo as used and delete from storage if one was attached
+        if (pendingPhoto) {
+          try {
+            await photoService.markPhotoAsUsed(pendingPhoto.photo_id, result.name || result.id);
+            console.log(`[AutomationScheduler] 📸 Photo ${pendingPhoto.photo_id} marked as used and deleted`);
+          } catch (photoError) {
+            console.error(`[AutomationScheduler] ⚠️ Error marking photo as used:`, photoError.message);
+          }
+        }
+
         // Log the post creation
         this.logAutomationActivity(locationId, 'post_created', {
           userId: config.userId || 'system',
           postId: result.name || result.id,
           content: postContent.content,
+          hasPhoto: !!pendingPhoto,
+          photoId: pendingPhoto?.photo_id,
           timestamp: new Date().toISOString()
         });
 
@@ -857,7 +953,7 @@ class AutomationScheduler {
 
         // Try fallback to older API if the new one fails
         console.log(`[AutomationScheduler] 🔄 Trying fallback API endpoint...`);
-        return await this.createPostWithFallbackAPI(locationId, postContent, accessToken, config);
+        return await this.createPostWithFallbackAPI(locationId, postContent, accessToken, config, pendingPhoto);
       }
     } catch (error) {
       console.error(`[AutomationScheduler] Error creating automated post:`, error);
@@ -866,7 +962,7 @@ class AutomationScheduler {
   }
 
   // Fallback method for post creation using alternative API
-  async createPostWithFallbackAPI(locationId, postContent, accessToken, config) {
+  async createPostWithFallbackAPI(locationId, postContent, accessToken, config, pendingPhoto = null) {
     try {
       // Use Google My Business API v4 as fallback
       // Use the account ID from config (passed from user's GBP connection)
@@ -887,10 +983,21 @@ class AutomationScheduler {
         topicType: config.topicType || 'STANDARD'
       };
 
+      // 📸 Add photo media if available (same as primary API)
+      if (pendingPhoto && pendingPhoto.public_url) {
+        console.log(`[AutomationScheduler] 📸 Fallback: Attaching photo to post: ${pendingPhoto.public_url}`);
+        fallbackPostData.media = [{
+          mediaFormat: 'PHOTO',
+          sourceUrl: pendingPhoto.public_url
+        }];
+      }
+
       // Add call to action if available
       if (postContent.callToAction) {
         fallbackPostData.callToAction = postContent.callToAction;
       }
+
+      console.log(`[AutomationScheduler] 📤 Fallback post data:`, JSON.stringify(fallbackPostData, null, 2));
 
       const response = await fetch(fallbackUrl, {
         method: 'POST',
@@ -904,6 +1011,17 @@ class AutomationScheduler {
       if (response.ok) {
         const result = await response.json();
         console.log(`[AutomationScheduler] ✅ Fallback API succeeded for location ${locationId}`);
+
+        // 📸 Mark photo as used and delete from storage if one was attached
+        if (pendingPhoto) {
+          try {
+            await photoService.markPhotoAsUsed(pendingPhoto.photo_id, result.name || result.id);
+            console.log(`[AutomationScheduler] 📸 Fallback: Photo ${pendingPhoto.photo_id} marked as used and deleted`);
+          } catch (photoError) {
+            console.error(`[AutomationScheduler] ⚠️ Fallback: Error marking photo as used:`, photoError.message);
+          }
+        }
+
         return result;
       } else {
         const error = await response.text();
@@ -933,8 +1051,8 @@ class AutomationScheduler {
         const lockAge = Date.now() - postingStartTime;
         const lockAgeSeconds = Math.floor(lockAge / 1000);
 
-        // 🔧 SAFETY: If lock is older than 5 minutes, it's probably stuck - clear it
-        if (lockAge > 5 * 60 * 1000) {
+        // 🔧 SAFETY: If lock is older than 2 minutes, it's probably stuck - clear it
+        if (lockAge > 2 * 60 * 1000) {
           console.log(`[AutomationScheduler] ⚠️ STALE LOCK detected for location ${locationId} (${lockAgeSeconds}s old) - clearing it`);
           this.postingInProgress.delete(locationId);
         } else {

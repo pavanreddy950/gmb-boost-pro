@@ -363,11 +363,12 @@ class UserService {
             isValid: false,
             canUsePlatform: false,
             requiresPayment: true,
+            billingOnly: true,
             paidSlots,
             connectedProfiles,
             availableSlots: 0,
             needsMoreSlots: true,
-            message: 'Subscription expired. Please renew.'
+            message: 'Subscription expired. Please renew to continue.'
           };
         }
       }
@@ -413,6 +414,7 @@ class UserService {
         isValid: false,
         canUsePlatform: false,
         requiresPayment: true,
+        billingOnly: true,
         paidSlots,
         connectedProfiles,
         availableSlots: 0,

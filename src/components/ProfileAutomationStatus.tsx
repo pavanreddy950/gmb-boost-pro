@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { Timer, Play, Pause, Zap, RefreshCw } from 'lucide-react';
+import { Timer, Play, Pause, Zap, RefreshCw, Images } from 'lucide-react';
 import { serverAutomationService } from '@/lib/serverAutomationService';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -26,8 +26,10 @@ export function ProfileAutomationStatus({ locationId, businessName, compact = fa
   const [isServerActive, setIsServerActive] = useState(false);
   const [nextPostTime, setNextPostTime] = useState<Date | null>(null);
   const [isPosting, setIsPosting] = useState(false);
+  const [photoCount, setPhotoCount] = useState<number>(0);
   const countdownIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const postTriggeredRef = useRef<boolean>(false);
+  const backendUrl = import.meta.env.VITE_BACKEND_URL || 'https://lobaiseo-backend-yjnl.onrender.com';
 
   // Trigger a post when countdown expires
   const triggerPostOnExpiry = useCallback(async () => {
@@ -68,6 +70,22 @@ export function ProfileAutomationStatus({ locationId, businessName, compact = fa
       }, 10000);
     }
   }, [locationId, businessName, schedule, frequency, currentUser?.uid]);
+
+  // Fetch photo count for this location
+  const fetchPhotoCount = useCallback(async () => {
+    if (!currentUser?.email) return;
+    try {
+      const response = await fetch(
+        `${backendUrl}/api/photos/${locationId}?gmailId=${encodeURIComponent(currentUser.email)}`
+      );
+      const data = await response.json();
+      if (data.success) {
+        setPhotoCount(data.pending || 0);
+      }
+    } catch (error) {
+      console.error('Error fetching photo count:', error);
+    }
+  }, [locationId, currentUser?.email, backendUrl]);
 
   // 🔥 DATABASE ONLY - Fetch from server (which queries database)
   const fetchServerSchedule = useCallback(async () => {
@@ -125,12 +143,16 @@ export function ProfileAutomationStatus({ locationId, businessName, compact = fa
   // Initial fetch
   useEffect(() => {
     fetchServerSchedule();
-    
+    fetchPhotoCount();
+
     // Refresh every 30 seconds
-    const syncInterval = setInterval(fetchServerSchedule, 30000);
-    
+    const syncInterval = setInterval(() => {
+      fetchServerSchedule();
+      fetchPhotoCount();
+    }, 30000);
+
     return () => clearInterval(syncInterval);
-  }, [fetchServerSchedule]);
+  }, [fetchServerSchedule, fetchPhotoCount]);
 
   // Update countdown every second
   useEffect(() => {
@@ -223,6 +245,16 @@ export function ProfileAutomationStatus({ locationId, businessName, compact = fa
         <span className="text-[9px] text-gray-400">
           {formatFrequency(frequency)} @ {schedule}
         </span>
+
+        {/* Photo count indicator */}
+        {photoCount > 0 && (
+          <div className="flex items-center gap-1 mt-0.5">
+            <Images className="h-3 w-3 text-green-500" />
+            <span className="text-[10px] text-green-600 font-medium">
+              {photoCount} photo{photoCount !== 1 ? 's' : ''} queued
+            </span>
+          </div>
+        )}
       </div>
     );
   }
@@ -277,6 +309,16 @@ export function ProfileAutomationStatus({ locationId, businessName, compact = fa
           Next post at {schedule}
         </span>
       </div>
+
+      {/* Photo count indicator */}
+      {photoCount > 0 && (
+        <div className="flex items-center justify-center gap-1.5 mt-2 pt-2 border-t border-blue-100">
+          <Images className="h-4 w-4 text-green-500" />
+          <span className="text-xs text-green-600 font-medium">
+            {photoCount} photo{photoCount !== 1 ? 's' : ''} queued ({photoCount} day{photoCount !== 1 ? 's' : ''})
+          </span>
+        </div>
+      )}
     </div>
   );
 }

@@ -1,6 +1,7 @@
 import express from 'express';
 import automationScheduler from '../services/automationScheduler.js';
 import scheduledPostsService from '../services/scheduledPostsService.js';
+import photoService from '../services/photoService.js';
 
 const router = express.Router();
 
@@ -579,17 +580,21 @@ router.post('/trigger-post/:locationId', async (req, res) => {
     const settings = automationScheduler.settings.automations?.[locationId];
 
     // Merge with provided config, ensuring all required fields are present
+    // 🔧 CRITICAL: Use email from settings (not Firebase UID from app) for token lookup
     const mergedConfig = {
       ...settings?.autoPosting,
       ...config,
-      userId: config.userId || settings?.autoPosting?.userId || 'default',
+      // 🔧 FIX: Prefer settings userId (email) over config userId (Firebase UID)
+      // Token storage uses email as key, so we MUST use email
+      userId: settings?.autoPosting?.userId || config.userId || 'default',
       accountId: config.accountId || settings?.autoPosting?.accountId,
       gbpAccountId: config.gbpAccountId || settings?.autoPosting?.gbpAccountId || config.accountId,
       businessName: config.businessName || settings?.autoPosting?.businessName || 'Business',
       keywords: config.keywords || settings?.autoPosting?.keywords || config.businessName,
       categories: config.categories || settings?.autoPosting?.categories || [],
       frequency: config.frequency || settings?.autoPosting?.frequency || 'daily',
-      schedule: config.schedule || settings?.autoPosting?.schedule || '10:00'
+      schedule: config.schedule || settings?.autoPosting?.schedule || '10:00',
+      locationId: locationId // 🔧 FIX: Include locationId for photo attachment
     };
 
     console.log(`[Automation API] Merged config:`, {
@@ -611,6 +616,31 @@ router.post('/trigger-post/:locationId', async (req, res) => {
       });
     }
 
+    // 📸 Check for pending photos and PASS to createAutomatedPost
+    // This ensures the photo is attached even if there are race conditions
+    let photoDebug = { checked: false, found: false, error: null };
+    let pendingPhoto = null;
+    try {
+      pendingPhoto = await photoService.getNextPendingPhoto(locationId);
+      photoDebug = {
+        checked: true,
+        found: !!pendingPhoto,
+        photoId: pendingPhoto?.photo_id || null,
+        publicUrl: pendingPhoto?.public_url || null,
+        queuePosition: pendingPhoto?.queue_position || null
+      };
+      console.log(`[Automation API] 📸 Photo check for ${locationId}:`, photoDebug);
+
+      // 🔧 FIX: Pass photo directly in config so createAutomatedPost doesn't need to fetch again
+      if (pendingPhoto) {
+        mergedConfig.pendingPhoto = pendingPhoto;
+        console.log(`[Automation API] 📸 Passing photo to createAutomatedPost: ${pendingPhoto.photo_id}`);
+      }
+    } catch (photoError) {
+      photoDebug = { checked: true, found: false, error: photoError.message };
+      console.error(`[Automation API] 📸 Photo check error:`, photoError.message);
+    }
+
     const result = await automationScheduler.createAutomatedPost(locationId, mergedConfig);
 
     if (result) {
@@ -618,13 +648,15 @@ router.post('/trigger-post/:locationId', async (req, res) => {
       res.json({
         success: true,
         message: 'Post created successfully',
-        postId: result.name || result.id
+        postId: result.name || result.id,
+        photoDebug // Include photo debug info in response
       });
     } else {
       console.log(`[Automation API] ⚠️ Post creation returned null (may have been blocked by subscription or duplicate check)`);
       res.json({
         success: false,
-        message: 'Post creation blocked - check subscription or duplicate post prevention'
+        message: 'Post creation blocked - check subscription or duplicate post prevention',
+        photoDebug // Include photo debug info in response
       });
     }
   } catch (error) {
@@ -1368,6 +1400,8 @@ router.post('/global-time', async (req, res) => {
                 schedule,
                 frequency: actualFrequency,
                 businessName,
+                userId: userEmail, // 🔧 FIX: Include userId for token lookup
+                locationId: locationId, // 🔧 FIX: Include locationId for photo attachment
                 email: userEmail
               });
             } catch (cronError) {
@@ -1507,6 +1541,8 @@ router.post('/global-time', async (req, res) => {
               schedule,
               frequency: actualFrequency,
               businessName,
+              userId: userEmail, // 🔧 FIX: Include userId for token lookup
+              locationId: locationId, // 🔧 FIX: Include locationId for photo attachment
               email: userEmail
             });
           } catch (cronError) {

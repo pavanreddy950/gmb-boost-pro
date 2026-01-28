@@ -217,10 +217,17 @@ class SupabaseAutomationService {
 
     const user = data.users || {};
 
+    // 🔧 CRITICAL: Ensure userId is ALWAYS set - never let it be undefined
+    // Priority: user table gmail_id > location table gmail_id > "default"
+    const resolvedUserId = user.gmail_id || data.gmail_id;
+    if (!resolvedUserId) {
+      console.warn(`[SupabaseAutomationService] ⚠️ No userId found for location ${data.location_id} - check database data`);
+    }
+
     return {
       // Location identifiers
       locationId: data.location_id,
-      userId: user.gmail_id || data.gmail_id,
+      userId: resolvedUserId,
       firebaseUid: user.firebase_uid,
 
       // Google Business Profile account ID (for API calls)
@@ -248,7 +255,8 @@ class SupabaseAutomationService {
         businessName: data.business_name,
         keywords: data.keywords,
         category: data.category || 'business',
-        userId: user.gmail_id || data.gmail_id,
+        userId: resolvedUserId, // 🔧 Use consistently resolved userId
+        locationId: data.location_id, // 🔧 Include for photo attachment
         // 🔧 FIX: Use user's actual google_account_id - do NOT fall back to hardcoded ID
         gbpAccountId: user.google_account_id || null,
         accountId: user.google_account_id || null

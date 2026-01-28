@@ -1,3 +1,25 @@
+// ============================================================================
+// PRODUCTION LOGGING CONTROL
+// Disable verbose console.log in production, keep errors and warnings
+// ============================================================================
+const isProduction = process.env.NODE_ENV === 'production';
+if (isProduction) {
+  const originalLog = console.log;
+  const originalInfo = console.info;
+  const originalDebug = console.debug;
+
+  // Silence console.log, console.info, console.debug in production
+  console.log = () => {};
+  console.info = () => {};
+  console.debug = () => {};
+
+  // Keep a way to force log critical messages
+  console.forceLog = originalLog;
+
+  // Log once that we're in production mode
+  originalLog('[Server] Running in PRODUCTION mode - verbose logging disabled');
+}
+
 import express from 'express';
 import cors from 'cors';
 import { google } from 'googleapis';
@@ -20,6 +42,7 @@ import emailTestRoutes from './routes/emailTest.js';
 import rankTrackingRoutes from './routes/rankTracking.js';
 import placesRoutes from './routes/places.js';
 import reviewRequestsRoutes from './routes/reviewRequests.js';
+import photosRoutes from './routes/photos.js';
 import { checkSubscription, trackTrialStart, addTrialHeaders } from './middleware/subscriptionCheck.js';
 import SubscriptionService from './services/subscriptionService.js';
 import subscriptionGuard from './services/subscriptionGuard.js';
@@ -248,6 +271,7 @@ app.use('/api/qr-codes', qrCodesRoutes);
 app.use('/api/rank-tracking', rankTrackingRoutes);
 app.use('/api/places', placesRoutes);
 app.use('/api/v2/review-requests', reviewRequestsRoutes);
+app.use('/api/photos', photosRoutes);
 
 // Admin routes (protected by admin auth middleware)
 app.use('/api/admin', adminRoutes);
@@ -5195,8 +5219,9 @@ async function initializeServer() {
 initializeServer().then(() => {
   app.listen(PORT, '0.0.0.0', () => {
     const summary = config.getSummary();
-    console.log(`🚀 Backend server running on ${config.backendUrl}`);
-    console.log(`🏗️ Configuration Mode: ${summary.mode} (${summary.environment})`);
+    // Use console.warn for critical startup messages (always shown, even in production)
+    console.warn(`🚀 Backend server running on ${config.backendUrl}`);
+    console.warn(`🏗️ Configuration Mode: ${summary.mode} (${summary.environment})`);
     console.log('🔑 Google OAuth Configuration:');
     console.log(`   Client ID: ${summary.hasGoogleClientId ? 'Configured ✅' : 'Missing ❌'}`);
     console.log(`   Client Secret: ${summary.hasGoogleClientSecret ? 'Configured ✅' : 'Missing ❌'}`);

@@ -1,9 +1,8 @@
 import React, { useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useSubscription } from '@/contexts/SubscriptionContext';
-import { PaymentWall } from '@/components/PaymentWall';
-import { UpgradeModal } from '@/components/UpgradeModal';
-import { Loader2 } from 'lucide-react';
+import { Loader2, AlertTriangle, CreditCard } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 
 interface SubscriptionGuardProps {
   children: React.ReactNode;
@@ -12,81 +11,106 @@ interface SubscriptionGuardProps {
 export const SubscriptionGuard: React.FC<SubscriptionGuardProps> = ({ children }) => {
   const location = useLocation();
   const navigate = useNavigate();
-  const { 
-    isLoading, 
-    status, 
-    billingOnly, 
+  const {
+    isLoading,
+    status,
+    billingOnly,
     requiresPayment,
     canUsePlatform,
     daysRemaining,
     message
   } = useSubscription();
 
-  // Always allow access to billing page
-  const isBillingPage = location.pathname.includes('/billing') || 
+  // Always allow access to billing-related pages
+  const isBillingPage = location.pathname.includes('/billing') ||
                         location.pathname.includes('/upgrade');
 
-  // Remove auto-redirect to prevent navigation issues
-  // Users can manually navigate via the modal button
+  // Determine if user should be blocked from non-billing pages
+  const shouldBlockAccess = !isBillingPage && (
+    status === 'expired' ||
+    billingOnly === true ||
+    canUsePlatform === false ||
+    requiresPayment === true
+  );
+
+  // Admin users bypass all checks
+  const isAdmin = status === 'admin';
+
+  // Active trial or subscription users have full access
+  const hasValidSubscription = status === 'trial' || status === 'active';
+
+  // Auto-redirect expired users to billing page
+  useEffect(() => {
+    if (!isLoading && shouldBlockAccess && !isAdmin) {
+      console.log('[SubscriptionGuard] Blocking access - redirecting to billing');
+      console.log('[SubscriptionGuard] Status:', status, 'billingOnly:', billingOnly, 'canUsePlatform:', canUsePlatform);
+      navigate('/dashboard/billing', { replace: true });
+    }
+  }, [isLoading, shouldBlockAccess, isAdmin, navigate, status, billingOnly, canUsePlatform]);
 
   // Show loading state
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <div className="text-center">
+          <Loader2 className="h-8 w-8 animate-spin text-primary mx-auto mb-4" />
+          <p className="text-muted-foreground">Checking subscription status...</p>
+        </div>
       </div>
     );
   }
 
-  // If on billing page, always allow access without modal
+  // If on billing page, always allow access
   if (isBillingPage) {
     return <>{children}</>;
   }
 
-  // Show modal for expired trials or payment required (but still render the page)
-  // Only show for truly expired accounts, not for active paid accounts
-  const showUpgradeModal = (status === 'expired' && requiresPayment) ||
-                           (billingOnly === true && status !== 'active') ||
-                           (canUsePlatform === false && status !== 'active');
-
-  // For non-billing pages, show the page content with upgrade modal overlay
-  if (showUpgradeModal) {
-    return (
-      <>
-        {/* Render the actual page content */}
-        {children}
-        
-        {/* Show upgrade modal on top */}
-        <UpgradeModal 
-          isOpen={true}
-          status={status}
-          daysRemaining={daysRemaining || 0}
-        />
-      </>
-    );
+  // Admin users have full access
+  if (isAdmin) {
+    return <>{children}</>;
   }
 
-  // Trial warning - REMOVED - no longer showing orange banner
-  // if (status === 'trial' && daysRemaining !== null && daysRemaining <= 1 && daysRemaining > 0) {
-  //   return (
-  //     <>
-  //       <div className="fixed top-16 left-0 right-0 z-40 bg-orange-500 text-white py-2 px-4 text-center">
-  //         <p className="text-sm font-medium">
-  //           ⚠️ Your trial expires in {daysRemaining} minute(s).
-  //           <button
-  //             onClick={() => navigate('/dashboard/billing')}
-  //             className="ml-2 underline hover:no-underline"
-  //           >
-  //             Upgrade now to avoid interruption
-  //           </button>
-  //         </p>
-  //       </div>
-  //       <div className="pt-10">
-  //         {children}
-  //       </div>
-  //     </>
-  //   );
-  // }
+  // Active subscription or trial users have full access
+  if (hasValidSubscription) {
+    return <>{children}</>;
+  }
+
+  // For expired/blocked users not on billing page, show blocking screen
+  // (This is a fallback in case redirect doesn't happen immediately)
+  if (shouldBlockAccess) {
+    return (
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <div className="max-w-md text-center p-8 bg-card rounded-lg border shadow-lg">
+          <div className="w-16 h-16 bg-red-100 dark:bg-red-900/20 rounded-full flex items-center justify-center mx-auto mb-6">
+            <AlertTriangle className="h-8 w-8 text-red-600 dark:text-red-400" />
+          </div>
+
+          <h2 className="text-2xl font-bold mb-2">
+            {status === 'expired' ? 'Trial Expired' : 'Subscription Required'}
+          </h2>
+
+          <p className="text-muted-foreground mb-6">
+            {message || 'Your trial period has ended. Please upgrade to continue using all features.'}
+          </p>
+
+          <div className="space-y-3">
+            <Button
+              onClick={() => navigate('/dashboard/billing')}
+              className="w-full"
+              size="lg"
+            >
+              <CreditCard className="h-4 w-4 mr-2" />
+              Go to Billing
+            </Button>
+
+            <p className="text-xs text-muted-foreground">
+              Upgrade now to unlock all features and continue growing your business
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   // All good, render children
   return <>{children}</>;

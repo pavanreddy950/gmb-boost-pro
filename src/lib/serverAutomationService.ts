@@ -213,7 +213,7 @@ class ServerAutomationService {
   async triggerPost(locationId: string, config: any): Promise<boolean> {
     try {
       console.log(`🚀 Manually triggering post for location ${locationId}`);
-      
+
       const response = await fetch(`${this.backendUrl}/api/automation/trigger-post/${locationId}`, {
         method: 'POST',
         headers: {
@@ -222,15 +222,29 @@ class ServerAutomationService {
         body: JSON.stringify(config),
       });
 
+      const data = await response.json();
+
+      // Log photo debug info
+      if (data.photoDebug) {
+        console.log(`📸 Photo Debug for ${locationId}:`, data.photoDebug);
+        if (data.photoDebug.found) {
+          console.log(`📸 ✅ Photo found! ID: ${data.photoDebug.photoId}, URL: ${data.photoDebug.publicUrl}`);
+        } else {
+          console.log(`📸 ❌ No photo found for this location`);
+        }
+      }
+
       if (!response.ok) {
         throw new Error(`Failed to trigger post: ${response.statusText}`);
       }
 
       toast({
         title: 'Post Triggered',
-        description: 'Post has been triggered successfully.',
+        description: data.photoDebug?.found
+          ? `Post created with photo attached!`
+          : 'Post has been triggered successfully.',
       });
-      
+
       return true;
     } catch (error) {
       console.error('❌ Error triggering post:', error);
