@@ -13,13 +13,16 @@ class PhotoService {
 
     // Compression settings (target: 50-100KB with no visible quality loss)
     // NOTE: Using JPEG instead of WebP because Google Business Profile API doesn't support WebP
+    // IMPORTANT: Google Business Profile API requires images to be at least 10KB (10,240 bytes)
     this.compressionConfig = {
       maxWidth: 1200,           // Max width for GBP
       maxHeight: 1200,          // Max height for GBP
       quality: 85,              // JPEG quality (85 = good balance)
       format: 'jpeg',           // JPEG format (GBP doesn't support WebP!)
       targetSizeKB: 100,        // Target max size in KB
+      minSizeKB: 15,            // Minimum size in KB (GBP requires 10KB minimum, use 15KB for safety)
       minQuality: 60,           // Don't go below this quality
+      maxQuality: 100,          // Max quality to try if image is too small
     };
 
     // Limits
@@ -73,12 +76,13 @@ class PhotoService {
         height = Math.round(height * ratio);
       }
 
-      // Adaptive compression - start with target quality and reduce if needed
+      // Adaptive compression - start with target quality and adjust as needed
       let quality = this.compressionConfig.quality;
       let compressedBuffer;
       let attempts = 0;
       const maxAttempts = 5;
 
+      // First pass: compress down if too large
       do {
         compressedBuffer = await sharp(imageBuffer)
           .resize(width, height, {
@@ -105,11 +109,57 @@ class PhotoService {
 
       } while (quality >= this.compressionConfig.minQuality && attempts < maxAttempts);
 
+      // Second pass: if image is TOO SMALL (below Google's 10KB minimum), increase quality
+      let currentSizeKB = compressedBuffer.length / 1024;
+      attempts = 0;
+
+      while (currentSizeKB < this.compressionConfig.minSizeKB && quality < this.compressionConfig.maxQuality && attempts < maxAttempts) {
+        quality += 10; // Increase quality
+        quality = Math.min(quality, this.compressionConfig.maxQuality);
+
+        console.log(`[PhotoService] 📈 Size ${currentSizeKB.toFixed(1)}KB < minimum ${this.compressionConfig.minSizeKB}KB, increasing quality to ${quality}`);
+
+        compressedBuffer = await sharp(imageBuffer)
+          .resize(width, height, {
+            fit: 'inside',
+            withoutEnlargement: true
+          })
+          .jpeg({
+            quality: quality,
+            mozjpeg: true
+          })
+          .toBuffer();
+
+        currentSizeKB = compressedBuffer.length / 1024;
+        attempts++;
+      }
+
+      // Final check: if still too small, try without mozjpeg (less aggressive compression)
+      if (currentSizeKB < this.compressionConfig.minSizeKB) {
+        console.log(`[PhotoService] ⚠️ Still too small at ${currentSizeKB.toFixed(1)}KB, trying without mozjpeg optimization`);
+        compressedBuffer = await sharp(imageBuffer)
+          .resize(width, height, {
+            fit: 'inside',
+            withoutEnlargement: true
+          })
+          .jpeg({
+            quality: this.compressionConfig.maxQuality,
+            mozjpeg: false  // Standard JPEG for larger output
+          })
+          .toBuffer();
+        currentSizeKB = compressedBuffer.length / 1024;
+      }
+
       const compressedSize = compressedBuffer.length;
       const compressionRatio = compressedSize / originalSize;
       const savingsPercent = ((1 - compressionRatio) * 100).toFixed(1);
 
       const duration = Date.now() - startTime;
+
+      // Log warning if still below minimum
+      if (currentSizeKB < this.compressionConfig.minSizeKB) {
+        console.warn(`[PhotoService] ⚠️ WARNING: Final size ${currentSizeKB.toFixed(1)}KB is below Google's 10KB minimum. Post may fail.`);
+      }
 
       console.log(`[PhotoService] ✅ Compressed: ${(originalSize / 1024).toFixed(1)}KB → ${(compressedSize / 1024).toFixed(1)}KB (${savingsPercent}% smaller) in ${duration}ms`);
 
