@@ -280,60 +280,69 @@ const PhotosDump = () => {
 
   return (
     <div className="container mx-auto px-4 py-6 max-w-6xl space-y-6">
-      {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-bold bg-gradient-to-r from-green-600 to-emerald-600 bg-clip-text text-transparent flex items-center gap-2">
-            <Images className="h-8 w-8 text-green-600" />
-            Photos Dump
-          </h1>
-          <p className="text-muted-foreground mt-1">
-            Upload photos once, auto-post daily for up to 60 days
-          </p>
-        </div>
+      {/* Header Card */}
+      <Card className="bg-gradient-to-r from-green-600 to-emerald-600 text-white border-0 shadow-lg">
+        <CardContent className="p-6">
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+            <div className="flex items-center gap-4">
+              <div className="w-14 h-14 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center">
+                <Images className="h-8 w-8 text-white" />
+              </div>
+              <div>
+                <h1 className="text-2xl md:text-3xl font-bold text-white">
+                  Photos Dump
+                </h1>
+                <p className="text-green-100 text-sm md:text-base">
+                  Upload photos once, auto-post daily for up to 60 days
+                </p>
+              </div>
+            </div>
 
-        {/* Location Selector */}
-        <div className="flex items-center gap-3">
-          <Select
-            value={selectedLocationId}
-            onValueChange={(value) => {
-              setSelectedLocationId(value);
-              const loc = allLocations.find(l => l.locationId === value);
-              setSelectedLocationName(loc?.displayName || '');
-            }}
-          >
-            <SelectTrigger className="w-[280px]">
-              <SelectValue placeholder="Select a location" />
-            </SelectTrigger>
-            <SelectContent>
-              {allLocations.map(location => {
-                const stats = locationStats.find(s => s.locationId === location.locationId);
-                return (
-                  <SelectItem key={location.locationId} value={location.locationId}>
-                    <div className="flex items-center gap-2">
-                      <MapPin className="h-4 w-4 text-muted-foreground" />
-                      <span>{location.displayName}</span>
-                      {stats && stats.pending > 0 && (
-                        <Badge variant="secondary" className="ml-2">
-                          {stats.pending} photos
-                        </Badge>
-                      )}
-                    </div>
-                  </SelectItem>
-                );
-              })}
-            </SelectContent>
-          </Select>
+            {/* Location Selector */}
+            <div className="flex items-center gap-3">
+              <Select
+                value={selectedLocationId}
+                onValueChange={(value) => {
+                  setSelectedLocationId(value);
+                  const loc = allLocations.find(l => l.locationId === value);
+                  setSelectedLocationName(loc?.displayName || '');
+                }}
+              >
+                <SelectTrigger className="w-[280px] bg-white/95 border-0 text-gray-900 shadow-md">
+                  <SelectValue placeholder="Select a location" />
+                </SelectTrigger>
+                <SelectContent>
+                  {allLocations.map(location => {
+                    const stats = locationStats.find(s => s.locationId === location.locationId);
+                    return (
+                      <SelectItem key={location.locationId} value={location.locationId}>
+                        <div className="flex items-center gap-2">
+                          <MapPin className="h-4 w-4 text-green-600" />
+                          <span>{location.displayName}</span>
+                          {stats && stats.pending > 0 && (
+                            <Badge variant="secondary" className="ml-2 bg-green-100 text-green-700">
+                              {stats.pending} photos
+                            </Badge>
+                          )}
+                        </div>
+                      </SelectItem>
+                    );
+                  })}
+                </SelectContent>
+              </Select>
 
-          <Button
-            variant="outline"
-            size="icon"
-            onClick={() => { fetchPhotos(); fetchStats(); }}
-          >
-            <RefreshCw className="h-4 w-4" />
-          </Button>
-        </div>
-      </div>
+              <Button
+                variant="secondary"
+                size="icon"
+                onClick={() => { fetchPhotos(); fetchStats(); }}
+                className="bg-white/20 hover:bg-white/30 text-white border-0"
+              >
+                <RefreshCw className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Stats Cards */}
       {selectedLocationId && (
@@ -558,13 +567,31 @@ const PhotosDump = () => {
 
       {/* No Location Selected */}
       {!selectedLocationId && (
-        <Card className="border-2 border-dashed">
-          <CardContent className="p-12 text-center">
-            <MapPin className="h-16 w-16 mx-auto mb-4 text-muted-foreground opacity-30" />
-            <h3 className="text-xl font-semibold mb-2">Select a Location</h3>
-            <p className="text-muted-foreground">
-              Choose a business location above to manage its photo queue
+        <Card className="border-2 border-dashed border-green-200 bg-gradient-to-br from-green-50/50 to-emerald-50/30">
+          <CardContent className="p-16 text-center">
+            <div className="w-24 h-24 mx-auto mb-6 rounded-full bg-gradient-to-br from-green-100 to-emerald-100 flex items-center justify-center">
+              <Images className="h-12 w-12 text-green-600" />
+            </div>
+            <h3 className="text-2xl font-bold mb-3 bg-gradient-to-r from-green-600 to-emerald-600 bg-clip-text text-transparent">
+              Select a Location
+            </h3>
+            <p className="text-muted-foreground max-w-md mx-auto mb-6">
+              Choose a business location from the dropdown above to start managing its photo queue for automated daily posts
             </p>
+            <div className="flex flex-wrap items-center justify-center gap-6 text-sm text-muted-foreground">
+              <div className="flex items-center gap-2 bg-white/80 px-4 py-2 rounded-full shadow-sm">
+                <Upload className="h-4 w-4 text-green-500" />
+                <span>Upload up to 60 photos</span>
+              </div>
+              <div className="flex items-center gap-2 bg-white/80 px-4 py-2 rounded-full shadow-sm">
+                <Zap className="h-4 w-4 text-yellow-500" />
+                <span>Auto-compressed for fast loading</span>
+              </div>
+              <div className="flex items-center gap-2 bg-white/80 px-4 py-2 rounded-full shadow-sm">
+                <Calendar className="h-4 w-4 text-blue-500" />
+                <span>1 photo per day, automatically</span>
+              </div>
+            </div>
           </CardContent>
         </Card>
       )}
