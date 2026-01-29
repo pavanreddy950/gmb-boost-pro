@@ -43,6 +43,8 @@ import rankTrackingRoutes from './routes/rankTracking.js';
 import placesRoutes from './routes/places.js';
 import reviewRequestsRoutes from './routes/reviewRequests.js';
 import photosRoutes from './routes/photos.js';
+import socialRoutes from './routes/social.js';
+import facebookAuthRoutes from './routes/facebookAuth.js';
 import { checkSubscription, trackTrialStart, addTrialHeaders } from './middleware/subscriptionCheck.js';
 import SubscriptionService from './services/subscriptionService.js';
 import subscriptionGuard from './services/subscriptionGuard.js';
@@ -272,6 +274,8 @@ app.use('/api/rank-tracking', rankTrackingRoutes);
 app.use('/api/places', placesRoutes);
 app.use('/api/v2/review-requests', reviewRequestsRoutes);
 app.use('/api/photos', photosRoutes);
+app.use('/api/social', socialRoutes);
+app.use('/auth', facebookAuthRoutes);
 
 // Admin routes (protected by admin auth middleware)
 app.use('/api/admin', adminRoutes);

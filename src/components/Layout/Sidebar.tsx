@@ -31,7 +31,7 @@ const Sidebar = ({ isOpen = false, onClose }: SidebarProps) => {
     { label: "Magic QR", href: "/dashboard/ask-for-reviews", icon: MessageSquarePlus },
     { label: "Auto Gallery", href: "/dashboard/photos-dump", icon: Images, badge: "New" },
     { label: "Request for Reviews", href: "/dashboard/request-reviews", icon: Mail, badge: "Beta" },
-    { label: "Social Media", href: "/dashboard/social-media", icon: Share2, badge: "Coming Soon" },
+    { label: "Social Media", href: "/dashboard/social-media", icon: Share2, badge: "Beta" },
     { label: "Profile Optimization", href: "/dashboard/profile-optimization", icon: Sparkles, badge: "Coming Soon" },
   ];
 
