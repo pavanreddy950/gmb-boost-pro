@@ -47,11 +47,11 @@ router.get('/facebook', (req, res) => {
   })).toString('base64');
 
   // Facebook OAuth permissions for Pages
+  // Note: These permissions must be added in Facebook Developer Console
+  // App Review → Permissions and Features (works in Development Mode for app admins)
   const scope = [
     'email',
-    'public_profile',
     'pages_show_list',
-    'pages_read_engagement',
     'pages_manage_posts'
   ].join(',');
 
@@ -203,12 +203,12 @@ router.get('/instagram', (req, res) => {
   })).toString('base64');
 
   // Instagram permissions via Facebook Login
+  // Note: These permissions must be added in Facebook Developer Console
+  // App Review → Permissions and Features (works in Development Mode for app admins)
   const scope = [
     'instagram_basic',
     'instagram_content_publish',
-    'pages_show_list',
-    'pages_read_engagement',
-    'business_management'
+    'pages_show_list'
   ].join(',');
 
   const redirectUri = `${BACKEND_URL}/auth/instagram/callback`;
