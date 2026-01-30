@@ -170,7 +170,7 @@ router.get('/facebook/callback', async (req, res) => {
 /**
  * GET /auth/instagram
  * Initiates Instagram OAuth via Facebook (for Instagram Business/Creator accounts)
- * Uses Facebook OAuth (Lobaiseo app) to access Instagram accounts linked to Facebook Pages
+ * Uses Facebook OAuth to access Instagram accounts linked to Facebook Pages
  */
 router.get('/instagram', (req, res) => {
   const { gmailId, locationId, locationName } = req.query;
@@ -192,26 +192,26 @@ router.get('/instagram', (req, res) => {
   })).toString('base64');
 
   // Request Facebook permissions that include Instagram access
-  // pages_show_list - see list of Pages user manages
   // instagram_basic - read Instagram account info
   // instagram_content_publish - publish content to Instagram
-  const scope = 'pages_show_list,instagram_basic,instagram_content_publish';
+  // pages_show_list - see list of Pages user manages
+  // pages_read_engagement - read Page content
+  const scope = 'instagram_basic,instagram_content_publish,pages_show_list,pages_read_engagement';
 
   const redirectUri = INSTAGRAM_REDIRECT_URI;
 
-  // Use Facebook app (Lobaiseo) for OAuth since it has Facebook Login configured
-  // This allows us to get user's Pages and their linked Instagram accounts
+  // Use Facebook OAuth (not Instagram directly) - this is required for Instagram Graph API
   const authUrl = `https://www.facebook.com/v18.0/dialog/oauth?` +
-    `client_id=${FACEBOOK_APP_ID}` +
+    `client_id=${INSTAGRAM_APP_ID}` +
     `&redirect_uri=${encodeURIComponent(redirectUri)}` +
     `&state=${encodeURIComponent(state)}` +
     `&scope=${encodeURIComponent(scope)}` +
     `&response_type=code`;
 
-  console.log('########## INSTAGRAM AUTH v2025_01_30_C ##########');
-  console.log('[InstagramAuth] Using Facebook app (Lobaiseo) for Instagram access');
+  console.log('########## INSTAGRAM AUTH v2025_01_30_B ##########');
+  console.log('[InstagramAuth] Using Facebook OAuth for Instagram access');
   console.log('[InstagramAuth] redirect_uri:', redirectUri);
-  console.log('[InstagramAuth] App ID:', FACEBOOK_APP_ID);
+  console.log('[InstagramAuth] App ID:', INSTAGRAM_APP_ID);
   console.log('########## AUTH REDIRECT ##########');
   res.redirect(authUrl);
 });
@@ -242,14 +242,14 @@ router.get('/instagram/callback', async (req, res) => {
 
     const redirectUri = INSTAGRAM_REDIRECT_URI;
 
-    // Exchange code for Facebook access token (using Facebook app credentials)
+    // Exchange code for Facebook access token
     const tokenUrl = `https://graph.facebook.com/v18.0/oauth/access_token?` +
-      `client_id=${FACEBOOK_APP_ID}` +
+      `client_id=${INSTAGRAM_APP_ID}` +
       `&redirect_uri=${encodeURIComponent(redirectUri)}` +
-      `&client_secret=${FACEBOOK_APP_SECRET}` +
+      `&client_secret=${INSTAGRAM_APP_SECRET}` +
       `&code=${code}`;
 
-    console.log('[InstagramAuth] VERSION_2025_01_30_C - Exchanging code for token (Facebook app)');
+    console.log('[InstagramAuth] VERSION_2025_01_30_B - Exchanging code for token');
 
     const tokenResponse = await fetch(tokenUrl);
     const tokenData = await tokenResponse.json();
