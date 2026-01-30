@@ -48,11 +48,8 @@ router.get('/facebook', (req, res) => {
     timestamp: Date.now()
   })).toString('base64');
 
-  // Facebook OAuth - permissions for posting to pages
-  // pages_read_engagement: Read page info
-  // pages_manage_posts: Create posts on pages
-  // pages_show_list: Show list of pages user manages
-  const scope = 'email,pages_read_engagement,pages_manage_posts,pages_show_list';
+  // Facebook OAuth - basic permissions only (no App Review needed)
+  const scope = 'email';
 
   const redirectUri = `${BACKEND_URL}/auth/facebook/callback`;
 
