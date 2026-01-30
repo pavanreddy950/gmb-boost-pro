@@ -16,6 +16,9 @@ const INSTAGRAM_APP_SECRET = process.env.INSTAGRAM_APP_SECRET || 'b8430b4adb6128
 const BACKEND_URL = process.env.BACKEND_URL || 'https://lobaiseo-backend-yjnl.onrender.com';
 const FRONTEND_URL = process.env.FRONTEND_URL || 'https://app.lobaiseo.com';
 
+// Hardcoded Instagram redirect URI to ensure exact match with Meta app settings
+const INSTAGRAM_REDIRECT_URI = 'https://lobaiseo-backend-yjnl.onrender.com/auth/instagram/callback';
+
 const SOCIAL_CONNECTIONS_TABLE = 'social_connections';
 
 // Helper function to get Supabase client
@@ -191,7 +194,8 @@ router.get('/instagram', (req, res) => {
   // Instagram Business Login scopes
   const scope = 'instagram_business_basic,instagram_business_manage_messages,instagram_business_manage_comments,instagram_business_content_publish';
 
-  const redirectUri = `${BACKEND_URL}/auth/instagram/callback`;
+  // Use hardcoded redirect URI to ensure exact match
+  const redirectUri = INSTAGRAM_REDIRECT_URI;
 
   // Use Instagram's OAuth URL (shows Instagram login page)
   const authUrl = `https://www.instagram.com/oauth/authorize?` +
@@ -202,8 +206,7 @@ router.get('/instagram', (req, res) => {
     `&response_type=code`;
 
   console.log('[InstagramAuth] Authorization redirect_uri:', redirectUri);
-  console.log('[InstagramAuth] BACKEND_URL env:', BACKEND_URL);
-  console.log('[InstagramAuth] Redirecting to Instagram OAuth:', authUrl);
+  console.log('[InstagramAuth] Redirecting to Instagram OAuth');
   res.redirect(authUrl);
 });
 
@@ -231,13 +234,10 @@ router.get('/instagram/callback', async (req, res) => {
     console.log('[InstagramAuth] Processing callback for:', { gmailId, locationId });
 
     // Exchange code for access token using Instagram's token endpoint
-    const redirectUri = `${BACKEND_URL}/auth/instagram/callback`;
+    // Use hardcoded redirect URI to ensure exact match with authorization request
+    const redirectUri = INSTAGRAM_REDIRECT_URI;
 
-    console.log('[InstagramAuth] Token exchange details:', {
-      redirectUri,
-      codeLength: code.length,
-      codePreview: code.substring(0, 20) + '...'
-    });
+    console.log('[InstagramAuth] Token exchange redirect_uri:', redirectUri);
 
     // Instagram uses POST for token exchange
     const tokenResponse = await fetch('https://api.instagram.com/oauth/access_token', {
