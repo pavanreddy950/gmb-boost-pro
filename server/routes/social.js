@@ -406,4 +406,45 @@ router.get('/enabled-connections/:locationId', async (req, res) => {
   }
 });
 
+/**
+ * POST /api/social/test-post
+ * Test social media posting directly
+ */
+router.post('/test-post', async (req, res) => {
+  try {
+    const { locationId, message } = req.body;
+
+    if (!locationId || !message) {
+      return res.status(400).json({
+        success: false,
+        error: 'locationId and message are required'
+      });
+    }
+
+    console.log('[Social] Test post requested for location:', locationId);
+
+    // Import the social media poster
+    const { postToSocialMedia } = await import('../services/socialMediaPoster.js');
+
+    // Call the posting function
+    const results = await postToSocialMedia(null, locationId, message, null);
+
+    console.log('[Social] Test post results:', JSON.stringify(results, null, 2));
+
+    res.json({
+      success: true,
+      message: 'Test post completed',
+      results
+    });
+
+  } catch (error) {
+    console.error('[Social] Test post error:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message,
+      stack: error.stack
+    });
+  }
+});
+
 export default router;
