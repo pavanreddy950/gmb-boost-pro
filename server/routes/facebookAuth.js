@@ -16,8 +16,10 @@ const INSTAGRAM_APP_SECRET = process.env.INSTAGRAM_APP_SECRET || 'b8430b4adb6128
 const BACKEND_URL = process.env.BACKEND_URL || 'https://lobaiseo-backend-yjnl.onrender.com';
 const FRONTEND_URL = process.env.FRONTEND_URL || 'https://app.lobaiseo.com';
 
-// Hardcoded Instagram redirect URI to ensure exact match with Meta app settings
-const INSTAGRAM_REDIRECT_URI = 'https://lobaiseo-backend-yjnl.onrender.com/auth/instagram/callback';
+// Instagram redirect URI - use environment-based URL
+const INSTAGRAM_REDIRECT_URI = process.env.NODE_ENV === 'production'
+  ? 'https://lobaiseo-backend-yjnl.onrender.com/auth/instagram/callback'
+  : 'http://localhost:5000/auth/instagram/callback';
 
 const SOCIAL_CONNECTIONS_TABLE = 'social_connections';
 
@@ -205,8 +207,10 @@ router.get('/instagram', (req, res) => {
     `&scope=${encodeURIComponent(scope)}` +
     `&response_type=code`;
 
-  console.log('[InstagramAuth] Authorization redirect_uri:', redirectUri);
-  console.log('[InstagramAuth] Redirecting to Instagram OAuth');
+  console.log('========== INSTAGRAM AUTH START ==========');
+  console.log('[InstagramAuth] HARDCODED redirect_uri:', redirectUri);
+  console.log('[InstagramAuth] App ID:', INSTAGRAM_APP_ID);
+  console.log('========== INSTAGRAM AUTH END ==========');
   res.redirect(authUrl);
 });
 
