@@ -3,14 +3,13 @@ import connectionPool from '../database/connectionPool.js';
 
 const router = express.Router();
 
-// Facebook/Instagram App Credentials
-// Using the same Lobaiseo app for both Facebook and Instagram OAuth
-// (Instagram Graph API uses Facebook Login for authentication)
+// Facebook App Credentials (Lobaiseo app)
 const FACEBOOK_APP_ID = process.env.FACEBOOK_APP_ID || '1249146140732197';
 const FACEBOOK_APP_SECRET = process.env.FACEBOOK_APP_SECRET || '45d93dc0766683e68bda46903f33184f';
-// Use same app for Instagram (Lobaiseo app has both redirect URIs configured)
-const INSTAGRAM_APP_ID = FACEBOOK_APP_ID;
-const INSTAGRAM_APP_SECRET = FACEBOOK_APP_SECRET;
+
+// Instagram App Credentials (social-lobaiseo app - separate app for Instagram)
+const INSTAGRAM_APP_ID = process.env.INSTAGRAM_APP_ID || '1608151443861785';
+const INSTAGRAM_APP_SECRET = process.env.INSTAGRAM_APP_SECRET || 'b8430b4adb612830fa59616f9ea99b45';
 
 // Redirect URIs
 const BACKEND_URL = process.env.BACKEND_URL || 'https://lobaiseo-backend-yjnl.onrender.com';
