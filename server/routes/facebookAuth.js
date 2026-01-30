@@ -201,6 +201,8 @@ router.get('/instagram', (req, res) => {
     `&scope=${encodeURIComponent(scope)}` +
     `&response_type=code`;
 
+  console.log('[InstagramAuth] Authorization redirect_uri:', redirectUri);
+  console.log('[InstagramAuth] BACKEND_URL env:', BACKEND_URL);
   console.log('[InstagramAuth] Redirecting to Instagram OAuth:', authUrl);
   res.redirect(authUrl);
 });
