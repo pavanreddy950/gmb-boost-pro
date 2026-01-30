@@ -308,28 +308,15 @@ const Dashboard = () => {
                         >
                           {profile.accountName}
                         </h3>
-                        <div className="flex items-center gap-1 flex-shrink-0">
-                          {/* Social Connection Icons */}
-                          {getSocialConnection(locationId)?.instagram_user_id && (
-                            <div className="w-5 h-5 rounded-full bg-gradient-to-br from-pink-500 to-purple-600 flex items-center justify-center" title={`Instagram: ${getSocialConnection(locationId)?.instagram_username || 'Connected'}`}>
-                              <Instagram className="w-3 h-3 text-white" />
-                            </div>
-                          )}
-                          {getSocialConnection(locationId)?.facebook_page_id && (
-                            <div className="w-5 h-5 rounded-full bg-blue-600 flex items-center justify-center" title={`Facebook: ${getSocialConnection(locationId)?.facebook_page_name || 'Connected'}`}>
-                              <Facebook className="w-3 h-3 text-white" />
-                            </div>
-                          )}
-                          {profile.state === 'VERIFIED' && (
-                            <div className="w-4 h-4 flex items-center justify-center">
-                              <img
-                                src="/Vector.svg"
-                                alt="Verified"
-                                className="w-4 h-4"
-                              />
-                            </div>
-                          )}
-                        </div>
+                        {profile.state === 'VERIFIED' && (
+                          <div className="w-4 h-4 flex items-center justify-center flex-shrink-0">
+                            <img
+                              src="/Vector.svg"
+                              alt="Verified"
+                              className="w-4 h-4"
+                            />
+                          </div>
+                        )}
                       </div>
                       
                       {/* Location */}
@@ -365,11 +352,33 @@ const Dashboard = () => {
                       
                       {/* Auto-posting countdown for each profile */}
                       <div className="mb-3 border-t pt-3">
-                        <ProfileAutomationStatus 
-                          locationId={locationId} 
+                        <ProfileAutomationStatus
+                          locationId={locationId}
                           businessName={profile.accountName}
                           compact={true}
                         />
+
+                        {/* Social Connection Status */}
+                        {(getSocialConnection(locationId)?.instagram_user_id || getSocialConnection(locationId)?.facebook_page_id) && (
+                          <div className="flex items-center gap-3 mt-2 pt-2 border-t border-dashed">
+                            {getSocialConnection(locationId)?.instagram_user_id && (
+                              <div className="flex items-center gap-1.5" title={`Instagram: ${getSocialConnection(locationId)?.instagram_username || 'Connected'}`}>
+                                <div className="w-5 h-5 rounded-full bg-gradient-to-br from-pink-500 to-purple-600 flex items-center justify-center">
+                                  <Instagram className="w-3 h-3 text-white" />
+                                </div>
+                                <span className="text-xs text-pink-600 font-medium">Connected</span>
+                              </div>
+                            )}
+                            {getSocialConnection(locationId)?.facebook_page_id && (
+                              <div className="flex items-center gap-1.5" title={`Facebook: ${getSocialConnection(locationId)?.facebook_page_name || 'Connected'}`}>
+                                <div className="w-5 h-5 rounded-full bg-blue-600 flex items-center justify-center">
+                                  <Facebook className="w-3 h-3 text-white" />
+                                </div>
+                                <span className="text-xs text-blue-600 font-medium">Connected</span>
+                              </div>
+                            )}
+                          </div>
+                        )}
                       </div>
                     </div>
                     
