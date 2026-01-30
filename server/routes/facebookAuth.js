@@ -190,13 +190,13 @@ router.get('/instagram', (req, res) => {
     timestamp: Date.now()
   })).toString('base64');
 
-  // Instagram Business Login scopes (only use approved scopes)
-  const scope = 'instagram_business_basic,instagram_business_content_publish';
+  // Instagram Business Login scopes (matching app configuration)
+  const scope = 'instagram_business_basic,instagram_business_content_publish,instagram_business_manage_messages,instagram_business_manage_comments';
 
   const redirectUri = INSTAGRAM_REDIRECT_URI;
 
-  // Direct Instagram OAuth via api.instagram.com (shows Instagram login page)
-  const authUrl = `https://api.instagram.com/oauth/authorize?` +
+  // Direct Instagram OAuth via www.instagram.com (shows Instagram login page)
+  const authUrl = `https://www.instagram.com/oauth/authorize?` +
     `client_id=${INSTAGRAM_APP_ID}` +
     `&redirect_uri=${encodeURIComponent(redirectUri)}` +
     `&scope=${encodeURIComponent(scope)}` +
