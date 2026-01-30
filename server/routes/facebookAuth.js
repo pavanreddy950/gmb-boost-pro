@@ -28,6 +28,7 @@ async function getSupabase() {
 /**
  * GET /auth/facebook
  * Initiates Facebook OAuth flow for connecting Facebook Pages
+ * Uses public_profile and pages_show_list for listing pages, pages_manage_posts for posting
  */
 router.get('/facebook', (req, res) => {
   const { gmailId, locationId, locationName, platform } = req.query;
@@ -48,9 +49,13 @@ router.get('/facebook', (req, res) => {
     timestamp: Date.now()
   })).toString('base64');
 
-  // Facebook OAuth - use basic email scope only
-  // Page access is obtained via /me/accounts after login (works for page admins)
-  const scope = 'email';
+  // Facebook OAuth permissions:
+  // public_profile: basic profile (always available)
+  // pages_show_list: required to list pages via /me/accounts
+  // pages_read_engagement: required for page operations
+  // pages_manage_posts: required to post to pages
+  // Note: For Development Mode, the connecting user MUST be added as a Tester in App Roles
+  const scope = 'public_profile,pages_show_list,pages_read_engagement,pages_manage_posts';
 
   const redirectUri = `${BACKEND_URL}/auth/facebook/callback`;
 
@@ -61,8 +66,91 @@ router.get('/facebook', (req, res) => {
     `&scope=${encodeURIComponent(scope)}` +
     `&response_type=code`;
 
-  console.log('[FacebookAuth] Redirecting to Facebook OAuth:', authUrl);
+  console.log('[FacebookAuth] Redirecting to Facebook OAuth with scope:', scope);
   res.redirect(authUrl);
+});
+
+/**
+ * GET /auth/facebook/manual
+ * Manual Facebook Page connection - for when OAuth doesn't work
+ * User provides their own Page ID and Page Access Token
+ */
+router.get('/facebook/manual', async (req, res) => {
+  const { gmailId, locationId, locationName, pageId, pageAccessToken, pageName } = req.query;
+
+  if (!gmailId || !locationId || !pageId || !pageAccessToken) {
+    return res.status(400).json({
+      success: false,
+      error: 'Missing required parameters: gmailId, locationId, pageId, pageAccessToken'
+    });
+  }
+
+  try {
+    // Verify the token works by making a test API call
+    const verifyUrl = `https://graph.facebook.com/v18.0/${pageId}?fields=id,name&access_token=${pageAccessToken}`;
+    const verifyResponse = await fetch(verifyUrl);
+    const verifyData = await verifyResponse.json();
+
+    if (verifyData.error) {
+      console.error('[FacebookAuth] Manual token verification failed:', verifyData.error);
+      return res.status(400).json({
+        success: false,
+        error: `Invalid token: ${verifyData.error.message}`
+      });
+    }
+
+    const actualPageName = verifyData.name || pageName || `Page ${pageId}`;
+    console.log('[FacebookAuth] Manual connection verified for page:', actualPageName);
+
+    // Save to database
+    const supabase = await getSupabase();
+
+    const { data: existing } = await supabase
+      .from(SOCIAL_CONNECTIONS_TABLE)
+      .select('id')
+      .eq('gmail', gmailId)
+      .eq('location_id', locationId)
+      .single();
+
+    if (existing) {
+      await supabase
+        .from(SOCIAL_CONNECTIONS_TABLE)
+        .update({
+          facebook_enabled: true,
+          facebook_page_id: pageId,
+          facebook_page_name: actualPageName,
+          facebook_access_token: pageAccessToken,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', existing.id);
+    } else {
+      await supabase
+        .from(SOCIAL_CONNECTIONS_TABLE)
+        .insert({
+          gmail: gmailId,
+          location_id: locationId,
+          location_name: locationName || 'Unknown Location',
+          facebook_enabled: true,
+          facebook_page_id: pageId,
+          facebook_page_name: actualPageName,
+          facebook_access_token: pageAccessToken
+        });
+    }
+
+    console.log('[FacebookAuth] ✅ Facebook Page manually connected:', actualPageName);
+    return res.json({
+      success: true,
+      pageName: actualPageName,
+      pageId: pageId
+    });
+
+  } catch (error) {
+    console.error('[FacebookAuth] Manual connection error:', error);
+    return res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
 });
 
 /**
@@ -122,7 +210,13 @@ router.get('/facebook/callback', async (req, res) => {
     // Check if user has any pages
     if (!pagesData.data || pagesData.data.length === 0) {
       console.error('[FacebookAuth] No Facebook Pages found for this user');
-      return res.redirect(`${FRONTEND_URL}/dashboard/social-media?error=${encodeURIComponent('No Facebook Pages found. Please make sure you are an admin of at least one Facebook Page.')}`);
+      // This usually means the token doesn't have pages_show_list permission
+      // or the user genuinely has no pages
+      const errorMsg = 'No Facebook Pages found. This can happen if: ' +
+        '(1) Your Facebook account is not an admin of any Facebook Page, OR ' +
+        '(2) The app needs you to be added as a Tester. ' +
+        'Go to developers.facebook.com > Lobaiseo app > App Roles > Roles > Add your Facebook account as Tester.';
+      return res.redirect(`${FRONTEND_URL}/dashboard/social-media?error=${encodeURIComponent(errorMsg)}`);
     }
 
     // Use the first page (or could let user choose)
