@@ -231,6 +231,12 @@ router.get('/instagram/callback', async (req, res) => {
     // Exchange code for access token using Instagram's token endpoint
     const redirectUri = `${BACKEND_URL}/auth/instagram/callback`;
 
+    console.log('[InstagramAuth] Token exchange details:', {
+      redirectUri,
+      codeLength: code.length,
+      codePreview: code.substring(0, 20) + '...'
+    });
+
     // Instagram uses POST for token exchange
     const tokenResponse = await fetch('https://api.instagram.com/oauth/access_token', {
       method: 'POST',
@@ -247,10 +253,12 @@ router.get('/instagram/callback', async (req, res) => {
     });
 
     const tokenData = await tokenResponse.json();
+    console.log('[InstagramAuth] Token response:', JSON.stringify(tokenData, null, 2));
 
     if (tokenData.error_type || tokenData.error) {
       console.error('[InstagramAuth] Token exchange error:', tokenData);
-      return res.redirect(`${FRONTEND_URL}/dashboard/social-media?error=${encodeURIComponent(tokenData.error_message || tokenData.error || 'Token exchange failed')}`);
+      const errorMsg = tokenData.error_message || tokenData.error_description || tokenData.error || 'Token exchange failed';
+      return res.redirect(`${FRONTEND_URL}/dashboard/social-media?error=${encodeURIComponent(errorMsg)}`);
     }
 
     const { access_token: userAccessToken, user_id: instagramUserId } = tokenData;
