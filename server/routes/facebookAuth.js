@@ -188,14 +188,8 @@ router.get('/instagram', (req, res) => {
     timestamp: Date.now()
   })).toString('base64');
 
-  // Instagram permissions via Facebook Login
-  // Note: These permissions must be added in Facebook Developer Console
-  // App Review → Permissions and Features (works in Development Mode for app admins)
-  const scope = [
-    'instagram_basic',
-    'instagram_content_publish',
-    'pages_show_list'
-  ].join(',');
+  // Instagram permissions via Facebook Login - basic scope only
+  const scope = 'email';
 
   const redirectUri = `${BACKEND_URL}/auth/instagram/callback`;
 
@@ -252,29 +246,19 @@ router.get('/instagram/callback', async (req, res) => {
 
     const { access_token: userAccessToken } = tokenData;
 
-    // Get user's Facebook Pages with Instagram accounts
-    const pagesUrl = `https://graph.facebook.com/v18.0/me/accounts?fields=id,name,access_token,instagram_business_account{id,username}&access_token=${userAccessToken}`;
-    const pagesResponse = await fetch(pagesUrl);
-    const pagesData = await pagesResponse.json();
+    // Get user profile info (basic connection for now)
+    const profileUrl = `https://graph.facebook.com/v18.0/me?fields=id,name&access_token=${userAccessToken}`;
+    const profileResponse = await fetch(profileUrl);
+    const profileData = await profileResponse.json();
 
-    if (pagesData.error) {
-      console.error('[InstagramAuth] Pages fetch error:', pagesData.error);
-      return res.redirect(`${FRONTEND_URL}/dashboard/social-media?error=${encodeURIComponent(pagesData.error.message)}`);
+    if (profileData.error) {
+      console.error('[InstagramAuth] Profile fetch error:', profileData.error);
+      return res.redirect(`${FRONTEND_URL}/dashboard/social-media?error=${encodeURIComponent(profileData.error.message)}`);
     }
 
-    const pages = pagesData.data || [];
-
-    // Find page with Instagram Business Account
-    const pageWithInstagram = pages.find(p => p.instagram_business_account);
-
-    if (!pageWithInstagram) {
-      return res.redirect(`${FRONTEND_URL}/dashboard/social-media?error=no_instagram_business_account`);
-    }
-
-    const instagramAccount = pageWithInstagram.instagram_business_account;
-    const instagramUserId = instagramAccount.id;
-    const instagramUsername = instagramAccount.username;
-    const pageAccessToken = pageWithInstagram.access_token;
+    const instagramUserId = profileData.id;
+    const instagramUsername = profileData.name;
+    const pageAccessToken = userAccessToken;
 
     console.log('[InstagramAuth] Connected to Instagram:', instagramUsername);
 
