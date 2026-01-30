@@ -169,8 +169,7 @@ router.get('/facebook/callback', async (req, res) => {
 
 /**
  * GET /auth/instagram
- * Initiates Instagram OAuth via Facebook (for Instagram Business/Creator accounts)
- * Uses Facebook OAuth to access Instagram accounts linked to Facebook Pages
+ * Initiates Instagram Business Login OAuth flow (direct Instagram login page)
  */
 router.get('/instagram', (req, res) => {
   const { gmailId, locationId, locationName } = req.query;
@@ -191,25 +190,21 @@ router.get('/instagram', (req, res) => {
     timestamp: Date.now()
   })).toString('base64');
 
-  // Request Facebook permissions that include Instagram access
-  // instagram_basic - read Instagram account info
-  // instagram_content_publish - publish content to Instagram
-  // pages_show_list - see list of Pages user manages
-  // pages_read_engagement - read Page content
-  const scope = 'instagram_basic,instagram_content_publish,pages_show_list,pages_read_engagement';
+  // Instagram Business Login scopes
+  const scope = 'instagram_business_basic,instagram_business_content_publish,instagram_business_manage_messages,instagram_business_manage_comments';
 
   const redirectUri = INSTAGRAM_REDIRECT_URI;
 
-  // Use Facebook OAuth (not Instagram directly) - this is required for Instagram Graph API
-  const authUrl = `https://www.facebook.com/v18.0/dialog/oauth?` +
+  // Direct Instagram OAuth - shows Instagram login page
+  const authUrl = `https://www.instagram.com/oauth/authorize?` +
     `client_id=${INSTAGRAM_APP_ID}` +
     `&redirect_uri=${encodeURIComponent(redirectUri)}` +
-    `&state=${encodeURIComponent(state)}` +
     `&scope=${encodeURIComponent(scope)}` +
-    `&response_type=code`;
+    `&response_type=code` +
+    `&state=${encodeURIComponent(state)}`;
 
-  console.log('########## INSTAGRAM AUTH v2025_01_30_B ##########');
-  console.log('[InstagramAuth] Using Facebook OAuth for Instagram access');
+  console.log('########## INSTAGRAM AUTH v2025_01_30_D ##########');
+  console.log('[InstagramAuth] Direct Instagram OAuth');
   console.log('[InstagramAuth] redirect_uri:', redirectUri);
   console.log('[InstagramAuth] App ID:', INSTAGRAM_APP_ID);
   console.log('########## AUTH REDIRECT ##########');
@@ -218,8 +213,7 @@ router.get('/instagram', (req, res) => {
 
 /**
  * GET /auth/instagram/callback
- * Handles Instagram OAuth callback (via Facebook OAuth)
- * Gets Instagram Business account linked to user's Facebook Page
+ * Handles Instagram Business Login OAuth callback
  */
 router.get('/instagram/callback', async (req, res) => {
   const { code, state, error, error_description } = req.query;
@@ -242,75 +236,59 @@ router.get('/instagram/callback', async (req, res) => {
 
     const redirectUri = INSTAGRAM_REDIRECT_URI;
 
-    // Exchange code for Facebook access token
-    const tokenUrl = `https://graph.facebook.com/v18.0/oauth/access_token?` +
-      `client_id=${INSTAGRAM_APP_ID}` +
-      `&redirect_uri=${encodeURIComponent(redirectUri)}` +
-      `&client_secret=${INSTAGRAM_APP_SECRET}` +
-      `&code=${code}`;
+    // Exchange code for Instagram access token (using Instagram's token endpoint)
+    const params = new URLSearchParams();
+    params.append('client_id', INSTAGRAM_APP_ID);
+    params.append('client_secret', INSTAGRAM_APP_SECRET);
+    params.append('grant_type', 'authorization_code');
+    params.append('redirect_uri', redirectUri);
+    params.append('code', code);
 
-    console.log('[InstagramAuth] VERSION_2025_01_30_B - Exchanging code for token');
+    console.log('[InstagramAuth] VERSION_2025_01_30_D - Exchanging code for token');
 
-    const tokenResponse = await fetch(tokenUrl);
+    const tokenResponse = await fetch('https://api.instagram.com/oauth/access_token', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: params.toString()
+    });
+
     const tokenData = await tokenResponse.json();
+    console.log('[InstagramAuth] Token response:', JSON.stringify(tokenData, null, 2));
 
-    if (tokenData.error) {
-      console.error('[InstagramAuth] Token exchange error:', tokenData.error);
-      return res.redirect(`${FRONTEND_URL}/dashboard/social-media?error=${encodeURIComponent(tokenData.error.message)}`);
+    if (tokenData.error_type || tokenData.error) {
+      console.error('[InstagramAuth] Token exchange error:', tokenData);
+      const errorMsg = tokenData.error_message || tokenData.error_description || tokenData.error || 'Token exchange failed';
+      return res.redirect(`${FRONTEND_URL}/dashboard/social-media?error=${encodeURIComponent(errorMsg)}`);
     }
 
-    const { access_token: userAccessToken } = tokenData;
-    console.log('[InstagramAuth] Got Facebook access token');
+    const { access_token: shortLivedToken, user_id: instagramUserId } = tokenData;
+    console.log('[InstagramAuth] Got short-lived token for user:', instagramUserId);
 
-    // Get user's Facebook Pages
-    const pagesUrl = `https://graph.facebook.com/v18.0/me/accounts?access_token=${userAccessToken}`;
-    const pagesResponse = await fetch(pagesUrl);
-    const pagesData = await pagesResponse.json();
+    // Exchange for long-lived token
+    const longLivedUrl = `https://graph.instagram.com/access_token?` +
+      `grant_type=ig_exchange_token` +
+      `&client_secret=${INSTAGRAM_APP_SECRET}` +
+      `&access_token=${shortLivedToken}`;
 
-    if (pagesData.error) {
-      console.error('[InstagramAuth] Pages fetch error:', pagesData.error);
-      return res.redirect(`${FRONTEND_URL}/dashboard/social-media?error=${encodeURIComponent(pagesData.error.message)}`);
+    const longLivedResponse = await fetch(longLivedUrl);
+    const longLivedData = await longLivedResponse.json();
+
+    const accessToken = longLivedData.access_token || shortLivedToken;
+    console.log('[InstagramAuth] Got long-lived token');
+
+    // Get Instagram user profile
+    const profileUrl = `https://graph.instagram.com/me?fields=id,username,account_type,name&access_token=${accessToken}`;
+    const profileResponse = await fetch(profileUrl);
+    const profileData = await profileResponse.json();
+
+    if (profileData.error) {
+      console.error('[InstagramAuth] Profile fetch error:', profileData.error);
+      return res.redirect(`${FRONTEND_URL}/dashboard/social-media?error=${encodeURIComponent(profileData.error.message)}`);
     }
 
-    console.log('[InstagramAuth] Found Pages:', pagesData.data?.length || 0);
-
-    if (!pagesData.data || pagesData.data.length === 0) {
-      return res.redirect(`${FRONTEND_URL}/dashboard/social-media?error=${encodeURIComponent('No Facebook Pages found. Please create a Facebook Page and link your Instagram Business account to it.')}`);
-    }
-
-    // Find Instagram Business account linked to any of the Pages
-    let instagramAccount = null;
-    let pageAccessToken = null;
-
-    for (const page of pagesData.data) {
-      const igUrl = `https://graph.facebook.com/v18.0/${page.id}?fields=instagram_business_account&access_token=${page.access_token}`;
-      const igResponse = await fetch(igUrl);
-      const igData = await igResponse.json();
-
-      if (igData.instagram_business_account) {
-        instagramAccount = igData.instagram_business_account;
-        pageAccessToken = page.access_token;
-        console.log('[InstagramAuth] Found Instagram Business account on Page:', page.name);
-        break;
-      }
-    }
-
-    if (!instagramAccount) {
-      return res.redirect(`${FRONTEND_URL}/dashboard/social-media?error=${encodeURIComponent('No Instagram Business account found. Please link your Instagram Business/Creator account to a Facebook Page.')}`);
-    }
-
-    // Get Instagram account details
-    const igDetailsUrl = `https://graph.facebook.com/v18.0/${instagramAccount.id}?fields=id,username,name,profile_picture_url&access_token=${pageAccessToken}`;
-    const igDetailsResponse = await fetch(igDetailsUrl);
-    const igDetails = await igDetailsResponse.json();
-
-    if (igDetails.error) {
-      console.error('[InstagramAuth] Instagram details error:', igDetails.error);
-      return res.redirect(`${FRONTEND_URL}/dashboard/social-media?error=${encodeURIComponent(igDetails.error.message)}`);
-    }
-
-    const instagramUserId = igDetails.id;
-    const instagramUsername = igDetails.username || igDetails.name || `user_${instagramUserId}`;
+    const instagramUsername = profileData.username || profileData.name || `user_${instagramUserId}`;
 
     console.log('[InstagramAuth] Connected to Instagram:', instagramUsername);
 
@@ -332,7 +310,7 @@ router.get('/instagram/callback', async (req, res) => {
           instagram_enabled: true,
           instagram_user_id: instagramUserId,
           instagram_username: instagramUsername,
-          instagram_access_token: pageAccessToken,
+          instagram_access_token: accessToken,
           updated_at: new Date().toISOString()
         })
         .eq('id', existing.id);
@@ -347,7 +325,7 @@ router.get('/instagram/callback', async (req, res) => {
           instagram_enabled: true,
           instagram_user_id: instagramUserId,
           instagram_username: instagramUsername,
-          instagram_access_token: pageAccessToken
+          instagram_access_token: accessToken
         });
     }
 
