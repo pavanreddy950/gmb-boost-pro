@@ -9,7 +9,7 @@ const FACEBOOK_APP_SECRET = process.env.FACEBOOK_APP_SECRET || '45d93dc0766683e6
 
 // Instagram App Credentials (social-lobaiseo-IG - from Instagram API settings)
 const INSTAGRAM_APP_ID = process.env.INSTAGRAM_APP_ID || '1509002856841560';
-const INSTAGRAM_APP_SECRET = process.env.INSTAGRAM_APP_SECRET || 'bc86ce27a700f29f4c6a08';
+const INSTAGRAM_APP_SECRET = process.env.INSTAGRAM_APP_SECRET || 'bc86ce27a700f29f4c6a080df717bd2c';
 
 // Redirect URIs
 const BACKEND_URL = process.env.BACKEND_URL || 'https://lobaiseo-backend-yjnl.onrender.com';
