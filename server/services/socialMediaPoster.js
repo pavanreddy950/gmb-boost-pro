@@ -16,23 +16,44 @@ async function getSupabase() {
 
 /**
  * Get social connection for a location
+ * First tries to find by gmailId + locationId, then falls back to locationId only
  */
 async function getSocialConnection(gmailId, locationId) {
   const supabase = await getSupabase();
 
-  const { data, error } = await supabase
+  // First try with gmailId if provided
+  if (gmailId) {
+    const { data, error } = await supabase
+      .from(SOCIAL_CONNECTIONS_TABLE)
+      .select('*')
+      .eq('gmail', gmailId)
+      .eq('location_id', locationId)
+      .single();
+
+    if (data) {
+      console.log('[SocialMediaPoster] Found connection by gmail + locationId');
+      return data;
+    }
+  }
+
+  // Fallback: find by locationId only (for automation scheduler where email might not match)
+  console.log('[SocialMediaPoster] Trying to find connection by locationId only:', locationId);
+  const { data: fallbackData, error: fallbackError } = await supabase
     .from(SOCIAL_CONNECTIONS_TABLE)
     .select('*')
-    .eq('gmail', gmailId)
     .eq('location_id', locationId)
     .single();
 
-  if (error && error.code !== 'PGRST116') {
-    console.error('[SocialMediaPoster] Error fetching connection:', error);
+  if (fallbackError && fallbackError.code !== 'PGRST116') {
+    console.error('[SocialMediaPoster] Error fetching connection:', fallbackError);
     return null;
   }
 
-  return data;
+  if (fallbackData) {
+    console.log('[SocialMediaPoster] Found connection by locationId only');
+  }
+
+  return fallbackData;
 }
 
 /**

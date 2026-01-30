@@ -111,6 +111,7 @@ class GoogleBusinessProfileService {
   private isGoogleLibLoaded: boolean = false;
   private backendUrl: string;
   private currentUserId: string | null = null;
+  private currentUserEmail: string | null = null;
 
   // Simple in-memory cache with TTL
   private cache = new Map<string, { data: any; expires: number }>();
@@ -228,9 +229,10 @@ class GoogleBusinessProfileService {
   }
 
   // Set current user ID for token management
-  setCurrentUserId(userId: string | null): void {
+  setCurrentUserId(userId: string | null, email?: string | null): void {
     this.currentUserId = userId;
-    console.log('🔍 DEBUGGING: Current user ID set to:', userId);
+    this.currentUserEmail = email || null;
+    console.log('🔍 DEBUGGING: Current user ID set to:', userId, 'email:', email);
   }
 
   // Load tokens from backend - backend handles permanent storage with refresh tokens in Firebase
@@ -1404,7 +1406,7 @@ class GoogleBusinessProfileService {
         summary: postData.summary,
         topicType: postData.topicType || 'STANDARD',
         callToAction: postData.callToAction,
-        gmailId: this.currentUserId // Include gmailId for social media auto-posting
+        gmailId: this.currentUserEmail // Include gmailId (email) for social media auto-posting
       };
       console.log('🔍 Request body:', requestBody);
 

@@ -349,8 +349,8 @@ export const useGoogleBusinessProfile = (): UseGoogleBusinessProfileReturn => {
       setIsLoading(true);
 
       try {
-        // Set the current user ID in the service for Firestore operations
-        googleBusinessProfileService.setCurrentUserId(currentUserId);
+        // Set the current user ID and email in the service for Firestore operations
+        googleBusinessProfileService.setCurrentUserId(currentUserId, currentUser?.email);
 
         // Check if we just reloaded after payment
         const justReloaded = sessionStorage.getItem('post_payment_reload') === 'true';
@@ -418,8 +418,8 @@ export const useGoogleBusinessProfile = (): UseGoogleBusinessProfileReturn => {
       console.log('🔄 Starting Google Business Profile connection...');
       console.log('🔍 DEBUGGING: Firebase user for connection:', currentUser?.uid);
       
-      // Set the current user ID in the service before connecting
-      googleBusinessProfileService.setCurrentUserId(currentUser?.uid || null);
+      // Set the current user ID and email in the service before connecting
+      googleBusinessProfileService.setCurrentUserId(currentUser?.uid || null, currentUser?.email);
       
       await googleBusinessProfileService.connectGoogleBusiness();
       setIsConnected(true);
