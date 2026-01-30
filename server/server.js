@@ -2927,23 +2927,30 @@ app.post('/api/locations/:locationParam/posts', async (req, res) => {
     console.log('📊 Post status:', data.state || 'UNKNOWN');
     console.log('🔗 Post name:', data.name);
 
-    // 📱 Post to social media (Facebook & Instagram) if gmailId provided
+    // 📱 Post to social media (Facebook & Instagram)
     let socialMediaResults = null;
-    if (gmailId) {
-      try {
-        console.log(`📱 Attempting social media posting for user ${gmailId}...`);
-        const imageUrl = media && media.length > 0 ? media[0].sourceUrl : null;
-        socialMediaResults = await postToSocialMedia(gmailId, locationId, summary, imageUrl);
+    console.log(`📱 Social media check - gmailId: ${gmailId}, locationId: ${locationId}`);
 
-        if (socialMediaResults.facebook?.success) {
-          console.log(`📘 Facebook post created: ${socialMediaResults.facebook.postId}`);
-        }
-        if (socialMediaResults.instagram?.success) {
-          console.log(`📸 Instagram post created: ${socialMediaResults.instagram.postId}`);
-        }
-      } catch (socialError) {
-        console.error('⚠️ Social media posting error (non-fatal):', socialError.message);
+    // Always try to post to social media (will look up by locationId if gmailId not provided)
+    try {
+      console.log(`📱 Attempting social media posting for user ${gmailId || 'N/A'}, location ${locationId}...`);
+      const imageUrl = media && media.length > 0 ? media[0].sourceUrl : null;
+      socialMediaResults = await postToSocialMedia(gmailId, locationId, summary, imageUrl);
+
+      console.log(`📱 Social media results:`, JSON.stringify(socialMediaResults, null, 2));
+
+      if (socialMediaResults.facebook?.success) {
+        console.log(`📘 Facebook post created: ${socialMediaResults.facebook.postId}`);
+      } else if (socialMediaResults.facebook?.error) {
+        console.log(`📘 Facebook error: ${socialMediaResults.facebook.error}`);
       }
+      if (socialMediaResults.instagram?.success) {
+        console.log(`📸 Instagram post created: ${socialMediaResults.instagram.postId}`);
+      } else if (socialMediaResults.instagram?.error) {
+        console.log(`📸 Instagram error: ${socialMediaResults.instagram.error}`);
+      }
+    } catch (socialError) {
+      console.error('⚠️ Social media posting error (non-fatal):', socialError.message, socialError.stack);
     }
 
     // Return the real post data including status
