@@ -48,8 +48,9 @@ router.get('/facebook', (req, res) => {
     timestamp: Date.now()
   })).toString('base64');
 
-  // Facebook OAuth - permissions for posting to pages
-  const scope = 'email,pages_read_engagement,pages_manage_posts,pages_show_list';
+  // Facebook OAuth - use basic email scope only
+  // Page access is obtained via /me/accounts after login (works for page admins)
+  const scope = 'email';
 
   const redirectUri = `${BACKEND_URL}/auth/facebook/callback`;
 
@@ -105,21 +106,32 @@ router.get('/facebook/callback', async (req, res) => {
 
     const { access_token: userAccessToken } = tokenData;
 
-    // Get user profile info
-    const profileUrl = `https://graph.facebook.com/v18.0/me?fields=id,name&access_token=${userAccessToken}`;
-    const profileResponse = await fetch(profileUrl);
-    const profileData = await profileResponse.json();
+    // Get pages the user manages via /me/accounts
+    // This returns pages where the user is an admin, with page access tokens
+    const pagesUrl = `https://graph.facebook.com/v18.0/me/accounts?fields=id,name,access_token&access_token=${userAccessToken}`;
+    const pagesResponse = await fetch(pagesUrl);
+    const pagesData = await pagesResponse.json();
 
-    if (profileData.error) {
-      console.error('[FacebookAuth] Profile fetch error:', profileData.error);
-      return res.redirect(`${FRONTEND_URL}/dashboard/social-media?error=${encodeURIComponent(profileData.error.message)}`);
+    if (pagesData.error) {
+      console.error('[FacebookAuth] Pages fetch error:', pagesData.error);
+      return res.redirect(`${FRONTEND_URL}/dashboard/social-media?error=${encodeURIComponent(pagesData.error.message)}`);
     }
 
-    const pageId = profileData.id;
-    const pageName = profileData.name;
-    const pageAccessToken = userAccessToken;
+    console.log('[FacebookAuth] Pages data:', JSON.stringify(pagesData, null, 2));
 
-    console.log('[FacebookAuth] Connected to Facebook Page:', pageName);
+    // Check if user has any pages
+    if (!pagesData.data || pagesData.data.length === 0) {
+      console.error('[FacebookAuth] No Facebook Pages found for this user');
+      return res.redirect(`${FRONTEND_URL}/dashboard/social-media?error=${encodeURIComponent('No Facebook Pages found. Please make sure you are an admin of at least one Facebook Page.')}`);
+    }
+
+    // Use the first page (or could let user choose)
+    const page = pagesData.data[0];
+    const pageId = page.id;
+    const pageName = page.name;
+    const pageAccessToken = page.access_token;
+
+    console.log('[FacebookAuth] Connected to Facebook Page:', pageName, 'ID:', pageId);
 
     // Save to database
     const supabase = await getSupabase();
