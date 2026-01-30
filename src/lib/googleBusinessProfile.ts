@@ -1403,7 +1403,8 @@ class GoogleBusinessProfileService {
       const requestBody = {
         summary: postData.summary,
         topicType: postData.topicType || 'STANDARD',
-        callToAction: postData.callToAction
+        callToAction: postData.callToAction,
+        gmailId: this.currentUserId // Include gmailId for social media auto-posting
       };
       console.log('🔍 Request body:', requestBody);
 

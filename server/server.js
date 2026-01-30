@@ -45,6 +45,7 @@ import reviewRequestsRoutes from './routes/reviewRequests.js';
 import photosRoutes from './routes/photos.js';
 import socialRoutes from './routes/social.js';
 import facebookAuthRoutes from './routes/facebookAuth.js';
+import { postToSocialMedia } from './services/socialMediaPoster.js';
 import { checkSubscription, trackTrialStart, addTrialHeaders } from './middleware/subscriptionCheck.js';
 import SubscriptionService from './services/subscriptionService.js';
 import subscriptionGuard from './services/subscriptionGuard.js';
@@ -2779,7 +2780,7 @@ app.post('/api/locations/:locationParam/posts', async (req, res) => {
       console.log('🔍 Received location ID:', locationId);
       console.log('🔍 Generated full location name:', locationName);
     }
-    const { summary, media, callToAction, topicType } = req.body;
+    const { summary, media, callToAction, topicType, gmailId } = req.body;
     const authHeader = req.headers.authorization;
 
     console.log('🔍 DEBUGGING POST /api/locations/:locationParam/posts');
@@ -2926,13 +2927,33 @@ app.post('/api/locations/:locationParam/posts', async (req, res) => {
     console.log('📊 Post status:', data.state || 'UNKNOWN');
     console.log('🔗 Post name:', data.name);
 
+    // 📱 Post to social media (Facebook & Instagram) if gmailId provided
+    let socialMediaResults = null;
+    if (gmailId) {
+      try {
+        console.log(`📱 Attempting social media posting for user ${gmailId}...`);
+        const imageUrl = media && media.length > 0 ? media[0].sourceUrl : null;
+        socialMediaResults = await postToSocialMedia(gmailId, locationId, summary, imageUrl);
+
+        if (socialMediaResults.facebook?.success) {
+          console.log(`📘 Facebook post created: ${socialMediaResults.facebook.postId}`);
+        }
+        if (socialMediaResults.instagram?.success) {
+          console.log(`📸 Instagram post created: ${socialMediaResults.instagram.postId}`);
+        }
+      } catch (socialError) {
+        console.error('⚠️ Social media posting error (non-fatal):', socialError.message);
+      }
+    }
+
     // Return the real post data including status
     res.json({
       success: true,
       post: data,
       status: data.state || 'PENDING',
       message: 'Post successfully submitted to Google Business Profile! It may take some time to appear as it goes through Google\'s review process.',
-      realTime: true
+      realTime: true,
+      socialMedia: socialMediaResults
     });
 
   } catch (error) {

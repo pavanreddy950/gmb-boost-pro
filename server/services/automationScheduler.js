@@ -10,6 +10,7 @@ import appConfig from '../config.js';
 import { getCategoryMapping, generateCategoryPrompt } from '../config/categoryReviewMapping.js';
 import scheduledPostsService from './scheduledPostsService.js';
 import photoService from './photoService.js';
+import { postToSocialMedia } from './socialMediaPoster.js';
 
 // Get __dirname equivalent for ES modules
 const __filename = fileURLToPath(import.meta.url);
@@ -942,6 +943,28 @@ class AutomationScheduler {
           timestamp: new Date().toISOString()
         });
 
+        // 📱 Post to social media (Facebook & Instagram) if enabled
+        try {
+          const gmailId = config.userId || config.autoPosting?.userId;
+          if (gmailId) {
+            console.log(`[AutomationScheduler] 📱 Attempting social media posting for user ${gmailId}...`);
+            const imageUrl = pendingPhoto?.public_url || null;
+            const socialResults = await postToSocialMedia(gmailId, locationId, postContent.content, imageUrl);
+
+            if (socialResults.facebook?.success) {
+              console.log(`[AutomationScheduler] 📘 Facebook post created: ${socialResults.facebook.postId}`);
+            }
+            if (socialResults.instagram?.success) {
+              console.log(`[AutomationScheduler] 📸 Instagram post created: ${socialResults.instagram.postId}`);
+            }
+            if (!socialResults.facebook?.success && !socialResults.instagram?.success) {
+              console.log(`[AutomationScheduler] 📱 No social media posts created (not enabled or no credentials)`);
+            }
+          }
+        } catch (socialError) {
+          console.error(`[AutomationScheduler] ⚠️ Social media posting error (non-fatal):`, socialError.message);
+        }
+
         return result; // Return success result
       } else {
         const errorText = await response.text();
@@ -1020,6 +1043,25 @@ class AutomationScheduler {
           } catch (photoError) {
             console.error(`[AutomationScheduler] ⚠️ Fallback: Error marking photo as used:`, photoError.message);
           }
+        }
+
+        // 📱 Post to social media (Facebook & Instagram) if enabled
+        try {
+          const gmailId = config.userId || config.autoPosting?.userId;
+          if (gmailId) {
+            console.log(`[AutomationScheduler] 📱 Fallback: Attempting social media posting for user ${gmailId}...`);
+            const imageUrl = pendingPhoto?.public_url || null;
+            const socialResults = await postToSocialMedia(gmailId, locationId, postContent.content, imageUrl);
+
+            if (socialResults.facebook?.success) {
+              console.log(`[AutomationScheduler] 📘 Fallback: Facebook post created: ${socialResults.facebook.postId}`);
+            }
+            if (socialResults.instagram?.success) {
+              console.log(`[AutomationScheduler] 📸 Fallback: Instagram post created: ${socialResults.instagram.postId}`);
+            }
+          }
+        } catch (socialError) {
+          console.error(`[AutomationScheduler] ⚠️ Fallback: Social media posting error (non-fatal):`, socialError.message);
         }
 
         return result;
