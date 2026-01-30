@@ -8,8 +8,8 @@ const FACEBOOK_APP_ID = process.env.FACEBOOK_APP_ID || '1249146140732197';
 const FACEBOOK_APP_SECRET = process.env.FACEBOOK_APP_SECRET || '45d93dc0766683e68bda46903f33184f';
 
 // Instagram App Credentials (social-lobaiseo app - Instagram Business Login)
-// Using the Instagram App ID from the embed URL
-const INSTAGRAM_APP_ID = process.env.INSTAGRAM_APP_ID || '1509002856841560';
+// App ID from Meta Developer Console - CORRECTED
+const INSTAGRAM_APP_ID = process.env.INSTAGRAM_APP_ID || '1608151443861785';
 const INSTAGRAM_APP_SECRET = process.env.INSTAGRAM_APP_SECRET || 'b8430b4adb612830fa59616f9ea99b45';
 
 // Redirect URIs
