@@ -1,8 +1,9 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import { useAuth } from "@/contexts/AuthContext";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Building2, MapPin, Star, Calendar, ArrowRight, Settings, AlertCircle, CreditCard, Users, Zap, Clock } from "lucide-react";
+import { Plus, Building2, MapPin, Star, Calendar, ArrowRight, Settings, AlertCircle, CreditCard, Users, Zap, Clock, Instagram, Facebook } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { useGoogleBusinessProfile } from "@/hooks/useGoogleBusinessProfile";
 import { useProfileLimitations } from "@/hooks/useProfileLimitations";
@@ -13,13 +14,49 @@ import { useSubscription } from "@/contexts/SubscriptionContext";
 import { ProfileAutomationStatus } from "@/components/ProfileAutomationStatus";
 import { GlobalPostingTimeModal } from "@/components/GlobalPostingTimeModal";
 
+interface SocialConnection {
+  location_id: string;
+  instagram_user_id: string | null;
+  instagram_username: string | null;
+  facebook_page_id: string | null;
+  facebook_page_name: string | null;
+}
+
 const Dashboard = () => {
   const navigate = useNavigate();
+  const { currentUser } = useAuth();
   const { isConnected, accounts: profiles, isLoading } = useGoogleBusinessProfile();
   const subscription = useSubscription();
   const { getAccessibleAccounts } = useProfileLimitations();
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
   const [isGlobalTimeModalOpen, setIsGlobalTimeModalOpen] = useState(false);
+  const [socialConnections, setSocialConnections] = useState<SocialConnection[]>([]);
+
+  const backendUrl = import.meta.env.VITE_BACKEND_URL || 'https://lobaiseo-backend-yjnl.onrender.com';
+
+  // Fetch social connections
+  useEffect(() => {
+    const fetchSocialConnections = async () => {
+      if (!currentUser?.email) return;
+      try {
+        const response = await fetch(
+          `${backendUrl}/api/social/connections?gmailId=${encodeURIComponent(currentUser.email)}`
+        );
+        const data = await response.json();
+        if (data.success) {
+          setSocialConnections(data.connections || []);
+        }
+      } catch (error) {
+        console.error('Error fetching social connections:', error);
+      }
+    };
+    fetchSocialConnections();
+  }, [currentUser?.email, backendUrl]);
+
+  // Helper to get social connection for a location
+  const getSocialConnection = (locationId: string) => {
+    return socialConnections.find(c => c.location_id === locationId);
+  };
   
   // Safely destructure subscription context
   const subscriptionStatus = subscription?.status || 'none';
@@ -271,15 +308,28 @@ const Dashboard = () => {
                         >
                           {profile.accountName}
                         </h3>
-                        {profile.state === 'VERIFIED' && (
-                          <div className="w-4 h-4 flex items-center justify-center flex-shrink-0">
-                            <img 
-                              src="/Vector.svg" 
-                              alt="Verified" 
-                              className="w-4 h-4"
-                            />
-                          </div>
-                        )}
+                        <div className="flex items-center gap-1 flex-shrink-0">
+                          {/* Social Connection Icons */}
+                          {getSocialConnection(locationId)?.instagram_user_id && (
+                            <div className="w-5 h-5 rounded-full bg-gradient-to-br from-pink-500 to-purple-600 flex items-center justify-center" title={`Instagram: ${getSocialConnection(locationId)?.instagram_username || 'Connected'}`}>
+                              <Instagram className="w-3 h-3 text-white" />
+                            </div>
+                          )}
+                          {getSocialConnection(locationId)?.facebook_page_id && (
+                            <div className="w-5 h-5 rounded-full bg-blue-600 flex items-center justify-center" title={`Facebook: ${getSocialConnection(locationId)?.facebook_page_name || 'Connected'}`}>
+                              <Facebook className="w-3 h-3 text-white" />
+                            </div>
+                          )}
+                          {profile.state === 'VERIFIED' && (
+                            <div className="w-4 h-4 flex items-center justify-center">
+                              <img
+                                src="/Vector.svg"
+                                alt="Verified"
+                                className="w-4 h-4"
+                              />
+                            </div>
+                          )}
+                        </div>
                       </div>
                       
                       {/* Location */}
