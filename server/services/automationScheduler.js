@@ -946,20 +946,22 @@ class AutomationScheduler {
         // 📱 Post to social media (Facebook & Instagram) if enabled
         try {
           const gmailId = config.userId || config.autoPosting?.userId;
-          if (gmailId) {
-            console.log(`[AutomationScheduler] 📱 Attempting social media posting for user ${gmailId}...`);
-            const imageUrl = pendingPhoto?.public_url || null;
-            const socialResults = await postToSocialMedia(gmailId, locationId, postContent.content, imageUrl);
+          console.log(`[AutomationScheduler] 📱 Attempting social media posting - gmailId: ${gmailId}, locationId: ${locationId}`);
+          const imageUrl = pendingPhoto?.public_url || null;
+          const socialResults = await postToSocialMedia(gmailId, locationId, postContent.content, imageUrl);
 
-            if (socialResults.facebook?.success) {
-              console.log(`[AutomationScheduler] 📘 Facebook post created: ${socialResults.facebook.postId}`);
-            }
-            if (socialResults.instagram?.success) {
-              console.log(`[AutomationScheduler] 📸 Instagram post created: ${socialResults.instagram.postId}`);
-            }
-            if (!socialResults.facebook?.success && !socialResults.instagram?.success) {
-              console.log(`[AutomationScheduler] 📱 No social media posts created (not enabled or no credentials)`);
-            }
+          if (socialResults.facebook?.success) {
+            console.log(`[AutomationScheduler] 📘 Facebook post created: ${socialResults.facebook.postId}`);
+          } else if (socialResults.facebook?.error) {
+            console.log(`[AutomationScheduler] 📘 Facebook error: ${socialResults.facebook.error}`);
+          }
+          if (socialResults.instagram?.success) {
+            console.log(`[AutomationScheduler] 📸 Instagram post created: ${socialResults.instagram.postId}`);
+          } else if (socialResults.instagram?.error) {
+            console.log(`[AutomationScheduler] 📸 Instagram error: ${socialResults.instagram.error}`);
+          }
+          if (!socialResults.facebook && !socialResults.instagram) {
+            console.log(`[AutomationScheduler] 📱 No social media connections found for this location`);
           }
         } catch (socialError) {
           console.error(`[AutomationScheduler] ⚠️ Social media posting error (non-fatal):`, socialError.message);
@@ -1048,17 +1050,19 @@ class AutomationScheduler {
         // 📱 Post to social media (Facebook & Instagram) if enabled
         try {
           const gmailId = config.userId || config.autoPosting?.userId;
-          if (gmailId) {
-            console.log(`[AutomationScheduler] 📱 Fallback: Attempting social media posting for user ${gmailId}...`);
-            const imageUrl = pendingPhoto?.public_url || null;
-            const socialResults = await postToSocialMedia(gmailId, locationId, postContent.content, imageUrl);
+          console.log(`[AutomationScheduler] 📱 Fallback: Attempting social media posting - gmailId: ${gmailId}, locationId: ${locationId}`);
+          const imageUrl = pendingPhoto?.public_url || null;
+          const socialResults = await postToSocialMedia(gmailId, locationId, postContent.content, imageUrl);
 
-            if (socialResults.facebook?.success) {
-              console.log(`[AutomationScheduler] 📘 Fallback: Facebook post created: ${socialResults.facebook.postId}`);
-            }
-            if (socialResults.instagram?.success) {
-              console.log(`[AutomationScheduler] 📸 Fallback: Instagram post created: ${socialResults.instagram.postId}`);
-            }
+          if (socialResults.facebook?.success) {
+            console.log(`[AutomationScheduler] 📘 Fallback: Facebook post created: ${socialResults.facebook.postId}`);
+          } else if (socialResults.facebook?.error) {
+            console.log(`[AutomationScheduler] 📘 Fallback: Facebook error: ${socialResults.facebook.error}`);
+          }
+          if (socialResults.instagram?.success) {
+            console.log(`[AutomationScheduler] 📸 Fallback: Instagram post created: ${socialResults.instagram.postId}`);
+          } else if (socialResults.instagram?.error) {
+            console.log(`[AutomationScheduler] 📸 Fallback: Instagram error: ${socialResults.instagram.error}`);
           }
         } catch (socialError) {
           console.error(`[AutomationScheduler] ⚠️ Fallback: Social media posting error (non-fatal):`, socialError.message);
