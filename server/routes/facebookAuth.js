@@ -46,14 +46,8 @@ router.get('/facebook', (req, res) => {
     timestamp: Date.now()
   })).toString('base64');
 
-  // Facebook OAuth permissions for Pages
-  // Note: These permissions must be added in Facebook Developer Console
-  // App Review → Permissions and Features (works in Development Mode for app admins)
-  const scope = [
-    'email',
-    'pages_show_list',
-    'pages_manage_posts'
-  ].join(',');
+  // Facebook OAuth - basic permissions only (no App Review needed)
+  const scope = 'email';
 
   const redirectUri = `${BACKEND_URL}/auth/facebook/callback`;
 
@@ -109,27 +103,19 @@ router.get('/facebook/callback', async (req, res) => {
 
     const { access_token: userAccessToken } = tokenData;
 
-    // Get user's Facebook Pages
-    const pagesUrl = `https://graph.facebook.com/v18.0/me/accounts?access_token=${userAccessToken}`;
-    const pagesResponse = await fetch(pagesUrl);
-    const pagesData = await pagesResponse.json();
+    // Get user profile info
+    const profileUrl = `https://graph.facebook.com/v18.0/me?fields=id,name&access_token=${userAccessToken}`;
+    const profileResponse = await fetch(profileUrl);
+    const profileData = await profileResponse.json();
 
-    if (pagesData.error) {
-      console.error('[FacebookAuth] Pages fetch error:', pagesData.error);
-      return res.redirect(`${FRONTEND_URL}/dashboard/social-media?error=${encodeURIComponent(pagesData.error.message)}`);
+    if (profileData.error) {
+      console.error('[FacebookAuth] Profile fetch error:', profileData.error);
+      return res.redirect(`${FRONTEND_URL}/dashboard/social-media?error=${encodeURIComponent(profileData.error.message)}`);
     }
 
-    const pages = pagesData.data || [];
-
-    if (pages.length === 0) {
-      return res.redirect(`${FRONTEND_URL}/dashboard/social-media?error=no_pages_found`);
-    }
-
-    // For now, use the first page (later we can let user select)
-    const selectedPage = pages[0];
-    const pageAccessToken = selectedPage.access_token;
-    const pageId = selectedPage.id;
-    const pageName = selectedPage.name;
+    const pageId = profileData.id;
+    const pageName = profileData.name;
+    const pageAccessToken = userAccessToken;
 
     console.log('[FacebookAuth] Connected to Facebook Page:', pageName);
 
