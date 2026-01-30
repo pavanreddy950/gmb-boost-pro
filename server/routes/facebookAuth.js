@@ -240,6 +240,12 @@ router.get('/instagram/callback', async (req, res) => {
     const redirectUri = INSTAGRAM_REDIRECT_URI;
 
     console.log('[InstagramAuth] Token exchange redirect_uri:', redirectUri);
+    console.log('[InstagramAuth] Code received:', code.substring(0, 30) + '...');
+
+    // Build the body manually to ensure exact encoding
+    const bodyString = `client_id=${INSTAGRAM_APP_ID}&client_secret=${INSTAGRAM_APP_SECRET}&grant_type=authorization_code&redirect_uri=${encodeURIComponent(redirectUri)}&code=${encodeURIComponent(code)}`;
+
+    console.log('[InstagramAuth] Request body (partial):', bodyString.substring(0, 200) + '...');
 
     // Instagram uses POST for token exchange
     const tokenResponse = await fetch('https://api.instagram.com/oauth/access_token', {
@@ -247,13 +253,7 @@ router.get('/instagram/callback', async (req, res) => {
       headers: {
         'Content-Type': 'application/x-www-form-urlencoded',
       },
-      body: new URLSearchParams({
-        client_id: INSTAGRAM_APP_ID,
-        client_secret: INSTAGRAM_APP_SECRET,
-        grant_type: 'authorization_code',
-        redirect_uri: redirectUri,
-        code: code
-      })
+      body: bodyString
     });
 
     const tokenData = await tokenResponse.json();
