@@ -205,10 +205,10 @@ router.get('/instagram', (req, res) => {
     `&scope=${encodeURIComponent(scope)}` +
     `&response_type=code`;
 
-  console.log('========== INSTAGRAM AUTH START ==========');
-  console.log('[InstagramAuth] HARDCODED redirect_uri:', redirectUri);
+  console.log('########## INSTAGRAM AUTH v2025_01_30_A ##########');
+  console.log('[InstagramAuth] redirect_uri:', redirectUri);
   console.log('[InstagramAuth] App ID:', INSTAGRAM_APP_ID);
-  console.log('========== INSTAGRAM AUTH END ==========');
+  console.log('########## AUTH REDIRECT ##########');
   res.redirect(authUrl);
 });
 
@@ -242,10 +242,15 @@ router.get('/instagram/callback', async (req, res) => {
     console.log('[InstagramAuth] Token exchange redirect_uri:', redirectUri);
     console.log('[InstagramAuth] Code received:', code.substring(0, 30) + '...');
 
-    // Build the body manually to ensure exact encoding
-    const bodyString = `client_id=${INSTAGRAM_APP_ID}&client_secret=${INSTAGRAM_APP_SECRET}&grant_type=authorization_code&redirect_uri=${encodeURIComponent(redirectUri)}&code=${encodeURIComponent(code)}`;
+    // Use URLSearchParams for proper form encoding
+    const params = new URLSearchParams();
+    params.append('client_id', INSTAGRAM_APP_ID);
+    params.append('client_secret', INSTAGRAM_APP_SECRET);
+    params.append('grant_type', 'authorization_code');
+    params.append('redirect_uri', redirectUri);
+    params.append('code', code);
 
-    console.log('[InstagramAuth] Request body (partial):', bodyString.substring(0, 200) + '...');
+    console.log('[InstagramAuth] VERSION_2025_01_30_A - Request params redirect_uri:', params.get('redirect_uri'));
 
     // Instagram uses POST for token exchange
     const tokenResponse = await fetch('https://api.instagram.com/oauth/access_token', {
@@ -253,7 +258,7 @@ router.get('/instagram/callback', async (req, res) => {
       headers: {
         'Content-Type': 'application/x-www-form-urlencoded',
       },
-      body: bodyString
+      body: params.toString()
     });
 
     const tokenData = await tokenResponse.json();
