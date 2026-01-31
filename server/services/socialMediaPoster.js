@@ -205,7 +205,40 @@ async function postToInstagram(accessToken, instagramUserId, caption, imageUrl) 
     const containerId = createData.id;
     console.log('[SocialMediaPoster] Instagram container created:', containerId);
 
-    // Step 2: Publish the container
+    // Step 2: Wait for Instagram to process the media (required by API)
+    console.log('[SocialMediaPoster] Waiting for Instagram to process media...');
+
+    // Poll the container status until it's ready (max 30 seconds)
+    let mediaReady = false;
+    let attempts = 0;
+    const maxAttempts = 6; // 6 attempts x 5 seconds = 30 seconds max
+
+    while (!mediaReady && attempts < maxAttempts) {
+      await new Promise(resolve => setTimeout(resolve, 5000)); // Wait 5 seconds
+      attempts++;
+
+      // Check container status
+      const statusUrl = `https://graph.instagram.com/v18.0/${containerId}?fields=status_code&access_token=${accessToken}`;
+      const statusResponse = await fetch(statusUrl);
+      const statusData = await statusResponse.json();
+
+      console.log(`[SocialMediaPoster] Container status check ${attempts}:`, statusData.status_code || 'checking...');
+
+      if (statusData.status_code === 'FINISHED') {
+        mediaReady = true;
+      } else if (statusData.status_code === 'ERROR') {
+        return {
+          success: false,
+          error: 'Instagram media processing failed'
+        };
+      }
+    }
+
+    if (!mediaReady) {
+      console.log('[SocialMediaPoster] Media processing timeout, attempting publish anyway...');
+    }
+
+    // Step 3: Publish the container
     const publishUrl = `https://graph.instagram.com/v18.0/${instagramUserId}/media_publish`;
     const publishParams = new URLSearchParams({
       creation_id: containerId,
