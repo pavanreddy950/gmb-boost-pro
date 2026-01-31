@@ -294,22 +294,27 @@ router.get('/instagram', (req, res) => {
     timestamp: Date.now()
   })).toString('base64');
 
-  // Instagram Business Login scopes (matching app configuration)
-  const scope = 'instagram_business_basic,instagram_business_content_publish,instagram_business_manage_messages,instagram_business_manage_comments';
+  // Instagram Business Login scopes
+  // IMPORTANT: Only request scopes that are approved in Meta Developer Portal
+  // instagram_business_basic - required for basic profile access
+  // instagram_business_content_publish - required for posting (must be enabled in app settings)
+  const scope = 'instagram_business_basic,instagram_business_content_publish';
 
   const redirectUri = INSTAGRAM_REDIRECT_URI;
 
-  // Instagram Platform API OAuth (correct endpoint for content publishing)
-  const authUrl = `https://www.instagram.com/oauth/authorize?` +
+  // Instagram Platform API OAuth URL
+  // Using api.instagram.com for Business Login API as per Meta documentation
+  const authUrl = `https://api.instagram.com/oauth/authorize?` +
     `client_id=${INSTAGRAM_APP_ID}` +
     `&redirect_uri=${encodeURIComponent(redirectUri)}` +
     `&scope=${encodeURIComponent(scope)}` +
     `&response_type=code` +
     `&state=${encodeURIComponent(state)}`;
 
-  console.log('########## INSTAGRAM AUTH v2025_01_30_D ##########');
-  console.log('[InstagramAuth] Direct Instagram OAuth');
-  console.log('[InstagramAuth] redirect_uri:', redirectUri);
+  console.log('########## INSTAGRAM AUTH v2025_01_30_E ##########');
+  console.log('[InstagramAuth] Auth URL:', authUrl);
+  console.log('[InstagramAuth] Scopes:', scope);
+  console.log('[InstagramAuth] Redirect URI:', redirectUri);
   console.log('[InstagramAuth] App ID:', INSTAGRAM_APP_ID);
   console.log('########## AUTH REDIRECT ##########');
   res.redirect(authUrl);
@@ -453,6 +458,47 @@ router.get('/instagram/callback', async (req, res) => {
     console.error('[InstagramAuth] Callback error:', error);
     res.redirect(`${FRONTEND_URL}/dashboard/social-media?error=${encodeURIComponent(error.message)}`);
   }
+});
+
+/**
+ * GET /auth/instagram/debug
+ * Debug endpoint to check Instagram OAuth configuration
+ */
+router.get('/instagram/debug', (req, res) => {
+  const testState = Buffer.from(JSON.stringify({
+    gmailId: 'test@example.com',
+    locationId: 'test-location',
+    locationName: 'Test Location',
+    platform: 'instagram',
+    timestamp: Date.now()
+  })).toString('base64');
+
+  const scope = 'instagram_business_basic,instagram_business_content_publish';
+  const redirectUri = INSTAGRAM_REDIRECT_URI;
+
+  const authUrl = `https://api.instagram.com/oauth/authorize?` +
+    `client_id=${INSTAGRAM_APP_ID}` +
+    `&redirect_uri=${encodeURIComponent(redirectUri)}` +
+    `&scope=${encodeURIComponent(scope)}` +
+    `&response_type=code` +
+    `&state=${encodeURIComponent(testState)}`;
+
+  res.json({
+    message: 'Instagram OAuth Debug Info',
+    config: {
+      appId: INSTAGRAM_APP_ID,
+      redirectUri: redirectUri,
+      scopes: scope.split(','),
+      authUrl: authUrl
+    },
+    instructions: [
+      '1. Ensure instagram_business_basic permission is enabled in Meta Developer Portal',
+      '2. Ensure instagram_business_content_publish permission is enabled',
+      '3. Verify the redirect URI matches exactly: ' + redirectUri,
+      '4. Make sure the app is in Live mode (not Development mode)',
+      '5. Check that Instagram Business Login is properly configured in Use Cases'
+    ]
+  });
 });
 
 export default router;
