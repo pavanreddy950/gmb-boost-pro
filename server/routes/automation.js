@@ -812,6 +812,21 @@ router.post('/test-post-now/:locationId', async (req, res) => {
 
     console.log(`[Automation API] Test config:`, testConfig);
 
+    // 📸 Fetch pending photo for this location (for social media posting)
+    let pendingPhoto = null;
+    try {
+      pendingPhoto = await photoService.getNextPendingPhoto(locationId);
+      if (pendingPhoto) {
+        console.log(`[Automation API] 📸 Found pending photo for test post: ${pendingPhoto.photo_id}`);
+        console.log(`[Automation API] 📸 Photo URL: ${pendingPhoto.public_url}`);
+        testConfig.pendingPhoto = pendingPhoto;
+      } else {
+        console.log(`[Automation API] 📸 No pending photos found for location`);
+      }
+    } catch (photoError) {
+      console.error(`[Automation API] 📸 Error fetching photo:`, photoError.message);
+    }
+
     // PRIORITY 1: Try to get valid token from backend storage (with auto-refresh)
     console.log(`[Automation API] 🔍 STEP 1: Attempting to get backend stored token for user ${finalUserId}`);
     let result;

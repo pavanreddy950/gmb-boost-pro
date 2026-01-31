@@ -14,9 +14,12 @@ class PhotoService {
     // Compression settings (target: 50-100KB with no visible quality loss)
     // NOTE: Using JPEG instead of WebP because Google Business Profile API doesn't support WebP
     // IMPORTANT: Google Business Profile API requires images to be at least 10KB (10,240 bytes)
+    // IMPORTANT: Google Business Profile API requires images to be at least 250x250 pixels
     this.compressionConfig = {
       maxWidth: 1200,           // Max width for GBP
       maxHeight: 1200,          // Max height for GBP
+      minWidth: 250,            // Min width for GBP (Google requirement)
+      minHeight: 250,           // Min height for GBP (Google requirement)
       quality: 85,              // JPEG quality (85 = good balance)
       format: 'jpeg',           // JPEG format (GBP doesn't support WebP!)
       targetSizeKB: 100,        // Target max size in KB
@@ -66,7 +69,24 @@ class PhotoService {
       // Calculate resize dimensions (maintain aspect ratio)
       let width = metadata.width;
       let height = metadata.height;
+      let needsEnlargement = false;
 
+      // FIRST: Check if image is too small (Google requires 250x250 minimum)
+      if (width < this.compressionConfig.minWidth || height < this.compressionConfig.minHeight) {
+        console.log(`[PhotoService] ⚠️ Image too small (${width}x${height}), enlarging to meet 250x250 minimum`);
+        needsEnlargement = true;
+
+        // Calculate scale factor to meet minimum dimensions
+        const scaleRatio = Math.max(
+          this.compressionConfig.minWidth / width,
+          this.compressionConfig.minHeight / height
+        );
+        width = Math.round(width * scaleRatio);
+        height = Math.round(height * scaleRatio);
+        console.log(`[PhotoService] 📐 Enlarged to: ${width}x${height}`);
+      }
+
+      // THEN: Check if image is too large (max 1200x1200)
       if (width > this.compressionConfig.maxWidth || height > this.compressionConfig.maxHeight) {
         const ratio = Math.min(
           this.compressionConfig.maxWidth / width,
@@ -82,12 +102,12 @@ class PhotoService {
       let attempts = 0;
       const maxAttempts = 5;
 
-      // First pass: compress down if too large
+      // First pass: compress down if too large (or enlarge if too small)
       do {
         compressedBuffer = await sharp(imageBuffer)
           .resize(width, height, {
-            fit: 'inside',
-            withoutEnlargement: true
+            fit: needsEnlargement ? 'cover' : 'inside',
+            withoutEnlargement: !needsEnlargement  // Allow enlargement if image is too small
           })
           .jpeg({
             quality: quality,
@@ -121,8 +141,8 @@ class PhotoService {
 
         compressedBuffer = await sharp(imageBuffer)
           .resize(width, height, {
-            fit: 'inside',
-            withoutEnlargement: true
+            fit: needsEnlargement ? 'cover' : 'inside',
+            withoutEnlargement: !needsEnlargement
           })
           .jpeg({
             quality: quality,
@@ -139,8 +159,8 @@ class PhotoService {
         console.log(`[PhotoService] ⚠️ Still too small at ${currentSizeKB.toFixed(1)}KB, trying without mozjpeg optimization`);
         compressedBuffer = await sharp(imageBuffer)
           .resize(width, height, {
-            fit: 'inside',
-            withoutEnlargement: true
+            fit: needsEnlargement ? 'cover' : 'inside',
+            withoutEnlargement: !needsEnlargement
           })
           .jpeg({
             quality: this.compressionConfig.maxQuality,

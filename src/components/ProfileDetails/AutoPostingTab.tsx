@@ -853,17 +853,17 @@ export function AutoPostingTab({ location }: AutoPostingTabProps) {
         });
       } else {
         toast({
-          title: "Test post failed ❌",
+          title: "Test post needs attention ⚠️",
           description: result.error || result.details || "Failed to publish post",
-          variant: "destructive",
+          variant: "warning",
           duration: 6000,
         });
       }
     } catch (error) {
       toast({
-        title: "Test post failed ❌",
+        title: "Test post needs attention ⚠️",
         description: error instanceof Error ? error.message : "Unknown error occurred",
-        variant: "destructive",
+        variant: "warning",
         duration: 6000,
       });
     } finally {
