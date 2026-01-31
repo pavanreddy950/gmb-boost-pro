@@ -500,34 +500,44 @@ class PhotoService {
   }
 
   /**
-   * Mark photo as used (after successful post)
+   * Delete photo after successful use
+   * Removes from database immediately, but keeps storage file for 2 hours
+   * so Google/Facebook/Instagram can fetch the image
    */
   async markPhotoAsUsed(photoId, postId) {
     await this.initialize();
 
-    const { data, error } = await this.client
+    // First, get the photo record to get the storage path
+    const { data: photoData, error: fetchError } = await this.client
       .from('location_photos')
-      .update({
-        status: 'used',
-        used_at: new Date().toISOString(),
-        used_in_post_id: postId
-      })
+      .select('*')
       .eq('photo_id', photoId)
-      .select()
       .single();
 
-    if (error) {
-      console.error('[PhotoService] ❌ Mark used error:', error);
-      throw error;
+    if (fetchError) {
+      console.error('[PhotoService] ❌ Fetch photo error:', fetchError);
+      throw fetchError;
     }
 
-    console.log(`[PhotoService] ✅ Photo ${photoId} marked as used in post ${postId}`);
+    const storagePath = photoData.storage_path;
+    console.log(`[PhotoService] 🗑️ Photo ${photoId} used in post ${postId}, deleting from database...`);
 
-    // ⚠️ IMPORTANT: Do NOT delete immediately!
-    // Google's API fetches the image asynchronously from our sourceUrl.
-    // If we delete too fast, Google won't be able to download the image.
-    // Instead, schedule deletion after 2 hours to give Google time to fetch it.
-    const storagePath = data.storage_path;
+    // Delete from database immediately (won't show in Photo Queue anymore)
+    const { error: deleteError } = await this.client
+      .from('location_photos')
+      .delete()
+      .eq('photo_id', photoId);
+
+    if (deleteError) {
+      console.error('[PhotoService] ❌ Delete from database error:', deleteError);
+      throw deleteError;
+    }
+
+    console.log(`[PhotoService] ✅ Photo ${photoId} deleted from database`);
+
+    // ⚠️ IMPORTANT: Keep storage file for 2 hours!
+    // Google/Facebook/Instagram fetch the image asynchronously from our URL.
+    // If we delete too fast, they won't be able to download the image.
     setTimeout(async () => {
       try {
         console.log(`[PhotoService] 🗑️ Delayed cleanup: Deleting photo ${photoId} from storage (2 hours after use)`);
@@ -537,9 +547,9 @@ class PhotoService {
       }
     }, 2 * 60 * 60 * 1000); // 2 hours delay
 
-    console.log(`[PhotoService] ⏰ Photo ${photoId} scheduled for deletion in 2 hours`);
+    console.log(`[PhotoService] ⏰ Storage file scheduled for deletion in 2 hours`);
 
-    return data;
+    return photoData;
   }
 
   /**
