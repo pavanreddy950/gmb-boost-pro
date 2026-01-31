@@ -3,9 +3,9 @@ import connectionPool from '../database/connectionPool.js';
 
 const router = express.Router();
 
-// Facebook App Credentials (Lobaiseo app)
-const FACEBOOK_APP_ID = process.env.FACEBOOK_APP_ID || '1249146140732197';
-const FACEBOOK_APP_SECRET = process.env.FACEBOOK_APP_SECRET || '45d93dc0766683e68bda46903f33184f';
+// Facebook App Credentials (lobaise-pages app - with page permissions)
+const FACEBOOK_APP_ID = process.env.FACEBOOK_APP_ID || '1329697155863530';
+const FACEBOOK_APP_SECRET = process.env.FACEBOOK_APP_SECRET || 'ca51f6aefb60718b7a300e5de61378e0';
 
 // Instagram App Credentials (social-lobaiseo-IG - from Instagram API settings)
 const INSTAGRAM_APP_ID = process.env.INSTAGRAM_APP_ID || '1509002856841560';
@@ -49,10 +49,11 @@ router.get('/facebook', (req, res) => {
     timestamp: Date.now()
   })).toString('base64');
 
-  // Facebook OAuth permissions:
-  // For now, using only basic permissions until App Review is approved
-  // After approval, add: pages_show_list,pages_read_engagement,pages_manage_posts
-  const scope = 'public_profile,email';
+  // Facebook OAuth permissions for page management
+  // pages_show_list: list pages user manages
+  // pages_read_engagement: read page info
+  // pages_manage_posts: create posts on pages
+  const scope = 'public_profile,pages_show_list,pages_read_engagement,pages_manage_posts';
 
   const redirectUri = `${BACKEND_URL}/auth/facebook/callback`;
 
