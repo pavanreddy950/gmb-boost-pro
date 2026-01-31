@@ -2,6 +2,7 @@ import express from 'express';
 import automationScheduler from '../services/automationScheduler.js';
 import scheduledPostsService from '../services/scheduledPostsService.js';
 import photoService from '../services/photoService.js';
+import supabaseTokenStorage from '../services/supabaseTokenStorage.js';
 
 const router = express.Router();
 
@@ -817,11 +818,9 @@ router.post('/test-post-now/:locationId', async (req, res) => {
     let backendToken = null;
 
     try {
-      // Import the token storage at the top if not already imported
-      const supabaseTokenStorage = (await import('../services/supabaseTokenStorage.js')).default;
-
       // Try to get a valid token from backend storage (this will auto-refresh if expired)
       backendToken = await supabaseTokenStorage.getValidToken(finalUserId);
+      console.log(`[Automation API] 🔍 Backend token result:`, backendToken ? 'Token found' : 'No token');
 
       if (backendToken && backendToken.access_token) {
         console.log(`[Automation API] ✅ STEP 1: Backend has valid token for user ${finalUserId}, using it`);
