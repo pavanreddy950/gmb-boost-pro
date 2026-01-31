@@ -412,7 +412,7 @@ router.get('/enabled-connections/:locationId', async (req, res) => {
  */
 router.post('/test-post', async (req, res) => {
   try {
-    const { locationId, message } = req.body;
+    const { locationId, message, imageUrl } = req.body;
 
     if (!locationId || !message) {
       return res.status(400).json({
@@ -421,13 +421,13 @@ router.post('/test-post', async (req, res) => {
       });
     }
 
-    console.log('[Social] Test post requested for location:', locationId);
+    console.log('[Social] Test post requested for location:', locationId, 'imageUrl:', imageUrl || 'none');
 
     // Import the social media poster
     const { postToSocialMedia } = await import('../services/socialMediaPoster.js');
 
     // Call the posting function
-    const results = await postToSocialMedia(null, locationId, message, null);
+    const results = await postToSocialMedia(null, locationId, message, imageUrl || null);
 
     console.log('[Social] Test post results:', JSON.stringify(results, null, 2));
 
