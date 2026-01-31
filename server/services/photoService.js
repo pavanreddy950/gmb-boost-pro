@@ -535,19 +535,17 @@ class PhotoService {
 
     console.log(`[PhotoService] ✅ Photo ${photoId} deleted from database`);
 
-    // ⚠️ IMPORTANT: Keep storage file for 2 hours!
-    // Google/Facebook/Instagram fetch the image asynchronously from our URL.
-    // If we delete too fast, they won't be able to download the image.
+    // Keep storage file for 30 minutes so platforms can fetch the image
     setTimeout(async () => {
       try {
-        console.log(`[PhotoService] 🗑️ Delayed cleanup: Deleting photo ${photoId} from storage (2 hours after use)`);
+        console.log(`[PhotoService] 🗑️ Delayed cleanup: Deleting photo ${photoId} from storage (30 min after use)`);
         await this.deletePhotoFromStorage(storagePath);
       } catch (err) {
         console.warn(`[PhotoService] ⚠️ Delayed cleanup failed for ${photoId}:`, err.message);
       }
-    }, 2 * 60 * 60 * 1000); // 2 hours delay
+    }, 30 * 60 * 1000); // 30 minutes delay
 
-    console.log(`[PhotoService] ⏰ Storage file scheduled for deletion in 2 hours`);
+    console.log(`[PhotoService] ⏰ Storage file scheduled for deletion in 30 minutes`);
 
     return photoData;
   }
