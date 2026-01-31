@@ -16,14 +16,20 @@ async function getSupabase() {
 
 /**
  * Get social connection for a location
- * First tries to find by gmailId + locationId, then falls back to locationId only
+ * Tries multiple formats: full locationId, numeric ID only, and partial matches
  */
 async function getSocialConnection(gmailId, locationId) {
   const supabase = await getSupabase();
 
-  // First try with gmailId if provided
+  console.log('[SocialMediaPoster] Looking for connection - gmailId:', gmailId, 'locationId:', locationId);
+
+  // Extract numeric ID if locationId contains slashes (accounts/123/locations/456 -> 456)
+  const numericId = locationId.includes('/') ? locationId.split('/').pop() : locationId;
+  console.log('[SocialMediaPoster] Numeric locationId:', numericId);
+
+  // Try 1: Exact match with gmailId + locationId
   if (gmailId) {
-    const { data, error } = await supabase
+    const { data } = await supabase
       .from(SOCIAL_CONNECTIONS_TABLE)
       .select('*')
       .eq('gmail', gmailId)
@@ -31,29 +37,51 @@ async function getSocialConnection(gmailId, locationId) {
       .single();
 
     if (data) {
-      console.log('[SocialMediaPoster] Found connection by gmail + locationId');
+      console.log('[SocialMediaPoster] Found by gmail + exact locationId');
       return data;
     }
   }
 
-  // Fallback: find by locationId only (for automation scheduler where email might not match)
-  console.log('[SocialMediaPoster] Trying to find connection by locationId only:', locationId);
-  const { data: fallbackData, error: fallbackError } = await supabase
+  // Try 2: Exact match with locationId only
+  const { data: exactMatch } = await supabase
     .from(SOCIAL_CONNECTIONS_TABLE)
     .select('*')
     .eq('location_id', locationId)
     .single();
 
-  if (fallbackError && fallbackError.code !== 'PGRST116') {
-    console.error('[SocialMediaPoster] Error fetching connection:', fallbackError);
-    return null;
+  if (exactMatch) {
+    console.log('[SocialMediaPoster] Found by exact locationId');
+    return exactMatch;
   }
 
-  if (fallbackData) {
-    console.log('[SocialMediaPoster] Found connection by locationId only');
+  // Try 3: Match with numeric ID only (for when full path was stored but numeric ID passed)
+  if (numericId !== locationId) {
+    const { data: numericMatch } = await supabase
+      .from(SOCIAL_CONNECTIONS_TABLE)
+      .select('*')
+      .eq('location_id', numericId)
+      .single();
+
+    if (numericMatch) {
+      console.log('[SocialMediaPoster] Found by numeric locationId');
+      return numericMatch;
+    }
   }
 
-  return fallbackData;
+  // Try 4: Partial match - location_id contains the numeric ID
+  console.log('[SocialMediaPoster] Trying partial match with LIKE for:', numericId);
+  const { data: partialMatches } = await supabase
+    .from(SOCIAL_CONNECTIONS_TABLE)
+    .select('*')
+    .like('location_id', `%${numericId}%`);
+
+  if (partialMatches && partialMatches.length > 0) {
+    console.log('[SocialMediaPoster] Found by partial match, count:', partialMatches.length);
+    return partialMatches[0];
+  }
+
+  console.log('[SocialMediaPoster] No connection found for location');
+  return null;
 }
 
 /**
