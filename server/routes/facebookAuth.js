@@ -299,13 +299,14 @@ router.get('/instagram', (req, res) => {
 
   const redirectUri = INSTAGRAM_REDIRECT_URI;
 
-  // Direct Instagram OAuth via www.instagram.com (shows Instagram login page)
-  const authUrl = `https://www.instagram.com/oauth/authorize?` +
+  // Instagram Platform API OAuth (correct endpoint for content publishing)
+  const authUrl = `https://api.instagram.com/oauth/authorize?` +
     `client_id=${INSTAGRAM_APP_ID}` +
     `&redirect_uri=${encodeURIComponent(redirectUri)}` +
     `&scope=${encodeURIComponent(scope)}` +
     `&response_type=code` +
-    `&state=${encodeURIComponent(state)}`;
+    `&state=${encodeURIComponent(state)}` +
+    `&enable_fb_login=0`;
 
   console.log('########## INSTAGRAM AUTH v2025_01_30_D ##########');
   console.log('[InstagramAuth] Direct Instagram OAuth');
@@ -393,8 +394,18 @@ router.get('/instagram/callback', async (req, res) => {
     }
 
     const instagramUsername = profileData.username || profileData.name || `user_${instagramUserId}`;
+    const accountType = profileData.account_type || 'UNKNOWN';
 
+    console.log('[InstagramAuth] ========================================');
     console.log('[InstagramAuth] Connected to Instagram:', instagramUsername);
+    console.log('[InstagramAuth] Account Type:', accountType);
+    console.log('[InstagramAuth] Instagram User ID:', profileData.id || instagramUserId);
+    console.log('[InstagramAuth] ========================================');
+
+    // Warn if not a Business or Creator account
+    if (accountType !== 'BUSINESS' && accountType !== 'MEDIA_CREATOR') {
+      console.warn('[InstagramAuth] ⚠️ Account is not Business/Creator. Posting may not work!');
+    }
 
     // Save to database
     const supabase = await getSupabase();
@@ -406,13 +417,16 @@ router.get('/instagram/callback', async (req, res) => {
       .eq('location_id', locationId)
       .single();
 
+    // Use the ID from profile data (this is the correct ID for Content Publishing API)
+    const correctInstagramId = profileData.id || instagramUserId;
+
     if (existing) {
       // Update existing
       await supabase
         .from(SOCIAL_CONNECTIONS_TABLE)
         .update({
           instagram_enabled: true,
-          instagram_user_id: instagramUserId,
+          instagram_user_id: correctInstagramId,
           instagram_username: instagramUsername,
           instagram_access_token: accessToken,
           updated_at: new Date().toISOString()
@@ -427,7 +441,7 @@ router.get('/instagram/callback', async (req, res) => {
           location_id: locationId,
           location_name: locationName,
           instagram_enabled: true,
-          instagram_user_id: instagramUserId,
+          instagram_user_id: correctInstagramId,
           instagram_username: instagramUsername,
           instagram_access_token: accessToken
         });
