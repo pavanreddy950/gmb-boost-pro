@@ -301,16 +301,33 @@ async function postToSocialMedia(gmailId, locationId, content, imageUrl = null) 
   }
 
   // Post to Instagram if enabled
+  console.log('[SocialMediaPoster] Instagram check:', {
+    instagram_enabled: connection.instagram_enabled,
+    has_access_token: !!connection.instagram_access_token,
+    has_user_id: !!connection.instagram_user_id,
+    instagram_user_id: connection.instagram_user_id,
+    has_image_url: !!imageUrl
+  });
+
   if (connection.instagram_enabled && connection.instagram_access_token && connection.instagram_user_id) {
-    console.log('[SocialMediaPoster] Instagram is enabled, posting...');
-    results.instagram = await postToInstagram(
-      connection.instagram_access_token,
-      connection.instagram_user_id,
-      content,
-      imageUrl
-    );
+    if (!imageUrl) {
+      console.log('[SocialMediaPoster] ⚠️ Instagram requires an image but no imageUrl provided');
+      results.instagram = { success: false, error: 'Instagram requires an image for posts' };
+    } else {
+      console.log('[SocialMediaPoster] Instagram is enabled, posting with image:', imageUrl);
+      results.instagram = await postToInstagram(
+        connection.instagram_access_token,
+        connection.instagram_user_id,
+        content,
+        imageUrl
+      );
+    }
   } else {
-    console.log('[SocialMediaPoster] Instagram not enabled or missing credentials');
+    console.log('[SocialMediaPoster] ❌ Instagram not posting - missing:', {
+      enabled: !connection.instagram_enabled ? 'instagram_enabled is false' : 'OK',
+      token: !connection.instagram_access_token ? 'instagram_access_token missing' : 'OK',
+      userId: !connection.instagram_user_id ? 'instagram_user_id missing' : 'OK'
+    });
   }
 
   console.log('[SocialMediaPoster] Social media posting completed:', {
