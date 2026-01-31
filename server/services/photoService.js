@@ -28,6 +28,16 @@ class PhotoService {
       maxQuality: 100,          // Max quality to try if image is too small
     };
 
+    // Instagram aspect ratio requirements
+    // Min: 4:5 (0.8) - portrait
+    // Max: 1.91:1 (1.91) - landscape
+    // Safe: 1:1 (1.0) - square
+    this.instagramConfig = {
+      minAspectRatio: 0.8,      // 4:5 portrait
+      maxAspectRatio: 1.91,     // 1.91:1 landscape
+      paddingColor: { r: 255, g: 255, b: 255 }  // White padding
+    };
+
     // Limits
     this.MAX_PHOTOS_PER_LOCATION = 60;
     this.STORAGE_BUCKET = 'location-photos';
@@ -196,6 +206,97 @@ class PhotoService {
     } catch (error) {
       console.error('[PhotoService] ❌ Compression error:', error);
       throw error;
+    }
+  }
+
+  /**
+   * Fix aspect ratio for Instagram compatibility
+   * Instagram requires aspect ratios between 0.8 (4:5) and 1.91 (1.91:1)
+   * If outside this range, pad the image with white background to make it square (1:1)
+   *
+   * @param {string} imageUrl - URL of the image to process
+   * @returns {Promise<string>} - URL of the processed image (or original if already valid)
+   */
+  async fixAspectRatioForInstagram(imageUrl) {
+    try {
+      console.log(`[PhotoService] 📐 Checking aspect ratio for Instagram: ${imageUrl}`);
+
+      // Fetch the image
+      const response = await fetch(imageUrl);
+      if (!response.ok) {
+        console.error(`[PhotoService] ❌ Failed to fetch image: ${response.status}`);
+        return imageUrl; // Return original URL if fetch fails
+      }
+
+      const imageBuffer = Buffer.from(await response.arrayBuffer());
+      const metadata = await sharp(imageBuffer).metadata();
+
+      const aspectRatio = metadata.width / metadata.height;
+      console.log(`[PhotoService] 📐 Original dimensions: ${metadata.width}x${metadata.height}, aspect ratio: ${aspectRatio.toFixed(3)}`);
+
+      // Check if aspect ratio is within Instagram's valid range
+      if (aspectRatio >= this.instagramConfig.minAspectRatio && aspectRatio <= this.instagramConfig.maxAspectRatio) {
+        console.log(`[PhotoService] ✅ Aspect ratio ${aspectRatio.toFixed(3)} is valid for Instagram`);
+        return imageUrl; // No modification needed
+      }
+
+      console.log(`[PhotoService] ⚠️ Aspect ratio ${aspectRatio.toFixed(3)} is outside Instagram's range (${this.instagramConfig.minAspectRatio}-${this.instagramConfig.maxAspectRatio})`);
+      console.log(`[PhotoService] 🔧 Padding image to make it square (1:1)...`);
+
+      // Calculate new dimensions to make it square
+      const maxDim = Math.max(metadata.width, metadata.height);
+
+      // Pad the image to make it square with white background
+      const paddedBuffer = await sharp(imageBuffer)
+        .resize(maxDim, maxDim, {
+          fit: 'contain',
+          background: this.instagramConfig.paddingColor
+        })
+        .jpeg({ quality: 90 })
+        .toBuffer();
+
+      console.log(`[PhotoService] ✅ Padded image to ${maxDim}x${maxDim} (1:1 square)`);
+
+      // Upload the padded image to temporary storage
+      await this.initialize();
+      const tempId = `temp_ig_${Date.now()}`;
+      const tempPath = `temp/${tempId}.jpg`;
+
+      const { data: uploadData, error: uploadError } = await this.client.storage
+        .from(this.STORAGE_BUCKET)
+        .upload(tempPath, paddedBuffer, {
+          contentType: 'image/jpeg',
+          cacheControl: '300', // Short cache for temp files
+          upsert: true
+        });
+
+      if (uploadError) {
+        console.error('[PhotoService] ❌ Failed to upload padded image:', uploadError);
+        return imageUrl; // Return original URL if upload fails
+      }
+
+      // Get public URL for the padded image
+      const { data: urlData } = this.client.storage
+        .from(this.STORAGE_BUCKET)
+        .getPublicUrl(tempPath);
+
+      const paddedUrl = urlData?.publicUrl;
+      console.log(`[PhotoService] ✅ Padded image uploaded: ${paddedUrl}`);
+
+      // Schedule cleanup of temp file after 10 minutes
+      setTimeout(async () => {
+        try {
+          await this.client.storage.from(this.STORAGE_BUCKET).remove([tempPath]);
+          console.log(`[PhotoService] 🗑️ Cleaned up temp Instagram image: ${tempPath}`);
+        } catch (err) {
+          console.warn(`[PhotoService] ⚠️ Failed to cleanup temp image: ${err.message}`);
+        }
+      }, 10 * 60 * 1000);
+
+      return paddedUrl;
+    } catch (error) {
+      console.error('[PhotoService] ❌ Error fixing aspect ratio:', error);
+      return imageUrl; // Return original URL on error
     }
   }
 

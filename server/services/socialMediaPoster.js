@@ -4,6 +4,7 @@
  */
 
 import connectionPool from '../database/connectionPool.js';
+import photoService from './photoService.js';
 
 const SOCIAL_CONNECTIONS_TABLE = 'social_connections';
 
@@ -175,10 +176,22 @@ async function postToInstagram(accessToken, instagramUserId, caption, imageUrl) 
   }
 
   try {
+    // Step 0: Fix aspect ratio if needed (Instagram requires 0.8 to 1.91)
+    console.log('[SocialMediaPoster] Checking/fixing image aspect ratio for Instagram...');
+    let processedImageUrl = imageUrl;
+    try {
+      processedImageUrl = await photoService.fixAspectRatioForInstagram(imageUrl);
+      if (processedImageUrl !== imageUrl) {
+        console.log('[SocialMediaPoster] Image was padded for Instagram compatibility');
+      }
+    } catch (aspectError) {
+      console.warn('[SocialMediaPoster] Could not fix aspect ratio, using original:', aspectError.message);
+    }
+
     // Step 1: Create media container
     const createUrl = `https://graph.instagram.com/v18.0/${instagramUserId}/media`;
     const createParams = new URLSearchParams({
-      image_url: imageUrl,
+      image_url: processedImageUrl,
       caption: caption,
       access_token: accessToken
     });
