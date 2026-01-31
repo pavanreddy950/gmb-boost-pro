@@ -50,12 +50,9 @@ router.get('/facebook', (req, res) => {
   })).toString('base64');
 
   // Facebook OAuth permissions:
-  // public_profile: basic profile (always available)
-  // pages_show_list: required to list pages via /me/accounts
-  // pages_read_engagement: required for page operations
-  // pages_manage_posts: required to post to pages
-  // Note: For Development Mode, the connecting user MUST be added as a Tester in App Roles
-  const scope = 'public_profile,pages_show_list,pages_read_engagement,pages_manage_posts';
+  // For now, using only basic permissions until App Review is approved
+  // After approval, add: pages_show_list,pages_read_engagement,pages_manage_posts
+  const scope = 'public_profile,email';
 
   const redirectUri = `${BACKEND_URL}/auth/facebook/callback`;
 
@@ -194,38 +191,38 @@ router.get('/facebook/callback', async (req, res) => {
 
     const { access_token: userAccessToken } = tokenData;
 
-    // Get pages the user manages via /me/accounts
-    // This returns pages where the user is an admin, with page access tokens
+    // First try to get pages (if we have page permissions after App Review)
     const pagesUrl = `https://graph.facebook.com/v18.0/me/accounts?fields=id,name,access_token&access_token=${userAccessToken}`;
     const pagesResponse = await fetch(pagesUrl);
     const pagesData = await pagesResponse.json();
 
-    if (pagesData.error) {
-      console.error('[FacebookAuth] Pages fetch error:', pagesData.error);
-      return res.redirect(`${FRONTEND_URL}/dashboard/social-media?error=${encodeURIComponent(pagesData.error.message)}`);
+    let pageId, pageName, pageAccessToken;
+
+    // Check if we got pages (means we have page permissions)
+    if (pagesData.data && pagesData.data.length > 0) {
+      // Use the first page
+      const page = pagesData.data[0];
+      pageId = page.id;
+      pageName = page.name;
+      pageAccessToken = page.access_token;
+      console.log('[FacebookAuth] Connected to Facebook Page:', pageName, 'ID:', pageId);
+    } else {
+      // No page permissions yet - get user profile instead (for App Review demo)
+      console.log('[FacebookAuth] No page permissions - using user profile for demo');
+      const profileUrl = `https://graph.facebook.com/v18.0/me?fields=id,name&access_token=${userAccessToken}`;
+      const profileResponse = await fetch(profileUrl);
+      const profileData = await profileResponse.json();
+
+      if (profileData.error) {
+        console.error('[FacebookAuth] Profile fetch error:', profileData.error);
+        return res.redirect(`${FRONTEND_URL}/dashboard/social-media?error=${encodeURIComponent(profileData.error.message)}`);
+      }
+
+      pageId = profileData.id;
+      pageName = profileData.name + ' (User Profile - Page permissions pending)';
+      pageAccessToken = userAccessToken;
+      console.log('[FacebookAuth] Connected Facebook User:', profileData.name);
     }
-
-    console.log('[FacebookAuth] Pages data:', JSON.stringify(pagesData, null, 2));
-
-    // Check if user has any pages
-    if (!pagesData.data || pagesData.data.length === 0) {
-      console.error('[FacebookAuth] No Facebook Pages found for this user');
-      // This usually means the token doesn't have pages_show_list permission
-      // or the user genuinely has no pages
-      const errorMsg = 'No Facebook Pages found. This can happen if: ' +
-        '(1) Your Facebook account is not an admin of any Facebook Page, OR ' +
-        '(2) The app needs you to be added as a Tester. ' +
-        'Go to developers.facebook.com > Lobaiseo app > App Roles > Roles > Add your Facebook account as Tester.';
-      return res.redirect(`${FRONTEND_URL}/dashboard/social-media?error=${encodeURIComponent(errorMsg)}`);
-    }
-
-    // Use the first page (or could let user choose)
-    const page = pagesData.data[0];
-    const pageId = page.id;
-    const pageName = page.name;
-    const pageAccessToken = page.access_token;
-
-    console.log('[FacebookAuth] Connected to Facebook Page:', pageName, 'ID:', pageId);
 
     // Save to database
     const supabase = await getSupabase();
