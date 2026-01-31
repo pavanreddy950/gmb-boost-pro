@@ -967,6 +967,16 @@ class AutomationScheduler {
           console.error(`[AutomationScheduler] ⚠️ Social media posting error (non-fatal):`, socialError.message);
         }
 
+        // 🖼️ Upload photo to GBP Photos section (separate from the post)
+        if (pendingPhoto && pendingPhoto.public_url) {
+          try {
+            console.log(`[AutomationScheduler] 🖼️ Uploading photo to GBP Photos section...`);
+            await this.uploadPhotoToGBPPhotosSection(accountId, locationId, pendingPhoto.public_url, accessToken);
+          } catch (photoUploadError) {
+            console.error(`[AutomationScheduler] ⚠️ GBP Photos upload error (non-fatal):`, photoUploadError.message);
+          }
+        }
+
         return result; // Return success result
       } else {
         const errorText = await response.text();
@@ -1068,6 +1078,16 @@ class AutomationScheduler {
           console.error(`[AutomationScheduler] ⚠️ Fallback: Social media posting error (non-fatal):`, socialError.message);
         }
 
+        // 🖼️ Upload photo to GBP Photos section (separate from the post)
+        if (pendingPhoto && pendingPhoto.public_url) {
+          try {
+            console.log(`[AutomationScheduler] 🖼️ Fallback: Uploading photo to GBP Photos section...`);
+            await this.uploadPhotoToGBPPhotosSection(accountId, locationId, pendingPhoto.public_url, accessToken);
+          } catch (photoUploadError) {
+            console.error(`[AutomationScheduler] ⚠️ Fallback: GBP Photos upload error (non-fatal):`, photoUploadError.message);
+          }
+        }
+
         return result;
       } else {
         const error = await response.text();
@@ -1076,6 +1096,84 @@ class AutomationScheduler {
       }
     } catch (error) {
       console.error(`[AutomationScheduler] Fallback API error:`, error);
+      return null;
+    }
+  }
+
+  /**
+   * Upload a photo to the GBP Photos section (Media gallery)
+   * This is separate from posting - it adds the photo to the business profile's Photos tab
+   *
+   * @param {string} accountId - Google Business Profile account ID
+   * @param {string} locationId - Location ID
+   * @param {string} photoUrl - Public URL of the photo
+   * @param {string} accessToken - Google OAuth access token
+   */
+  async uploadPhotoToGBPPhotosSection(accountId, locationId, photoUrl, accessToken) {
+    try {
+      console.log(`[AutomationScheduler] 🖼️ Uploading photo to GBP Photos section`);
+      console.log(`[AutomationScheduler] 🖼️ Account: ${accountId}, Location: ${locationId}`);
+      console.log(`[AutomationScheduler] 🖼️ Photo URL: ${photoUrl}`);
+
+      // Google Business Profile Media API endpoint
+      const mediaUrl = `https://mybusiness.googleapis.com/v4/accounts/${accountId}/locations/${locationId}/media`;
+
+      const mediaData = {
+        mediaFormat: 'PHOTO',
+        sourceUrl: photoUrl,
+        locationAssociation: {
+          category: 'ADDITIONAL'  // ADDITIONAL = General photos, can also use EXTERIOR, INTERIOR, PRODUCT, etc.
+        }
+      };
+
+      console.log(`[AutomationScheduler] 🖼️ Sending to: ${mediaUrl}`);
+      console.log(`[AutomationScheduler] 🖼️ Media data:`, JSON.stringify(mediaData, null, 2));
+
+      const response = await fetch(mediaUrl, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(mediaData)
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        console.log(`[AutomationScheduler] 🖼️ ✅ Photo uploaded to GBP Photos section successfully!`);
+        console.log(`[AutomationScheduler] 🖼️ Media ID: ${result.name || result.id || 'N/A'}`);
+        return result;
+      } else {
+        const errorText = await response.text();
+        console.error(`[AutomationScheduler] 🖼️ ❌ Failed to upload photo to GBP Photos section`);
+        console.error(`[AutomationScheduler] 🖼️ HTTP Status: ${response.status} ${response.statusText}`);
+        console.error(`[AutomationScheduler] 🖼️ Error: ${errorText}`);
+
+        // Try with different category if ADDITIONAL fails
+        if (response.status === 400) {
+          console.log(`[AutomationScheduler] 🖼️ Retrying with CATEGORY_UNSPECIFIED...`);
+          mediaData.locationAssociation.category = 'CATEGORY_UNSPECIFIED';
+
+          const retryResponse = await fetch(mediaUrl, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${accessToken}`,
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(mediaData)
+          });
+
+          if (retryResponse.ok) {
+            const retryResult = await retryResponse.json();
+            console.log(`[AutomationScheduler] 🖼️ ✅ Photo uploaded on retry!`);
+            return retryResult;
+          }
+        }
+
+        return null;
+      }
+    } catch (error) {
+      console.error(`[AutomationScheduler] 🖼️ ❌ Error uploading to GBP Photos:`, error.message);
       return null;
     }
   }
