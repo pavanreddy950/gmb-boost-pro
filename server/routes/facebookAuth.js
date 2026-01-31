@@ -300,13 +300,12 @@ router.get('/instagram', (req, res) => {
   const redirectUri = INSTAGRAM_REDIRECT_URI;
 
   // Instagram Platform API OAuth (correct endpoint for content publishing)
-  const authUrl = `https://api.instagram.com/oauth/authorize?` +
+  const authUrl = `https://www.instagram.com/oauth/authorize?` +
     `client_id=${INSTAGRAM_APP_ID}` +
     `&redirect_uri=${encodeURIComponent(redirectUri)}` +
     `&scope=${encodeURIComponent(scope)}` +
     `&response_type=code` +
-    `&state=${encodeURIComponent(state)}` +
-    `&enable_fb_login=0`;
+    `&state=${encodeURIComponent(state)}`;
 
   console.log('########## INSTAGRAM AUTH v2025_01_30_D ##########');
   console.log('[InstagramAuth] Direct Instagram OAuth');
