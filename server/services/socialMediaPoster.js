@@ -255,7 +255,13 @@ async function postToInstagram(accessToken, instagramUserId, caption, imageUrl) 
  * @returns {Promise<{facebook?: object, instagram?: object}>}
  */
 async function postToSocialMedia(gmailId, locationId, content, imageUrl = null) {
-  console.log('[SocialMediaPoster] Starting social media posting for location:', locationId);
+  console.log('[SocialMediaPoster] ========================================');
+  console.log('[SocialMediaPoster] Starting social media posting');
+  console.log('[SocialMediaPoster] gmailId:', gmailId);
+  console.log('[SocialMediaPoster] locationId:', locationId);
+  console.log('[SocialMediaPoster] content length:', content?.length || 0);
+  console.log('[SocialMediaPoster] imageUrl:', imageUrl ? 'provided' : 'none');
+  console.log('[SocialMediaPoster] ========================================');
 
   const results = {
     facebook: null,
@@ -266,9 +272,20 @@ async function postToSocialMedia(gmailId, locationId, content, imageUrl = null) 
   const connection = await getSocialConnection(gmailId, locationId);
 
   if (!connection) {
-    console.log('[SocialMediaPoster] No social connection found for location');
+    console.log('[SocialMediaPoster] ❌ No social connection found for location:', locationId);
+    console.log('[SocialMediaPoster] ❌ This means no Facebook/Instagram is linked to this location');
     return results;
   }
+
+  console.log('[SocialMediaPoster] ✅ Found social connection:', {
+    id: connection.id,
+    location_id: connection.location_id,
+    gmail: connection.gmail,
+    facebook_enabled: connection.facebook_enabled,
+    facebook_page_id: connection.facebook_page_id,
+    instagram_enabled: connection.instagram_enabled,
+    instagram_user_id: connection.instagram_user_id
+  });
 
   // Post to Facebook if enabled
   if (connection.facebook_enabled && connection.facebook_access_token && connection.facebook_page_id) {

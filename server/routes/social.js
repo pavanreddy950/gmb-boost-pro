@@ -447,4 +447,83 @@ router.post('/test-post', async (req, res) => {
   }
 });
 
+/**
+ * GET /api/social/debug/:locationId
+ * Debug endpoint to check what connection is stored for a location
+ */
+router.get('/debug/:locationId', async (req, res) => {
+  try {
+    const { locationId } = req.params;
+    const { gmailId } = req.query;
+
+    console.log('[Social] Debug lookup for locationId:', locationId, 'gmailId:', gmailId);
+
+    const supabase = await getSupabase();
+
+    // Get all connections to see what's stored
+    const { data: allConnections, error: allError } = await supabase
+      .from(SOCIAL_CONNECTIONS_TABLE)
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (allError) {
+      return res.status(500).json({ error: 'Failed to fetch connections', details: allError });
+    }
+
+    // Extract numeric ID
+    const numericId = locationId.includes('/') ? locationId.split('/').pop() : locationId;
+
+    // Try different matching strategies
+    const exactMatch = allConnections.find(c => c.location_id === locationId);
+    const numericMatch = allConnections.find(c => c.location_id === numericId);
+    const partialMatch = allConnections.find(c => c.location_id && c.location_id.includes(numericId));
+    const reversePartialMatch = allConnections.find(c => c.location_id && numericId.includes(c.location_id));
+
+    // Also use getSocialConnection to test
+    const { getSocialConnection } = await import('../services/socialMediaPoster.js');
+    const connectionResult = await getSocialConnection(gmailId, locationId);
+
+    res.json({
+      success: true,
+      debug: {
+        inputLocationId: locationId,
+        inputGmailId: gmailId,
+        numericId: numericId,
+        totalConnectionsInDb: allConnections.length,
+        allConnectionLocationIds: allConnections.map(c => ({
+          id: c.id,
+          location_id: c.location_id,
+          gmail: c.gmail,
+          location_name: c.location_name,
+          facebook_enabled: c.facebook_enabled,
+          instagram_enabled: c.instagram_enabled
+        })),
+        matchResults: {
+          exactMatch: exactMatch ? { id: exactMatch.id, location_id: exactMatch.location_id } : null,
+          numericMatch: numericMatch ? { id: numericMatch.id, location_id: numericMatch.location_id } : null,
+          partialMatch: partialMatch ? { id: partialMatch.id, location_id: partialMatch.location_id } : null,
+          reversePartialMatch: reversePartialMatch ? { id: reversePartialMatch.id, location_id: reversePartialMatch.location_id } : null
+        },
+        getSocialConnectionResult: connectionResult ? {
+          id: connectionResult.id,
+          location_id: connectionResult.location_id,
+          gmail: connectionResult.gmail,
+          facebook_enabled: connectionResult.facebook_enabled,
+          facebook_page_id: connectionResult.facebook_page_id,
+          instagram_enabled: connectionResult.instagram_enabled,
+          instagram_user_id: connectionResult.instagram_user_id
+        } : null
+      }
+    });
+
+  } catch (error) {
+    console.error('[Social] Debug error:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message,
+      stack: error.stack
+    });
+  }
+});
+
 export default router;
