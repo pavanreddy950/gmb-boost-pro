@@ -268,12 +268,35 @@ const AskForReviews = () => {
     // Add accountId to location object for later use
     const locationWithAccount = { ...location, accountId };
 
+    // Fetch keywords from autoposting settings if no existing QR code
+    let keywordsToUse = existingQR?.keywords || "";
+
+    if (!existingQR) {
+      try {
+        const userId = googleBusinessProfileService.getUserId();
+        if (userId) {
+          console.log('[AskForReviews] 🔍 Fetching keywords from autoposting settings...');
+          const response = await fetch(`${backendUrl}/api/qr-codes/location/${location.locationId}/keywords?userId=${encodeURIComponent(userId)}`);
+
+          if (response.ok) {
+            const data = await response.json();
+            if (data.keywords) {
+              keywordsToUse = data.keywords;
+              console.log('[AskForReviews] ✅ Loaded keywords from autoposting settings:', keywordsToUse);
+            }
+          }
+        }
+      } catch (error) {
+        console.log('[AskForReviews] ⚠️ Could not fetch keywords from autoposting settings:', error);
+      }
+    }
+
     // Open modal first
     setReviewLinkModalData({
       isOpen: true,
       location: locationWithAccount,
       googleReviewLink: existingQR?.googleReviewLink || "",
-      keywords: existingQR?.keywords || "",
+      keywords: keywordsToUse,
       forceRefresh: forceRefresh
     });
 
@@ -321,6 +344,25 @@ const AskForReviews = () => {
       // Get user ID from Firebase auth
       const userId = googleBusinessProfileService.getUserId();
 
+      // Fetch keywords from autoposting settings
+      let keywordsFromSettings = '';
+      if (userId) {
+        try {
+          console.log('[AskForReviews] 🔍 Fetching keywords from autoposting settings...');
+          const keywordsResponse = await fetch(`${backendUrl}/api/qr-codes/location/${location.locationId}/keywords?userId=${encodeURIComponent(userId)}`);
+
+          if (keywordsResponse.ok) {
+            const keywordsData = await keywordsResponse.json();
+            if (keywordsData.keywords) {
+              keywordsFromSettings = keywordsData.keywords;
+              console.log('[AskForReviews] ✅ Found keywords from autoposting settings:', keywordsFromSettings);
+            }
+          }
+        } catch (error) {
+          console.log('[AskForReviews] ⚠️ Could not fetch keywords from autoposting settings:', error);
+        }
+      }
+
       console.log('[AskForReviews] 📡 Calling backend at:', `${backendUrl}/api/qr-codes/generate-with-auto-fetch`);
 
       // Add timeout to fetch request (30 seconds)
@@ -334,6 +376,7 @@ const AskForReviews = () => {
                                null;
 
       console.log(`[AskForReviews] 📋 Sending business category to QR endpoint: ${businessCategory}`);
+      console.log(`[AskForReviews] 🔑 Sending keywords to QR endpoint: ${keywordsFromSettings || 'none'}`);
 
       // Call the new backend endpoint that does everything
       const response = await fetch(`${backendUrl}/api/qr-codes/generate-with-auto-fetch`, {
@@ -348,7 +391,7 @@ const AskForReviews = () => {
           address: location.address?.locality || location.address?.administrativeArea || '',
           placeId: location.placeId || '',
           accessToken: accessToken,
-          keywords: '', // Can be added later via update
+          keywords: keywordsFromSettings, // Pass keywords from autoposting settings
           userId: userId,
           gbpAccountId: accountId,
           forceRefresh: forceRefresh, // Pass force refresh flag

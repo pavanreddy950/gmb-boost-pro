@@ -970,4 +970,45 @@ router.post('/debug-review-link', async (req, res) => {
   }
 });
 
+// Get keywords for a location from user_locations (autoposting settings)
+router.get('/location/:locationId/keywords', async (req, res) => {
+  try {
+    const { locationId } = req.params;
+    const { userId } = req.query;
+
+    console.log(`[QR Code] 🔍 Fetching keywords for location: ${locationId}, userId: ${userId || 'NOT PROVIDED'}`);
+
+    if (!userId) {
+      return res.status(400).json({ error: 'userId is required' });
+    }
+
+    const { createClient } = await import('@supabase/supabase-js');
+    const supabaseUrl = process.env.SUPABASE_URL;
+    const supabaseKey = process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_KEY;
+    const supabase = createClient(supabaseUrl, supabaseKey);
+
+    // Fetch keywords from user_locations table
+    const { data: locationData, error } = await supabase
+      .from('user_locations')
+      .select('keywords')
+      .eq('location_id', locationId)
+      .eq('user_id', userId)
+      .maybeSingle();
+
+    if (error) {
+      console.error(`[QR Code] ❌ Error fetching keywords:`, error);
+      return res.json({ keywords: '', message: 'No keywords found' });
+    }
+
+    const keywords = locationData?.keywords || '';
+    console.log(`[QR Code] ✅ Found keywords: "${keywords || 'none'}"`);
+
+    res.json({ keywords });
+
+  } catch (error) {
+    console.error('[QR Code] ❌ Error fetching location keywords:', error);
+    res.status(500).json({ error: 'Failed to fetch keywords', keywords: '' });
+  }
+});
+
 export default router;

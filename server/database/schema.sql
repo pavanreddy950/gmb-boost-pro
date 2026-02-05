@@ -38,6 +38,8 @@ CREATE TABLE IF NOT EXISTS subscriptions (
   status TEXT NOT NULL DEFAULT 'trial',
   plan_id TEXT,
   profile_count INTEGER DEFAULT 0,
+  paid_slots INTEGER DEFAULT 0,
+  paid_location_ids JSONB DEFAULT '[]',
   trial_start_date TIMESTAMP WITH TIME ZONE,
   trial_end_date TIMESTAMP WITH TIME ZONE,
   subscription_start_date TIMESTAMP WITH TIME ZONE,
@@ -199,6 +201,7 @@ CREATE TABLE IF NOT EXISTS qr_codes (
   location_name TEXT,
   address TEXT,
   user_id TEXT NOT NULL,
+  gmail_id TEXT,
   place_id TEXT,
   qr_data_url TEXT,
   review_link TEXT,
@@ -215,6 +218,7 @@ CREATE TABLE IF NOT EXISTS qr_codes (
 CREATE INDEX IF NOT EXISTS idx_qr_codes_code ON qr_codes(code);
 CREATE INDEX IF NOT EXISTS idx_qr_codes_user_id ON qr_codes(user_id);
 CREATE INDEX IF NOT EXISTS idx_qr_codes_location_id ON qr_codes(location_id);
+CREATE INDEX IF NOT EXISTS idx_qr_codes_gmail_id ON qr_codes(gmail_id);
 
 -- ============================================
 -- COUPONS TABLE
@@ -299,6 +303,9 @@ CREATE TRIGGER update_automation_settings_updated_at BEFORE UPDATE ON automation
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
 CREATE TRIGGER update_coupons_updated_at BEFORE UPDATE ON coupons
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TRIGGER update_qr_codes_updated_at BEFORE UPDATE ON qr_codes
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
 -- ============================================
