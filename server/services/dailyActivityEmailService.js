@@ -10,7 +10,7 @@ class DailyActivityEmailService {
     this.fromEmail = process.env.GMAIL_USER || 'hello.lobaiseo@gmail.com';
     this.fromName = 'LOBAISEO Daily Report';
     this.websiteUrl = 'https://www.lobaiseo.com';
-    this.appUrl = 'https://www.app.lobaiseo.com';
+    this.appUrl = 'https://app.lobaiseo.com';
 
     if (!this.disabled) {
       console.log('[DailyActivityEmailService] ✅ Initialized with Gmail SMTP');

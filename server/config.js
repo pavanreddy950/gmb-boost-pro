@@ -43,8 +43,8 @@ class Config {
 
     const productionDefaults = {
       NODE_ENV: 'production',
-      FRONTEND_URL: 'https://www.app.lobaiseo.com',
-      GOOGLE_REDIRECT_URI: 'https://www.app.lobaiseo.com/auth/google/callback',
+      FRONTEND_URL: 'https://app.lobaiseo.com',
+      GOOGLE_REDIRECT_URI: 'https://app.lobaiseo.com/auth/google/callback',
       GOOGLE_CLIENT_ID: '52772597205-9ogv54i6sfvucse3jrqj1nl1hlkspcv1.apps.googleusercontent.com',
       GOOGLE_CLIENT_SECRET: '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',
       HARDCODED_ACCOUNT_ID: '106433552101751461082',
@@ -167,7 +167,7 @@ class Config {
   get frontendUrl() {
     // Use Azure frontend URL if in production mode
     if (process.env.NODE_ENV === 'production') {
-      return process.env.FRONTEND_URL || 'https://www.app.lobaiseo.com';
+      return process.env.FRONTEND_URL || 'https://app.lobaiseo.com';
     }
     return process.env.FRONTEND_URL || 'http://localhost:3000';
   }
@@ -207,7 +207,7 @@ class Config {
     // Production origins (including custom domain)
     if (process.env.NODE_ENV === 'production') {
       origins.push(
-        'https://www.app.lobaiseo.com',
+        'https://app.lobaiseo.com',
         'https://lobaiseofrontend.onrender.com',
         'https://lobaiseo-frontend.onrender.com',
         'https://lobaiseo.onrender.com'

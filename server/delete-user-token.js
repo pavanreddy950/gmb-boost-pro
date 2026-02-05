@@ -32,7 +32,7 @@ async function deleteUserToken() {
 
     console.log('✅ Token deleted successfully!');
     console.log('\n📋 Next steps:');
-    console.log('1. Go to www.app.lobaiseo.com');
+    console.log('1. Go to app.lobaiseo.com');
     console.log('2. Click "Connect Google Business Profile"');
     console.log('3. Complete OAuth to get fresh tokens');
 

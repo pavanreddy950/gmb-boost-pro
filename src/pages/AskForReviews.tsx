@@ -495,7 +495,7 @@ const AskForReviews = () => {
       console.log('🔍 Generating QR code for custom review suggestions page');
       
       // Create custom public review page URL with business info and Google review link
-      const frontendUrl = import.meta.env.PROD ? 'https://www.app.lobaiseo.com' : window.location.origin;
+      const frontendUrl = import.meta.env.PROD ? 'https://app.lobaiseo.com' : window.location.origin;
       const publicReviewUrl = `${frontendUrl}/review/${location.locationId}?` +
         `business=${encodeURIComponent(location.displayName)}&` +
         `location=${encodeURIComponent(location.address?.locality || location.address?.administrativeArea || 'Location')}&` +
@@ -506,13 +506,7 @@ const AskForReviews = () => {
       // Generate QR code for our custom page (not directly to Google)
       const qrCodeUrl = await QRCode.toDataURL(publicReviewUrl, {
         errorCorrectionLevel: 'M',
-        type: 'image/png',
-        quality: 0.92,
         margin: 2,
-        color: {
-          dark: '#000000',
-          light: '#FFFFFF',
-        },
         width: 512
       });
       
@@ -801,9 +795,9 @@ const AskForReviews = () => {
                         <div className="flex items-center gap-2 mt-2">
                           <MapPin className="h-4 w-4 text-muted-foreground" />
                           <p className="text-sm text-muted-foreground">
-                            {location.storefrontAddress?.locality || 
-                             location.storefrontAddress?.administrativeArea ||
-                             location.storefrontAddress?.addressLines?.[0] ||
+                            {location.address?.locality ||
+                             location.address?.administrativeArea ||
+                             location.address?.addressLines?.[0] ||
                              account.accountName}
                           </p>
                         </div>

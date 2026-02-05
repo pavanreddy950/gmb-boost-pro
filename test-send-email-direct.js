@@ -80,7 +80,7 @@ LOBAISEO Team`,
       <p class="message">You have 14 days remaining in your trial period. Make the most of your LOBAISEO automation features!</p>
 
       <div style="text-align: center;">
-        <a href="https://www.app.lobaiseo.com/billing" class="cta-button">View Upgrade Options</a>
+        <a href="https://app.lobaiseo.com/billing" class="cta-button">View Upgrade Options</a>
       </div>
     </div>
 

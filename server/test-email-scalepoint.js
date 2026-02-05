@@ -145,7 +145,7 @@ LOBAISEO Team`,
       </p>
 
       <div style="text-align: center; margin: 30px 0;">
-        <a href="https://www.app.lobaiseo.com/dashboard" class="cta-button">View Dashboard</a>
+        <a href="https://app.lobaiseo.com/dashboard" class="cta-button">View Dashboard</a>
       </div>
 
       <p class="message" style="font-size: 14px; color: #6B7280;">
@@ -160,7 +160,7 @@ LOBAISEO Team`,
       <p style="margin: 15px 0; font-size: 13px;">© 2025 LOBAISEO. All rights reserved.</p>
       <p style="font-size: 12px; color: #9CA3AF; margin-top: 15px;">
         You're receiving this because your business is using LOBAISEO automation.<br>
-        <a href="https://www.app.lobaiseo.com/settings" style="color: #9CA3AF; text-decoration: underline;">Manage preferences</a>
+        <a href="https://app.lobaiseo.com/settings" style="color: #9CA3AF; text-decoration: underline;">Manage preferences</a>
       </p>
     </div>
   </div>

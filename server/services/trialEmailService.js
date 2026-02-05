@@ -9,7 +9,7 @@ class TrialEmailService {
     this.fromEmail = process.env.GMAIL_USER || 'hello.lobaiseo@gmail.com';
     this.fromName = 'LOBAISEO Support';
     this.websiteUrl = 'https://www.lobaiseo.com';
-    this.appUrl = 'https://www.app.lobaiseo.com';
+    this.appUrl = 'https://app.lobaiseo.com';
 
     if (!this.disabled) {
       console.log('[TrialEmailService] ✅ Initialized with Gmail SMTP');

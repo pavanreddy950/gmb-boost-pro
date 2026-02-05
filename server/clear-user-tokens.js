@@ -46,7 +46,7 @@ async function clearUserTokens() {
     console.log('========================================');
     console.log('✨ NEXT STEPS:');
     console.log('========================================');
-    console.log('1. Go to https://www.app.lobaiseo.com/dashboard/settings');
+    console.log('1. Go to https://app.lobaiseo.com/dashboard/settings');
     console.log('2. Click on "Connections" tab');
     console.log('3. Click "Connect Google Business Profile"');
     console.log('4. Complete the OAuth flow');

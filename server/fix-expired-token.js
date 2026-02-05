@@ -35,7 +35,7 @@ async function fixExpiredToken() {
       console.log('✅ No token found - user is already disconnected');
       console.log('');
       console.log('📋 Next steps:');
-      console.log('1. Go to https://www.app.lobaiseo.com');
+      console.log('1. Go to https://app.lobaiseo.com');
       console.log('2. Navigate to Settings > Connections');
       console.log('3. Click "Connect Google Business Profile"');
       console.log('4. Complete the OAuth flow to get fresh tokens');
@@ -61,7 +61,7 @@ async function fixExpiredToken() {
       console.log('✅ Token deleted successfully!');
       console.log('');
       console.log('📋 Next steps:');
-      console.log('1. Go to https://www.app.lobaiseo.com');
+      console.log('1. Go to https://app.lobaiseo.com');
       console.log('2. Navigate to Settings > Connections');
       console.log('3. Click "Connect Google Business Profile"');
       console.log('4. Complete the OAuth flow to get fresh tokens');

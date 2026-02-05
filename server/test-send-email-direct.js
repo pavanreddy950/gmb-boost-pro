@@ -121,7 +121,7 @@ LOBAISEO Team`,
       </div>
 
       <div style="text-align: center; margin: 30px 0;">
-        <a href="https://www.app.lobaiseo.com/billing" class="cta-button">View Upgrade Options</a>
+        <a href="https://app.lobaiseo.com/billing" class="cta-button">View Upgrade Options</a>
       </div>
 
       <p class="message" style="font-size: 14px; color: #6B7280;">
