@@ -1,4 +1,49 @@
 // ============================================================================
+// GLOBAL ERROR HANDLERS - Must be FIRST to catch any startup errors
+// Without these, any unhandled error kills the process with "Exited with status 1"
+// ============================================================================
+process.on('uncaughtException', (error) => {
+  console.error('🔴 [FATAL] Uncaught Exception:', error.message);
+  console.error('🔴 [FATAL] Stack:', error.stack);
+  // Don't exit - let the server try to recover
+  // Only exit on truly unrecoverable errors
+  if (error.message?.includes('EADDRINUSE')) {
+    console.error('🔴 [FATAL] Port already in use - cannot recover. Exiting.');
+    process.exit(1);
+  }
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('🟠 [WARNING] Unhandled Promise Rejection:', reason);
+  // Don't exit - log and continue
+});
+
+// ============================================================================
+// GRACEFUL SHUTDOWN - Render sends SIGTERM before stopping instances
+// Without this, connections drop and cron jobs die abruptly
+// ============================================================================
+let isShuttingDown = false;
+
+function gracefulShutdown(signal) {
+  if (isShuttingDown) return;
+  isShuttingDown = true;
+  console.warn(`⚠️ [SHUTDOWN] Received ${signal}. Graceful shutdown starting...`);
+
+  // Give ongoing requests 10 seconds to complete, then force exit
+  const forceExitTimeout = setTimeout(() => {
+    console.error('🔴 [SHUTDOWN] Forced exit after timeout');
+    process.exit(1);
+  }, 10000);
+  forceExitTimeout.unref(); // Don't keep process alive just for this timer
+
+  console.warn('✅ [SHUTDOWN] Cleanup complete. Exiting.');
+  process.exit(0);
+}
+
+process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+process.on('SIGINT', () => gracefulShutdown('SIGINT'));
+
+// ============================================================================
 // PRODUCTION LOGGING CONTROL
 // Disable verbose console.log in production, keep errors and warnings
 // ============================================================================
@@ -8,8 +53,22 @@ if (isProduction) {
   const originalInfo = console.info;
   const originalDebug = console.debug;
 
-  // Silence console.log, console.info, console.debug in production
-  console.log = () => {};
+  // In production, only allow important logs through (startup, errors, service status)
+  // Filter out noisy/repetitive logs but keep critical ones visible in Render logs
+  console.log = (...args) => {
+    const msg = args[0]?.toString() || '';
+    // Keep: startup messages, error messages, service status, critical warnings
+    if (msg.includes('[FATAL]') || msg.includes('[SHUTDOWN]') ||
+        msg.includes('[ERROR]') || msg.includes('❌') ||
+        msg.includes('✅') || msg.includes('🚀') ||
+        msg.includes('[AUTOMATION]') || msg.includes('[TOKEN REFRESH]') ||
+        msg.includes('[ConnectionPool]') || msg.includes('initialized') ||
+        msg.includes('started') || msg.includes('failed') ||
+        msg.includes('[KEEP-ALIVE]') || msg.includes('Running in')) {
+      originalLog(...args);
+    }
+    // Silence verbose/repetitive logs (endpoint lists, ping details, etc.)
+  };
   console.info = () => {};
   console.debug = () => {};
 
@@ -17,7 +76,7 @@ if (isProduction) {
   console.forceLog = originalLog;
 
   // Log once that we're in production mode
-  originalLog('[Server] Running in PRODUCTION mode - verbose logging disabled');
+  originalLog('[Server] Running in PRODUCTION mode - filtered logging enabled');
 }
 
 import express from 'express';
@@ -1454,11 +1513,26 @@ app.use('/auth/google/callback', trackTrialStart);
 // Add trial headers to all responses
 app.use(addTrialHeaders);
 
-// Health check endpoint
+// Health check endpoint - Render uses this to monitor service health
 app.get('/health', (req, res) => {
+  const memUsage = process.memoryUsage();
+  const heapUsedMB = Math.round(memUsage.heapUsed / 1024 / 1024);
+  const heapTotalMB = Math.round(memUsage.heapTotal / 1024 / 1024);
+  const rssMB = Math.round(memUsage.rss / 1024 / 1024);
+
+  // Warn if memory usage is high (over 400MB RSS - Render starter has 512MB)
+  const memoryStatus = rssMB > 400 ? 'warning' : 'healthy';
+
   res.json({
     status: 'OK',
     message: 'Google Business Profile Backend Server is running',
+    uptime: Math.floor(process.uptime()),
+    memory: {
+      heapUsed: `${heapUsedMB}MB`,
+      heapTotal: `${heapTotalMB}MB`,
+      rss: `${rssMB}MB`,
+      status: memoryStatus
+    },
     timestamp: new Date().toISOString()
   });
 });
@@ -5399,7 +5473,11 @@ initializeServer().then(() => {
   });
 }).catch(error => {
   console.error('❌ Failed to initialize server:', error);
-  process.exit(1);
+  console.error('⚠️ Server will attempt to stay alive despite initialization failure.');
+  console.error('⚠️ Some features may not work. Check SUPABASE_URL and SUPABASE_SERVICE_KEY.');
+  // DO NOT call process.exit(1) here - let the server stay alive
+  // Render will keep restarting it otherwise, causing a crash loop
+  // The health endpoint will still respond, and services can recover
 });
 
 

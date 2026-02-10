@@ -44,6 +44,34 @@ class AutomationScheduler {
     this.openaiApiKey = this.azureApiKey;
     this.openaiModel = this.azureDeployment; // For Azure, model is the deployment name
 
+    // Periodic cleanup of stale lock entries (every 10 minutes)
+    // Prevents memory leaks from accumulated lock timestamps
+    this._cleanupInterval = setInterval(() => {
+      const now = Date.now();
+      let cleaned = 0;
+      for (const [key, timestamp] of this.postCreationLocks) {
+        if (now - timestamp > this.DUPLICATE_POST_WINDOW * 2) {
+          this.postCreationLocks.delete(key);
+          cleaned++;
+        }
+      }
+      // Also clean stale postingInProgress entries (stuck for more than 10 minutes)
+      for (const [key, value] of this.postingInProgress) {
+        if (value === true) {
+          // Can't tell how long it's been stuck, but clear it if lock is also expired
+          if (!this.postCreationLocks.has(key)) {
+            this.postingInProgress.delete(key);
+            cleaned++;
+          }
+        }
+      }
+      if (cleaned > 0) {
+        console.log(`[AutomationScheduler] 🧹 Cleaned ${cleaned} stale lock entries`);
+      }
+    }, 10 * 60 * 1000);
+    // Don't let this interval prevent process exit
+    if (this._cleanupInterval.unref) this._cleanupInterval.unref();
+
     // Log Azure OpenAI configuration status
     console.log('[AutomationScheduler] ✅ Azure OpenAI Configuration:');
     console.log(`  - Endpoint: ${this.azureEndpoint ? '✅' : '❌'}`);
@@ -168,6 +196,13 @@ class AutomationScheduler {
   // Initialize all automation schedules (now async to load from Supabase)
   async initializeAutomations() {
     console.log('[AutomationScheduler] 🚀 Initializing all automations from Supabase...');
+
+    // 🔧 CRITICAL FIX: Stop ALL existing jobs before reinitializing
+    // Without this, every reinitialization (from keepAliveService etc.) creates DUPLICATE cron jobs
+    if (this.scheduledJobs.size > 0 || this.reviewCheckIntervals.size > 0) {
+      console.log(`[AutomationScheduler] 🛑 Stopping ${this.scheduledJobs.size} existing jobs and ${this.reviewCheckIntervals.size} review monitors before reinitializing...`);
+      this.stopAllAutomations();
+    }
 
     // 🔧 CRITICAL FIX: Clear all posting locks on initialization
     // This prevents stuck locks from previous runs blocking new posts
@@ -2560,11 +2595,15 @@ const automationScheduler = new AutomationScheduler();
 // NO automatic initialization here - server.js will call initializeAutomations() after startup
 // This allows proper async loading from Supabase
 
-// Graceful shutdown
-process.on('SIGINT', () => {
-  console.log('[AutomationScheduler] Shutting down gracefully...');
+// Graceful shutdown - stop automations but don't call process.exit
+// (server.js handles the actual process exit)
+process.on('SIGTERM', () => {
+  console.log('[AutomationScheduler] Received SIGTERM - stopping automations...');
   automationScheduler.stopAllAutomations();
-  process.exit(0);
+});
+process.on('SIGINT', () => {
+  console.log('[AutomationScheduler] Received SIGINT - stopping automations...');
+  automationScheduler.stopAllAutomations();
 });
 
 export default automationScheduler;

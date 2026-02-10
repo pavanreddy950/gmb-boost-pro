@@ -7,6 +7,7 @@ services:
     region: singapore
     buildCommand: cd server && npm install
     startCommand: cd server && node server.js
+    healthCheckPath: /health
     envVars:
       - key: NODE_ENV
         value: production
