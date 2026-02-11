@@ -408,7 +408,7 @@ class CouponService {
           is_active: true,
           max_uses: couponData.maxUses || 100,
           used_count: 0,
-          valid_until: couponData.validUntil ? new Date(couponData.validUntil).toISOString() : '2025-12-31T23:59:59Z',
+          valid_until: couponData.validUntil ? new Date(couponData.validUntil).toISOString() : '2030-12-31T23:59:59Z',
           single_use: couponData.singleUse || false,
           created_by: 'admin'
         })

@@ -10,6 +10,19 @@ const router = express.Router();
 // All admin routes require admin authentication
 router.use(verifyAdmin);
 
+// ============= ADMIN STATUS CHECK =============
+// Frontend uses this to verify admin status since Firebase Admin SDK is disabled
+router.get('/me', (req, res) => {
+  res.json({
+    success: true,
+    data: {
+      isAdmin: true,
+      adminLevel: req.admin?.adminLevel || 'viewer',
+      email: req.admin?.email
+    }
+  });
+});
+
 // ============= DASHBOARD =============
 router.get('/dashboard/stats', async (req, res) => {
   try {
@@ -182,7 +195,7 @@ router.post('/coupons', checkAdminLevel(['super', 'moderator']), async (req, res
       type: req.body.discountType || req.body.type,
       discount: req.body.discountValue || req.body.discount,
       maxUses: req.body.maxUses,
-      validUntil: req.body.expiresAt ? new Date(req.body.expiresAt) : (req.body.validUntil || new Date('2025-12-31')),
+      validUntil: req.body.expiresAt ? new Date(req.body.expiresAt) : (req.body.validUntil || new Date('2030-12-31')),
       description: req.body.description || '',
       oneTimePerUser: req.body.oneTimePerUser || false,
       singleUse: req.body.singleUse || false, // Auto-disable after first use

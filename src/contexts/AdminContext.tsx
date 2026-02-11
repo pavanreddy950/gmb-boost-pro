@@ -60,7 +60,8 @@ export const AdminProvider: React.FC<AdminProviderProps> = ({ children }) => {
   const [auditLogs, setAuditLogs] = useState<any[]>([]);
   const [auditStats, setAuditStats] = useState<any>(null);
 
-  // Check if user is admin
+  // Check if user is admin via backend API
+  // Firebase Admin SDK is disabled, so we can't rely on token claims
   useEffect(() => {
     const checkAdminStatus = async () => {
       if (!currentUser) {
@@ -71,12 +72,40 @@ export const AdminProvider: React.FC<AdminProviderProps> = ({ children }) => {
       }
 
       try {
+        // First try Firebase claims (in case they're set)
         const tokenResult = await currentUser.getIdTokenResult();
         const role = tokenResult.claims.role;
         const level = tokenResult.claims.adminLevel;
 
-        setIsAdmin(role === 'admin');
-        setAdminLevel(level || 'viewer');
+        if (role === 'admin') {
+          setIsAdmin(true);
+          setAdminLevel((level as string) || 'super');
+          setIsLoading(false);
+          return;
+        }
+
+        // Firebase claims not set - check via backend API
+        const token = await currentUser.getIdToken();
+        const response = await fetch(`${BACKEND_URL}/api/admin/me`, {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        });
+
+        if (response.ok) {
+          const result = await response.json();
+          if (result.success && result.data.isAdmin) {
+            setIsAdmin(true);
+            setAdminLevel(result.data.adminLevel || 'super');
+            setIsLoading(false);
+            return;
+          }
+        }
+
+        // Not an admin
+        setIsAdmin(false);
+        setAdminLevel(null);
       } catch (error) {
         console.error('Error checking admin status:', error);
         setIsAdmin(false);
