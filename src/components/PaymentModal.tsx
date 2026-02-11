@@ -262,14 +262,12 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
   // ORDER-BASED PAYMENT (for test/low-amount payments like RAJATEST coupon)
   const handleOrderPayment = async () => {
     try {
-      // Calculate amount
+      // IMPORTANT: Always send the ORIGINAL amount to the backend, NOT the discounted amount.
+      // The backend applies the coupon itself via couponService.applyCoupon().
+      // If we send the already-discounted amount AND the couponCode, the coupon gets applied twice → amount goes to ₹0 → Razorpay rejects.
       let usdAmount = selectedPlanId === 'per_profile_yearly'
         ? SubscriptionService.calculateTotalPrice(profileCount)
         : selectedPlan.amount;
-
-      if (couponDetails && couponDetails.finalAmount) {
-        usdAmount = couponDetails.finalAmount;
-      }
 
       // Check if plan is already in INR (don't convert if already INR)
       const isAlreadyINR = selectedPlan.currency === 'INR';
@@ -287,7 +285,9 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
         console.log(`[Order Payment] 💱 Amount: $${usdInDollars} USD → ₹${convertedAmount} INR`);
       }
 
-      // Create order
+      console.log(`[Order Payment] 📦 Sending original amount ₹${convertedAmount} with coupon "${couponCode || 'none'}" - backend will apply discount`);
+
+      // Create order - backend will apply coupon discount to the original amount
       const orderResponse = await fetch(`${backendUrl}/api/user-payment/order`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -445,12 +445,13 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
         description: "Preparing subscription with auto-pay mandate...",
       });
 
-      // Calculate USD amount
+      // Calculate USD amount - use ORIGINAL amount, coupon is applied by backend
       let usdAmount = selectedPlanId === 'per_profile_yearly'
         ? SubscriptionService.calculateTotalPrice(profileCount)
         : selectedPlan.amount;
 
-      // Apply coupon discount if available
+      // For subscriptions, apply coupon discount here since the plan amount is set once
+      // (unlike orders where backend applies it)
       console.log('[Subscription] 🔍 Checking coupon:', { couponDetails, hasCouponDetails: !!couponDetails, finalAmount: couponDetails?.finalAmount });
 
       if (couponDetails && couponDetails.finalAmount) {
