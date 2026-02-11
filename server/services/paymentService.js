@@ -210,10 +210,25 @@ export class PaymentService {
     try {
       this._checkConfiguration();
 
+      console.log('[PaymentService] Creating customer for email:', email);
+
+      // Step 1: Try to find existing customer first (avoids fail_existing issues)
+      try {
+        const customers = await this.razorpay.customers.all({ count: 100 });
+        const existingCustomer = customers.items?.find(c => c.email === email);
+        if (existingCustomer) {
+          console.log('[PaymentService] ✅ Found existing Razorpay customer:', existingCustomer.id);
+          return existingCustomer;
+        }
+      } catch (fetchErr) {
+        console.warn('[PaymentService] ⚠️ Could not search existing customers:', fetchErr.message);
+        // Continue to create new customer
+      }
+
+      // Step 2: Customer not found, create new one
       const customerOptions = {
         name: name || email,
-        email,
-        fail_existing: 0
+        email
       };
 
       // Only add contact if it's a valid phone number (not empty string)
@@ -221,7 +236,7 @@ export class PaymentService {
         customerOptions.contact = contact;
       }
 
-      console.log('[PaymentService] Creating customer with options:', {
+      console.log('[PaymentService] Creating new customer with options:', {
         name: customerOptions.name,
         email: customerOptions.email,
         hasContact: !!customerOptions.contact
@@ -239,26 +254,20 @@ export class PaymentService {
         error: error.error
       });
 
-      // Check if customer already exists
-      // Error description can be in error.description or error.error.description
+      // Last resort: try fetching existing customer one more time
       const errorMsg = error.description || error.error?.description || error.message || '';
-      if (errorMsg.includes('Customer already exists') || errorMsg.includes('already exists for the merchant')) {
-        console.log('[PaymentService] 🔍 Customer already exists, fetching existing customer...');
+      if (error.statusCode === 400 || errorMsg.includes('already exists')) {
+        console.log('[PaymentService] 🔍 Creation failed, attempting to find existing customer...');
         try {
-          // Fetch all customers and find by email
-          const customers = await this.razorpay.customers.all();
-          const existingCustomer = customers.items.find(c => c.email === email);
+          const customers = await this.razorpay.customers.all({ count: 100 });
+          const existingCustomer = customers.items?.find(c => c.email === email);
 
           if (existingCustomer) {
-            console.log('[PaymentService] ✅ Found existing customer:', existingCustomer.id);
+            console.log('[PaymentService] ✅ Found existing customer on retry:', existingCustomer.id);
             return existingCustomer;
-          } else {
-            console.error('[PaymentService] ❌ Could not find existing customer by email');
-            throw new Error('Customer exists but could not be retrieved');
           }
         } catch (fetchError) {
-          console.error('[PaymentService] ❌ Error fetching existing customer:', fetchError);
-          throw fetchError;
+          console.error('[PaymentService] ❌ Error fetching existing customer:', fetchError.message);
         }
       }
 
