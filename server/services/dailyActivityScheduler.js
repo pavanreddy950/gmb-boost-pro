@@ -3,8 +3,11 @@ import fs from 'fs/promises';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import dailyActivityEmailService from './dailyActivityEmailService.js';
+import TrialEmailService from './trialEmailService.js';
 import supabaseTokenStorage from './supabaseTokenStorage.js';
 import supabaseSubscriptionService from './supabaseSubscriptionService.js';
+
+const trialEmailService = new TrialEmailService();
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -221,19 +224,24 @@ class DailyActivityScheduler {
 
     // During trial: send daily
     if (status === 'trial' && trialDaysRemaining > 0) {
-      return { send: true, frequency: 'daily' };
+      return { send: true, type: 'normal', frequency: 'daily' };
     }
 
-    // After trial ends: send weekly (every 7 days)
-    if (status === 'active' || status === 'expired') {
+    // Active paid subscribers: send weekly on Sundays
+    if (status === 'active') {
       const now = new Date();
-      const dayOfWeek = now.getDay(); // 0 = Sunday, 1 = Monday, etc.
-
-      // Send on Sundays (day 0)
-      return { send: dayOfWeek === 0, frequency: 'weekly' };
+      const dayOfWeek = now.getDay(); // 0 = Sunday
+      return { send: dayOfWeek === 0, type: 'normal', frequency: 'weekly' };
     }
 
-    return { send: false, frequency: 'none' };
+    // Expired trial: send upgrade email weekly on Sundays (NOT normal activity email)
+    if (status === 'expired' || (status === 'trial' && trialDaysRemaining <= 0)) {
+      const now = new Date();
+      const dayOfWeek = now.getDay();
+      return { send: dayOfWeek === 0, type: 'expired_upgrade', frequency: 'weekly' };
+    }
+
+    return { send: false, type: 'none', frequency: 'none' };
   }
 
   /**
@@ -246,11 +254,33 @@ class DailyActivityScheduler {
       console.log(`[DailyActivityScheduler] Processing report for ${email}`);
 
       // Check if we should send report
-      const { send, frequency } = this.shouldSendDailyReport(subscription);
+      const { send, type, frequency } = this.shouldSendDailyReport(subscription);
 
       if (!send) {
         console.log(`[DailyActivityScheduler] Skipping ${email} - ${frequency} schedule not met`);
         return { success: false, reason: 'Schedule not met' };
+      }
+
+      // Expired users get the upgrade email — NOT the normal activity report
+      if (type === 'expired_upgrade') {
+        console.log(`[DailyActivityScheduler] 🔴 Sending expired upgrade email to ${email}`);
+        const userName = email.split('@')[0];
+        const trialEndDate = subscription.trialEndDate
+          ? new Date(subscription.trialEndDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })
+          : 'recently';
+        const result = await trialEmailService.sendTrialReminderEmail(
+          email,
+          userName,
+          0,
+          trialEndDate,
+          'expired'
+        );
+        if (result.success !== false) {
+          console.log(`[DailyActivityScheduler] ✅ Expired upgrade email sent to ${email}`);
+        } else {
+          console.error(`[DailyActivityScheduler] ❌ Failed to send expired email to ${email}:`, result.error);
+        }
+        return result;
       }
 
       // Get today's activity
