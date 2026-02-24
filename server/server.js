@@ -103,6 +103,7 @@ import placesRoutes from './routes/places.js';
 import reviewRequestsRoutes from './routes/reviewRequests.js';
 import photosRoutes from './routes/photos.js';
 import socialRoutes from './routes/social.js';
+import profileOptimizerRoutes from './routes/profileOptimizer.js';
 import facebookAuthRoutes from './routes/facebookAuth.js';
 import { postToSocialMedia } from './services/socialMediaPoster.js';
 import { checkSubscription, trackTrialStart, addTrialHeaders } from './middleware/subscriptionCheck.js';
@@ -335,6 +336,7 @@ app.use('/api/places', placesRoutes);
 app.use('/api/v2/review-requests', reviewRequestsRoutes);
 app.use('/api/photos', photosRoutes);
 app.use('/api/social', socialRoutes);
+app.use('/api/profile-optimizer', profileOptimizerRoutes);
 app.use('/auth', facebookAuthRoutes);
 
 // Admin routes (protected by admin auth middleware)

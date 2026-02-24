@@ -1364,7 +1364,9 @@ router.post('/global-time', async (req, res) => {
 
         for (const profile of profiles) {
           const locationId = profile.locationId;
-          const businessName = profile.businessName || 'Unknown';
+          const rawBusinessName = profile.businessName;
+          const businessName = (rawBusinessName && rawBusinessName !== 'Unknown' && !rawBusinessName.startsWith('locations/') && !rawBusinessName.match(/^[0-9]+$/))
+            ? rawBusinessName : null;
           const address = profile.address || '';
 
           try {
@@ -1374,7 +1376,7 @@ router.post('/global-time', async (req, res) => {
               .upsert({
                 gmail_id: userEmail,
                 location_id: locationId,
-                business_name: businessName,
+                ...(businessName ? { business_name: businessName } : {}),
                 address: address,
                 autoposting_enabled: true,
                 autoposting_schedule: schedule,
@@ -1457,7 +1459,9 @@ router.post('/global-time', async (req, res) => {
         // Insert memory locations to database and update them
         for (const locationId of memoryLocations) {
           const config = automations[locationId];
-          const businessName = config?.autoPosting?.businessName || config?.businessName || 'Unknown';
+          const rawBusinessName = config?.autoPosting?.businessName || config?.businessName;
+          const businessName = (rawBusinessName && rawBusinessName !== 'Unknown' && !rawBusinessName.startsWith('locations/') && !rawBusinessName.match(/^[0-9]+$/))
+            ? rawBusinessName : null;
 
           try {
             // Upsert location to user_locations table
@@ -1466,7 +1470,7 @@ router.post('/global-time', async (req, res) => {
               .upsert({
                 gmail_id: userEmail,
                 location_id: locationId,
-                business_name: businessName,
+                ...(businessName ? { business_name: businessName } : {}),
                 autoposting_enabled: true,
                 autoposting_schedule: schedule,
                 autoposting_frequency: actualFrequency,

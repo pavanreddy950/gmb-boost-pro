@@ -2299,9 +2299,9 @@ Think of yourself as writing a quick, enthusiastic recommendation - SHORT but me
     // instead of the actual business name. Also try to get it from autoPosting settings.
     let businessName = config.businessName || config.autoPosting?.businessName || 'our business';
 
-    // If businessName looks like a location path (e.g., "locations/143639376938647655"),
+    // If businessName looks like a location path, is a bare number, or is the placeholder 'Unknown',
     // try to get the real name from other sources or use a fallback
-    if (businessName.startsWith('locations/') || businessName.match(/^[0-9]+$/)) {
+    if (businessName === 'Unknown' || businessName.startsWith('locations/') || businessName.match(/^[0-9]+$/)) {
       console.log(`[AutomationScheduler] ⚠️ businessName is a location ID: "${businessName}", looking for real name...`);
 
       // Try to get real business name from config.locationName or autoPosting.locationName
@@ -2314,7 +2314,7 @@ Think of yourself as writing a quick, enthusiastic recommendation - SHORT but me
         console.log(`[AutomationScheduler] ✅ Found real business name: "${businessName}"`);
       } else {
         // Last resort: fetch from Supabase using locationId
-        const locationId = businessName.replace('locations/', '') || config.locationId;
+        const locationId = config.locationId || (businessName !== 'Unknown' ? businessName.replace('locations/', '') : null);
         try {
           const { data } = await supabaseAutomationService.client
             .from('user_locations')
@@ -2322,7 +2322,7 @@ Think of yourself as writing a quick, enthusiastic recommendation - SHORT but me
             .eq('location_id', locationId)
             .single();
 
-          if (data?.business_name && !data.business_name.startsWith('locations/')) {
+          if (data?.business_name && data.business_name !== 'Unknown' && !data.business_name.startsWith('locations/') && !data.business_name.match(/^[0-9]+$/)) {
             businessName = data.business_name;
             console.log(`[AutomationScheduler] ✅ Fetched real business name from DB: "${businessName}"`);
           } else {
