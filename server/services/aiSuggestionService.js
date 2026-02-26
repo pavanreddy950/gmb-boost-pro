@@ -55,32 +55,23 @@ class AISuggestionService {
 
     console.log(`[AISuggestionService] Calling Gemini ${this.geminiModel} (maxTokens: ${maxTokens})`);
 
-    const controller = new AbortController();
-    const fetchTimeout = setTimeout(() => controller.abort(), 25000); // 25s per call
-
-    let response;
-    try {
-      response = await fetch(this.geminiEndpoint, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        signal: controller.signal,
-        body: JSON.stringify({
-          contents: [
-            { role: 'user', parts: [{ text: userPrompt }] }
-          ],
-          systemInstruction: {
-            parts: [{ text: systemPrompt }]
-          },
-          generationConfig: {
-            responseMimeType: 'application/json',
-            temperature: 0.7,
-            maxOutputTokens: maxTokens
-          }
-        })
-      });
-    } finally {
-      clearTimeout(fetchTimeout);
-    }
+    const response = await fetch(this.geminiEndpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [
+          { role: 'user', parts: [{ text: userPrompt }] }
+        ],
+        systemInstruction: {
+          parts: [{ text: systemPrompt }]
+        },
+        generationConfig: {
+          responseMimeType: 'application/json',
+          temperature: 0.7,
+          maxOutputTokens: maxTokens
+        }
+      })
+    });
 
     if (!response.ok) {
       const errorText = await response.text();
@@ -1262,45 +1253,35 @@ Create 3 posts (what's new, offer, event) that are specific to this business and
     if (needsSuggestion('hoursCompleteness', hasHours)) {
       generators.push({ name: 'hours', fn: () => this.generateHoursSuggestion(profileData, auditResults, null, businessContext) });
     }
-    if (needsSuggestion('photoCoverage', hasPhotos)) {
-      generators.push({ name: 'photos', fn: () => this.generatePhotoGuide(profileData, auditResults, null, businessContext) });
-    }
+    // NOTE: posts, photos, replyTemplates are intentionally excluded —
+    // those are handled by other features (Auto-Posting, Auto Gallery, Reviews).
+    // socialLinks is kept because it covers GBP website/booking URLs, not social posting.
     if (needsSuggestion('linksAndSocial', hasWebsite)) {
       generators.push({ name: 'socialLinks', fn: () => this.generateSocialLinksSuggestion(profileData, auditResults, null, businessContext) });
     }
-    if (needsSuggestion('postingActivity', hasEnoughPosts)) {
-      generators.push({ name: 'posts', fn: () => this.generatePostSuggestion(profileData, auditResults, null, businessContext) });
-    }
-    const hasReviews = (profileData.reviews || []).length > 0;
-    if (needsSuggestion('reviewResponseRate') && hasReviews) {
-      generators.push({ name: 'replyTemplates', fn: () => this.generateReplyTemplates(profileData, auditResults, null, businessContext) });
-    }
 
-    console.log(`[AISuggestionService] Running ${generators.length}/10 generators in batches of 3 (skipping modules with score >= 95)`);
+    console.log(`[AISuggestionService] Running ${generators.length} generators sequentially with 2s delay (score threshold < 95)`);
     generators.forEach(g => console.log(`  → ${g.name} (score: ${moduleScores[g.name] ?? 'N/A'})`));
 
     const suggestions = [];
     const errors = [];
 
-    // Run generators in batches of 3 — parallel within batch, 800ms between batches
-    // This balances speed (not fully sequential) with rate-limit safety (not fully parallel)
-    const BATCH_SIZE = 3;
-    for (let i = 0; i < generators.length; i += BATCH_SIZE) {
-      const batch = generators.slice(i, i + BATCH_SIZE);
+    // Run generators one at a time with a 2-second gap between calls.
+    // This is the only reliable approach for Gemini's rate limits (10 RPM free / 2000 RPM paid).
+    // Total time: ~7 generators × (2s gap + 2s API) ≈ 28 seconds max.
+    for (let i = 0; i < generators.length; i++) {
       if (i > 0) {
-        await new Promise(resolve => setTimeout(resolve, 800)); // wait between batches
+        await new Promise(resolve => setTimeout(resolve, 2000)); // 2s between calls
       }
-      const batchResults = await Promise.allSettled(batch.map(g => g.fn()));
-      batchResults.forEach((result, idx) => {
-        const name = batch[idx].name;
-        if (result.status === 'fulfilled') {
-          console.log(`[AISuggestionService] Successfully generated: ${name}`);
-          suggestions.push(result.value);
-        } else {
-          console.error(`[AISuggestionService] Failed to generate ${name}:`, result.reason?.message || result.reason);
-          errors.push({ type: name, message: result.reason?.message || `Failed to generate ${name}` });
-        }
-      });
+      const g = generators[i];
+      try {
+        const result = await g.fn();
+        console.log(`[AISuggestionService] ✓ Generated: ${g.name}`);
+        suggestions.push(result);
+      } catch (err) {
+        console.error(`[AISuggestionService] ✗ Failed: ${g.name} →`, err?.message || err);
+        errors.push({ type: g.name, message: err?.message || `Failed to generate ${g.name}` });
+      }
     }
 
     console.log(`[AISuggestionService] Generation complete: ${suggestions.length} succeeded, ${errors.length} failed`);
