@@ -6,7 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import {
   CheckCircle2, Clock, XCircle, AlertTriangle, RotateCcw,
   FileText, Tags, Settings2, Wrench, ShoppingBag, Link2,
-  Loader2, Rocket, Info
+  Loader2, Rocket, Info, RefreshCw
 } from 'lucide-react';
 
 interface Deployment {
@@ -29,6 +29,8 @@ interface Deployment {
 interface Props {
   deployments: Deployment[];
   onRollback: (id: string) => void;
+  onRetry: (id: string) => void;
+  retryingId?: string | null;
   jobId?: string;
 }
 
@@ -53,7 +55,7 @@ const itemVariants = {
   visible: { opacity: 1, y: 0, transition: { type: 'spring', stiffness: 300, damping: 24 } }
 };
 
-const DeploymentTimeline: React.FC<Props> = ({ deployments, onRollback }) => {
+const DeploymentTimeline: React.FC<Props> = ({ deployments, onRollback, onRetry, retryingId }) => {
   if (!deployments || deployments.length === 0) {
     return (
       <Card className="border-2 border-dashed border-border/50">
@@ -115,6 +117,8 @@ const DeploymentTimeline: React.FC<Props> = ({ deployments, onRollback }) => {
           const isFailed = deployment.status === 'failed';
           const gbpPushedThisOne = deployment.gbp_applied;
           const hasNote = !!deployment.gbp_note;
+          const isManual = isApplied && !gbpPushedThisOne;
+          const isRetrying = retryingId === deployment.id;
 
           return (
             <motion.div key={deployment.id} variants={itemVariants}>
@@ -187,6 +191,24 @@ const DeploymentTimeline: React.FC<Props> = ({ deployments, onRollback }) => {
                           <Loader2 className="w-3 h-3 mr-1 animate-spin" />
                           Deploying
                         </Badge>
+                      )}
+
+                      {/* Retry button — for Manual or Failed items */}
+                      {(isManual || isFailed) && (
+                        <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => onRetry(deployment.id)}
+                            disabled={isRetrying}
+                            className="h-7 text-xs text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded-lg"
+                          >
+                            {isRetrying
+                              ? <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+                              : <RefreshCw className="w-3 h-3 mr-1" />}
+                            {isRetrying ? 'Retrying…' : 'Retry'}
+                          </Button>
+                        </motion.div>
                       )}
 
                       {/* Rollback button (only for GBP-pushed items) */}

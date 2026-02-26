@@ -166,6 +166,7 @@ const ProfileOptimization: React.FC = () => {
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
   const [deployments, setDeployments] = useState<Deployment[]>([]);
   const [hasExistingJob, setHasExistingJob] = useState(false);
+  const [retryingDeploymentId, setRetryingDeploymentId] = useState<string | null>(null);
 
   // Get all locations from all accounts
   const allLocations = accounts.flatMap(account =>
@@ -415,6 +416,48 @@ const ProfileOptimization: React.FC = () => {
       toast({ title: 'Change rolled back' });
     } catch (error) {
       toast({ title: 'Failed to rollback', variant: 'destructive' });
+    }
+  };
+
+  const handleRetryDeployment = async (deploymentId: string) => {
+    if (!job?.id || !selectedLocationId) return;
+    setRetryingDeploymentId(deploymentId);
+    try {
+      const storedTokens = localStorage.getItem('google_business_tokens');
+      const tokens = storedTokens ? JSON.parse(storedTokens) : {};
+      const accessToken = tokens.access_token || '';
+
+      const res = await fetch(
+        `${backendUrl}/api/profile-optimizer/deploy/${job.id}/retry/${deploymentId}`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${accessToken}`,
+          },
+          body: JSON.stringify({ locationId: selectedLocationId }),
+        }
+      );
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Retry failed');
+
+      // Update the specific deployment in state
+      const updated: any = data.deployment;
+      setDeployments(prev => prev.map(d => d.id === deploymentId ? { ...d, ...updated } : d));
+
+      if (updated.gbp_applied) {
+        toast({ title: 'Retry successful!', description: 'Change pushed to Google Business Profile.' });
+      } else {
+        toast({
+          title: 'Still needs manual action',
+          description: updated.gbp_note || 'Could not auto-deploy — set manually in GBP.',
+          variant: 'destructive',
+        });
+      }
+    } catch (error: any) {
+      toast({ title: 'Retry failed', description: error.message, variant: 'destructive' });
+    } finally {
+      setRetryingDeploymentId(null);
     }
   };
 
@@ -828,6 +871,8 @@ const ProfileOptimization: React.FC = () => {
                 <DeploymentTimeline
                   deployments={deployments}
                   onRollback={handleRollback}
+                  onRetry={handleRetryDeployment}
+                  retryingId={retryingDeploymentId}
                   jobId={job?.id}
                 />
               </TabsContent>

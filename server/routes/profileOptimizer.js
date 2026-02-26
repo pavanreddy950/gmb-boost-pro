@@ -404,7 +404,31 @@ router.post('/deploy/:jobId', async (req, res) => {
 });
 
 // ============================================
-// 8. POST /deploy/:id/apply-now - Apply immediately
+// 8. POST /deploy/:jobId/retry/:deploymentId - Retry a Manual/Failed item
+// ============================================
+router.post('/deploy/:jobId/retry/:deploymentId', async (req, res) => {
+  try {
+    const { jobId, deploymentId } = req.params;
+    const accessToken = getAccessToken(req);
+    const { locationId } = req.body;
+
+    if (!accessToken) {
+      return res.status(401).json({ error: 'Access token required' });
+    }
+    if (!locationId) {
+      return res.status(400).json({ error: 'locationId is required' });
+    }
+
+    const deployment = await deploymentScheduler.retryDeployment(deploymentId, jobId, accessToken, locationId);
+    res.json({ success: true, deployment });
+  } catch (error) {
+    console.error('[ProfileOptimizer API] Retry error:', error.message);
+    res.status(500).json({ error: 'Failed to retry deployment', details: error.message });
+  }
+});
+
+// ============================================
+// 9. POST /deploy/:id/apply-now - Apply immediately
 // ============================================
 router.post('/deploy/:id/apply-now', async (req, res) => {
   try {

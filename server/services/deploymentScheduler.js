@@ -325,21 +325,156 @@ class DeploymentScheduler {
       return { applied: true };
     }
 
-    // ── Categories — requires GCID lookup ────────────────────────────────────
+    // ── Categories — search GBP categories API to resolve GCIDs ─────────────
     if (deployType === 'categories') {
-      // GBP requires "categories/gcid:xxx" format; AI returns display names.
-      // User must set categories manually in GBP.
-      return { skipped: true, reason: 'Set categories manually in Google Business Profile (requires category IDs)' };
+      const suggested = content?.categories || [];
+      if (!suggested.length) return { skipped: true, reason: 'No categories suggested' };
+
+      // Fetch current location to get primary category + region for search
+      const locRes = await fetch(`${baseUrl}/${locationName}?readMask=categories,storefrontAddress`, { headers });
+      if (!locRes.ok) throw new Error(`GBP ${locRes.status}: Could not read location`);
+      const locData = await locRes.json();
+      const primaryCategory = locData.categories?.primaryCategory;
+      const regionCode = locData.storefrontAddress?.regionCode || locData.storefrontAddress?.administrativeArea || 'US';
+
+      // Search for each suggested category by display name
+      const resolved = [];
+      const unresolved = [];
+      for (const cat of suggested.slice(0, 9)) {
+        const catName = (typeof cat === 'string' ? cat : (cat.name || cat.displayName || '')).trim();
+        if (!catName) continue;
+        try {
+          const searchUrl = `${baseUrl}/categories?regionCode=${encodeURIComponent(regionCode)}&languageCode=en&view=BASIC&filter=${encodeURIComponent(`displayName="${catName}"`)}`;
+          const searchRes = await fetch(searchUrl, { headers });
+          if (searchRes.ok) {
+            const searchData = await searchRes.json();
+            const match = (searchData.categories || [])[0];
+            if (match?.name) {
+              resolved.push({ name: match.name });
+            } else {
+              unresolved.push(catName);
+            }
+          } else {
+            unresolved.push(catName);
+          }
+        } catch {
+          unresolved.push(catName);
+        }
+      }
+
+      if (!resolved.length) {
+        return { skipped: true, reason: `No GBP category IDs found for: ${unresolved.join(', ')} — set manually in GBP` };
+      }
+
+      // PATCH location with resolved categories
+      const patchRes = await fetch(
+        `${baseUrl}/${locationName}?updateMask=categories`,
+        { method: 'PATCH', headers, body: JSON.stringify({ categories: { primaryCategory, additionalCategories: resolved } }) }
+      );
+      if (!patchRes.ok) {
+        const err = await patchRes.text();
+        throw new Error(`GBP ${patchRes.status}: ${err.substring(0, 300)}`);
+      }
+      const note = unresolved.length ? ` (could not find: ${unresolved.join(', ')})` : '';
+      return { applied: true, note: `Set ${resolved.length} categories${note}` };
     }
 
-    // ── Attributes — requires attribute metadata IDs ──────────────────────────
+    // ── Attributes — match names via GBP attribute metadata, set boolean attrs ─
     if (deployType === 'attributes') {
-      return { skipped: true, reason: 'Set attributes manually in Google Business Profile (requires attribute IDs)' };
+      const suggested = (content?.attributes || []).filter(a => a.recommended !== false);
+      if (!suggested.length) return { skipped: true, reason: 'No attributes suggested' };
+
+      // Fetch location to get primary category + region
+      const locRes = await fetch(`${baseUrl}/${locationName}?readMask=categories,storefrontAddress`, { headers });
+      if (!locRes.ok) return { skipped: true, reason: 'Could not read location for attribute lookup' };
+      const locData = await locRes.json();
+      const categoryName = locData.categories?.primaryCategory?.name || '';
+      const regionCode = locData.storefrontAddress?.regionCode || 'US';
+
+      if (!categoryName) return { skipped: true, reason: 'No primary category set — cannot look up attributes' };
+
+      // Fetch available attribute metadata for this category
+      const metaUrl = `${baseUrl}/attributes?parent=${encodeURIComponent(locationName)}&categoryName=${encodeURIComponent(categoryName)}&regionCode=${encodeURIComponent(regionCode)}&languageCode=en`;
+      const metaRes = await fetch(metaUrl, { headers });
+      if (!metaRes.ok) return { skipped: true, reason: 'Could not fetch attribute metadata from GBP' };
+      const metaData = await metaRes.json();
+      const available = metaData.attributeMetadata || metaData.attributes || [];
+
+      // Build lookup by display name (case-insensitive)
+      const byName = {};
+      for (const meta of available) {
+        const key = (meta.displayName || '').toLowerCase().trim();
+        if (key) byName[key] = meta;
+      }
+
+      // Match suggested attributes to available IDs; only auto-set BOOL attributes
+      const toSet = [];
+      const manual = [];
+      for (const sug of suggested) {
+        const key = (sug.name || '').toLowerCase().trim();
+        const meta = byName[key];
+        if (meta && meta.valueType === 'BOOL') {
+          toSet.push({ name: `${locationName}/attributes/${meta.attributeId}`, valueType: 'BOOL', values: [true] });
+        } else if (meta) {
+          manual.push(`${sug.name} (requires manual value)`);
+        } else {
+          manual.push(sug.name);
+        }
+      }
+
+      if (!toSet.length) {
+        return { skipped: true, reason: `Could not auto-match attributes: ${manual.join(', ')} — set manually in GBP` };
+      }
+
+      // PATCH attributes
+      const patchRes = await fetch(
+        `${baseUrl}/${locationName}/attributes`,
+        { method: 'PATCH', headers, body: JSON.stringify({ attributes: toSet }) }
+      );
+      if (!patchRes.ok) {
+        const err = await patchRes.text();
+        throw new Error(`GBP ${patchRes.status}: ${err.substring(0, 300)}`);
+      }
+      const note = manual.length ? ` | manual: ${manual.join(', ')}` : '';
+      return { applied: true, note: `Set ${toSet.length} attributes${note}` };
     }
 
-    // ── Products ─────────────────────────────────────────────────────────────
+    // ── Products — deploy as service items (GBP Products API is restricted) ───
     if (deployType === 'products') {
-      return { skipped: true, reason: 'Manage products directly in Google Business Profile' };
+      const products = content?.products || [];
+      if (!products.length) return { skipped: true, reason: 'No products suggested' };
+
+      // Fetch existing service items so we append, not overwrite
+      const existingRes = await fetch(`${baseUrl}/${locationName}?readMask=serviceItems,categories`, { headers });
+      let existingItems = [];
+      let categoryGcid = null;
+      if (existingRes.ok) {
+        const d = await existingRes.json();
+        existingItems = d.serviceItems || [];
+        const rawName = d.categories?.primaryCategory?.name || '';
+        categoryGcid = rawName.replace('categories/', '') || null;
+      }
+
+      const newItems = products.slice(0, 20).map(p => {
+        const displayName = (p.name || '').substring(0, 140);
+        const description = (p.description || '').substring(0, 300);
+        const label = { displayName, languageCode: 'en' };
+        if (description) label.description = description;
+        const item = { freeFormServiceItem: { label } };
+        if (categoryGcid) item.freeFormServiceItem.category = categoryGcid;
+        return item;
+      });
+
+      const allItems = [...existingItems, ...newItems];
+      const patchRes = await fetch(
+        `${baseUrl}/${locationName}?updateMask=serviceItems`,
+        { method: 'PATCH', headers, body: JSON.stringify({ serviceItems: allItems }) }
+      );
+      if (!patchRes.ok) {
+        const err = await patchRes.text();
+        throw new Error(`GBP ${patchRes.status}: ${err.substring(0, 300)}`);
+      }
+      return { applied: true };
     }
 
     return { skipped: true, reason: `Unsupported deploy type: ${deployType}` };
@@ -544,6 +679,71 @@ class DeploymentScheduler {
         updated_at: new Date().toISOString()
       })
       .eq('id', freshRow.id);
+  }
+
+  /**
+   * Retry a specific deployment — re-runs the GBP API call for an applied (Manual/failed) item.
+   * @param {string} deploymentId - The deployment entry ID within the JSONB array
+   * @param {string} jobId        - The profile_optimizations row ID
+   * @param {string} accessToken  - Fresh Google OAuth access token
+   * @param {string} locationId   - GBP location ID
+   */
+  async retryDeployment(deploymentId, jobId, accessToken, locationId) {
+    await this.initialize();
+
+    const { data: row, error } = await this.client
+      .from('profile_optimizations')
+      .select('*')
+      .eq('id', jobId)
+      .single();
+
+    if (error) throw error;
+    if (!row) throw new Error('Job not found');
+
+    const deployments = row.deployments || [];
+    const depIndex = deployments.findIndex(d => d.id === deploymentId);
+    if (depIndex === -1) throw new Error('Deployment not found');
+
+    const deployment = deployments[depIndex];
+
+    // Find the suggestion content for this deployment
+    const suggestions = row.suggestions || [];
+    const suggestion = suggestions.find(s => s.id === deployment.suggestion_id);
+    if (!suggestion) throw new Error('Original suggestion not found');
+
+    const content = suggestion.user_edited_content || suggestion.suggested_content;
+
+    // Re-run with retry logic
+    let gbpResult = null;
+    let lastError = null;
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      try {
+        gbpResult = await this._applyToGBP(deployment.deploy_type, content, accessToken, locationId);
+        break;
+      } catch (err) {
+        lastError = err;
+        if (attempt < 3) await new Promise(r => setTimeout(r, 1000 * attempt));
+      }
+    }
+
+    // Update deployment record
+    deployments[depIndex] = {
+      ...deployment,
+      status: 'applied',
+      applied_at: new Date().toISOString(),
+      gbp_applied: !!gbpResult && !gbpResult.skipped,
+      gbp_note: gbpResult?.skipped ? gbpResult.reason : (lastError?.message || null),
+      error_message: gbpResult ? null : (lastError?.message || null),
+      retry_count: (deployment.retry_count || 0) + 1,
+    };
+
+    await this.client
+      .from('profile_optimizations')
+      .update({ deployments, updated_at: new Date().toISOString() })
+      .eq('id', jobId);
+
+    console.log(`[DeploymentScheduler] Retry ${deploymentId}: ${gbpResult && !gbpResult.skipped ? 'applied ✓' : gbpResult?.skipped ? 'still manual' : 'failed again'}`);
+    return deployments[depIndex];
   }
 
   /**
