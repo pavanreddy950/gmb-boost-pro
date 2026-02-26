@@ -121,24 +121,36 @@ class DeploymentScheduler {
         gbp_note: null
       };
 
-      // Attempt live GBP API update
+      // Attempt live GBP API update with retry (up to 3 attempts, exponential back-off)
       if (accessToken && locationId) {
-        try {
-          const content = suggestion.user_edited_content || suggestion.suggested_content;
-          const result = await this._applyToGBP(deployType, content, accessToken, locationId);
-          deployment.status = 'applied';
-          deployment.applied_at = new Date().toISOString();
-          deployment.gbp_applied = !result.skipped;
-          deployment.gbp_note = result.skipped ? result.reason : null;
-          console.log(`[DeploymentScheduler] ${deployType}: ${result.skipped ? 'skipped (' + result.reason + ')' : 'applied to GBP ✓'}`);
-        } catch (err) {
-          // Mark as applied in our system even if GBP API fails — record the error
-          deployment.status = 'applied';
-          deployment.applied_at = new Date().toISOString();
+        const content = suggestion.user_edited_content || suggestion.suggested_content;
+        let gbpResult = null;
+        let lastGBPError = null;
+        for (let attempt = 1; attempt <= 3; attempt++) {
+          try {
+            gbpResult = await this._applyToGBP(deployType, content, accessToken, locationId);
+            break; // success — exit retry loop
+          } catch (err) {
+            lastGBPError = err;
+            if (attempt < 3) {
+              const waitMs = 1000 * attempt; // 1s, 2s back-off
+              console.warn(`[DeploymentScheduler] ${deployType} attempt ${attempt}/3 failed: ${err.message} — retrying in ${waitMs}ms`);
+              await new Promise(r => setTimeout(r, waitMs));
+            }
+          }
+        }
+
+        deployment.status = 'applied';
+        deployment.applied_at = new Date().toISOString();
+        if (gbpResult) {
+          deployment.gbp_applied = !gbpResult.skipped;
+          deployment.gbp_note = gbpResult.skipped ? gbpResult.reason : null;
+          console.log(`[DeploymentScheduler] ${deployType}: ${gbpResult.skipped ? 'skipped (' + gbpResult.reason + ')' : 'applied to GBP ✓'}`);
+        } else {
           deployment.gbp_applied = false;
-          deployment.gbp_note = err.message;
-          deployment.error_message = err.message;
-          console.error(`[DeploymentScheduler] GBP API error for ${deployType}:`, err.message);
+          deployment.gbp_note = lastGBPError?.message || 'GBP API call failed after 3 retries';
+          deployment.error_message = lastGBPError?.message || 'Unknown error';
+          console.error(`[DeploymentScheduler] ${deployType} failed after 3 retries:`, lastGBPError?.message);
         }
       } else {
         deployment.status = 'applied';
@@ -231,11 +243,29 @@ class DeploymentScheduler {
 
       const cleanPeriods = periods
         .filter(p => !p.isClosed)
-        .map(p => ({
-          openDay: p.openDay,
-          openTime: { hours: p.openTime?.hours ?? 0, minutes: p.openTime?.minutes ?? 0 },
-          closeTime: { hours: p.closeTime?.hours ?? 0, minutes: p.closeTime?.minutes ?? 0 }
-        }));
+        .map(p => {
+          const openHours = p.openTime?.hours ?? 0;
+          const openMins  = p.openTime?.minutes ?? 0;
+          let closeHours  = p.closeTime?.hours ?? 0;
+          let closeMins   = p.closeTime?.minutes ?? 0;
+
+          // GBP API rejects closeTime of 0:00 when openTime is non-zero on the same day
+          // (it would mean "closes before it opens"). Midnight close = hours:24, minutes:0.
+          if (closeHours === 0 && closeMins === 0 && (openHours > 0 || openMins > 0)) {
+            closeHours = 24;
+            closeMins  = 0;
+          }
+
+          // closeDay is required by GBP v1 API; default to same day as openDay
+          const closeDay = p.closeDay || p.openDay;
+
+          return {
+            openDay:   p.openDay,
+            openTime:  { hours: openHours,  minutes: openMins  },
+            closeDay,
+            closeTime: { hours: closeHours, minutes: closeMins }
+          };
+        });
 
       const res = await fetch(
         `${baseUrl}/${locationName}?updateMask=regularHours`,

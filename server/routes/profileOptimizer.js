@@ -2,6 +2,7 @@ import express from 'express';
 import profileOptimizerService from '../services/profileOptimizerService.js';
 import deploymentScheduler from '../services/deploymentScheduler.js';
 import fetch from 'node-fetch';
+import connectionPool from '../database/connectionPool.js';
 
 const router = express.Router();
 
@@ -312,16 +313,23 @@ router.post('/deploy/:jobId', async (req, res) => {
     let newScore = null;
     let newAudit = null;
     try {
-      const client = await (await import('../database/connectionPool.js')).default.getClient();
+      const client = await connectionPool.getClient();
 
       // Fetch current job data
-      const { data: jobRow } = await client
+      const { data: jobRow, error: jobFetchErr } = await client
         .from('profile_optimizations')
         .select('audit_data, suggestions')
         .eq('id', jobId)
         .single();
 
-      if (jobRow?.audit_data?.modules) {
+      if (jobFetchErr) {
+        console.warn('[ProfileOptimizer API] Score projection: DB fetch error:', jobFetchErr.message);
+      }
+
+      const modules = jobRow?.audit_data?.modules;
+      console.log(`[ProfileOptimizer API] Score projection: modules=${modules?.length ?? 'N/A'}, suggestions=${(jobRow?.suggestions||[]).length}`);
+
+      if (modules && modules.length > 0) {
         // Map suggestion types → the audit module IDs they improve
         const SUGGESTION_TO_MODULES = {
           'description':     ['descriptionQuality', 'keywordCoverage'],
@@ -341,16 +349,19 @@ router.post('/deploy/:jobId', async (req, res) => {
 
         // Find which audit modules the deployed suggestions cover
         const approvedSuggestions = (jobRow.suggestions || []).filter(s => s.user_approved === true);
+        console.log(`[ProfileOptimizer API] Score projection: ${approvedSuggestions.length} approved suggestions → types: ${approvedSuggestions.map(s => s.suggestion_type).join(', ')}`);
+
         const deployedModuleIds = new Set();
         for (const s of approvedSuggestions) {
-          const modules = SUGGESTION_TO_MODULES[s.suggestion_type] || [];
-          modules.forEach(m => deployedModuleIds.add(m));
+          const mods = SUGGESTION_TO_MODULES[s.suggestion_type] || [];
+          mods.forEach(m => deployedModuleIds.add(m));
         }
+        console.log(`[ProfileOptimizer API] Score projection: boosting modules: ${[...deployedModuleIds].join(', ')}`);
 
-        // Boost deployed modules to 95 in the stored audit data
-        const updatedModules = jobRow.audit_data.modules.map(mod => {
+        // Boost deployed modules to 95; keep others unchanged
+        const updatedModules = modules.map(mod => {
           if (deployedModuleIds.has(mod.id)) {
-            return { ...mod, score: 95 };
+            return { ...mod, score: Math.max(mod.score || 0, 95) };
           }
           return mod;
         });
@@ -358,19 +369,28 @@ router.post('/deploy/:jobId', async (req, res) => {
         // Recalculate overall weighted score
         let newOverallScore = 0;
         for (const mod of updatedModules) {
-          newOverallScore += mod.score * mod.weight;
+          newOverallScore += (mod.score || 0) * (mod.weight || 0);
         }
         newOverallScore = Math.round(newOverallScore * 100) / 100;
 
+        // Derive score label
+        const scoreLabel =
+          newOverallScore >= 90 ? 'Excellent' :
+          newOverallScore >= 75 ? 'Good' :
+          newOverallScore >= 60 ? 'Average' :
+          newOverallScore >= 40 ? 'Below Average' : 'Poor';
+
         newScore = newOverallScore;
-        newAudit = { ...jobRow.audit_data, modules: updatedModules, overallScore: newOverallScore };
+        newAudit = { ...jobRow.audit_data, modules: updatedModules, overallScore: newOverallScore, scoreLabel };
 
         await client
           .from('profile_optimizations')
           .update({ audit_score: newScore, audit_data: newAudit, updated_at: new Date().toISOString() })
           .eq('id', jobId);
 
-        console.log(`[ProfileOptimizer API] Projected score after deployment: ${newScore} (boosted ${deployedModuleIds.size} modules to 95)`);
+        console.log(`[ProfileOptimizer API] Projected score: ${jobRow.audit_data.overallScore} → ${newScore} (boosted ${deployedModuleIds.size} modules to 95)`);
+      } else {
+        console.warn('[ProfileOptimizer API] Score projection skipped: no modules in audit_data');
       }
     } catch (auditErr) {
       console.warn('[ProfileOptimizer API] Score projection failed (non-fatal):', auditErr.message);

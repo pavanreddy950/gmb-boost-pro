@@ -383,16 +383,20 @@ const ProfileOptimization: React.FC = () => {
       if (!res.ok) throw new Error(data.error || 'Deploy failed');
       setDeployments(data.schedule || []);
 
-      // Update score if backend recalculated it after deployment
+      // Update score — use backend projection if available, otherwise reload from DB
       if (data.newScore !== null && data.newScore !== undefined && data.newAudit) {
         setAuditResults(data.newAudit);
+        setJob(prev => prev ? { ...prev, audit_score: data.newScore } : prev);
+      } else {
+        // Fallback: re-fetch the job row which has the updated audit_score saved by the backend
+        await loadExistingJob();
       }
 
       const applied = (data.schedule || []).filter((d: any) => d.gbp_applied).length;
       const total = (data.schedule || []).length;
       toast({
         title: 'Changes Deployed!',
-        description: `${applied}/${total} changes applied to your Google Business Profile${data.newScore !== null && data.newScore !== undefined ? ` · New score: ${data.newScore}/100` : ''}`,
+        description: `${applied}/${total} changes pushed to Google Business Profile${data.newScore !== null && data.newScore !== undefined ? ` · Score: ${data.newScore}/100` : ''}`,
       });
       setActiveTab('deploy');
     } catch (error: any) {
