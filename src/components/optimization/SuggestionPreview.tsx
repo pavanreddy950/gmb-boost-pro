@@ -4,19 +4,12 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 import {
-  CheckCircle2, XCircle, RefreshCw, ChevronDown, ChevronUp,
-  FileText, Tags, Settings2, Wrench, ShoppingBag, Image,
-  Clock, Link2, MessageSquare, Camera, Sparkles, Edit3,
-  Shield, AlertTriangle, Eye, Loader2, SlidersHorizontal
+  CheckCircle2, XCircle, ChevronDown,
+  FileText, Tags, Settings2, Wrench, ShoppingBag,
+  Clock, Link2, Sparkles, Edit3,
+  Shield, Loader2, MessageSquare, Camera,
 } from 'lucide-react';
 
 interface Suggestion {
@@ -56,68 +49,52 @@ const TYPE_CONFIG: Record<string, { icon: any; label: string; color: string; gra
   photo_guide: { icon: Camera, label: 'Photo Guide', color: 'pink', gradient: 'from-pink-500 to-rose-500' },
   reply_template: { icon: MessageSquare, label: 'Review Reply Templates', color: 'green', gradient: 'from-green-500 to-emerald-500' },
   hours: { icon: Clock, label: 'Hours Optimization', color: 'sky', gradient: 'from-sky-500 to-blue-500' },
-  social_links: { icon: Link2, label: 'Social Media Links', color: 'teal', gradient: 'from-teal-500 to-cyan-500' },
+  social_links: { icon: Link2, label: 'Social & Website Links', color: 'teal', gradient: 'from-teal-500 to-cyan-500' },
   booking_link: { icon: Link2, label: 'Booking Link', color: 'violet', gradient: 'from-violet-500 to-purple-500' },
+  posts: { icon: FileText, label: 'Post Suggestions', color: 'orange', gradient: 'from-orange-500 to-amber-500' },
 };
 
-// Which preference fields to show per suggestion type
-const TYPE_PREFS: Record<string, string[]> = {
-  description: ['tone', 'specialInstructions'],
-  categories: ['targetAudience', 'specialInstructions'],
-  services: ['tone', 'specialInstructions'],
-  products: ['currency', 'priceRange', 'specialInstructions'],
-  replyTemplates: ['tone', 'specialInstructions'],
-  attributes: ['targetAudience', 'specialInstructions'],
-  photoGuide: ['specialInstructions'],
-};
-
-const CURRENCY_OPTIONS = [
-  { value: 'INR', label: '₹ INR' },
-  { value: 'USD', label: '$ USD' },
-  { value: 'EUR', label: '€ EUR' },
-  { value: 'GBP', label: '£ GBP' },
-  { value: 'AED', label: 'د.إ AED' },
-];
-
-const TONE_OPTIONS = [
-  { value: 'professional', label: 'Professional' },
-  { value: 'friendly', label: 'Friendly' },
-  { value: 'casual', label: 'Casual' },
-  { value: 'authoritative', label: 'Authoritative' },
-];
-
-const AUDIENCE_OPTIONS = [
-  { value: 'local_residents', label: 'Local Residents' },
-  { value: 'tourists', label: 'Tourists' },
-  { value: 'businesses', label: 'Businesses (B2B)' },
-  { value: 'families', label: 'Families' },
-  { value: 'young_professionals', label: 'Young Professionals' },
-  { value: 'everyone', label: 'Everyone' },
-];
-
-const PRICE_RANGE_OPTIONS = [
-  { value: 'budget', label: 'Budget' },
-  { value: 'mid_range', label: 'Mid-Range' },
-  { value: 'premium', label: 'Premium' },
-  { value: 'luxury', label: 'Luxury' },
-  { value: 'varies', label: 'Varies' },
-];
-
-interface SuggestionPrefs {
-  currency: string;
-  tone: string;
-  targetAudience: string;
-  priceRange: string;
-  specialInstructions: string;
+// Contextual questions per suggestion type — shown inline when card is expanded
+interface Question {
+  id: string;
+  label: string;
+  placeholder: string;
+  type: 'text' | 'textarea';
 }
 
-const DEFAULT_PREFS: SuggestionPrefs = {
-  currency: 'INR',
-  tone: 'professional',
-  targetAudience: 'local_residents',
-  priceRange: 'mid_range',
-  specialInstructions: '',
+const TYPE_QUESTIONS: Record<string, Question[]> = {
+  description: [
+    { id: 'businessAbout', label: 'What is your business about?', placeholder: 'e.g. We are a family-owned plumbing company serving Mumbai for 10 years, specializing in residential repairs...', type: 'textarea' },
+    { id: 'keywords', label: 'What are your top keywords / search terms?', placeholder: 'e.g. plumber Mumbai, emergency plumber, pipe repair, drain cleaning', type: 'text' },
+    { id: 'uniqueness', label: 'What makes you different from competitors?', placeholder: 'e.g. 24/7 availability, certified team, 10-year guarantee, same-day service', type: 'text' },
+    { id: 'targetCustomers', label: 'Who are your main customers?', placeholder: 'e.g. homeowners, offices, restaurants, residential apartments', type: 'text' },
+  ],
+  categories: [
+    { id: 'mainServices', label: 'What services do you primarily offer?', placeholder: 'e.g. web design, SEO, digital marketing, logo design', type: 'text' },
+    { id: 'specialization', label: 'Any niche specializations?', placeholder: 'e.g. e-commerce websites, local SEO, startup branding', type: 'text' },
+  ],
+  services: [
+    { id: 'serviceList', label: 'List all your services (one per line)', placeholder: 'Pipe repair\nDrain cleaning\nWater heater installation\nBathroom renovation', type: 'textarea' },
+    { id: 'popularService', label: 'Which is your most popular or important service?', placeholder: 'e.g. Emergency pipe repair', type: 'text' },
+    { id: 'serviceHighlight', label: 'Any key details to highlight about your services?', placeholder: 'e.g. all work comes with 1-year guarantee, same-day service available', type: 'text' },
+  ],
+  products: [
+    { id: 'productList', label: 'What products do you sell?', placeholder: 'e.g. handmade leather bags, custom jewelry, organic skincare products', type: 'textarea' },
+    { id: 'priceRange', label: 'What is your typical price range?', placeholder: 'e.g. ₹500 – ₹5,000 or $10 – $100', type: 'text' },
+    { id: 'productHighlight', label: 'Which product do you want to highlight most?', placeholder: 'e.g. our bestselling tote bag', type: 'text' },
+  ],
+  attributes: [
+    { id: 'amenities', label: 'What amenities or facilities do you offer?', placeholder: 'e.g. free parking, WiFi, wheelchair accessible, outdoor seating, restroom', type: 'text' },
+    { id: 'payments', label: 'What payment methods do you accept?', placeholder: 'e.g. cash, credit card, UPI, PayPal, net banking', type: 'text' },
+    { id: 'serviceOptions', label: 'How do customers interact with your business?', placeholder: 'e.g. walk-in, online booking, home delivery, curbside pickup', type: 'text' },
+  ],
+  hours: [
+    { id: 'workingDays', label: 'Which days are you open?', placeholder: 'e.g. Monday to Saturday, or 7 days a week', type: 'text' },
+    { id: 'workingHours', label: 'What are your opening and closing times?', placeholder: 'e.g. 9 AM to 7 PM on weekdays, 10 AM to 5 PM on Saturday', type: 'text' },
+    { id: 'specialClosure', label: 'Any special closures or different hours?', placeholder: 'e.g. closed on public holidays, open till 9 PM on Friday', type: 'text' },
+  ],
 };
+
 
 const getRiskBadge = (score: number) => {
   if (score <= 30) return { label: 'Low Risk', variant: 'default' as const, className: 'bg-green-100 text-green-700 border-green-200' };
@@ -140,9 +117,8 @@ const SuggestionPreview: React.FC<Props> = ({ suggestions, onApprove, onReject, 
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editContent, setEditContent] = useState<string>('');
   const [regeneratingId, setRegeneratingId] = useState<string | null>(null);
-  const [feedbackText, setFeedbackText] = useState<string>('');
-  const [showPrefsId, setShowPrefsId] = useState<string | null>(null);
-  const [suggestionPrefs, setSuggestionPrefs] = useState<Record<string, SuggestionPrefs>>({});
+  // Per-suggestion question answers: { [suggestionId]: { [questionId]: answer } }
+  const [questionAnswers, setQuestionAnswers] = useState<Record<string, Record<string, string>>>({});
 
   if (!suggestions || suggestions.length === 0) {
     return (
@@ -168,118 +144,201 @@ const SuggestionPreview: React.FC<Props> = ({ suggestions, onApprove, onReject, 
     setEditingId(null);
   };
 
-  const getPrefs = (id: string): SuggestionPrefs => suggestionPrefs[id] || { ...DEFAULT_PREFS };
-
-  const updatePref = (id: string, key: keyof SuggestionPrefs, value: string) => {
-    setSuggestionPrefs(prev => ({
+  const setAnswer = (suggestionId: string, questionId: string, value: string) => {
+    setQuestionAnswers(prev => ({
       ...prev,
-      [id]: { ...(prev[id] || { ...DEFAULT_PREFS }), [key]: value }
+      [suggestionId]: { ...(prev[suggestionId] || {}), [questionId]: value },
     }));
   };
 
-  const buildPrefsFeedback = (id: string, suggestionType: string): string => {
-    const prefs = getPrefs(id);
-    const fields = TYPE_PREFS[suggestionType] || ['specialInstructions'];
+  const getAnswers = (suggestionId: string) => questionAnswers[suggestionId] || {};
+
+  const buildFeedbackFromAnswers = (suggestionId: string, suggestionType: string): string => {
+    const answers = getAnswers(suggestionId);
+    const questions = TYPE_QUESTIONS[suggestionType] || [];
     const parts: string[] = [];
-
-    if (fields.includes('currency')) parts.push(`Use ${prefs.currency} currency only`);
-    if (fields.includes('tone')) parts.push(`Tone: ${prefs.tone}`);
-    if (fields.includes('targetAudience')) parts.push(`Target audience: ${prefs.targetAudience.replace('_', ' ')}`);
-    if (fields.includes('priceRange')) parts.push(`Price range: ${prefs.priceRange.replace('_', ' ')}`);
-    if (prefs.specialInstructions.trim()) parts.push(prefs.specialInstructions.trim());
-    if (feedbackText.trim()) parts.push(feedbackText.trim());
-
-    return parts.join('. ');
+    for (const q of questions) {
+      const ans = (answers[q.id] || '').trim();
+      if (ans) parts.push(`${q.label}: ${ans}`);
+    }
+    return parts.join('\n');
   };
 
   const handleRegenerate = async (id: string, suggestionType: string) => {
     setRegeneratingId(id);
-    const combinedFeedback = buildPrefsFeedback(id, suggestionType);
-    await onRegenerate(id, combinedFeedback || undefined);
+    const feedback = buildFeedbackFromAnswers(id, suggestionType);
+    await onRegenerate(id, feedback || undefined);
     setRegeneratingId(null);
-    setFeedbackText('');
-    setShowPrefsId(null);
   };
 
-  const parseContent = (content: string) => {
-    try {
-      return JSON.parse(content);
-    } catch {
-      return content;
-    }
+  const parseContent = (raw: string) => {
+    try { return JSON.parse(raw); } catch { return raw; }
   };
 
-  // Format JSON suggestion content into human-readable text
-  const formatContent = (content: any, type: string): string => {
-    if (typeof content === 'string') return content;
-    if (!content || typeof content !== 'object') return String(content || '');
+  // Renders suggestion content as clean JSX — no JSON, no code, plain English only
+  const renderSuggestedContent = (raw: string, type: string): React.ReactNode => {
+    const content = parseContent(raw);
 
     try {
-      switch (type) {
-        case 'description':
-          return content.description || JSON.stringify(content, null, 2);
-
-        case 'categories':
-          if (content.categories && Array.isArray(content.categories)) {
-            return content.categories.map((c: any, i: number) =>
-              `${i + 1}. ${c.name || c.categoryId || c}${c.reasoning ? `\n   → ${c.reasoning}` : ''}`
-            ).join('\n\n');
-          }
-          return JSON.stringify(content, null, 2);
-
-        case 'services':
-          if (content.services && Array.isArray(content.services)) {
-            return content.services.map((s: any, i: number) =>
-              `${i + 1}. ${s.name}${s.isNew ? ' (NEW)' : ''}\n   ${s.description}${s.keywords?.length ? `\n   Keywords: ${s.keywords.join(', ')}` : ''}`
-            ).join('\n\n');
-          }
-          return JSON.stringify(content, null, 2);
-
-        case 'products':
-          if (content.products && Array.isArray(content.products)) {
-            return content.products.map((p: any, i: number) =>
-              `${i + 1}. ${p.name}${p.category ? ` [${p.category}]` : ''}\n   ${p.description}${p.suggestedPriceRange ? `\n   Price: ${p.suggestedPriceRange}` : ''}`
-            ).join('\n\n');
-          }
-          return JSON.stringify(content, null, 2);
-
-        case 'attributes':
-          if (content.attributes && Array.isArray(content.attributes)) {
-            const groups: Record<string, any[]> = {};
-            content.attributes.forEach((a: any) => {
-              const group = a.group || 'Other';
-              if (!groups[group]) groups[group] = [];
-              groups[group].push(a);
-            });
-            return Object.entries(groups).map(([group, attrs]) =>
-              `${group.toUpperCase()}\n${(attrs as any[]).map((a: any) => `  ${a.recommended ? '✓' : '○'} ${a.name}${a.reasoning ? ` — ${a.reasoning}` : ''}`).join('\n')}`
-            ).join('\n\n');
-          }
-          return JSON.stringify(content, null, 2);
-
-        case 'replyTemplates':
-          if (content.templates) {
-            const parts = [];
-            if (content.templates.positive) parts.push(`POSITIVE (5-star) REPLY:\n${content.templates.positive}`);
-            if (content.templates.neutral) parts.push(`NEUTRAL (3-star) REPLY:\n${content.templates.neutral}`);
-            if (content.templates.negative) parts.push(`NEGATIVE (1-2 star) REPLY:\n${content.templates.negative}`);
-            return parts.join('\n\n---\n\n');
-          }
-          return JSON.stringify(content, null, 2);
-
-        case 'photoGuide':
-          if (content.photoGuide && Array.isArray(content.photoGuide)) {
-            return content.photoGuide.map((p: any, i: number) =>
-              `${i + 1}. ${p.type?.toUpperCase() || 'PHOTO'}\n   ${p.description}${p.tips ? `\n   Tip: ${p.tips}` : ''}`
-            ).join('\n\n');
-          }
-          return JSON.stringify(content, null, 2);
-
-        default:
-          return JSON.stringify(content, null, 2);
+      // ── Description ──────────────────────────────────────────────
+      if (type === 'description') {
+        const text: string = typeof content === 'string'
+          ? content
+          : (content?.description || '');
+        if (!text) return <span className="text-muted-foreground italic">No description generated yet.</span>;
+        return (
+          <div className="space-y-2">
+            <p className="text-sm text-foreground leading-relaxed">{text}</p>
+            <p className="text-xs text-muted-foreground">{text.length} characters</p>
+          </div>
+        );
       }
+
+      // ── Categories ───────────────────────────────────────────────
+      if (type === 'categories') {
+        const cats: any[] = content?.categories || [];
+        if (!cats.length) return <span className="text-muted-foreground italic">No categories suggested.</span>;
+        return (
+          <div className="space-y-2">
+            {cats.map((c: any, i: number) => (
+              <div key={i} className="p-2 rounded-lg bg-white border border-border/40">
+                <p className="text-sm font-medium text-foreground">{c.name || c}</p>
+                {c.reasoning && <p className="text-xs text-muted-foreground mt-0.5">{c.reasoning}</p>}
+                {c.searchImpact && (
+                  <span className={`inline-block mt-1 text-xs px-2 py-0.5 rounded-full font-medium ${
+                    c.searchImpact === 'high' ? 'bg-green-100 text-green-700' :
+                    c.searchImpact === 'medium' ? 'bg-amber-100 text-amber-700' :
+                    'bg-slate-100 text-slate-600'
+                  }`}>
+                    {c.searchImpact === 'high' ? 'High impact' : c.searchImpact === 'medium' ? 'Medium impact' : 'Low impact'}
+                  </span>
+                )}
+              </div>
+            ))}
+          </div>
+        );
+      }
+
+      // ── Services ─────────────────────────────────────────────────
+      if (type === 'services') {
+        const services: any[] = content?.services || [];
+        if (!services.length) return <span className="text-muted-foreground italic">No services suggested.</span>;
+        return (
+          <div className="space-y-2">
+            {services.map((s: any, i: number) => (
+              <div key={i} className="p-2 rounded-lg bg-white border border-border/40">
+                <div className="flex items-center gap-2 mb-0.5">
+                  <p className="text-sm font-medium text-foreground">{s.name}</p>
+                  {s.isNew && <span className="text-xs px-1.5 py-0.5 rounded-full bg-blue-100 text-blue-700 font-medium">New</span>}
+                </div>
+                <p className="text-xs text-muted-foreground leading-relaxed">{s.description}</p>
+              </div>
+            ))}
+          </div>
+        );
+      }
+
+      // ── Products ─────────────────────────────────────────────────
+      if (type === 'products') {
+        const products: any[] = content?.products || [];
+        if (!products.length) return <span className="text-muted-foreground italic">No products suggested.</span>;
+        return (
+          <div className="space-y-2">
+            {products.map((p: any, i: number) => (
+              <div key={i} className="p-2 rounded-lg bg-white border border-border/40">
+                <div className="flex items-start justify-between gap-2">
+                  <div>
+                    <p className="text-sm font-medium text-foreground">{p.name}</p>
+                    {p.category && <p className="text-xs text-muted-foreground">{p.category}</p>}
+                  </div>
+                  {p.suggestedPriceRange && (
+                    <span className="text-xs font-medium text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full shrink-0">{p.suggestedPriceRange}</span>
+                  )}
+                </div>
+                <p className="text-xs text-muted-foreground mt-1 leading-relaxed">{p.description}</p>
+              </div>
+            ))}
+          </div>
+        );
+      }
+
+      // ── Attributes ───────────────────────────────────────────────
+      if (type === 'attributes') {
+        const attrs: any[] = content?.attributes || [];
+        if (!attrs.length) return <span className="text-muted-foreground italic">No attributes suggested.</span>;
+        // Group by category
+        const groups: Record<string, any[]> = {};
+        attrs.forEach((a: any) => {
+          const g = a.group ? a.group.replace(/_/g, ' ') : 'General';
+          if (!groups[g]) groups[g] = [];
+          groups[g].push(a);
+        });
+        return (
+          <div className="space-y-3">
+            {Object.entries(groups).map(([group, items]) => (
+              <div key={group}>
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1 capitalize">{group}</p>
+                <div className="space-y-1">
+                  {(items as any[]).map((a: any, i: number) => (
+                    <div key={i} className="flex items-start gap-2 p-2 rounded-lg bg-white border border-border/40">
+                      <span className={`mt-0.5 text-sm ${a.recommended ? 'text-green-600' : 'text-slate-400'}`}>
+                        {a.recommended ? '✓' : '○'}
+                      </span>
+                      <div>
+                        <p className="text-sm text-foreground">{a.name}</p>
+                        {a.reasoning && <p className="text-xs text-muted-foreground">{a.reasoning}</p>}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        );
+      }
+
+      // ── Hours ────────────────────────────────────────────────────
+      if (type === 'hours') {
+        const periods: any[] = content?.periods || [];
+        if (!periods.length) return <span className="text-muted-foreground italic">No hours suggested.</span>;
+        const dayLabel: Record<string, string> = {
+          MONDAY: 'Monday', TUESDAY: 'Tuesday', WEDNESDAY: 'Wednesday',
+          THURSDAY: 'Thursday', FRIDAY: 'Friday', SATURDAY: 'Saturday', SUNDAY: 'Sunday'
+        };
+        const fmt = (h: number, m: number) => {
+          const ampm = h >= 12 ? 'PM' : 'AM';
+          const hr = h % 12 || 12;
+          return `${hr}:${String(m).padStart(2, '0')} ${ampm}`;
+        };
+        return (
+          <div className="space-y-1">
+            {periods.map((p: any, i: number) => (
+              <div key={i} className="flex items-center justify-between py-1.5 px-2 rounded-lg bg-white border border-border/40">
+                <span className="text-sm font-medium text-foreground w-28">{dayLabel[p.openDay] || p.openDay}</span>
+                <span className="text-sm text-muted-foreground">
+                  {p.isClosed ? 'Closed' : `${fmt(p.openTime?.hours || 0, p.openTime?.minutes || 0)} – ${fmt(p.closeTime?.hours || 0, p.closeTime?.minutes || 0)}`}
+                </span>
+              </div>
+            ))}
+            {content?.reasoning && (
+              <p className="text-xs text-muted-foreground pt-2 italic">{content.reasoning}</p>
+            )}
+          </div>
+        );
+      }
+
+      // ── Fallback for plain string ────────────────────────────────
+      if (typeof content === 'string') {
+        return <p className="text-sm text-foreground leading-relaxed">{content}</p>;
+      }
+
+      // ── Ultimate fallback — extract any text we can find ─────────
+      const text = content?.description || content?.text || content?.content || content?.value || '';
+      if (text) return <p className="text-sm text-foreground leading-relaxed">{text}</p>;
+      return <span className="text-muted-foreground italic">No suggestion generated yet.</span>;
+
     } catch {
-      return JSON.stringify(content, null, 2);
+      return <span className="text-muted-foreground italic">Could not display suggestion. Please try regenerating.</span>;
     }
   };
 
@@ -304,7 +363,6 @@ const SuggestionPreview: React.FC<Props> = ({ suggestions, onApprove, onReject, 
         const isExpanded = expandedId === suggestion.id;
         const isEditing = editingId === suggestion.id;
         const isRegenerating = regeneratingId === suggestion.id;
-        const content = parseContent(suggestion.suggested_content);
 
         return (
           <motion.div key={suggestion.id} variants={cardVariants} layout>
@@ -361,6 +419,63 @@ const SuggestionPreview: React.FC<Props> = ({ suggestions, onApprove, onReject, 
                     transition={{ duration: 0.3 }}
                   >
                     <CardContent className="pt-0 pb-4 px-4 space-y-4">
+
+                      {/* ── Inline questions (shown at top when card is expanded) ── */}
+                      {(() => {
+                        const questions = TYPE_QUESTIONS[suggestion.suggestion_type] || [];
+                        if (questions.length === 0) return null;
+                        const answers = getAnswers(suggestion.id);
+                        const hasAnyAnswer = questions.some(q => (answers[q.id] || '').trim());
+                        return (
+                          <div className="rounded-xl border-2 border-blue-200/60 bg-blue-50/40 p-4 space-y-3">
+                            <div className="flex items-center gap-2 mb-1">
+                              <Sparkles className="w-4 h-4 text-blue-600" />
+                              <span className="text-sm font-semibold text-blue-800">
+                                Tell us about your business — we'll improve this suggestion
+                              </span>
+                            </div>
+                            <div className="space-y-3">
+                              {questions.map(q => (
+                                <div key={q.id}>
+                                  <Label className="text-xs font-medium text-blue-700 mb-1 block">{q.label}</Label>
+                                  {q.type === 'textarea' ? (
+                                    <Textarea
+                                      value={answers[q.id] || ''}
+                                      onChange={e => setAnswer(suggestion.id, q.id, e.target.value)}
+                                      placeholder={q.placeholder}
+                                      className="text-sm resize-none bg-white border-blue-200 focus:border-blue-400"
+                                      rows={3}
+                                    />
+                                  ) : (
+                                    <input
+                                      type="text"
+                                      value={answers[q.id] || ''}
+                                      onChange={e => setAnswer(suggestion.id, q.id, e.target.value)}
+                                      placeholder={q.placeholder}
+                                      className="w-full text-sm px-3 py-2 rounded-lg border border-blue-200 bg-white focus:outline-none focus:ring-1 focus:ring-blue-400"
+                                    />
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+                            {hasAnyAnswer && (
+                              <Button
+                                size="sm"
+                                disabled={isRegenerating}
+                                onClick={() => handleRegenerate(suggestion.id, suggestion.suggestion_type)}
+                                className="w-full bg-blue-600 hover:bg-blue-700 text-white mt-1"
+                              >
+                                {isRegenerating ? (
+                                  <><Loader2 className="w-3.5 h-3.5 mr-2 animate-spin" />Regenerating…</>
+                                ) : (
+                                  <><Sparkles className="w-3.5 h-3.5 mr-2" />Generate Better Suggestion</>
+                                )}
+                              </Button>
+                            )}
+                          </div>
+                        );
+                      })()}
+
                       {/* Current vs Suggested */}
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                         {/* Current */}
@@ -382,22 +497,16 @@ const SuggestionPreview: React.FC<Props> = ({ suggestions, onApprove, onReject, 
                               placeholder="Edit the suggestion..."
                             />
                           ) : (
-                            <p className="text-sm text-foreground whitespace-pre-wrap">
-                              {formatContent(content, suggestion.suggestion_type)}
-                            </p>
-                          )}
-                          {suggestion.suggestion_type === 'description' && typeof content === 'object' && content?.description && (
-                            <p className="text-xs text-muted-foreground mt-2">{content.description.length} characters</p>
-                          )}
-                          {typeof content === 'string' && (
-                            <p className="text-xs text-muted-foreground mt-2">{content.length} characters</p>
+                            <div className="text-sm">
+                              {renderSuggestedContent(suggestion.suggested_content, suggestion.suggestion_type)}
+                            </div>
                           )}
                         </div>
                       </div>
 
                       {/* AI Reasoning */}
                       {suggestion.ai_reasoning && (
-                        <div className="rounded-xl border border-primary/10 bg-primary/3 p-3">
+                        <div className="rounded-xl border border-primary/10 bg-primary/5 p-3">
                           <div className="flex items-center gap-2 mb-1">
                             <Sparkles className="w-3.5 h-3.5 text-primary" />
                             <span className="text-xs font-semibold text-primary">AI Reasoning</span>
@@ -405,98 +514,6 @@ const SuggestionPreview: React.FC<Props> = ({ suggestions, onApprove, onReject, 
                           <p className="text-sm text-muted-foreground">{suggestion.ai_reasoning}</p>
                         </div>
                       )}
-
-                      {/* Customize & Regenerate Panel */}
-                      {showPrefsId === suggestion.id && (() => {
-                        const prefs = getPrefs(suggestion.id);
-                        const fields = TYPE_PREFS[suggestion.suggestion_type] || ['specialInstructions'];
-                        return (
-                          <div className="rounded-xl border-2 border-primary/20 bg-primary/3 p-4 space-y-3">
-                            <div className="flex items-center justify-between">
-                              <div className="flex items-center gap-2">
-                                <SlidersHorizontal className="w-4 h-4 text-primary" />
-                                <span className="text-sm font-semibold text-primary">Customize This Suggestion</span>
-                              </div>
-                              <Button size="sm" variant="ghost" onClick={() => setShowPrefsId(null)} className="h-7 px-2 text-xs">
-                                Close
-                              </Button>
-                            </div>
-
-                            <div className="grid grid-cols-2 gap-3">
-                              {fields.includes('currency') && (
-                                <div className="space-y-1">
-                                  <Label className="text-xs font-medium text-muted-foreground">Currency</Label>
-                                  <Select value={prefs.currency} onValueChange={(v) => updatePref(suggestion.id, 'currency', v)}>
-                                    <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
-                                    <SelectContent>
-                                      {CURRENCY_OPTIONS.map(o => <SelectItem key={o.value} value={o.value} className="text-xs">{o.label}</SelectItem>)}
-                                    </SelectContent>
-                                  </Select>
-                                </div>
-                              )}
-
-                              {fields.includes('tone') && (
-                                <div className="space-y-1">
-                                  <Label className="text-xs font-medium text-muted-foreground">Tone</Label>
-                                  <Select value={prefs.tone} onValueChange={(v) => updatePref(suggestion.id, 'tone', v)}>
-                                    <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
-                                    <SelectContent>
-                                      {TONE_OPTIONS.map(o => <SelectItem key={o.value} value={o.value} className="text-xs">{o.label}</SelectItem>)}
-                                    </SelectContent>
-                                  </Select>
-                                </div>
-                              )}
-
-                              {fields.includes('targetAudience') && (
-                                <div className="space-y-1">
-                                  <Label className="text-xs font-medium text-muted-foreground">Target Audience</Label>
-                                  <Select value={prefs.targetAudience} onValueChange={(v) => updatePref(suggestion.id, 'targetAudience', v)}>
-                                    <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
-                                    <SelectContent>
-                                      {AUDIENCE_OPTIONS.map(o => <SelectItem key={o.value} value={o.value} className="text-xs">{o.label}</SelectItem>)}
-                                    </SelectContent>
-                                  </Select>
-                                </div>
-                              )}
-
-                              {fields.includes('priceRange') && (
-                                <div className="space-y-1">
-                                  <Label className="text-xs font-medium text-muted-foreground">Price Range</Label>
-                                  <Select value={prefs.priceRange} onValueChange={(v) => updatePref(suggestion.id, 'priceRange', v)}>
-                                    <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
-                                    <SelectContent>
-                                      {PRICE_RANGE_OPTIONS.map(o => <SelectItem key={o.value} value={o.value} className="text-xs">{o.label}</SelectItem>)}
-                                    </SelectContent>
-                                  </Select>
-                                </div>
-                              )}
-                            </div>
-
-                            <div className="space-y-1">
-                              <Label className="text-xs font-medium text-muted-foreground">Special Instructions</Label>
-                              <Textarea
-                                value={prefs.specialInstructions}
-                                onChange={(e) => updatePref(suggestion.id, 'specialInstructions', e.target.value)}
-                                placeholder="e.g., Use prices in ₹, emphasize home delivery, don't mention competitor names..."
-                                className="min-h-[50px] text-xs resize-none"
-                              />
-                            </div>
-
-                            <Button
-                              size="sm"
-                              onClick={() => handleRegenerate(suggestion.id, suggestion.suggestion_type)}
-                              disabled={regeneratingId === suggestion.id}
-                              className="w-full rounded-lg bg-gradient-to-r from-primary to-cyan-500 text-white"
-                            >
-                              {regeneratingId === suggestion.id ? (
-                                <><Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" /> Regenerating...</>
-                              ) : (
-                                <><RefreshCw className="w-3.5 h-3.5 mr-1.5" /> Regenerate with Preferences</>
-                              )}
-                            </Button>
-                          </div>
-                        );
-                      })()}
 
                       {/* Action Buttons */}
                       <div className="flex items-center gap-2 pt-1">
@@ -541,15 +558,6 @@ const SuggestionPreview: React.FC<Props> = ({ suggestions, onApprove, onReject, 
                                 >
                                   <Edit3 className="w-3.5 h-3.5 mr-1.5" />
                                   Edit
-                                </Button>
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  onClick={() => showPrefsId === suggestion.id ? setShowPrefsId(null) : setShowPrefsId(suggestion.id)}
-                                  className="rounded-lg"
-                                >
-                                  <SlidersHorizontal className="w-3.5 h-3.5 mr-1.5" />
-                                  Customize & Regenerate
                                 </Button>
                                 <Button
                                   size="sm"

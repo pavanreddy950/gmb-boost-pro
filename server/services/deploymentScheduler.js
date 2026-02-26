@@ -75,10 +75,14 @@ class DeploymentScheduler {
   }
 
   /**
-   * Create a 7-day deployment schedule for approved suggestions.
-   * Builds a deployments JSONB array on the profile_optimizations row.
+   * Deploy approved suggestions immediately — applies them to Google Business Profile
+   * and records results in the database.
+   * @param {string} jobId
+   * @param {Array}  approvedSuggestions
+   * @param {string} accessToken - Google OAuth access token for GBP API calls
+   * @param {string} locationId  - GBP location ID (without "locations/" prefix)
    */
-  async createSchedule(jobId, approvedSuggestions) {
+  async createSchedule(jobId, approvedSuggestions, accessToken = null, locationId = null) {
     await this.initialize();
 
     // Fetch the existing row
@@ -92,61 +96,223 @@ class DeploymentScheduler {
     if (!row) throw new Error(`Job ${jobId} not found`);
 
     const deployments = [];
+    const changeHistory = row.change_history || [];
     const now = new Date();
 
-    // Map suggestion types to deploy days
-    const typeMapping = {
-      'description': 1,
-      'secondary_categories': 3,
-      'service_description': 5,
-      'product': 6,
-      'attribute': 4,
-      'hours': 2,
-      'reply_template': 7,
-      'social_links': 7,
-      'booking_link': 7,
-      'photo_guide': 6
-    };
-
     for (const suggestion of approvedSuggestions) {
-      const deployDay = typeMapping[suggestion.suggestion_type] || 7;
-      const scheduledDate = new Date(now);
-      scheduledDate.setDate(scheduledDate.getDate() + deployDay);
-      scheduledDate.setHours(10, 0, 0, 0); // 10:00 AM
-
       const deployType = this._mapSuggestionToDeployType(suggestion.suggestion_type);
 
       const deployment = {
         id: crypto.randomUUID(),
         suggestion_id: suggestion.id,
         deploy_type: deployType,
-        deploy_day: deployDay,
-        scheduled_at: scheduledDate.toISOString(),
-        status: 'scheduled',
+        deploy_day: 0,
+        scheduled_at: now.toISOString(),
+        status: 'in_progress',
         applied_at: null,
-        rollback_data: {},
+        rollback_data: {
+          original_content: suggestion.original_content || null,
+          suggestion_type: suggestion.suggestion_type || null,
+          metadata: suggestion.metadata || {}
+        },
         error_message: null,
-        retry_count: 0
+        retry_count: 0,
+        gbp_applied: false,
+        gbp_note: null
       };
 
+      // Attempt live GBP API update
+      if (accessToken && locationId) {
+        try {
+          const content = suggestion.user_edited_content || suggestion.suggested_content;
+          const result = await this._applyToGBP(deployType, content, accessToken, locationId);
+          deployment.status = 'applied';
+          deployment.applied_at = new Date().toISOString();
+          deployment.gbp_applied = !result.skipped;
+          deployment.gbp_note = result.skipped ? result.reason : null;
+          console.log(`[DeploymentScheduler] ${deployType}: ${result.skipped ? 'skipped (' + result.reason + ')' : 'applied to GBP ✓'}`);
+        } catch (err) {
+          // Mark as applied in our system even if GBP API fails — record the error
+          deployment.status = 'applied';
+          deployment.applied_at = new Date().toISOString();
+          deployment.gbp_applied = false;
+          deployment.gbp_note = err.message;
+          deployment.error_message = err.message;
+          console.error(`[DeploymentScheduler] GBP API error for ${deployType}:`, err.message);
+        }
+      } else {
+        deployment.status = 'applied';
+        deployment.applied_at = now.toISOString();
+        deployment.gbp_applied = false;
+        deployment.gbp_note = 'No access token — please reconnect Google Business Profile';
+      }
+
       deployments.push(deployment);
-      console.log(`[DeploymentScheduler] Scheduled ${deployType} for Day ${deployDay}`);
+
+      // Append to change history
+      changeHistory.push({
+        id: crypto.randomUUID(),
+        deployment_id: deployment.id,
+        change_type: this._getChangeType(deployType),
+        field_name: deployType,
+        old_value: suggestion.original_content || null,
+        new_value: suggestion.user_edited_content || suggestion.suggested_content,
+        applied_by: 'user',
+        gbp_applied: deployment.gbp_applied,
+        gbp_note: deployment.gbp_note,
+        rolled_back: false,
+        rolled_back_at: null,
+        created_at: new Date().toISOString()
+      });
     }
 
-    // Update the row with deployments array and status
+    // Save everything and mark job as completed immediately
     const { error: updateError } = await this.client
       .from('profile_optimizations')
       .update({
         deployments: deployments,
-        status: 'scheduled',
-        updated_at: new Date().toISOString()
+        change_history: changeHistory,
+        status: 'completed',
+        completed_at: now.toISOString(),
+        updated_at: now.toISOString()
       })
       .eq('id', jobId);
 
     if (updateError) throw updateError;
 
-    console.log(`[DeploymentScheduler] Created ${deployments.length} deployment entries for job ${jobId}`);
+    const appliedCount = deployments.filter(d => d.gbp_applied).length;
+    console.log(`[DeploymentScheduler] Job ${jobId} complete — ${appliedCount}/${deployments.length} changes pushed to GBP`);
+
     return deployments;
+  }
+
+  /**
+   * Call the Google Business Profile API to apply a single deployment type.
+   * Returns { applied: true } on success or { skipped: true, reason: string } for unsupported types.
+   * Throws on API error.
+   */
+  async _applyToGBP(deployType, suggestedContent, accessToken, locationId) {
+    const baseUrl = 'https://mybusinessbusinessinformation.googleapis.com/v1';
+    const locationName = `locations/${locationId}`;
+    const headers = {
+      'Authorization': `Bearer ${accessToken}`,
+      'Content-Type': 'application/json'
+    };
+
+    let content;
+    try {
+      content = typeof suggestedContent === 'string' ? JSON.parse(suggestedContent) : suggestedContent;
+    } catch {
+      content = suggestedContent;
+    }
+
+    // ── Description ──────────────────────────────────────────────────────────
+    if (deployType === 'description') {
+      const raw = content?.description || (typeof content === 'string' ? content : '');
+      if (!raw) throw new Error('Empty description — nothing to deploy');
+      // GBP caps description at 750 characters
+      const description = raw.substring(0, 750);
+
+      const res = await fetch(
+        `${baseUrl}/${locationName}?updateMask=profile.description`,
+        { method: 'PATCH', headers, body: JSON.stringify({ profile: { description } }) }
+      );
+      if (!res.ok) {
+        const err = await res.text();
+        throw new Error(`GBP ${res.status}: ${err.substring(0, 300)}`);
+      }
+      return { applied: true };
+    }
+
+    // ── Business Hours ────────────────────────────────────────────────────────
+    if (deployType === 'hours') {
+      const periods = content?.periods || [];
+      if (!periods.length) throw new Error('No hours periods to deploy');
+
+      const cleanPeriods = periods
+        .filter(p => !p.isClosed)
+        .map(p => ({
+          openDay: p.openDay,
+          openTime: { hours: p.openTime?.hours ?? 0, minutes: p.openTime?.minutes ?? 0 },
+          closeTime: { hours: p.closeTime?.hours ?? 0, minutes: p.closeTime?.minutes ?? 0 }
+        }));
+
+      const res = await fetch(
+        `${baseUrl}/${locationName}?updateMask=regularHours`,
+        { method: 'PATCH', headers, body: JSON.stringify({ regularHours: { periods: cleanPeriods } }) }
+      );
+      if (!res.ok) {
+        const err = await res.text();
+        throw new Error(`GBP ${res.status}: ${err.substring(0, 300)}`);
+      }
+      return { applied: true };
+    }
+
+    // ── Service Items ─────────────────────────────────────────────────────────
+    if (deployType === 'services') {
+      const services = content?.services || [];
+      if (!services.length) throw new Error('No services to deploy');
+
+      // freeFormServiceItem requires a valid category GCID.
+      // Fetch the location's primary category to use as the category value.
+      let categoryGcid = null;
+      try {
+        const catRes = await fetch(
+          `${baseUrl}/${locationName}?readMask=categories`,
+          { headers }
+        );
+        if (catRes.ok) {
+          const catData = await catRes.json();
+          // name is "categories/gcid:xxx" — strip the prefix
+          const rawName = catData.categories?.primaryCategory?.name || '';
+          categoryGcid = rawName.replace('categories/', '') || null;
+        }
+      } catch (e) {
+        console.warn('[DeploymentScheduler] Could not fetch primary category GCID:', e.message);
+      }
+
+      const serviceItems = services.map(s => {
+        const displayName = (s.name || '').substring(0, 140);
+        const description = (s.description || '').substring(0, 300);
+
+        const label = { displayName, languageCode: 'en' };
+        if (description) label.description = description; // omit if empty
+
+        const item = { freeFormServiceItem: { label } };
+        if (categoryGcid) item.freeFormServiceItem.category = categoryGcid;
+
+        return item;
+      });
+
+      const res = await fetch(
+        `${baseUrl}/${locationName}?updateMask=serviceItems`,
+        { method: 'PATCH', headers, body: JSON.stringify({ serviceItems }) }
+      );
+      if (!res.ok) {
+        const err = await res.text();
+        throw new Error(`GBP ${res.status}: ${err.substring(0, 300)}`);
+      }
+      return { applied: true };
+    }
+
+    // ── Categories — requires GCID lookup ────────────────────────────────────
+    if (deployType === 'categories') {
+      // GBP requires "categories/gcid:xxx" format; AI returns display names.
+      // User must set categories manually in GBP.
+      return { skipped: true, reason: 'Set categories manually in Google Business Profile (requires category IDs)' };
+    }
+
+    // ── Attributes — requires attribute metadata IDs ──────────────────────────
+    if (deployType === 'attributes') {
+      return { skipped: true, reason: 'Set attributes manually in Google Business Profile (requires attribute IDs)' };
+    }
+
+    // ── Products ─────────────────────────────────────────────────────────────
+    if (deployType === 'products') {
+      return { skipped: true, reason: 'Manage products directly in Google Business Profile' };
+    }
+
+    return { skipped: true, reason: `Unsupported deploy type: ${deployType}` };
   }
 
   /**

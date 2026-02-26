@@ -31,18 +31,15 @@ class AutomationScheduler {
     this.postingInProgress = new Map(); // locationId -> true/false to prevent concurrent posting
     this.DUPLICATE_POST_WINDOW = 120 * 1000; // 120 seconds - prevent duplicate posts within this window
 
-    // Azure OpenAI API configuration from environment variables
-    this.azureEndpoint = process.env.AZURE_OPENAI_ENDPOINT || '';
-    this.azureApiKey = process.env.AZURE_OPENAI_API_KEY || '';
-    this.azureDeployment = process.env.AZURE_OPENAI_DEPLOYMENT || 'gpt-4o-mini-3';
-    this.azureApiVersion = process.env.AZURE_OPENAI_API_VERSION || '2025-01-01-preview';
-
-    // Build full Azure OpenAI endpoint URL
-    this.openaiEndpoint = this.azureEndpoint
-      ? `${this.azureEndpoint}/openai/deployments/${this.azureDeployment}/chat/completions?api-version=${this.azureApiVersion}`
+    // Google Gemini API configuration
+    this.geminiApiKey = process.env.GEMINI_API_KEY || '';
+    this.geminiModel = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
+    this.geminiEndpoint = this.geminiApiKey
+      ? `https://generativelanguage.googleapis.com/v1beta/models/${this.geminiModel}:generateContent?key=${this.geminiApiKey}`
       : '';
-    this.openaiApiKey = this.azureApiKey;
-    this.openaiModel = this.azureDeployment; // For Azure, model is the deployment name
+    // Keep legacy aliases so nothing else in the file breaks
+    this.openaiApiKey = this.geminiApiKey;
+    this.openaiEndpoint = this.geminiEndpoint;
 
     // Periodic cleanup of stale lock entries (every 10 minutes)
     // Prevents memory leaks from accumulated lock timestamps
@@ -72,11 +69,10 @@ class AutomationScheduler {
     // Don't let this interval prevent process exit
     if (this._cleanupInterval.unref) this._cleanupInterval.unref();
 
-    // Log Azure OpenAI configuration status
-    console.log('[AutomationScheduler] ✅ Azure OpenAI Configuration:');
-    console.log(`  - Endpoint: ${this.azureEndpoint ? '✅' : '❌'}`);
-    console.log(`  - Deployment: ${this.azureDeployment}`);
-    console.log(`  - API Key: ${this.azureApiKey ? '✅ Configured' : '❌ NOT SET'}`);
+    // Log Gemini configuration status
+    console.log('[AutomationScheduler] ✅ Gemini AI Configuration:');
+    console.log(`  - Model: ${this.geminiModel}`);
+    console.log(`  - API Key: ${this.geminiApiKey ? '✅ Configured' : '❌ NOT SET'}`);
   }
 
   // Load settings from Supabase (called on initialization)
@@ -1840,8 +1836,8 @@ class AutomationScheduler {
     console.log(`[AutomationScheduler] Website: ${websiteUrl}`);
     console.log(`[AutomationScheduler] ========================================`);
 
-    if (!this.openaiApiKey || !this.openaiEndpoint) {
-      throw new Error('[AutomationScheduler] OpenAI not configured - AI generation is required');
+    if (!this.geminiApiKey || !this.geminiEndpoint) {
+      throw new Error('[AutomationScheduler] Gemini API not configured - please set GEMINI_API_KEY in environment variables');
     }
 
     try {
@@ -1915,19 +1911,7 @@ EXAMPLES OF GOOD SHORT POSTS (around 80-100 words):
 
 Write naturally, engagingly, but KEEP IT SHORT - maximum 100 words!`;
 
-      const response = await fetch(
-        this.openaiEndpoint,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'api-key': this.openaiApiKey
-          },
-          body: JSON.stringify({
-            messages: [
-              {
-                role: 'system',
-                content: `You are a professional, creative social media content writer for Google Business Profiles who writes like a LOCAL EXPERT sharing their favorite places.
+      const systemPromptPost = `You are a professional, creative social media content writer for Google Business Profiles who writes like a LOCAL EXPERT sharing their favorite places.
 
 CRITICAL FORMATTING RULES:
 1. Every post MUST be MAXIMUM 100 words (not including address line) - KEEP IT SHORT & PUNCHY!
@@ -1941,25 +1925,28 @@ CRITICAL FORMATTING RULES:
 9. Write like you're recommending a place to a friend - warm, genuine, engaging, but BRIEF
 10. Every word counts - be concise and impactful!
 
-Think of yourself as writing a quick, enthusiastic recommendation - SHORT but memorable!`
-              },
-              {
-                role: 'user',
-                content: prompt
-              }
-            ],
-            max_tokens: 200,
-            temperature: 0.9,
-            frequency_penalty: 0.6,
-            presence_penalty: 0.6,
-            top_p: 0.95
+Think of yourself as writing a quick, enthusiastic recommendation - SHORT but memorable!`;
+
+      const response = await fetch(
+        this.geminiEndpoint,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contents: [{ role: 'user', parts: [{ text: prompt }] }],
+            systemInstruction: { parts: [{ text: systemPromptPost }] },
+            generationConfig: {
+              maxOutputTokens: 300,
+              temperature: 0.9,
+              topP: 0.95
+            }
           })
         }
       );
 
       if (response.ok) {
         const data = await response.json();
-        let content = data.choices[0].message.content.trim();
+        let content = (data?.candidates?.[0]?.content?.parts?.[0]?.text || '').trim();
 
         // CRITICAL: Remove markdown formatting - Google doesn't render it
         // Remove **bold** and *italic* markdown
@@ -1991,11 +1978,11 @@ Think of yourself as writing a quick, enthusiastic recommendation - SHORT but me
         };
       } else {
         const errorText = await response.text();
-        throw new Error(`OpenAI API error: ${response.status} - ${errorText}`);
+        throw new Error(`Gemini API error: ${response.status} - ${errorText.substring(0, 300)}`);
       }
     } catch (error) {
       console.error('[AutomationScheduler] Critical error - AI generation failed:', error);
-      throw new Error(`AI content generation failed: ${error.message}. Please ensure OpenAI is properly configured.`);
+      throw new Error(`AI content generation failed: ${error.message}`);
     }
   }
 
@@ -2339,8 +2326,8 @@ Think of yourself as writing a quick, enthusiastic recommendation - SHORT but me
     // 🔧 FIX: Get keywords from config OR from autoPosting settings
     const keywords = config.keywords || config.autoPosting?.keywords || '';
 
-    if (!this.openaiApiKey || !this.openaiEndpoint) {
-      throw new Error('[AutomationScheduler] OpenAI not configured - AI generation is required for review replies');
+    if (!this.geminiApiKey || !this.geminiEndpoint) {
+      throw new Error('[AutomationScheduler] Gemini API not configured - please set GEMINI_API_KEY in environment variables');
     }
 
     try {
@@ -2388,36 +2375,28 @@ CONTENT Requirements:
 
 Return ONLY the middle content paragraph with no greeting or closing.`;
 
+      const systemPromptReply = `You are a professional content writer for ${businessName}. Generate ONLY the middle content of a review reply. DO NOT include greetings like "Dear..." or closings like "Warm regards" - those will be added automatically. Write authentic, varied content that is different every time. Focus on making each response unique and personalized to the specific review.`;
+
       const response = await fetch(
-        this.openaiEndpoint,
+        this.geminiEndpoint,
         {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'api-key': this.openaiApiKey
-          },
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            messages: [
-              {
-                role: 'system',
-                content: `You are a professional content writer for ${businessName}. Generate ONLY the middle content of a review reply. DO NOT include greetings like "Dear..." or closings like "Warm regards" - those will be added automatically. Write authentic, varied content that is different every time. Focus on making each response unique and personalized to the specific review.`
-              },
-              {
-                role: 'user',
-                content: prompt
-              }
-            ],
-            max_tokens: 200,
-            temperature: 0.9, // Higher for more variation
-            frequency_penalty: 0.8, // Prevent repetitive phrases
-            presence_penalty: 0.6 // Encourage new topics/words
+            contents: [{ role: 'user', parts: [{ text: prompt }] }],
+            systemInstruction: { parts: [{ text: systemPromptReply }] },
+            generationConfig: {
+              maxOutputTokens: 250,
+              temperature: 0.9,
+              topP: 0.95
+            }
           })
         }
       );
 
       if (response.ok) {
         const data = await response.json();
-        let middleContent = data.choices[0].message.content.trim();
+        let middleContent = (data?.candidates?.[0]?.content?.parts?.[0]?.text || '').trim();
 
         // Clean up any greeting/closing that AI might have added despite instructions
         middleContent = middleContent
@@ -2440,11 +2419,11 @@ Team ${businessName}`;
         return completeReply;
       } else {
         const errorText = await response.text();
-        throw new Error(`OpenAI API error: ${response.status} - ${errorText}`);
+        throw new Error(`Gemini API error: ${response.status} - ${errorText.substring(0, 300)}`);
       }
     } catch (error) {
       console.error('[AutomationScheduler] Critical error - AI reply generation failed:', error);
-      throw new Error(`AI reply generation failed: ${error.message}. Please ensure OpenAI is properly configured.`);
+      throw new Error(`AI reply generation failed: ${error.message}`);
     }
   }
 

@@ -45,17 +45,9 @@ class Config {
       NODE_ENV: 'production',
       FRONTEND_URL: 'https://app.lobaiseo.com',
       GOOGLE_REDIRECT_URI: 'https://app.lobaiseo.com/auth/google/callback',
-      GOOGLE_CLIENT_ID: '52772597205-9ogv54i6sfvucse3jrqj1nl1hlkspcv1.apps.googleusercontent.com',
-      GOOGLE_CLIENT_SECRET: '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',
       HARDCODED_ACCOUNT_ID: '106433552101751461082',
-      RAZORPAY_KEY_ID: 'rzp_live_RFSzT9EvJ2cwJI',
-      RAZORPAY_KEY_SECRET: '7i0iikfS6eO7w4DSLXldCBX5',
-      AZURE_OPENAI_ENDPOINT: 'https://rajag-mjx5q079-eastus2.cognitiveservices.azure.com',
-      AZURE_OPENAI_API_KEY: '7EdRCwZiy4teOevPf63fO9PCAem0uNowvpC0eCrv0llNwnM6fmRdJQQJ99CAACHYHv6XJ3w3AAAAACOGI5pT',
-      AZURE_OPENAI_DEPLOYMENT: 'gpt-4o-mini-3',
-      AZURE_OPENAI_API_VERSION: '2025-01-01-preview',
-      FIREBASE_PROJECT_ID: 'gbp-467810-a56e2',
-      RAZORPAY_WEBHOOK_SECRET: 'gmb_boost_pro_webhook_secret_2024'
+      GEMINI_MODEL: 'gemini-2.5-flash',
+      FIREBASE_PROJECT_ID: 'gbp-467810-a56e2'
     };
 
     let defaultsApplied = 0;
@@ -85,8 +77,8 @@ class Config {
     const optional = [
       'RAZORPAY_KEY_ID',
       'RAZORPAY_KEY_SECRET',
-      'AZURE_OPENAI_ENDPOINT',
-      'AZURE_OPENAI_API_KEY'
+      'GEMINI_API_KEY',
+      'SENDGRID_API_KEY'
     ];
 
     const missing = required.filter(key => !process.env[key]);

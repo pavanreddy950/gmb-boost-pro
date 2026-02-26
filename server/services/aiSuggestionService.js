@@ -5,94 +5,89 @@ import fetch from 'node-fetch';
  * for every aspect of a Google Business Profile.
  *
  * Takes audit results and profile data, then generates specific suggestions
- * for each gap found using Azure OpenAI.
+ * for each gap found using Google Gemini.
  */
 class AISuggestionService {
   constructor() {
-    // Azure OpenAI API configuration from environment variables
-    this.azureEndpoint = process.env.AZURE_OPENAI_ENDPOINT || '';
-    this.azureApiKey = process.env.AZURE_OPENAI_API_KEY || '';
-    this.azureDeployment = process.env.AZURE_OPENAI_DEPLOYMENT || 'gpt-4o-mini-3';
-    this.azureApiVersion = process.env.AZURE_OPENAI_API_VERSION || '2025-01-01-preview';
-
-    // Build full Azure OpenAI endpoint URL
-    this.openaiEndpoint = this.azureEndpoint
-      ? `${this.azureEndpoint}/openai/deployments/${this.azureDeployment}/chat/completions?api-version=${this.azureApiVersion}`
+    // Google Gemini API configuration
+    this.geminiApiKey = process.env.GEMINI_API_KEY || '';
+    this.geminiModel = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
+    this.geminiEndpoint = this.geminiApiKey
+      ? `https://generativelanguage.googleapis.com/v1beta/models/${this.geminiModel}:generateContent?key=${this.geminiApiKey}`
       : '';
 
     // Rate-limiting state
     this.lastCallTimestamp = 0;
     this.minCallIntervalMs = 500; // Minimum 500ms between consecutive AI calls
 
-    console.log('[AISuggestionService] Initialized with Azure OpenAI configuration');
-    console.log(`[AISuggestionService] Endpoint: ${this.azureEndpoint || 'NOT SET'}`);
-    console.log(`[AISuggestionService] Deployment: ${this.azureDeployment}`);
-    console.log(`[AISuggestionService] API Key: ${this.azureApiKey ? 'Configured' : 'NOT SET'}`);
+    console.log('[AISuggestionService] Initialized with Google Gemini configuration');
+    console.log(`[AISuggestionService] Model: ${this.geminiModel}`);
+    console.log(`[AISuggestionService] API Key: ${this.geminiApiKey ? 'Configured' : 'NOT SET'}`);
   }
 
   // ---------------------------------------------------------------------------
-  // Core Azure OpenAI call method
+  // Core Gemini call method
   // ---------------------------------------------------------------------------
 
   /**
-   * Call Azure OpenAI with rate limiting and robust JSON parsing.
+   * Call Google Gemini with rate limiting and robust JSON parsing.
    * @param {string} systemPrompt - The system-level instruction prompt
    * @param {string} userPrompt - The user-level data/request prompt
-   * @param {number} maxTokens - Maximum tokens for the response
+   * @param {number} maxTokens - Maximum output tokens
    * @returns {object} Parsed JSON object from the AI response
    */
-  async callAzureOpenAI(systemPrompt, userPrompt, maxTokens = 2000) {
-    // Check configuration
-    if (!this.azureApiKey || !this.openaiEndpoint) {
+  async callGemini(systemPrompt, userPrompt, maxTokens = 2000) {
+    if (!this.geminiApiKey || !this.geminiEndpoint) {
       throw new Error(
-        '[AISuggestionService] Azure OpenAI is not configured. ' +
-        'Please set AZURE_OPENAI_ENDPOINT and AZURE_OPENAI_API_KEY environment variables.'
+        '[AISuggestionService] Gemini API is not configured. ' +
+        'Please set GEMINI_API_KEY in your environment variables.'
       );
     }
 
-    // Rate limiting - enforce minimum interval between calls
+    // Rate limiting
     const now = Date.now();
     const elapsed = now - this.lastCallTimestamp;
     if (elapsed < this.minCallIntervalMs) {
       const waitTime = this.minCallIntervalMs - elapsed;
-      console.log(`[AISuggestionService] Rate limiting: waiting ${waitTime}ms before next call`);
       await new Promise(resolve => setTimeout(resolve, waitTime));
     }
     this.lastCallTimestamp = Date.now();
 
-    console.log(`[AISuggestionService] Calling Azure OpenAI (maxTokens: ${maxTokens})`);
+    console.log(`[AISuggestionService] Calling Gemini ${this.geminiModel} (maxTokens: ${maxTokens})`);
 
-    const response = await fetch(this.openaiEndpoint, {
+    const response = await fetch(this.geminiEndpoint, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'api-key': this.azureApiKey,
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: userPrompt }
+        contents: [
+          { role: 'user', parts: [{ text: userPrompt }] }
         ],
-        max_tokens: maxTokens,
-        temperature: 0.7,
-        response_format: { type: 'json_object' }
+        systemInstruction: {
+          parts: [{ text: systemPrompt }]
+        },
+        generationConfig: {
+          responseMimeType: 'application/json',
+          temperature: 0.7,
+          maxOutputTokens: maxTokens
+        }
       })
     });
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error(`[AISuggestionService] Azure OpenAI API error (${response.status}):`, errorText);
-      throw new Error(`[AISuggestionService] Azure API error: ${response.status} - ${errorText}`);
+      console.error(`[AISuggestionService] Gemini API error (${response.status}):`, errorText);
+      throw new Error(`[AISuggestionService] Gemini API error: ${response.status} - ${errorText.substring(0, 300)}`);
     }
 
     const data = await response.json();
 
-    if (!data.choices || !data.choices[0] || !data.choices[0].message || !data.choices[0].message.content) {
-      console.error('[AISuggestionService] Unexpected API response structure:', JSON.stringify(data).substring(0, 500));
-      throw new Error('[AISuggestionService] Unexpected response structure from Azure OpenAI');
+    const rawText = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+    if (!rawText) {
+      console.error('[AISuggestionService] Unexpected Gemini response:', JSON.stringify(data).substring(0, 500));
+      throw new Error('[AISuggestionService] Unexpected response structure from Gemini');
     }
 
-    const content = data.choices[0].message.content.trim();
+    const content = rawText.trim();
     console.log(`[AISuggestionService] Raw response (first 300 chars): ${content.substring(0, 300)}`);
 
     // Robust JSON parsing with multiple fallback strategies
@@ -203,7 +198,11 @@ BUSINESS OWNER PREFERENCES (MUST follow these):
     }
 
     if (businessContext.specialInstructions && businessContext.specialInstructions.trim()) {
-      contextBlock += `\n- SPECIAL INSTRUCTIONS: ${businessContext.specialInstructions.trim()}`;
+      // specialInstructions contains structured questionnaire data (services, amenities, goals, promos)
+      const parts = businessContext.specialInstructions.split(' | ').filter(Boolean);
+      for (const part of parts) {
+        contextBlock += `\n- ${part.toUpperCase().split(':')[0]}: ${part.split(':').slice(1).join(':').trim()}`;
+      }
     }
 
     return contextBlock;
@@ -255,7 +254,7 @@ BUSINESS OWNER PREFERENCES (MUST follow these):
     const reviewKeywordsTop10 = this._listString(keywords.topKeywords || keywords.top || [], 10);
     const keywordGapsTop5 = this._listString(keywords.gaps || keywords.missing || [], 5);
     const servicesList = this._listString(
-      services.map(s => s.displayName || s.name || s).filter(Boolean),
+      services.map(s => this._extractServiceName(s)).filter(n => n !== 'Unknown Service'),
       15
     );
 
@@ -323,11 +322,12 @@ ${this._buildBusinessContextPrompt(businessContext)}${feedbackClause}
 
 Remember: 250-750 characters, front-load the first 250 chars, one city mention, one CTA, third person, no superlatives, no keyword stuffing.`;
 
-    const result = await this.callAzureOpenAI(systemPrompt, userPrompt, 1500);
+    const result = await this.callGemini(systemPrompt, userPrompt, 1500);
 
     return {
       type: 'description',
       content: result,
+      originalContent: currentDescription || 'No description set',
       aiReasoning: result.reasoning || 'Optimized description generated based on review keywords, service offerings, and local SEO principles.',
       generatedAt: new Date().toISOString()
     };
@@ -356,7 +356,7 @@ Remember: 250-750 characters, front-load the first 250 chars, one city mention, 
     const currentSecondary = (profile.additionalCategories || profile.secondaryCategories || [])
       .map(c => c.displayName || c.name || c)
       .filter(Boolean);
-    const serviceNames = services.map(s => s.displayName || s.name || s).filter(Boolean);
+    const serviceNames = services.map(s => this._extractServiceName(s)).filter(n => n !== 'Unknown Service');
     const reviewKeywords = this._listString(keywords.topKeywords || keywords.top || [], 20);
 
     const feedbackClause = userFeedback
@@ -407,11 +407,12 @@ ${this._buildBusinessContextPrompt(businessContext)}${feedbackClause}
 
 Recommend up to 9 secondary categories, ordered by search impact (highest first). Only suggest real GBP categories that are genuinely relevant.`;
 
-    const result = await this.callAzureOpenAI(systemPrompt, userPrompt, 1500);
+    const result = await this.callGemini(systemPrompt, userPrompt, 1500);
 
     return {
       type: 'categories',
       content: result,
+      originalContent: currentSecondary.length > 0 ? currentSecondary.join(', ') : 'No secondary categories set',
       aiReasoning: result.categories?.length
         ? `Recommended ${result.categories.length} secondary categories based on service offerings, review keywords, and search impact analysis.`
         : 'No additional secondary categories recommended at this time.',
@@ -444,9 +445,10 @@ Recommend up to 9 secondary categories, ordered by search impact (highest first)
     const serviceGaps = this._listString(keywords.serviceGaps || keywords.gaps || [], 10);
 
     // Format existing services with their descriptions
+    // GBP service items use nested format: freeFormServiceItem.label.displayName / structuredServiceItem
     const existingServicesFormatted = services.map(s => {
-      const name = s.displayName || s.name || s;
-      const desc = s.description || 'No description';
+      const name = this._extractServiceName(s);
+      const desc = this._extractServiceDescription(s) || 'No description';
       return `- ${name}: ${desc}`;
     }).join('\n');
 
@@ -503,11 +505,12 @@ ${this._buildBusinessContextPrompt(businessContext)}${feedbackClause}
 
 For each existing service, provide an improved description. Also suggest any new services that are clearly relevant based on the category and keywords. Mark new suggestions with isNew: true.`;
 
-    const result = await this.callAzureOpenAI(systemPrompt, userPrompt, 2500);
+    const result = await this.callGemini(systemPrompt, userPrompt, 2500);
 
     return {
       type: 'services',
       content: result,
+      originalContent: services.length > 0 ? existingServicesFormatted : 'No services listed',
       aiReasoning: result.services?.length
         ? `Generated descriptions for ${result.services.filter(s => !s.isNew).length} existing services and suggested ${result.services.filter(s => s.isNew).length} new services based on keyword analysis and competitive gaps.`
         : 'No service suggestions generated.',
@@ -537,7 +540,7 @@ For each existing service, provide an improved description. Also suggest any new
 
     const businessName = profile.title || profile.name || 'the business';
     const category = profile.primaryCategory?.displayName || profile.category || 'Business';
-    const serviceNames = services.map(s => s.displayName || s.name || s).filter(Boolean);
+    const serviceNames = services.map(s => this._extractServiceName(s)).filter(n => n !== 'Unknown Service');
     const reviewKeywords = this._listString(keywords.topKeywords || keywords.top || [], 15);
 
     // Extract product mentions from reviews
@@ -600,11 +603,14 @@ ${this._buildBusinessContextPrompt(businessContext)}${feedbackClause}
 
 Suggest up to 10 products grouped into categories. Focus on what customers are searching for and what the business actually offers.`;
 
-    const result = await this.callAzureOpenAI(systemPrompt, userPrompt, 2500);
+    const result = await this.callGemini(systemPrompt, userPrompt, 2500);
 
     return {
       type: 'products',
       content: result,
+      originalContent: products.length > 0
+        ? products.map(p => `${p.name || p.displayName || 'Unnamed'}: ${p.description || 'No description'}`).join('\n')
+        : 'No products listed',
       aiReasoning: result.products?.length
         ? `Suggested ${result.products.length} products across ${[...new Set((result.products || []).map(p => p.category))].length} categories based on services, review mentions, and search demand.`
         : 'No product suggestions generated.',
@@ -717,11 +723,13 @@ ${this._buildBusinessContextPrompt(businessContext)}${feedbackClause}
 
 Generate three templates (positive, neutral, negative) that sound authentic and include {REVIEWER_NAME} and {SPECIFIC_SERVICE} placeholders. Naturally integrate 2-3 keywords into each template.`;
 
-    const result = await this.callAzureOpenAI(systemPrompt, userPrompt, 2000);
+    const result = await this.callGemini(systemPrompt, userPrompt, 2000);
 
+    const unansweredCount = reviews.filter(r => !r.reviewReply).length;
     return {
       type: 'replyTemplates',
       content: result,
+      originalContent: `${reviews.length} total reviews | Avg rating: ${avgRating}/5 | ${unansweredCount} unanswered reviews (no reply templates currently set)`,
       aiReasoning: `Generated three review reply templates (positive, neutral, negative) for ${businessName} with keyword integration for: ${topKeywordsStr}. Templates include {REVIEWER_NAME} and {SPECIFIC_SERVICE} placeholders for personalization.`,
       generatedAt: new Date().toISOString()
     };
@@ -747,7 +755,7 @@ Generate three templates (positive, neutral, negative) that sound authentic and 
 
     const businessName = profile.title || profile.name || 'the business';
     const category = profile.primaryCategory?.displayName || profile.category || 'Business';
-    const serviceNames = services.map(s => s.displayName || s.name || s).filter(Boolean);
+    const serviceNames = services.map(s => this._extractServiceName(s)).filter(n => n !== 'Unknown Service');
     const reviewKeywords = this._listString(keywords.topKeywords || keywords.top || [], 15);
     const currentAttributes = (profile.attributes || [])
       .map(a => {
@@ -807,11 +815,12 @@ ${this._buildBusinessContextPrompt(businessContext)}${feedbackClause}
 
 Recommend relevant attributes across all applicable groups. Focus on attributes that will improve search visibility and accurately represent the business.`;
 
-    const result = await this.callAzureOpenAI(systemPrompt, userPrompt, 2000);
+    const result = await this.callGemini(systemPrompt, userPrompt, 2000);
 
     return {
       type: 'attributes',
       content: result,
+      originalContent: currentAttributes.length > 0 ? currentAttributes.join(', ') : 'No attributes currently set',
       aiReasoning: result.attributes?.length
         ? `Recommended ${result.attributes.filter(a => a.recommended).length} attributes to set and ${result.attributes.filter(a => !a.recommended).length} to review across ${[...new Set((result.attributes || []).map(a => a.group))].length} groups.`
         : 'No attribute recommendations generated.',
@@ -933,14 +942,235 @@ ${this._buildBusinessContextPrompt(businessContext)}${feedbackClause}
 
 Create a comprehensive photo guide prioritizing missing types and types that will have the most impact on this specific business category.`;
 
-    const result = await this.callAzureOpenAI(systemPrompt, userPrompt, 2500);
+    const result = await this.callGemini(systemPrompt, userPrompt, 2500);
 
+    const totalPhotos = Array.isArray(photos) ? photos.length : (photos.totalCount || 0);
     return {
       type: 'photoGuide',
       content: result,
+      originalContent: totalPhotos > 0 ? `${totalPhotos} photos uploaded (${photoCountsStr})` : 'No photos uploaded yet',
       aiReasoning: result.photoGuide?.length
         ? `Created a ${result.photoGuide.length}-item photo guide with ${result.photoGuide.filter(p => p.priority === 'high').length} high-priority items based on current photo gaps and business category.`
         : 'No photo guide generated.',
+      generatedAt: new Date().toISOString()
+    };
+  }
+
+  // ---------------------------------------------------------------------------
+  // 8. Business Hours Suggestion
+  // ---------------------------------------------------------------------------
+
+  async generateHoursSuggestion(profileData, auditResults, userFeedback = null, businessContext = null) {
+    console.log('[AISuggestionService] Generating business hours suggestion');
+
+    const profile = profileData.profile || {};
+    const businessName = profile.title || profile.name || 'the business';
+    const category = profile.primaryCategory?.displayName || profile.category || 'Business';
+    const regularHours = profile.regularHours?.periods || [];
+
+    const currentHoursStr = regularHours.length > 0
+      ? regularHours.map(p => {
+          const openH = String(p.openTime?.hours || 0).padStart(2, '0');
+          const openM = String(p.openTime?.minutes || 0).padStart(2, '0');
+          const closeH = String(p.closeTime?.hours || 0).padStart(2, '0');
+          const closeM = String(p.closeTime?.minutes || 0).padStart(2, '0');
+          return `${p.openDay}: ${openH}:${openM} - ${closeH}:${closeM}`;
+        }).join('\n')
+      : 'No hours set';
+
+    const feedbackClause = userFeedback
+      ? `\n\nUSER FEEDBACK (incorporate this):\n"${userFeedback}"`
+      : '';
+
+    const systemPrompt = `You are a Google Business Profile expert. Suggest optimal business hours for this business type. Hours should be realistic for the industry, customer-friendly, and complete for all 7 days.
+
+STRICT RULES:
+1. Suggest hours for all 7 days (MONDAY through SUNDAY).
+2. Use 24-hour format for openTime and closeTime (e.g., 9 for 9 AM, 17 for 5 PM).
+3. If the business is likely closed on certain days, set isClosed: true.
+4. Base suggestions on typical industry standards for this business category.
+5. Include a brief reasoning for each day's hours.
+
+You MUST respond with valid JSON in this exact format:
+{
+  "periods": [
+    { "openDay": "MONDAY", "openTime": { "hours": 9, "minutes": 0 }, "closeTime": { "hours": 18, "minutes": 0 }, "isClosed": false },
+    { "openDay": "TUESDAY", "openTime": { "hours": 9, "minutes": 0 }, "closeTime": { "hours": 18, "minutes": 0 }, "isClosed": false },
+    { "openDay": "WEDNESDAY", "openTime": { "hours": 9, "minutes": 0 }, "closeTime": { "hours": 18, "minutes": 0 }, "isClosed": false },
+    { "openDay": "THURSDAY", "openTime": { "hours": 9, "minutes": 0 }, "closeTime": { "hours": 18, "minutes": 0 }, "isClosed": false },
+    { "openDay": "FRIDAY", "openTime": { "hours": 9, "minutes": 0 }, "closeTime": { "hours": 18, "minutes": 0 }, "isClosed": false },
+    { "openDay": "SATURDAY", "openTime": { "hours": 10, "minutes": 0 }, "closeTime": { "hours": 16, "minutes": 0 }, "isClosed": false },
+    { "openDay": "SUNDAY", "openTime": { "hours": 0, "minutes": 0 }, "closeTime": { "hours": 0, "minutes": 0 }, "isClosed": true }
+  ],
+  "reasoning": "Brief explanation of why these hours suit this business type"
+}`;
+
+    const userPrompt = `Suggest optimal business hours for:
+
+BUSINESS NAME: ${businessName}
+BUSINESS CATEGORY: ${category}
+
+CURRENT HOURS:
+${currentHoursStr}
+${this._buildBusinessContextPrompt(businessContext)}${feedbackClause}
+
+Suggest complete hours for all 7 days based on what's typical for this business category. If hours are already set, improve them if needed.`;
+
+    const result = await this.callGemini(systemPrompt, userPrompt, 1500);
+
+    return {
+      type: 'hours',
+      content: result,
+      originalContent: currentHoursStr,
+      aiReasoning: result.reasoning || `Suggested industry-standard hours for a ${category} business covering all 7 days of the week.`,
+      generatedAt: new Date().toISOString()
+    };
+  }
+
+  // ---------------------------------------------------------------------------
+  // 9. Social Links / Website Suggestion
+  // ---------------------------------------------------------------------------
+
+  async generateSocialLinksSuggestion(profileData, auditResults, userFeedback = null, businessContext = null) {
+    console.log('[AISuggestionService] Generating social links suggestion');
+
+    const profile = profileData.profile || {};
+    const businessName = profile.title || profile.name || 'the business';
+    const category = profile.primaryCategory?.displayName || profile.category || 'Business';
+    const websiteUri = profile.websiteUri || '';
+
+    const currentLinks = [];
+    if (websiteUri) currentLinks.push(`Website: ${websiteUri}`);
+
+    const originalContent = currentLinks.length > 0 ? currentLinks.join('\n') : 'No website or links set';
+
+    const feedbackClause = userFeedback
+      ? `\n\nUSER FEEDBACK (incorporate this):\n"${userFeedback}"`
+      : '';
+
+    const systemPrompt = `You are a Google Business Profile expert. Help identify what links and social profiles this business should add to maximize their online presence.
+
+STRICT RULES:
+1. Only suggest link types that are genuinely useful for this business category.
+2. For each link type, explain what it is and why it matters.
+3. Do NOT invent URLs — just suggest the TYPE of link to add.
+4. Prioritize by impact on customer conversion and SEO.
+
+You MUST respond with valid JSON in this exact format:
+{
+  "recommendations": [
+    {
+      "type": "website|booking|menu|ordering|appointment|social_facebook|social_instagram|social_twitter|social_linkedin|social_youtube",
+      "label": "Human-readable label",
+      "importance": "critical|high|medium|low",
+      "reasoning": "Why this link matters for this business and how to get it",
+      "placeholder": "e.g. https://yourbusiness.com"
+    }
+  ],
+  "reasoning": "Overall strategy for this business's online presence"
+}`;
+
+    const userPrompt = `Suggest important links to add for:
+
+BUSINESS NAME: ${businessName}
+BUSINESS CATEGORY: ${category}
+
+CURRENT LINKS ALREADY SET:
+${originalContent}
+${this._buildBusinessContextPrompt(businessContext)}${feedbackClause}
+
+List all link types this business should have, focusing on what's missing. Explain why each matters.`;
+
+    const result = await this.callGemini(systemPrompt, userPrompt, 1500);
+
+    return {
+      type: 'social_links',
+      content: result,
+      originalContent,
+      aiReasoning: result.reasoning || `Identified ${result.recommendations?.length || 0} important links to add to strengthen the business's online presence.`,
+      generatedAt: new Date().toISOString()
+    };
+  }
+
+  // ---------------------------------------------------------------------------
+  // 10. Post Content Suggestion
+  // ---------------------------------------------------------------------------
+
+  async generatePostSuggestion(profileData, auditResults, userFeedback = null, businessContext = null) {
+    console.log('[AISuggestionService] Generating post content suggestions');
+
+    const profile = profileData.profile || {};
+    const posts = profileData.posts || [];
+    const reviews = profileData.reviews || [];
+    const keywords = auditResults.keywords || {};
+
+    const businessName = profile.title || profile.name || 'the business';
+    const category = profile.primaryCategory?.displayName || profile.category || 'Business';
+    const reviewKeywords = this._listString(keywords.topKeywords || keywords.top || [], 10);
+
+    const lastPost = posts[0];
+    const originalContent = posts.length > 0
+      ? `${posts.length} recent posts. Last post: ${lastPost?.createTime ? new Date(lastPost.createTime).toLocaleDateString() : 'Unknown date'}`
+      : 'No posts published yet';
+
+    // Sample recent review for context
+    const sampleReview = reviews.find(r => (r.comment || r.text || '').length > 30);
+    const reviewContext = sampleReview ? (sampleReview.comment || sampleReview.text || '').substring(0, 200) : '';
+
+    const feedbackClause = userFeedback
+      ? `\n\nUSER FEEDBACK (incorporate this):\n"${userFeedback}"`
+      : '';
+
+    const systemPrompt = `You are a Google Business Profile content expert. Generate ready-to-publish GBP posts for a business. These posts appear directly in Google Search and Maps.
+
+GBP POST TYPES:
+- "whats_new": General updates, news, announcements
+- "offer": Promotions, discounts, special deals
+- "event": Upcoming events, workshops, activities
+
+STRICT RULES:
+1. Generate 3 different posts — one of each type (whats_new, offer, event).
+2. Each post must be 100-300 characters (optimal for GBP).
+3. Include a clear call-to-action in each post.
+4. Make posts specific to this business — not generic templates.
+5. Naturally integrate 1-2 review keywords per post.
+6. No superlatives ("best", "#1"), no promotional exaggeration.
+7. Posts must be ready to publish as-is (or with minimal editing).
+
+You MUST respond with valid JSON in this exact format:
+{
+  "posts": [
+    {
+      "type": "whats_new",
+      "title": "Optional short title (max 58 chars)",
+      "content": "The post text (100-300 chars)",
+      "callToAction": "LEARN_MORE|CALL|BOOK|ORDER|SHOP|SIGN_UP",
+      "keywords": ["keyword1", "keyword2"]
+    }
+  ],
+  "reasoning": "Brief explanation of the post strategy"
+}`;
+
+    const userPrompt = `Generate 3 ready-to-publish GBP posts for:
+
+BUSINESS NAME: ${businessName}
+BUSINESS CATEGORY: ${category}
+REVIEW KEYWORDS TO USE: ${reviewKeywords}
+${reviewContext ? `\nRECENT CUSTOMER REVIEW (for context):\n"${reviewContext}"` : ''}
+
+CURRENT POST ACTIVITY:
+${originalContent}
+${this._buildBusinessContextPrompt(businessContext)}${feedbackClause}
+
+Create 3 posts (what's new, offer, event) that are specific to this business and ready to publish.`;
+
+    const result = await this.callGemini(systemPrompt, userPrompt, 2000);
+
+    return {
+      type: 'posts',
+      content: result,
+      originalContent,
+      aiReasoning: result.reasoning || `Generated ${result.posts?.length || 3} ready-to-publish GBP posts (what's new, offer, event) to boost posting activity and local search visibility.`,
       generatedAt: new Date().toISOString()
     };
   }
@@ -951,6 +1181,8 @@ Create a comprehensive photo guide prioritizing missing types and types that wil
 
   /**
    * Generate all applicable suggestions for a profile in parallel.
+   * Only generates suggestions for modules that actually need improvement (score < 80)
+   * or where data is missing entirely.
    * @param {object} profileData - { profile, services, products, reviews, posts, photos }
    * @param {object} auditResults - { overallScore, modules, keywords }
    * @returns {object} { suggestions: [...], errors: [...], generatedAt }
@@ -961,26 +1193,69 @@ Create a comprehensive photo guide prioritizing missing types and types that wil
       console.log(`[AISuggestionService] Business context provided: currency=${businessContext.currency}, tone=${businessContext.tone}, audience=${businessContext.targetAudience}`);
     }
 
-    if (!this.azureApiKey || !this.openaiEndpoint) {
+    if (!this.geminiApiKey || !this.geminiEndpoint) {
       return {
         suggestions: [],
         errors: [{
           type: 'configuration',
-          message: 'Azure OpenAI is not configured. Please set AZURE_OPENAI_ENDPOINT and AZURE_OPENAI_API_KEY environment variables to enable AI suggestions.'
+          message: 'Gemini API is not configured. Please set GEMINI_API_KEY in your environment variables to enable AI suggestions.'
         }],
         generatedAt: new Date().toISOString()
       };
     }
 
-    const generators = [
-      { name: 'description', fn: () => this.generateDescriptionSuggestion(profileData, auditResults, null, businessContext) },
-      { name: 'categories', fn: () => this.generateCategorySuggestions(profileData, auditResults, null, businessContext) },
-      { name: 'services', fn: () => this.generateServiceSuggestions(profileData, auditResults, null, businessContext) },
-      { name: 'products', fn: () => this.generateProductSuggestions(profileData, auditResults, null, businessContext) },
-      { name: 'replyTemplates', fn: () => this.generateReplyTemplates(profileData, auditResults, null, businessContext) },
-      { name: 'attributes', fn: () => this.generateAttributeRecommendations(profileData, auditResults, null, businessContext) },
-      { name: 'photoGuide', fn: () => this.generatePhotoGuide(profileData, auditResults, null, businessContext) },
-    ];
+    // Build a module score lookup so we only generate suggestions for modules that need improvement
+    const moduleScores = {};
+    for (const mod of (auditResults.modules || [])) {
+      moduleScores[mod.id] = mod.score;
+    }
+
+    // Returns true if this module needs a suggestion (score < threshold OR data is missing)
+    const needsSuggestion = (moduleId, hasData = true) => {
+      if (!hasData) return true; // data missing → always suggest
+      const score = moduleScores[moduleId];
+      if (score === undefined) return true; // module not found → include to be safe
+      return score < 80; // below threshold → needs improvement
+    };
+
+    // Check what data is actually present in the profile
+    const profile = profileData.profile || {};
+    const hasDescription = !!(profile.profile?.description || profile.description);
+    const hasSecondaryCategories = (profile.additionalCategories || profile.secondaryCategories || []).length > 0;
+    const hasServices = (profileData.services || []).length > 0;
+    const hasProducts = (profileData.products || []).length > 0;
+    const hasHours = (profile.regularHours?.periods || []).length > 0;
+    const hasWebsite = !!profile.websiteUri;
+    const hasEnoughPosts = (profileData.posts || []).length >= 4;
+    const hasAttributes = (profile.attributes || []).length > 0;
+    const hasPhotos = Array.isArray(profileData.photos)
+      ? profileData.photos.length > 0
+      : !!(profileData.photos?.totalCount);
+
+    // Build generator list — only include what actually needs work
+    const generators = [];
+
+    if (needsSuggestion('descriptionQuality', hasDescription) || needsSuggestion('keywordCoverage')) {
+      generators.push({ name: 'description', fn: () => this.generateDescriptionSuggestion(profileData, auditResults, null, businessContext) });
+    }
+    if (needsSuggestion('categoryOptimization', hasSecondaryCategories)) {
+      generators.push({ name: 'categories', fn: () => this.generateCategorySuggestions(profileData, auditResults, null, businessContext) });
+    }
+    if (needsSuggestion('serviceOptimization', hasServices)) {
+      generators.push({ name: 'services', fn: () => this.generateServiceSuggestions(profileData, auditResults, null, businessContext) });
+    }
+    if (needsSuggestion('productListing', hasProducts)) {
+      generators.push({ name: 'products', fn: () => this.generateProductSuggestions(profileData, auditResults, null, businessContext) });
+    }
+    if (needsSuggestion('attributeCoverage', hasAttributes)) {
+      generators.push({ name: 'attributes', fn: () => this.generateAttributeRecommendations(profileData, auditResults, null, businessContext) });
+    }
+    if (needsSuggestion('hoursCompleteness', hasHours)) {
+      generators.push({ name: 'hours', fn: () => this.generateHoursSuggestion(profileData, auditResults, null, businessContext) });
+    }
+
+    console.log(`[AISuggestionService] Running ${generators.length}/10 generators (skipping modules with score >= 80)`);
+    generators.forEach(g => console.log(`  → ${g.name} (score: ${moduleScores[g.name] ?? 'N/A'})`));
 
     const suggestions = [];
     const errors = [];
@@ -1031,9 +1306,8 @@ Create a comprehensive photo guide prioritizing missing types and types that wil
       categories: () => this.generateCategorySuggestions(profileData, auditResults, userFeedback, businessContext),
       services: () => this.generateServiceSuggestions(profileData, auditResults, userFeedback, businessContext),
       products: () => this.generateProductSuggestions(profileData, auditResults, userFeedback, businessContext),
-      replyTemplates: () => this.generateReplyTemplates(profileData, auditResults, userFeedback, businessContext),
       attributes: () => this.generateAttributeRecommendations(profileData, auditResults, userFeedback, businessContext),
-      photoGuide: () => this.generatePhotoGuide(profileData, auditResults, userFeedback, businessContext),
+      hours: () => this.generateHoursSuggestion(profileData, auditResults, userFeedback, businessContext),
     };
 
     const generator = generatorMap[type];
@@ -1052,6 +1326,37 @@ Create a comprehensive photo guide prioritizing missing types and types that wil
       console.error(`[AISuggestionService] Failed to regenerate ${type}:`, error.message);
       throw error;
     }
+  }
+
+  // ---------------------------------------------------------------------------
+  // GBP service item extraction helpers
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Extract a human-readable name from a GBP service item.
+   * GBP returns service items in nested format:
+   *   { freeFormServiceItem: { label: { displayName, description } } }
+   *   { structuredServiceItem: { serviceTypeId, description } }
+   */
+  _extractServiceName(s) {
+    if (!s || typeof s !== 'object') return String(s || 'Unknown Service');
+    return (
+      s.freeFormServiceItem?.label?.displayName ||
+      s.structuredServiceItem?.serviceTypeId ||
+      s.displayName ||
+      s.name ||
+      'Unknown Service'
+    );
+  }
+
+  _extractServiceDescription(s) {
+    if (!s || typeof s !== 'object') return '';
+    return (
+      s.freeFormServiceItem?.label?.description ||
+      s.structuredServiceItem?.description ||
+      s.description ||
+      ''
+    );
   }
 }
 

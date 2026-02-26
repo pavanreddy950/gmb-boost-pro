@@ -34,6 +34,7 @@ server/.env
 server/.env.local
 server/.env.azure
 server/.env.production
+server/.env.render
 
 # Firebase Service Account Keys (NEVER COMMIT)
 **/serviceAccountKey.json

@@ -3,7 +3,7 @@ import fetch from 'node-fetch';
 
 const router = express.Router();
 
-const GOOGLE_PLACES_API_KEY = 'AIzaSyD_VdlmkU12eqs2g6rRcT0p0TndqbFhlW4';
+const GOOGLE_PLACES_API_KEY = process.env.GOOGLE_PLACES_API_KEY || '';
 
 /**
  * Get Place ID from business name and location

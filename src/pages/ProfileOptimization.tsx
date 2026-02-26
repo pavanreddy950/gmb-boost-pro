@@ -219,7 +219,12 @@ const ProfileOptimization: React.FC = () => {
     setDeployments([]);
   };
 
-  // Start optimization directly with default business context
+  // Click "Optimize Profile" → run scan immediately
+  const handleOptimizeClick = () => {
+    if (!selectedLocationId || !selectedAccountId) return;
+    startOptimization();
+  };
+
   const startOptimization = async () => {
     if (!selectedLocationId || !selectedAccountId || !currentUser?.email) return;
 
@@ -240,7 +245,6 @@ const ProfileOptimization: React.FC = () => {
     }, 800);
 
     try {
-      // Get Google OAuth access token from localStorage (same pattern as AuditTool)
       const storedTokens = localStorage.getItem('google_business_tokens');
       if (!storedTokens) {
         throw new Error('No Google Business Profile connection found. Please connect in Settings > Connections.');
@@ -261,12 +265,7 @@ const ProfileOptimization: React.FC = () => {
           locationId: selectedLocationId,
           accountId: selectedAccountId,
           userId: currentUser.email,
-          businessContext: {
-            currency: 'INR',
-            tone: 'professional',
-            targetAudience: 'local_residents',
-            priceRange: 'mid_range',
-          },
+          businessContext: { currency: 'INR', tone: 'professional', targetAudience: 'local_residents', priceRange: 'mid_range' },
         }),
       });
 
@@ -366,16 +365,30 @@ const ProfileOptimization: React.FC = () => {
   const handleScheduleDeployment = async () => {
     if (!job?.id) return;
     try {
+      const storedTokens = localStorage.getItem('google_business_tokens');
+      const tokens = storedTokens ? JSON.parse(storedTokens) : {};
+      const accessToken = tokens.access_token || '';
+
       const res = await fetch(`${backendUrl}/api/profile-optimizer/deploy/${job.id}`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify({ locationId: selectedLocationId }),
       });
       const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Deploy failed');
       setDeployments(data.schedule || []);
-      toast({ title: 'Deployment scheduled', description: '7-day gradual deployment started' });
+      const applied = (data.schedule || []).filter((d: any) => d.gbp_applied).length;
+      const total = (data.schedule || []).length;
+      toast({
+        title: 'Changes Deployed!',
+        description: `${applied}/${total} changes applied to your Google Business Profile`,
+      });
       setActiveTab('deploy');
-    } catch (error) {
-      toast({ title: 'Failed to schedule', variant: 'destructive' });
+    } catch (error: any) {
+      toast({ title: 'Failed to deploy', description: error.message, variant: 'destructive' });
     }
   };
 
@@ -499,7 +512,7 @@ const ProfileOptimization: React.FC = () => {
             {/* Optimize Button */}
             <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
               <Button
-                onClick={startOptimization}
+                onClick={handleOptimizeClick}
                 disabled={!selectedLocationId || isOptimizing}
                 className="h-11 px-6 rounded-xl bg-gradient-to-r from-primary via-blue-600 to-cyan-500 hover:from-primary/90 hover:via-blue-600/90 hover:to-cyan-500/90 text-white font-semibold shadow-lg shadow-primary/25 disabled:opacity-50 disabled:shadow-none transition-all duration-300"
               >
@@ -640,7 +653,7 @@ const ProfileOptimization: React.FC = () => {
                     { icon: BarChart3, label: '13 Audit Modules', color: 'from-blue-500 to-cyan-500' },
                     { icon: Sparkles, label: 'AI Suggestions', color: 'from-purple-500 to-pink-500' },
                     { icon: Shield, label: 'Google Safe', color: 'from-green-500 to-emerald-500' },
-                    { icon: Clock, label: '7-Day Deploy', color: 'from-amber-500 to-orange-500' },
+                    { icon: Zap, label: 'Instant Deploy', color: 'from-amber-500 to-orange-500' },
                   ].map((item, i) => (
                     <motion.div
                       key={i}
@@ -746,7 +759,7 @@ const ProfileOptimization: React.FC = () => {
                           </Button>
                         </motion.div>
                       )}
-                      <Button variant="outline" size="icon" onClick={startOptimization} className="rounded-xl">
+                      <Button variant="outline" size="icon" onClick={handleOptimizeClick} className="rounded-xl">
                         <RefreshCw className="w-4 h-4" />
                       </Button>
                     </div>
@@ -835,7 +848,7 @@ const ProfileOptimization: React.FC = () => {
                 </p>
                 <motion.div whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}>
                   <Button
-                    onClick={startOptimization}
+                    onClick={handleOptimizeClick}
                     size="lg"
                     className="rounded-xl bg-gradient-to-r from-primary via-blue-600 to-cyan-500 text-white font-semibold shadow-xl shadow-primary/30 px-8"
                   >

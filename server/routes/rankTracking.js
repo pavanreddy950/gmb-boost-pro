@@ -4,7 +4,7 @@ import fetch from 'node-fetch';
 const router = express.Router();
 
 // Google Places API Key
-const GOOGLE_PLACES_API_KEY = 'AIzaSyD_VdlmkU12eqs2g6rRcT0p0TndqbFhlW4';
+const GOOGLE_PLACES_API_KEY = process.env.GOOGLE_PLACES_API_KEY || '';
 
 /**
  * Get real rank position for a business using Google Places API

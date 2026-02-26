@@ -293,17 +293,23 @@ router.post('/suggestions/:id/regenerate', async (req, res) => {
 });
 
 // ============================================
-// 7. POST /deploy/:jobId - Schedule gradual deployment
+// 7. POST /deploy/:jobId - Deploy approved suggestions to GBP
 // ============================================
 router.post('/deploy/:jobId', async (req, res) => {
   try {
     const { jobId } = req.params;
+    const accessToken = getAccessToken(req);
+    const { locationId } = req.body;
 
-    const schedule = await profileOptimizerService.scheduleDeployment(jobId);
+    if (!accessToken) {
+      return res.status(401).json({ error: 'Access token required to deploy to Google Business Profile' });
+    }
+
+    const schedule = await profileOptimizerService.scheduleDeployment(jobId, accessToken, locationId);
     res.json({ success: true, schedule });
   } catch (error) {
     console.error('[ProfileOptimizer API] Deploy error:', error.message);
-    res.status(500).json({ error: 'Failed to schedule deployment', details: error.message });
+    res.status(500).json({ error: 'Failed to deploy', details: error.message });
   }
 });
 

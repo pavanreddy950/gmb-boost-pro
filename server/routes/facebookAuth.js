@@ -4,12 +4,12 @@ import connectionPool from '../database/connectionPool.js';
 const router = express.Router();
 
 // Facebook App Credentials (lobaise-pages app - with page permissions)
-const FACEBOOK_APP_ID = process.env.FACEBOOK_APP_ID || '1329697155863530';
-const FACEBOOK_APP_SECRET = process.env.FACEBOOK_APP_SECRET || 'ca51f6aefb60718b7a300e5de61378e0';
+const FACEBOOK_APP_ID = process.env.FACEBOOK_APP_ID || '';
+const FACEBOOK_APP_SECRET = process.env.FACEBOOK_APP_SECRET || '';
 
 // Instagram App Credentials (social-lobaiseo-IG - from Instagram API settings)
-const INSTAGRAM_APP_ID = process.env.INSTAGRAM_APP_ID || '1509002856841560';
-const INSTAGRAM_APP_SECRET = process.env.INSTAGRAM_APP_SECRET || 'bc86ce27a700f29f4c6a080df717bd2c';
+const INSTAGRAM_APP_ID = process.env.INSTAGRAM_APP_ID || '';
+const INSTAGRAM_APP_SECRET = process.env.INSTAGRAM_APP_SECRET || '';
 
 // Redirect URIs
 const BACKEND_URL = process.env.BACKEND_URL || 'https://lobaiseo-backend-yjnl.onrender.com';

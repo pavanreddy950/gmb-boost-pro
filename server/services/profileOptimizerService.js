@@ -127,34 +127,68 @@ class ProfileOptimizerService {
     // Step 1: Sanitize content
     let sanitizedContent = suggestion.content;
 
+    const raw = suggestion.content;
+
     switch (suggestion.type) {
       case 'description':
-        sanitizedContent = contentSanitizer.sanitizeDescription(suggestion.content);
+        // content = { description: "...", reasoning: "...", keywordsUsed: [], charCount: N }
+        // sanitize only the description text, then re-wrap with full object for display
+        if (raw && typeof raw === 'object') {
+          const cleanDesc = contentSanitizer.sanitizeDescription(raw.description || '');
+          sanitizedContent = JSON.stringify({ ...raw, description: cleanDesc });
+        } else {
+          sanitizedContent = contentSanitizer.sanitizeDescription(raw || '');
+        }
         break;
+
       case 'service_description':
-        sanitizedContent = contentSanitizer.sanitizeServiceDescription(suggestion.content);
+      case 'services':
+        // content = { services: [{ name, description, isNew, keywords }] }
+        if (raw && typeof raw === 'object' && Array.isArray(raw.services)) {
+          const cleaned = raw.services.map(s => ({
+            ...s,
+            description: contentSanitizer.sanitizeServiceDescription(s.description || '')
+          }));
+          sanitizedContent = JSON.stringify({ ...raw, services: cleaned });
+        } else {
+          sanitizedContent = JSON.stringify(raw);
+        }
         break;
+
       case 'product':
-        if (suggestion.content && typeof suggestion.content === 'object') {
-          sanitizedContent = JSON.stringify({
-            ...suggestion.content,
-            description: contentSanitizer.sanitizeProductDescription(suggestion.content.description || '')
-          });
+      case 'products':
+        // content = { products: [{ name, description, category, suggestedPriceRange }] }
+        if (raw && typeof raw === 'object' && Array.isArray(raw.products)) {
+          const cleaned = raw.products.map(p => ({
+            ...p,
+            description: contentSanitizer.sanitizeProductDescription(p.description || '')
+          }));
+          sanitizedContent = JSON.stringify({ ...raw, products: cleaned });
+        } else {
+          sanitizedContent = JSON.stringify(raw);
         }
         break;
+
       case 'reply_template':
-        if (suggestion.content && typeof suggestion.content === 'object') {
+      case 'replyTemplates':
+        // content = { templates: { positive, neutral, negative } }
+        if (raw && typeof raw === 'object' && raw.templates) {
           sanitizedContent = JSON.stringify({
-            positive: contentSanitizer.sanitizeReviewReply(suggestion.content.positive || ''),
-            neutral: contentSanitizer.sanitizeReviewReply(suggestion.content.neutral || ''),
-            negative: contentSanitizer.sanitizeReviewReply(suggestion.content.negative || '')
+            templates: {
+              positive: contentSanitizer.sanitizeReviewReply(raw.templates.positive || ''),
+              neutral: contentSanitizer.sanitizeReviewReply(raw.templates.neutral || ''),
+              negative: contentSanitizer.sanitizeReviewReply(raw.templates.negative || '')
+            }
           });
+        } else {
+          sanitizedContent = JSON.stringify(raw);
         }
         break;
+
       default:
-        sanitizedContent = typeof suggestion.content === 'object'
-          ? JSON.stringify(suggestion.content)
-          : suggestion.content;
+        // For all other types (categories, attributes, photoGuide, hours, social_links, posts)
+        // just store the full AI response as JSON
+        sanitizedContent = typeof raw === 'object' ? JSON.stringify(raw) : (raw || '');
     }
 
     // Step 2: Risk scoring
@@ -189,7 +223,7 @@ class ProfileOptimizerService {
       suggestion_type: suggestion.type,
       original_content: suggestion.originalContent || null,
       suggested_content: typeof sanitizedContent === 'string' ? sanitizedContent : JSON.stringify(sanitizedContent),
-      ai_reasoning: suggestion.reasoning || null,
+      ai_reasoning: suggestion.aiReasoning || suggestion.reasoning || null,
       risk_score: riskResult.riskScore,
       risk_details: {
         ...riskResult,
@@ -378,10 +412,12 @@ class ProfileOptimizerService {
   }
 
   /**
-   * Schedule deployment for approved suggestions.
-   * Reads approved suggestions from the JSONB array and delegates to deploymentScheduler.
+   * Deploy approved suggestions — applies them immediately to Google Business Profile.
+   * @param {string} jobId
+   * @param {string} accessToken - Google OAuth access token
+   * @param {string} locationId  - GBP location ID
    */
-  async scheduleDeployment(jobId) {
+  async scheduleDeployment(jobId, accessToken = null, locationId = null) {
     await this.initialize();
 
     const { data: row, error: fetchError } = await this.client
@@ -399,8 +435,8 @@ class ProfileOptimizerService {
       throw new Error('No approved suggestions to deploy');
     }
 
-    // Delegate to deploymentScheduler
-    const schedule = await deploymentScheduler.createSchedule(jobId, approved);
+    // Apply to GBP immediately
+    const schedule = await deploymentScheduler.createSchedule(jobId, approved, accessToken, locationId);
     return schedule;
   }
 
