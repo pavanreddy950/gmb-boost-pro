@@ -49,45 +49,48 @@ class ProfileOptimizerService {
     console.log(`[ProfileOptimizer] Starting optimization for location ${locationId}`);
     const startTime = Date.now();
 
-    // Step 1: Create optimization job
+    // Check for an existing job for this user+location — reuse it to preserve history
+    const { data: existingRows } = await this.client
+      .from('profile_optimizations')
+      .select('*')
+      .eq('gmail_id', userId)
+      .eq('location_id', locationId)
+      .order('created_at', { ascending: false })
+      .limit(1);
+
+    const existingRow = existingRows && existingRows.length > 0 ? existingRows[0] : null;
+
+    // If a job exists, refresh it (update audit + add missing suggestions, keep all history)
+    if (existingRow) {
+      console.log(`[ProfileOptimizer] Reusing existing job ${existingRow.id} — refreshing audit and adding new suggestions`);
+      return this._refreshExistingJob(existingRow, profileData, businessContext);
+    }
+
+    // No existing job — create a fresh one
     const job = await this._createJob(userId, locationId, accountId);
 
     try {
-      // Step 2: Update status to auditing
       await this._updateJobStatus(job.id, 'auditing');
 
-      // Step 3: Run the comprehensive audit
-      console.log('[ProfileOptimizer] Running comprehensive audit...');
       const auditResults = await profileAuditEngine.runFullAudit(profileData);
-
-      // Save audit results to job
-      await this.client
-        .from('profile_optimizations')
-        .update({
-          audit_score: auditResults.overallScore,
-          audit_data: auditResults,
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', job.id);
+      await this.client.from('profile_optimizations').update({
+        audit_score: auditResults.overallScore,
+        audit_data: auditResults,
+        updated_at: new Date().toISOString()
+      }).eq('id', job.id);
 
       console.log(`[ProfileOptimizer] Audit complete: Score ${auditResults.overallScore}/100`);
 
-      // Step 4: Generate AI suggestions
       await this._updateJobStatus(job.id, 'generating');
-      console.log('[ProfileOptimizer] Generating AI suggestions...');
-
       const aiResult = await aiSuggestionService.generateAllSuggestions(profileData, auditResults, businessContext);
       const rawSuggestions = aiResult.suggestions || [];
-      console.log(`[ProfileOptimizer] Generated ${rawSuggestions.length} raw suggestions (${(aiResult.errors || []).length} errors)`);
+      console.log(`[ProfileOptimizer] Generated ${rawSuggestions.length} suggestions`);
 
-      // Step 5: Sanitize + Risk Score + Fingerprint each suggestion
       const processedSuggestions = [];
-
       for (const suggestion of rawSuggestions) {
         try {
           const processed = await this._processSuggestion(suggestion, profileData, userId, locationId);
           if (processed) {
-            // Save to database (appends to JSONB array)
             const saved = await this._saveSuggestion(job.id, processed);
             processedSuggestions.push(saved);
           }
@@ -96,19 +99,13 @@ class ProfileOptimizerService {
         }
       }
 
-      // Update job status to reviewing
       await this._updateJobStatus(job.id, 'reviewing');
 
       const elapsed = Date.now() - startTime;
-      console.log(`[ProfileOptimizer] Optimization complete in ${elapsed}ms. ${processedSuggestions.length} suggestions generated.`);
+      console.log(`[ProfileOptimizer] New job complete in ${elapsed}ms. ${processedSuggestions.length} suggestions.`);
 
       return {
-        job: {
-          id: job.id,
-          status: 'reviewing',
-          audit_score: auditResults.overallScore,
-          created_at: job.created_at
-        },
+        job: { id: job.id, status: 'reviewing', audit_score: auditResults.overallScore, created_at: job.created_at },
         audit: auditResults,
         suggestions: processedSuggestions
       };
@@ -116,6 +113,97 @@ class ProfileOptimizerService {
     } catch (error) {
       console.error(`[ProfileOptimizer] Optimization failed:`, error.message);
       await this._updateJobStatus(job.id, 'failed', error.message);
+      throw error;
+    }
+  }
+
+  /**
+   * Refresh an existing job: update the audit, then add suggestions only for
+   * modules that still score below 95 AND don't already have a pending/approved
+   * suggestion or a successfully-deployed deployment.
+   * Existing suggestions, deployments, and history are fully preserved.
+   */
+  async _refreshExistingJob(existingRow, profileData, businessContext) {
+    const jobId = existingRow.id;
+    const userId = existingRow.gmail_id;
+    const locationId = existingRow.location_id;
+
+    try {
+      await this._updateJobStatus(jobId, 'auditing');
+
+      // Fresh audit
+      const auditResults = await profileAuditEngine.runFullAudit(profileData);
+      await this.client.from('profile_optimizations').update({
+        audit_score: auditResults.overallScore,
+        audit_data: auditResults,
+        updated_at: new Date().toISOString()
+      }).eq('id', jobId);
+
+      console.log(`[ProfileOptimizer] Refreshed audit: Score ${auditResults.overallScore}/100`);
+
+      // Determine which suggestion types are already covered
+      const existingSuggestions = existingRow.suggestions || [];
+      const existingDeployments = existingRow.deployments || [];
+
+      // Types that have been successfully pushed to GBP — don't re-suggest these
+      const deployedTypes = new Set(
+        existingDeployments.filter(d => d.gbp_applied === true).map(d => d.deploy_type)
+      );
+      // Map deploy_type → suggestion_type for comparison
+      const DEPLOY_TO_STYPE = {
+        description: 'description', categories: 'categories', services: 'services',
+        products: 'products', attributes: 'attributes', hours: 'hours',
+        links: 'social_links', social_links: 'social_links'
+      };
+      const deployedSuggestionTypes = new Set(
+        [...deployedTypes].map(dt => DEPLOY_TO_STYPE[dt] || dt)
+      );
+
+      // Types that already have a pending or approved suggestion (not rejected)
+      const activeSuggestionTypes = new Set(
+        existingSuggestions
+          .filter(s => s.user_approved !== false) // not rejected
+          .map(s => s.suggestion_type)
+      );
+
+      // Generate fresh AI suggestions
+      await this._updateJobStatus(jobId, 'generating');
+      const aiResult = await aiSuggestionService.generateAllSuggestions(profileData, auditResults, businessContext);
+
+      // Add only suggestions for types not already covered
+      const newSuggestions = [];
+      for (const suggestion of (aiResult.suggestions || [])) {
+        const stype = suggestion.type;
+        if (deployedSuggestionTypes.has(stype) || activeSuggestionTypes.has(stype)) {
+          console.log(`[ProfileOptimizer] Skipping ${stype} — already deployed or pending`);
+          continue;
+        }
+        try {
+          const processed = await this._processSuggestion(suggestion, profileData, userId, locationId);
+          if (processed) {
+            const saved = await this._saveSuggestion(jobId, processed);
+            newSuggestions.push(saved);
+          }
+        } catch (err) {
+          console.error(`[ProfileOptimizer] Failed to process suggestion (${suggestion.type}):`, err.message);
+        }
+      }
+
+      await this._updateJobStatus(jobId, 'reviewing');
+
+      console.log(`[ProfileOptimizer] Refresh complete — ${newSuggestions.length} new suggestions added (${existingSuggestions.length} existing preserved)`);
+
+      // Return the full current state (existing + new)
+      const allSuggestions = [...existingSuggestions, ...newSuggestions];
+      return {
+        job: { id: jobId, status: 'reviewing', audit_score: auditResults.overallScore, created_at: existingRow.created_at },
+        audit: auditResults,
+        suggestions: allSuggestions
+      };
+
+    } catch (error) {
+      console.error(`[ProfileOptimizer] Refresh failed:`, error.message);
+      await this._updateJobStatus(jobId, 'failed', error.message);
       throw error;
     }
   }

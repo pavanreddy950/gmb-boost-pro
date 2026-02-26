@@ -95,11 +95,22 @@ class DeploymentScheduler {
     if (fetchError) throw fetchError;
     if (!row) throw new Error(`Job ${jobId} not found`);
 
-    const deployments = [];
+    // Keep existing deployments and only add new ones (never overwrite previous history)
+    const existingDeployments = row.deployments || [];
+    const alreadyDeployedSuggestionIds = new Set(existingDeployments.map(d => d.suggestion_id));
+
+    // Skip suggestions that already have a deployment record
+    const toDeployNow = approvedSuggestions.filter(s => !alreadyDeployedSuggestionIds.has(s.id));
+    if (toDeployNow.length === 0) {
+      console.log(`[DeploymentScheduler] All approved suggestions already deployed — nothing to do`);
+      return existingDeployments; // Return full history, nothing new to deploy
+    }
+
+    const newDeployments = [];
     const changeHistory = row.change_history || [];
     const now = new Date();
 
-    for (const suggestion of approvedSuggestions) {
+    for (const suggestion of toDeployNow) {
       const deployType = this._mapSuggestionToDeployType(suggestion.suggestion_type);
 
       const deployment = {
@@ -159,7 +170,7 @@ class DeploymentScheduler {
         deployment.gbp_note = 'No access token — please reconnect Google Business Profile';
       }
 
-      deployments.push(deployment);
+      newDeployments.push(deployment);
 
       // Append to change history
       changeHistory.push({
@@ -178,11 +189,13 @@ class DeploymentScheduler {
       });
     }
 
-    // Save everything and mark job as completed immediately
+    // APPEND new deployments to existing ones — never overwrite history
+    const allDeployments = [...existingDeployments, ...newDeployments];
+
     const { error: updateError } = await this.client
       .from('profile_optimizations')
       .update({
-        deployments: deployments,
+        deployments: allDeployments,
         change_history: changeHistory,
         status: 'completed',
         completed_at: now.toISOString(),
@@ -192,10 +205,11 @@ class DeploymentScheduler {
 
     if (updateError) throw updateError;
 
-    const appliedCount = deployments.filter(d => d.gbp_applied).length;
-    console.log(`[DeploymentScheduler] Job ${jobId} complete — ${appliedCount}/${deployments.length} changes pushed to GBP`);
+    const appliedCount = newDeployments.filter(d => d.gbp_applied).length;
+    console.log(`[DeploymentScheduler] Job ${jobId}: ${appliedCount}/${newDeployments.length} new changes pushed to GBP (${allDeployments.length} total)`);
 
-    return deployments;
+    // Return ALL deployments so the UI shows full history
+    return allDeployments;
   }
 
   /**

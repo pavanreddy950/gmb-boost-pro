@@ -285,11 +285,17 @@ const ProfileOptimization: React.FC = () => {
       setJob(data.job);
       setAuditResults(data.audit);
       setSuggestions(data.suggestions || []);
+      // Reload full job to also restore deployments (backend reuses same job row)
+      // so deployment history is preserved across re-scans
+      await loadExistingJob();
       setHasExistingJob(true);
 
+      const newCount = (data.suggestions || []).filter((s: any) =>
+        !deployments.some(d => d.suggestion_id === s.id)
+      ).length;
       toast({
         title: 'Optimization Complete',
-        description: `Score: ${data.audit?.overallScore || 0}/100 with ${data.suggestions?.length || 0} suggestions`,
+        description: `Score: ${data.audit?.overallScore || 0}/100 · ${data.suggestions?.length || 0} total suggestions`,
       });
     } catch (error: any) {
       console.error('Optimization error:', error);
@@ -464,6 +470,11 @@ const ProfileOptimization: React.FC = () => {
   // Counts
   const approvedCount = suggestions.filter(s => s.user_approved === true).length;
   const pendingCount = suggestions.filter(s => s.user_approved === null).length;
+  // Suggestions that are approved but don't yet have a deployment record
+  const deployedSuggestionIds = new Set(deployments.map((d: any) => d.suggestion_id).filter(Boolean));
+  const approvedNotDeployedCount = suggestions.filter(
+    s => s.user_approved === true && !deployedSuggestionIds.has(s.id)
+  ).length;
 
   // ==========================================
   // RENDER
@@ -803,14 +814,14 @@ const ProfileOptimization: React.FC = () => {
 
                     {/* Action Buttons */}
                     <div className="flex items-center gap-2">
-                      {approvedCount > 0 && deployments.length === 0 && (
+                      {approvedNotDeployedCount > 0 && (
                         <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
                           <Button
                             onClick={handleScheduleDeployment}
                             className="bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white rounded-xl shadow-lg shadow-green-500/25"
                           >
                             <Play className="w-4 h-4 mr-2" />
-                            Deploy Changes
+                            Deploy {approvedNotDeployedCount} Change{approvedNotDeployedCount !== 1 ? 's' : ''}
                           </Button>
                         </motion.div>
                       )}
