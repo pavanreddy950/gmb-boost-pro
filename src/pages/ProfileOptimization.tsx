@@ -232,10 +232,11 @@ const ProfileOptimization: React.FC = () => {
     setScanStep(0);
     setScanProgress(0);
 
-    // Animate scan progress
+    // Animate scan progress — slow down near 90% to show AI is still working
     const progressInterval = setInterval(() => {
       setScanProgress(prev => {
-        if (prev >= 95) return 95;
+        if (prev >= 90) return prev + 0.3; // crawl slowly so it never appears stuck
+        if (prev >= 70) return prev + Math.random() * 3;
         return prev + Math.random() * 8;
       });
       setScanStep(prev => {
@@ -587,7 +588,7 @@ const ProfileOptimization: React.FC = () => {
                       <div className="flex items-center justify-between">
                         <div>
                           <h3 className="text-lg font-bold">Deep Profile Scan</h3>
-                          <p className="text-sm text-blue-200/80">Analyzing across 13 optimization modules</p>
+                          <p className="text-sm text-blue-200/80">Analyzing across 13 optimization modules · AI generation takes 30–60 seconds</p>
                         </div>
                         <span className="text-2xl font-bold text-cyan-400">{Math.round(scanProgress)}%</span>
                       </div>
