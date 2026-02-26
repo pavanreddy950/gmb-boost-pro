@@ -232,10 +232,11 @@ const ProfileOptimization: React.FC = () => {
     setScanStep(0);
     setScanProgress(0);
 
-    // Animate scan progress — slow down near 90% to show AI is still working
+    // Animate scan progress — cap at 99 so it never goes over 100
     const progressInterval = setInterval(() => {
       setScanProgress(prev => {
-        if (prev >= 90) return prev + 0.3; // crawl slowly so it never appears stuck
+        if (prev >= 99) return 99;
+        if (prev >= 88) return prev + 0.5;
         if (prev >= 70) return prev + Math.random() * 3;
         return prev + Math.random() * 8;
       });

@@ -38,101 +38,73 @@ class AISuggestionService {
    */
   async callGemini(systemPrompt, userPrompt, maxTokens = 2000) {
     if (!this.geminiApiKey || !this.geminiEndpoint) {
-      throw new Error(
-        '[AISuggestionService] Gemini API is not configured. ' +
-        'Please set GEMINI_API_KEY in your environment variables.'
-      );
+      throw new Error('[AISuggestionService] Gemini API is not configured. Please set GEMINI_API_KEY.');
     }
 
-    // Rate limiting
-    const now = Date.now();
-    const elapsed = now - this.lastCallTimestamp;
-    if (elapsed < this.minCallIntervalMs) {
-      const waitTime = this.minCallIntervalMs - elapsed;
-      await new Promise(resolve => setTimeout(resolve, waitTime));
-    }
-    this.lastCallTimestamp = Date.now();
-
-    console.log(`[AISuggestionService] Calling Gemini ${this.geminiModel} (maxTokens: ${maxTokens})`);
-
-    const response = await fetch(this.geminiEndpoint, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents: [
-          { role: 'user', parts: [{ text: userPrompt }] }
-        ],
-        systemInstruction: {
-          parts: [{ text: systemPrompt }]
-        },
-        generationConfig: {
-          responseMimeType: 'application/json',
-          temperature: 0.7,
-          maxOutputTokens: maxTokens
-        }
-      })
+    const body = JSON.stringify({
+      contents: [{ role: 'user', parts: [{ text: userPrompt }] }],
+      systemInstruction: { parts: [{ text: systemPrompt }] },
+      generationConfig: {
+        responseMimeType: 'application/json',
+        temperature: 0.7,
+        maxOutputTokens: maxTokens
+      }
     });
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error(`[AISuggestionService] Gemini API error (${response.status}):`, errorText);
-      throw new Error(`[AISuggestionService] Gemini API error: ${response.status} - ${errorText.substring(0, 300)}`);
-    }
+    // Retry loop — back-off on 429 (rate limit) or 5xx (server error)
+    const MAX_RETRIES = 3;
+    let lastError;
+    for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+      console.log(`[AISuggestionService] Gemini call attempt ${attempt}/${MAX_RETRIES}`);
+      const response = await fetch(this.geminiEndpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body
+      });
 
-    const data = await response.json();
+      // Handle non-200 with retry
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error(`[AISuggestionService] Gemini error ${response.status}:`, errorText.substring(0, 300));
+        lastError = new Error(`Gemini API error: ${response.status} - ${errorText.substring(0, 200)}`);
+        if (attempt < MAX_RETRIES && (response.status === 429 || response.status >= 500)) {
+          const waitMs = response.status === 429 ? 5000 * attempt : 2000 * attempt;
+          console.log(`[AISuggestionService] Waiting ${waitMs}ms before retry...`);
+          await new Promise(r => setTimeout(r, waitMs));
+          continue;
+        }
+        throw lastError;
+      }
 
-    const rawText = data?.candidates?.[0]?.content?.parts?.[0]?.text;
-    if (!rawText) {
-      console.error('[AISuggestionService] Unexpected Gemini response:', JSON.stringify(data).substring(0, 500));
-      throw new Error('[AISuggestionService] Unexpected response structure from Gemini');
-    }
+      // Parse successful response
+      const data = await response.json();
+      const rawText = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+      if (!rawText) {
+        throw new Error('[AISuggestionService] Unexpected Gemini response structure');
+      }
 
-    const content = rawText.trim();
-    console.log(`[AISuggestionService] Raw response (first 300 chars): ${content.substring(0, 300)}`);
+      const content = rawText.trim();
+      console.log(`[AISuggestionService] Response OK (first 200 chars): ${content.substring(0, 200)}`);
 
-    // Robust JSON parsing with multiple fallback strategies
-    try {
-      return JSON.parse(content);
-    } catch (firstError) {
-      console.log('[AISuggestionService] Direct JSON parse failed, attempting cleanup');
-
+      // JSON parse with fallback cleanup
       try {
-        // Remove markdown code fences if present
-        let cleaned = content
-          .replace(/^```[a-z]*\n?/gi, '')
-          .replace(/\n?```$/gi, '')
-          .trim();
-
-        // Try to extract a JSON object { ... } or array [ ... ]
+        return JSON.parse(content);
+      } catch {
+        let cleaned = content.replace(/^```[a-z]*\n?/gi, '').replace(/\n?```$/gi, '').trim();
         const objStart = cleaned.indexOf('{');
         const arrStart = cleaned.indexOf('[');
-        let start = -1;
-        let end = -1;
-
+        let start = -1, end = -1;
         if (objStart !== -1 && (arrStart === -1 || objStart < arrStart)) {
-          start = objStart;
-          end = cleaned.lastIndexOf('}');
+          start = objStart; end = cleaned.lastIndexOf('}');
         } else if (arrStart !== -1) {
-          start = arrStart;
-          end = cleaned.lastIndexOf(']');
+          start = arrStart; end = cleaned.lastIndexOf(']');
         }
-
-        if (start !== -1 && end > start) {
-          cleaned = cleaned.substring(start, end + 1);
-        }
-
-        // Clean common JSON issues
-        cleaned = cleaned
-          .replace(/,\s*}/g, '}')
-          .replace(/,\s*]/g, ']');
-
+        if (start !== -1 && end > start) cleaned = cleaned.substring(start, end + 1);
+        cleaned = cleaned.replace(/,\s*}/g, '}').replace(/,\s*]/g, ']');
         return JSON.parse(cleaned);
-      } catch (secondError) {
-        console.error('[AISuggestionService] JSON parsing failed after cleanup:', secondError.message);
-        console.error('[AISuggestionService] Raw content:', content.substring(0, 1000));
-        throw new Error('[AISuggestionService] Failed to parse AI response as valid JSON. Please try again.');
       }
     }
+    throw lastError || new Error('[AISuggestionService] Gemini call failed after retries');
   }
 
   // ---------------------------------------------------------------------------
@@ -1266,23 +1238,18 @@ Create 3 posts (what's new, offer, event) that are specific to this business and
     const suggestions = [];
     const errors = [];
 
-    // Run generators one at a time with a 2-second gap between calls.
-    // This is the only reliable approach for Gemini's rate limits (10 RPM free / 2000 RPM paid).
-    // Total time: ~7 generators × (2s gap + 2s API) ≈ 28 seconds max.
-    for (let i = 0; i < generators.length; i++) {
-      if (i > 0) {
-        await new Promise(resolve => setTimeout(resolve, 2000)); // 2s between calls
+    // Run all generators in parallel — callGemini now retries on 429/5xx automatically
+    const results = await Promise.allSettled(generators.map(g => g.fn()));
+    results.forEach((result, i) => {
+      const name = generators[i].name;
+      if (result.status === 'fulfilled') {
+        console.log(`[AISuggestionService] ✓ ${name}`);
+        suggestions.push(result.value);
+      } else {
+        console.error(`[AISuggestionService] ✗ ${name}:`, result.reason?.message || result.reason);
+        errors.push({ type: name, message: result.reason?.message || `Failed: ${name}` });
       }
-      const g = generators[i];
-      try {
-        const result = await g.fn();
-        console.log(`[AISuggestionService] ✓ Generated: ${g.name}`);
-        suggestions.push(result);
-      } catch (err) {
-        console.error(`[AISuggestionService] ✗ Failed: ${g.name} →`, err?.message || err);
-        errors.push({ type: g.name, message: err?.message || `Failed to generate ${g.name}` });
-      }
-    }
+    });
 
     console.log(`[AISuggestionService] Generation complete: ${suggestions.length} succeeded, ${errors.length} failed`);
 
