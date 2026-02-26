@@ -375,16 +375,22 @@ const ProfileOptimization: React.FC = () => {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${accessToken}`,
         },
-        body: JSON.stringify({ locationId: selectedLocationId }),
+        body: JSON.stringify({ locationId: selectedLocationId, accountId: selectedAccountId }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Deploy failed');
       setDeployments(data.schedule || []);
+
+      // Update score if backend recalculated it after deployment
+      if (data.newScore !== null && data.newScore !== undefined && data.newAudit) {
+        setAuditResults(data.newAudit);
+      }
+
       const applied = (data.schedule || []).filter((d: any) => d.gbp_applied).length;
       const total = (data.schedule || []).length;
       toast({
         title: 'Changes Deployed!',
-        description: `${applied}/${total} changes applied to your Google Business Profile`,
+        description: `${applied}/${total} changes applied to your Google Business Profile${data.newScore !== null && data.newScore !== undefined ? ` · New score: ${data.newScore}/100` : ''}`,
       });
       setActiveTab('deploy');
     } catch (error: any) {

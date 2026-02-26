@@ -1,6 +1,7 @@
 import express from 'express';
 import profileOptimizerService from '../services/profileOptimizerService.js';
 import deploymentScheduler from '../services/deploymentScheduler.js';
+import profileAuditEngine from '../services/profileAuditEngine.js';
 import fetch from 'node-fetch';
 
 const router = express.Router();
@@ -299,14 +300,38 @@ router.post('/deploy/:jobId', async (req, res) => {
   try {
     const { jobId } = req.params;
     const accessToken = getAccessToken(req);
-    const { locationId } = req.body;
+    const { locationId, accountId } = req.body;
 
     if (!accessToken) {
       return res.status(401).json({ error: 'Access token required to deploy to Google Business Profile' });
     }
 
     const schedule = await profileOptimizerService.scheduleDeployment(jobId, accessToken, locationId);
-    res.json({ success: true, schedule });
+
+    // Re-run audit with fresh GBP data so the score reflects applied changes
+    let newScore = null;
+    let newAudit = null;
+    try {
+      if (locationId && accountId) {
+        console.log('[ProfileOptimizer API] Re-fetching profile to recalculate score after deployment...');
+        const freshProfileData = await fetchProfileData(locationId, accountId, accessToken);
+        newAudit = await profileAuditEngine.runFullAudit(freshProfileData);
+        newScore = newAudit.overallScore;
+
+        // Update score in DB
+        const client = await (await import('../database/connectionPool.js')).default.getClient();
+        await client
+          .from('profile_optimizations')
+          .update({ audit_score: newScore, audit_data: newAudit, updated_at: new Date().toISOString() })
+          .eq('id', jobId);
+
+        console.log(`[ProfileOptimizer API] Score recalculated after deployment: ${newScore}`);
+      }
+    } catch (auditErr) {
+      console.warn('[ProfileOptimizer API] Score recalculation failed (non-fatal):', auditErr.message);
+    }
+
+    res.json({ success: true, schedule, newScore, newAudit });
   } catch (error) {
     console.error('[ProfileOptimizer API] Deploy error:', error.message);
     res.status(500).json({ error: 'Failed to deploy', details: error.message });

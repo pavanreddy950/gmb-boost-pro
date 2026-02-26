@@ -1253,6 +1253,19 @@ Create 3 posts (what's new, offer, event) that are specific to this business and
     if (needsSuggestion('hoursCompleteness', hasHours)) {
       generators.push({ name: 'hours', fn: () => this.generateHoursSuggestion(profileData, auditResults, null, businessContext) });
     }
+    if (needsSuggestion('photoCoverage', hasPhotos)) {
+      generators.push({ name: 'photos', fn: () => this.generatePhotoGuide(profileData, auditResults, null, businessContext) });
+    }
+    if (needsSuggestion('linksAndSocial', hasWebsite)) {
+      generators.push({ name: 'socialLinks', fn: () => this.generateSocialLinksSuggestion(profileData, auditResults, null, businessContext) });
+    }
+    if (needsSuggestion('postingActivity', hasEnoughPosts)) {
+      generators.push({ name: 'posts', fn: () => this.generatePostSuggestion(profileData, auditResults, null, businessContext) });
+    }
+    const hasReviews = (profileData.reviews || []).length > 0;
+    if (needsSuggestion('reviewResponseRate') && hasReviews) {
+      generators.push({ name: 'replyTemplates', fn: () => this.generateReplyTemplates(profileData, auditResults, null, businessContext) });
+    }
 
     console.log(`[AISuggestionService] Running ${generators.length}/10 generators (skipping modules with score >= 80)`);
     generators.forEach(g => console.log(`  → ${g.name} (score: ${moduleScores[g.name] ?? 'N/A'})`));
