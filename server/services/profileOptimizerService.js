@@ -107,7 +107,8 @@ class ProfileOptimizerService {
       return {
         job: { id: job.id, status: 'reviewing', audit_score: auditResults.overallScore, created_at: job.created_at },
         audit: auditResults,
-        suggestions: processedSuggestions
+        suggestions: processedSuggestions,
+        deployments: []
       };
 
     } catch (error) {
@@ -198,7 +199,8 @@ class ProfileOptimizerService {
       return {
         job: { id: jobId, status: 'reviewing', audit_score: auditResults.overallScore, created_at: existingRow.created_at },
         audit: auditResults,
-        suggestions: allSuggestions
+        suggestions: allSuggestions,
+        deployments: existingDeployments
       };
 
     } catch (error) {

@@ -285,9 +285,8 @@ const ProfileOptimization: React.FC = () => {
       setJob(data.job);
       setAuditResults(data.audit);
       setSuggestions(data.suggestions || []);
-      // Reload full job to also restore deployments (backend reuses same job row)
-      // so deployment history is preserved across re-scans
-      await loadExistingJob();
+      // deployments are returned directly by the backend (existing history preserved)
+      setDeployments(data.deployments || []);
       setHasExistingJob(true);
 
       const newCount = (data.suggestions || []).filter((s: any) =>
