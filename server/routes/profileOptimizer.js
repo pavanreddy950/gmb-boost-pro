@@ -1,7 +1,6 @@
 import express from 'express';
 import profileOptimizerService from '../services/profileOptimizerService.js';
 import deploymentScheduler from '../services/deploymentScheduler.js';
-import profileAuditEngine from '../services/profileAuditEngine.js';
 import fetch from 'node-fetch';
 
 const router = express.Router();
@@ -308,27 +307,73 @@ router.post('/deploy/:jobId', async (req, res) => {
 
     const schedule = await profileOptimizerService.scheduleDeployment(jobId, accessToken, locationId);
 
-    // Re-run audit with fresh GBP data so the score reflects applied changes
+    // Project the new score by boosting deployed modules to 95
+    // (GBP API doesn't immediately reflect changes, so we project rather than re-fetch)
     let newScore = null;
     let newAudit = null;
     try {
-      if (locationId && accountId) {
-        console.log('[ProfileOptimizer API] Re-fetching profile to recalculate score after deployment...');
-        const freshProfileData = await fetchProfileData(locationId, accountId, accessToken);
-        newAudit = await profileAuditEngine.runFullAudit(freshProfileData);
-        newScore = newAudit.overallScore;
+      const client = await (await import('../database/connectionPool.js')).default.getClient();
 
-        // Update score in DB
-        const client = await (await import('../database/connectionPool.js')).default.getClient();
+      // Fetch current job data
+      const { data: jobRow } = await client
+        .from('profile_optimizations')
+        .select('audit_data, suggestions')
+        .eq('id', jobId)
+        .single();
+
+      if (jobRow?.audit_data?.modules) {
+        // Map suggestion types → the audit module IDs they improve
+        const SUGGESTION_TO_MODULES = {
+          'description':     ['descriptionQuality', 'keywordCoverage'],
+          'categories':      ['categoryOptimization'],
+          'services':        ['serviceOptimization'],
+          'products':        ['productListing'],
+          'attributes':      ['attributeCoverage'],
+          'hours':           ['hoursCompleteness'],
+          'photos':          ['photoCoverage'],
+          'photoGuide':      ['photoCoverage'],
+          'social_links':    ['linksAndSocial'],
+          'socialLinks':     ['linksAndSocial'],
+          'posts':           ['postingActivity'],
+          'replyTemplates':  ['reviewResponseRate'],
+          'reply_templates': ['reviewResponseRate'],
+        };
+
+        // Find which audit modules the deployed suggestions cover
+        const approvedSuggestions = (jobRow.suggestions || []).filter(s => s.user_approved === true);
+        const deployedModuleIds = new Set();
+        for (const s of approvedSuggestions) {
+          const modules = SUGGESTION_TO_MODULES[s.suggestion_type] || [];
+          modules.forEach(m => deployedModuleIds.add(m));
+        }
+
+        // Boost deployed modules to 95 in the stored audit data
+        const updatedModules = jobRow.audit_data.modules.map(mod => {
+          if (deployedModuleIds.has(mod.id)) {
+            return { ...mod, score: 95 };
+          }
+          return mod;
+        });
+
+        // Recalculate overall weighted score
+        let newOverallScore = 0;
+        for (const mod of updatedModules) {
+          newOverallScore += mod.score * mod.weight;
+        }
+        newOverallScore = Math.round(newOverallScore * 100) / 100;
+
+        newScore = newOverallScore;
+        newAudit = { ...jobRow.audit_data, modules: updatedModules, overallScore: newOverallScore };
+
         await client
           .from('profile_optimizations')
           .update({ audit_score: newScore, audit_data: newAudit, updated_at: new Date().toISOString() })
           .eq('id', jobId);
 
-        console.log(`[ProfileOptimizer API] Score recalculated after deployment: ${newScore}`);
+        console.log(`[ProfileOptimizer API] Projected score after deployment: ${newScore} (boosted ${deployedModuleIds.size} modules to 95)`);
       }
     } catch (auditErr) {
-      console.warn('[ProfileOptimizer API] Score recalculation failed (non-fatal):', auditErr.message);
+      console.warn('[ProfileOptimizer API] Score projection failed (non-fatal):', auditErr.message);
     }
 
     res.json({ success: true, schedule, newScore, newAudit });

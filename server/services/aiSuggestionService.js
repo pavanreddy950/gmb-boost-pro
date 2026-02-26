@@ -1215,7 +1215,7 @@ Create 3 posts (what's new, offer, event) that are specific to this business and
       if (!hasData) return true; // data missing → always suggest
       const score = moduleScores[moduleId];
       if (score === undefined) return true; // module not found → include to be safe
-      return score < 80; // below threshold → needs improvement
+      return score < 95; // suggest improvements for any module not near-perfect
     };
 
     // Check what data is actually present in the profile
@@ -1267,28 +1267,27 @@ Create 3 posts (what's new, offer, event) that are specific to this business and
       generators.push({ name: 'replyTemplates', fn: () => this.generateReplyTemplates(profileData, auditResults, null, businessContext) });
     }
 
-    console.log(`[AISuggestionService] Running ${generators.length}/10 generators (skipping modules with score >= 80)`);
+    console.log(`[AISuggestionService] Running ${generators.length}/10 generators sequentially (skipping modules with score >= 95)`);
     generators.forEach(g => console.log(`  → ${g.name} (score: ${moduleScores[g.name] ?? 'N/A'})`));
 
     const suggestions = [];
     const errors = [];
 
-    // Run all generators in parallel
-    const results = await Promise.allSettled(generators.map(g => g.fn()));
-
-    results.forEach((result, index) => {
-      const generatorName = generators[index].name;
-      if (result.status === 'fulfilled') {
-        console.log(`[AISuggestionService] Successfully generated: ${generatorName}`);
-        suggestions.push(result.value);
-      } else {
-        console.error(`[AISuggestionService] Failed to generate ${generatorName}:`, result.reason?.message || result.reason);
+    // Run generators sequentially to avoid Gemini rate-limit failures
+    // (parallel calls all bypass the rate-limiter since they start at the same time)
+    for (const generator of generators) {
+      try {
+        const result = await generator.fn();
+        console.log(`[AISuggestionService] Successfully generated: ${generator.name}`);
+        suggestions.push(result);
+      } catch (err) {
+        console.error(`[AISuggestionService] Failed to generate ${generator.name}:`, err?.message || err);
         errors.push({
-          type: generatorName,
-          message: result.reason?.message || `Failed to generate ${generatorName} suggestions`
+          type: generator.name,
+          message: err?.message || `Failed to generate ${generator.name} suggestions`
         });
       }
-    });
+    }
 
     console.log(`[AISuggestionService] Generation complete: ${suggestions.length} succeeded, ${errors.length} failed`);
 
