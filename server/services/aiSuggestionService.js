@@ -47,7 +47,10 @@ class AISuggestionService {
       generationConfig: {
         responseMimeType: 'application/json',
         temperature: 0.7,
-        maxOutputTokens: maxTokens
+        maxOutputTokens: maxTokens,
+        // Disable thinking tokens — gemini-2.5-flash uses thinking budget from maxOutputTokens,
+        // leaving almost nothing for actual JSON output (causing truncated/invalid JSON).
+        thinkingConfig: { thinkingBudget: 0 }
       }
     });
 
