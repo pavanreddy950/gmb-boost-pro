@@ -855,6 +855,27 @@ class AutomationScheduler {
       // Generate post content using AI
       const postContent = await this.generatePostContent(config, locationId, userId);
 
+      // Enforce GBP character limit for summary (max 1500 chars)
+      const maxSummaryChars = 1500;
+      if (postContent?.content && postContent.content.length > maxSummaryChars) {
+        const addressMarker = '\n\n📍 Address:';
+        const markerIndex = postContent.content.lastIndexOf(addressMarker);
+        if (markerIndex !== -1) {
+          const footer = postContent.content.substring(markerIndex).trimStart();
+          const availableBodyChars = Math.max(0, maxSummaryChars - footer.length - 2);
+          let body = postContent.content.substring(0, markerIndex).trim();
+          if (body.length > availableBodyChars) {
+            body = body.substring(0, availableBodyChars);
+            body = body.replace(/\s+\S*$/, '').trim();
+          }
+          postContent.content = `${body}\n\n${footer}`.trim();
+        } else {
+          let trimmed = postContent.content.substring(0, maxSummaryChars);
+          trimmed = trimmed.replace(/\s+\S*$/, '').trim();
+          postContent.content = trimmed;
+        }
+      }
+
       // Create the post via Google Business Profile API (v4 - current version)
       // v4 requires accountId in the path
       // Use the account ID from config (passed from user's GBP connection)
@@ -951,7 +972,21 @@ class AutomationScheduler {
       });
 
       if (response.ok) {
-        const result = await response.json();
+        const rawText = await response.text();
+        let result;
+        try {
+          result = rawText ? JSON.parse(rawText) : null;
+        } catch (parseError) {
+          console.error(`[AutomationScheduler] ❌ Google API returned non-JSON on success (${response.status} ${response.statusText})`);
+          console.error(`[AutomationScheduler] Content-Type: ${response.headers.get('content-type') || 'unknown'}`);
+          console.error(`[AutomationScheduler] Raw response (first 500 chars):`, rawText.substring(0, 500));
+          throw new Error(`Google API success response was not JSON: ${parseError.message}`);
+        }
+
+        if (!result) {
+          console.error(`[AutomationScheduler] ❌ Google API returned empty body on success (${response.status} ${response.statusText})`);
+          throw new Error('Google API returned empty response body');
+        }
         console.log(`[AutomationScheduler] ✅ Successfully created post for location ${locationId}:`, result.name || result.id);
 
         // 📸 Mark photo as used and delete from storage if one was attached
@@ -1019,10 +1054,17 @@ class AutomationScheduler {
 
         // Try fallback to older API if the new one fails
         console.log(`[AutomationScheduler] 🔄 Trying fallback API endpoint...`);
-        return await this.createPostWithFallbackAPI(locationId, postContent, accessToken, config, pendingPhoto);
+        const fallbackResult = await this.createPostWithFallbackAPI(locationId, postContent, accessToken, config, pendingPhoto);
+        if (!fallbackResult && config?.test) {
+          throw new Error(`Google API post creation failed (${response.status} ${response.statusText}): ${errorText.substring(0, 800)}`);
+        }
+        return fallbackResult;
       }
     } catch (error) {
       console.error(`[AutomationScheduler] Error creating automated post:`, error);
+      if (config?.test) {
+        throw error;
+      }
       return null; // Return null to indicate failure
     }
   }
@@ -1075,7 +1117,21 @@ class AutomationScheduler {
       });
 
       if (response.ok) {
-        const result = await response.json();
+        const rawText = await response.text();
+        let result;
+        try {
+          result = rawText ? JSON.parse(rawText) : null;
+        } catch (parseError) {
+          console.error(`[AutomationScheduler] ❌ Fallback Google API returned non-JSON on success (${response.status} ${response.statusText})`);
+          console.error(`[AutomationScheduler] Content-Type: ${response.headers.get('content-type') || 'unknown'}`);
+          console.error(`[AutomationScheduler] Raw response (first 500 chars):`, rawText.substring(0, 500));
+          throw new Error(`Fallback Google API success response was not JSON: ${parseError.message}`);
+        }
+
+        if (!result) {
+          console.error(`[AutomationScheduler] ❌ Fallback Google API returned empty body on success (${response.status} ${response.statusText})`);
+          throw new Error('Fallback Google API returned empty response body');
+        }
         console.log(`[AutomationScheduler] ✅ Fallback API succeeded for location ${locationId}`);
 
         // 📸 Mark photo as used and delete from storage if one was attached
@@ -1866,7 +1922,7 @@ CATEGORY-SPECIFIC WRITING GUIDELINES:
 - Focus on these aspects: ${categoryMapping.focusAreas.join(', ')}
 - Use natural industry language like: ${categoryMapping.commonPhrases.slice(0, 6).join(', ')}
 - Mention specific details such as: ${categoryMapping.specificAspects.slice(0, 6).join(', ')}
-- Frame from customer perspective: ${categoryMapping.customerExperiences.slice(0, 3).join(', ')}`;
+`;
 
       const prompt = `Create a natural, engaging, HUMAN-LIKE Google Business Profile post for ${businessName}, a ${businessCategory}${locationStr ? ` in ${locationStr}` : ''}.
 
@@ -1883,6 +1939,8 @@ ${categoryContext}
 CRITICAL WRITING RULES - MUST FOLLOW ALL:
 1. Write MAXIMUM 100 words for the main content (not including address line) - KEEP IT SHORT AND CONCISE!
 2. MUST feel like it was written by a human - warm, engaging, conversational tone
+2.1. Write STRICTLY from the BUSINESS perspective using "we", "our", and "us" (as if ${businessName} is speaking)
+2.2. ⚠️ DO NOT write like a customer review/testimonial. DO NOT say "I was impressed", "I recently visited", "I had the pleasure", "their service", or anything implying you are a customer.
 3. MUST mention the exact business name "${businessName}" naturally in the content
 4. MUST incorporate AT LEAST 2 business keywords naturally: ${Array.isArray(keywordList) ? keywordList.slice(0, 2).join(', ') : keywordList}
 5. MUST mention city/area name within the content naturally: ${locationStr}
@@ -1891,8 +1949,6 @@ CRITICAL WRITING RULES - MUST FOLLOW ALL:
 8. Highlight the business's SPECIAL QUALITIES that make it unique
 9. Write in a storytelling style but KEEP IT BRIEF - make readers FEEL the experience in FEW words
 10. Use category-specific language that sounds authentic to the industry
-11. Be concise and impactful - every word counts!
-12. ⚠️ NEVER use markdown formatting like **bold**, *italic*, __underline__, or \`code\` - write plain text only!
 
 FORMAT REQUIREMENTS:
 13. Use bullet points (•) or emojis to break up text and improve readability - but NO markdown!
@@ -1905,18 +1961,16 @@ FORMAT REQUIREMENTS:
 14. The address line is MANDATORY and must be on a separate line with two line breaks before it
 15. DO NOT include the address anywhere else in the post - only at the very end in the specified format
 
-EXAMPLES OF GOOD SHORT POSTS (around 80-100 words):
-- "Bikaner Desert Camp & Resort style experiences in Sam, Jaisalmer. NK Desert Camp & Resort offers luxury tents, desert safaris, and cultural evenings in golden dunes. • Luxury tent accommodations • Desert safari Jaisalmer • Evening cultural programs • Best desert camp. Discover ultimate desert adventure. 📍 Address: [address]"
-- "Looking for Port Blair beach hotels? Kevin's Bed & Breakfast is near the beach with budget-friendly stay. 🌴 Perfect for beach lovers 🌴 Comfortable rooms 🌴 Easy access to attractions. Stay close to the sea. 📍 Address: [address]"
-
 Write naturally, engagingly, but KEEP IT SHORT - maximum 100 words!`;
 
-      const systemPromptPost = `You are a professional, creative social media content writer for Google Business Profiles who writes like a LOCAL EXPERT sharing their favorite places.
+      const systemPromptPost = `You are a professional, creative social media content writer for Google Business Profiles.
 
 CRITICAL FORMATTING RULES:
 1. Every post MUST be MAXIMUM 100 words (not including address line) - KEEP IT SHORT & PUNCHY!
 2. Every post MUST end with "📍 Address: [complete address]" on a separate line after two line breaks
 3. Write in a HUMAN, conversational tone - not robotic or corporate
+3.1. Write from the BUSINESS OWNER voice using first-person plural (we/our/us). This is a BUSINESS ANNOUNCEMENT/POST.
+3.2. Never write as a customer. Never describe a personal visit or personal experience.
 4. Make readers FEEL the experience through vivid but BRIEF descriptions
 5. Talk about the LOCAL AREA, nearby attractions, nature, weather - but KEEP IT CONCISE
 6. Include category-specific language that sounds authentic to the industry
@@ -1938,7 +1992,8 @@ Think of yourself as writing a quick, enthusiastic recommendation - SHORT but me
             generationConfig: {
               maxOutputTokens: 300,
               temperature: 0.9,
-              topP: 0.95
+              topP: 0.95,
+              thinkingConfig: { thinkingBudget: 0 }
             }
           })
         }
@@ -1961,9 +2016,42 @@ Think of yourself as writing a quick, enthusiastic recommendation - SHORT but me
 
         // Ensure the address line is properly added if not already present
         const addressLine = `📍 Address: ${completeAddress}`;
-        if (completeAddress && !content.includes('📍 Address:') && !content.includes(completeAddress)) {
+        if (completeAddress && !content.includes('📍 Address:')) {
           // Add two line breaks and then the address
           content = content + '\n\n' + addressLine;
+        }
+
+        // Convert common customer-review phrasing into business voice (light cleanup)
+        const addressMarkerForCleanup = '\n\n📍 Address:';
+        const cleanupMarkerIndex = content.lastIndexOf(addressMarkerForCleanup);
+        if (cleanupMarkerIndex !== -1) {
+          const footer = content.substring(cleanupMarkerIndex).trimStart();
+          let body = content.substring(0, cleanupMarkerIndex).trim();
+
+          body = body
+            .replace(/\bI\s+(was|am|have|had|recently|just)\b/gi, 'We')
+            .replace(/\bI\b/gi, 'We')
+            .replace(/\bmy\b/gi, 'our')
+            .replace(/\bme\b/gi, 'us')
+            .replace(/\btheir\b/gi, 'our')
+            .replace(/\bthey\b/gi, 'we')
+            .replace(/\bthem\b/gi, 'us');
+
+          content = `${body}\n\n${footer}`.trim();
+        }
+
+        // Enforce short post length (max 100 words) for main content, preserving footer
+        const maxWords = 100;
+        const addressMarker = '\n\n📍 Address:';
+        const markerIndex = content.lastIndexOf(addressMarker);
+        if (markerIndex !== -1) {
+          const footer = content.substring(markerIndex).trimStart();
+          let body = content.substring(0, markerIndex).trim();
+          const words = body.split(/\s+/).filter(Boolean);
+          if (words.length > maxWords) {
+            body = words.slice(0, maxWords).join(' ').trim();
+          }
+          content = `${body}\n\n${footer}`.trim();
         }
 
         console.log(`[AutomationScheduler] AI generated unique content (${content.split(' ').length} words)`);

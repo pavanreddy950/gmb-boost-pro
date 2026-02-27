@@ -839,14 +839,44 @@ router.post('/test-post-now/:locationId', async (req, res) => {
 
       if (backendToken && backendToken.access_token) {
         console.log(`[Automation API] ✅ STEP 1: Backend has valid token for user ${finalUserId}, using it`);
-        result = await automationScheduler.createAutomatedPostWithToken(locationId, testConfig, backendToken.access_token);
+        try {
+          result = await automationScheduler.createAutomatedPostWithToken(locationId, testConfig, backendToken.access_token);
+        } catch (postError) {
+          console.error(`[Automation API] ❌ Post creation failed using backend token:`, postError);
+          return res.status(500).json({
+            success: false,
+            error: 'Test post creation failed',
+            details: postError.message || String(postError),
+            debugInfo: {
+              hadBackendToken: true,
+              hadFrontendToken: !!frontendToken,
+              userId: finalUserId,
+              locationId
+            }
+          });
+        }
       } else {
         console.log(`[Automation API] ❌ STEP 1: No backend token found`);
 
         // PRIORITY 2: Fall back to frontend token if backend has none
         if (frontendToken) {
           console.log(`[Automation API] 🔄 STEP 2: Using frontend token as fallback`);
-          result = await automationScheduler.createAutomatedPostWithToken(locationId, testConfig, frontendToken);
+          try {
+            result = await automationScheduler.createAutomatedPostWithToken(locationId, testConfig, frontendToken);
+          } catch (postError) {
+            console.error(`[Automation API] ❌ Post creation failed using frontend token:`, postError);
+            return res.status(500).json({
+              success: false,
+              error: 'Test post creation failed',
+              details: postError.message || String(postError),
+              debugInfo: {
+                hadBackendToken: false,
+                hadFrontendToken: true,
+                userId: finalUserId,
+                locationId
+              }
+            });
+          }
         } else {
           console.log(`[Automation API] ❌ STEP 2: No frontend token available either`);
           // No tokens available at all
@@ -859,7 +889,22 @@ router.post('/test-post-now/:locationId', async (req, res) => {
       // Fall back to frontend token on error
       if (frontendToken) {
         console.log(`[Automation API] 🔄 Falling back to frontend token due to backend error`);
-        result = await automationScheduler.createAutomatedPostWithToken(locationId, testConfig, frontendToken);
+        try {
+          result = await automationScheduler.createAutomatedPostWithToken(locationId, testConfig, frontendToken);
+        } catch (postError) {
+          console.error(`[Automation API] ❌ Post creation failed using frontend token:`, postError);
+          return res.status(500).json({
+            success: false,
+            error: 'Test post creation failed',
+            details: postError.message || String(postError),
+            debugInfo: {
+              hadBackendToken: false,
+              hadFrontendToken: true,
+              userId: finalUserId,
+              locationId
+            }
+          });
+        }
       } else {
         console.log(`[Automation API] ❌ No frontend token available as fallback`);
         result = null;
