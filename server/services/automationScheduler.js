@@ -2176,30 +2176,36 @@ Think of yourself as writing a quick, enthusiastic recommendation - SHORT but me
         }
       }
 
-      // Get reviews from Google Business Profile API - try modern endpoint first
-      let response;
+      // Get ALL reviews from Google Business Profile API (with pagination)
       let reviews = [];
-
-      // Use Google Business Profile API v4 (current version)
       const accountId = config.accountId || config.gbpAccountId || process.env.HARDCODED_ACCOUNT_ID || '102242055729678854724';
-      console.log(`[AutomationScheduler] Fetching reviews using API v4 for location ${locationId}...`);
-      response = await fetch(
-        `https://mybusiness.googleapis.com/v4/accounts/${accountId}/locations/${locationId}/reviews`,
-        {
-          headers: {
-            'Authorization': `Bearer ${userToken.access_token}`
-          }
+      console.log(`[AutomationScheduler] Fetching ALL reviews using API v4 for location ${locationId}...`);
+
+      let pageToken = null;
+      let pageNum = 0;
+      do {
+        pageNum++;
+        const url = new URL(`https://mybusiness.googleapis.com/v4/accounts/${accountId}/locations/${locationId}/reviews`);
+        url.searchParams.set('pageSize', '50');
+        if (pageToken) url.searchParams.set('pageToken', pageToken);
+
+        const pageResponse = await fetch(url.toString(), {
+          headers: { 'Authorization': `Bearer ${userToken.access_token}` }
+        });
+
+        if (!pageResponse.ok) {
+          console.error(`[AutomationScheduler] ❌ Failed to fetch reviews (page ${pageNum}):`, await pageResponse.text());
+          break;
         }
-      );
 
-      if (!response.ok) {
-        console.error(`[AutomationScheduler] ❌ Failed to fetch reviews:`, await response.text());
-        return;
-      }
+        const pageData = await pageResponse.json();
+        const pageReviews = pageData.reviews || [];
+        reviews = reviews.concat(pageReviews);
+        pageToken = pageData.nextPageToken || null;
+        console.log(`[AutomationScheduler] Page ${pageNum}: fetched ${pageReviews.length} reviews (total so far: ${reviews.length})`);
+      } while (pageToken);
 
-      const data = await response.json();
-      reviews = data.reviews || [];
-      console.log(`[AutomationScheduler] ✅ Found ${reviews.length} reviews`);
+      console.log(`[AutomationScheduler] ✅ Found ${reviews.length} total reviews across all pages`);
 
       // Get list of already replied reviews
       const repliedReviews = this.getRepliedReviews(locationId);
@@ -2424,46 +2430,53 @@ Think of yourself as writing a quick, enthusiastic recommendation - SHORT but me
         ? keywords.split(',').map(k => k.trim()).filter(k => k.length > 0)
         : Array.isArray(keywords) ? keywords : [];
 
-      // Determine tone based on rating
-      const tone = rating >= 4 ? 'grateful, warm, and enthusiastic' :
-        rating <= 2 ? 'empathetic, apologetic, and solution-focused' :
-          'appreciative, professional, and encouraging';
+      // Determine tone and reply style based on rating
+      const tone = rating >= 4 ? 'warm, enthusiastic, and genuinely grateful' :
+        rating <= 2 ? 'empathetic, sincerely apologetic, and solution-focused' :
+          'appreciative, encouraging, and eager to improve';
 
-      // Add variety with random elements to ensure different content every time
-      const randomSeed = Math.random();
-      const currentMonth = new Date().toLocaleDateString('en-US', { month: 'long' });
-      const timeOfDay = new Date().getHours() < 12 ? 'morning' : new Date().getHours() < 17 ? 'afternoon' : 'evening';
+      // Pull out specific mentions from the review to reference back
+      const reviewMentions = reviewText.length > 5
+        ? `The customer specifically mentioned: "${reviewText}". Reference these exact details in your reply.`
+        : 'The customer left a rating without detailed text — acknowledge their visit warmly.';
 
-      const prompt = `Generate ONLY the middle content for a Google Business review reply for "${businessName}" (${category}).
+      // Random seed for variety
+      const randomSeed = Math.random().toString(36).substr(2, 8);
 
-Reviewer Name: ${reviewerName}
-Rating: ${rating}/5 stars
-Review Text: "${reviewText}"
-Business Keywords: ${keywordList.length > 0 ? keywordList.join(', ') : 'quality service, customer satisfaction'}
-Random Seed: ${randomSeed}
-Time Context: ${timeOfDay}
+      const prompt = `You are writing a reply to a Google Business review on behalf of ${businessName} (${category}).
 
-CRITICAL FORMATTING REQUIREMENTS:
-1. Generate ONLY the middle content paragraph - DO NOT include "Dear..." or "Warm regards..." or any greeting/closing
-2. The content will be wrapped with:
-   - Opening: "Dear ${reviewerName},"
-   - Closing: "Warm regards, Team ${businessName}"
-3. So you must write ONLY the middle content between these two parts
+CUSTOMER REVIEW:
+- Reviewer: ${reviewerName}
+- Rating: ${rating}/5 stars
+- Review: "${reviewText}"
 
-CONTENT Requirements:
-1. Write EXACTLY 40-60 words for the middle content
-2. Use a ${tone} tone
-3. Reference something specific from their review
-4. If positive (${rating >= 4}): thank them and highlight what we do well
-5. If negative (${rating <= 2}): acknowledge concern, apologize sincerely, and offer solution
-6. Make content DIFFERENT every time - vary vocabulary, sentence structure, focus points
-7. Naturally incorporate business strengths/keywords if relevant
-8. Be authentic and personalized to THIS specific review
-9. DO NOT use generic phrases - make it specific to their experience
+${reviewMentions}
 
-Return ONLY the middle content paragraph with no greeting or closing.`;
+YOUR TASK:
+Write ONLY the body paragraph of the reply (2-3 sentences, 40-70 words).
+- DO NOT write "Dear..." — that is added automatically before your text.
+- DO NOT write "Warm regards" or any closing — that is added automatically after your text.
+- Write ONLY the body content that goes between the greeting and the sign-off.
 
-      const systemPromptReply = `You are a professional content writer for ${businessName}. Generate ONLY the middle content of a review reply. DO NOT include greetings like "Dear..." or closings like "Warm regards" - those will be added automatically. Write authentic, varied content that is different every time. Focus on making each response unique and personalized to the specific review.`;
+STYLE GUIDELINES:
+- Tone: ${tone}
+- Echo specific things the reviewer mentioned (e.g. if they mention jeep safari, camel safari, food, rooms — mention them by name)
+- Sound like a real, caring human owner/manager — not a robot or template
+- Express genuine emotion: joy if 5-star, concern if low-rated
+- Invite them to come back or bring friends
+- Keep it COMPLETE — never end a sentence mid-way
+${keywordList.length > 0 ? `- Naturally weave in these keywords if relevant: ${keywordList.join(', ')}` : ''}
+
+EXAMPLES OF GOOD body paragraphs (do NOT copy — just match the warmth and style):
+★★★★★: "Your kind words about the jeep safari and camel safari made our whole team smile! It truly means the world to us that you and your group had such a joyful time — that energy is exactly what we strive to create every day. We can't wait to welcome you back for another unforgettable adventure!"
+★★★: "Thank you for taking the time to share your thoughts with us. We're glad parts of your visit stood out, and we'd love to understand where we can do better. Please don't hesitate to reach out directly — your next experience with us will be even more memorable."
+★★: "We're truly sorry to hear your visit didn't meet your expectations, and we sincerely apologize for the inconvenience. Your feedback is invaluable and we've already shared it with our team. Please give us another chance — we'd love to turn this experience around for you."
+
+Uniqueness seed (ignore, just ensures varied output): ${randomSeed}
+
+Write ONLY the body paragraph now:`;
+
+      const systemPromptReply = `You are a warm, genuine business owner writing heartfelt replies to customer reviews for ${businessName}. Your replies should feel personal, specific, and emotionally resonant — never generic or robotic. Always reference what the customer actually said. Write ONLY the body paragraph (no greeting, no sign-off). Always write complete sentences — never end mid-sentence.`;
 
       const response = await fetch(
         this.geminiEndpoint,
@@ -2474,9 +2487,10 @@ Return ONLY the middle content paragraph with no greeting or closing.`;
             contents: [{ role: 'user', parts: [{ text: prompt }] }],
             systemInstruction: { parts: [{ text: systemPromptReply }] },
             generationConfig: {
-              maxOutputTokens: 250,
-              temperature: 0.9,
-              topP: 0.95
+              maxOutputTokens: 400,
+              temperature: 1.0,
+              topP: 0.97,
+              topK: 40
             }
           })
         }

@@ -294,6 +294,24 @@ const SocialMedia = () => {
   }
 
   return (
+    <div className="relative">
+    {/* Coming Soon Overlay */}
+    <div className="absolute inset-0 z-50 flex flex-col items-center justify-center bg-black/70 backdrop-blur-md" style={{minHeight: '100%'}}>
+      <div className="flex flex-col items-center gap-5 px-6 text-center">
+        <div className="w-20 h-20 rounded-full bg-gradient-to-br from-purple-600 via-pink-500 to-orange-400 flex items-center justify-center shadow-2xl shadow-purple-500/40">
+          <svg xmlns="http://www.w3.org/2000/svg" className="w-10 h-10 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6l4 2m6-2a10 10 0 11-20 0 10 10 0 0120 0z" />
+          </svg>
+        </div>
+        <h2 className="text-4xl font-bold text-white tracking-tight">Coming Soon</h2>
+        <p className="text-lg text-white/70 max-w-md">Social Media integration is on its way! We're building something amazing for you. Stay tuned!</p>
+        <div className="flex gap-2 mt-2">
+          <span className="w-2.5 h-2.5 rounded-full bg-purple-400 animate-bounce" style={{animationDelay: '0ms'}} />
+          <span className="w-2.5 h-2.5 rounded-full bg-pink-400 animate-bounce" style={{animationDelay: '150ms'}} />
+          <span className="w-2.5 h-2.5 rounded-full bg-orange-400 animate-bounce" style={{animationDelay: '300ms'}} />
+        </div>
+      </div>
+    </div>
     <div className="container mx-auto px-4 py-6 max-w-6xl space-y-6">
       {/* Hero Header */}
       <Card className="border-0 shadow-2xl overflow-hidden relative">
@@ -636,6 +654,7 @@ const SocialMedia = () => {
           }
         }
       `}</style>
+    </div>
     </div>
   );
 };
