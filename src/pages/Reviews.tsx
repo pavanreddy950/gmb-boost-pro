@@ -31,6 +31,7 @@ import { cn } from "@/lib/utils";
 import { useGoogleBusinessProfile } from "@/hooks/useGoogleBusinessProfile";
 import { googleBusinessProfileService } from "@/lib/googleBusinessProfile";
 import { useProfileLimitations } from "@/hooks/useProfileLimitations";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface Review {
   id: string;
@@ -106,6 +107,9 @@ const Reviews = () => {
   const [loadingSuggestions, setLoadingSuggestions] = useState(false);
   const [copiedSuggestionIndex, setCopiedSuggestionIndex] = useState<number | null>(null);
   
+  // Get current user for subscription enforcement
+  const { currentUser } = useAuth();
+
   // Get real-time Google Business Profile data
   const {
     accounts,
@@ -355,7 +359,8 @@ const Reviews = () => {
             businessName: review.profileName,
             reviewContent: review.content,
             reviewRating: review.rating,
-            reviewId: review.id
+            reviewId: review.id,
+            userId: currentUser?.email || currentUser?.uid
           }),
         });
 

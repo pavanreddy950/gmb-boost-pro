@@ -107,6 +107,7 @@ import profileOptimizerRoutes from './routes/profileOptimizer.js';
 import facebookAuthRoutes from './routes/facebookAuth.js';
 import { postToSocialMedia } from './services/socialMediaPoster.js';
 import { checkSubscription, trackTrialStart, addTrialHeaders } from './middleware/subscriptionCheck.js';
+import enforceSubscription from './middleware/enforceSubscription.js';
 import SubscriptionService from './services/subscriptionService.js';
 import subscriptionGuard from './services/subscriptionGuard.js';
 import automationScheduler from './services/automationScheduler.js';
@@ -326,17 +327,20 @@ const SCOPES = [
 // Payment routes (no subscription check needed, with rate limiting)
 app.use('/api/payment', paymentRateLimit, paymentRoutes);
 app.use('/api/user-payment', paymentRateLimit, userPaymentRoutes); // New simplified payment routes using gmail_id
-app.use('/api/ai-reviews', aiReviewsRoutes);
+// enforceSubscription allows public QR-code review page through (no userId sent).
+// It only blocks requests where userId is present and subscription has expired.
+app.use('/api/ai-reviews', enforceSubscription, aiReviewsRoutes);
 app.use('/api/review-link', reviewLinkRoutes);
 app.use('/api/google-review', googleReviewLinkRoutes);
-app.use('/api/automation', automationRoutes);
-app.use('/api/qr-codes', qrCodesRoutes);
-app.use('/api/rank-tracking', rankTrackingRoutes);
+// Protected routes – enforceSubscription blocks expired-trial users BEFORE handlers run
+app.use('/api/automation', enforceSubscription, automationRoutes);
+app.use('/api/qr-codes', enforceSubscription, qrCodesRoutes);
+app.use('/api/rank-tracking', enforceSubscription, rankTrackingRoutes);
 app.use('/api/places', placesRoutes);
-app.use('/api/v2/review-requests', reviewRequestsRoutes);
-app.use('/api/photos', photosRoutes);
-app.use('/api/social', socialRoutes);
-app.use('/api/profile-optimizer', profileOptimizerRoutes);
+app.use('/api/v2/review-requests', enforceSubscription, reviewRequestsRoutes);
+app.use('/api/photos', enforceSubscription, photosRoutes);
+app.use('/api/social', enforceSubscription, socialRoutes);
+app.use('/api/profile-optimizer', enforceSubscription, profileOptimizerRoutes);
 app.use('/auth', facebookAuthRoutes);
 
 // Admin routes (protected by admin auth middleware)
@@ -1494,19 +1498,6 @@ app.post('/api/debug/sync-user-locations', async (req, res) => {
       stack: error.stack
     });
   }
-});
-
-// Apply subscription check middleware to all routes
-// This will enforce payment after 15-day trial expiry
-app.use((req, res, next) => {
-  // Skip certain routes that don't need subscription check
-  const exemptRoutes = ['/health', '/config', '/auth'];
-  if (exemptRoutes.some(route => req.path.startsWith(route))) {
-    return next();
-  }
-
-  // Apply subscription check for all API routes
-  checkSubscription(req, res, next);
 });
 
 // Track trial start when GBP is connected

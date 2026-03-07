@@ -21,8 +21,8 @@ export const checkSubscription = (req, res, next) => {
     '/auth/google/url',
     '/auth/google/callback',
     '/api/payment', // Payment routes always accessible
-    '/api/subscription/status', // Status check always accessible
-    '/api/automation' // Automation endpoints for testing
+    '/api/subscription/status' // Status check always accessible
+    // NOTE: /api/automation is NOT exempt – enforceSubscription middleware handles it
   ];
 
   // Check if current route is exempt

@@ -171,7 +171,8 @@ const PublicReviewSuggestions = () => {
           businessType: 'business',
           keywords: keywords, // Pass keywords for AI to use
           reviewId: `qr_${locationId}_${Date.now()}`, // Unique ID for each scan
-          businessCategory: businessCategory // Pass business category for category-specific reviews
+          businessCategory: businessCategory, // Pass business category for category-specific reviews
+          userId: dataToUse?.userId // Owner's userId — backend checks their subscription
         }),
         signal: controller.signal
       });
@@ -182,6 +183,10 @@ const PublicReviewSuggestions = () => {
         const data = await response.json();
         console.log('✅ AI reviews loaded successfully:', data.suggestions?.length, 'reviews');
         setAiReviews(data.suggestions || getFallbackReviews());
+      } else if (response.status === 403) {
+        // Owner's trial/subscription has expired — show nothing
+        console.log('⛔ Review suggestions disabled: business subscription expired');
+        setAiReviews([]);
       } else {
         console.log('❌ AI reviews API failed, using fallback');
         setAiReviews(getFallbackReviews());
