@@ -22,145 +22,185 @@ class TrialEmailService {
    * Generate HTML email template
    */
   generateEmailTemplate(userName, daysRemaining, trialEndDate, emailType) {
-    let subject, heading, message, ctaText, urgencyColor;
+    const isExpired = emailType === 'expired';
+    const isLastDay = daysRemaining === 1;
+    const isUrgent = daysRemaining <= 3;
 
-    if (emailType === 'expired') {
-      subject = '⏰ Your LOBAISEO Trial Has Expired - Upgrade Now!';
-      heading = 'Your Trial Has Ended';
-      message = `Your free trial expired on ${trialEndDate}. Don't lose access to your Google Business Profile automation! Upgrade now to continue managing your reviews, posts, and insights seamlessly.`;
-      ctaText = 'Upgrade Now';
-      urgencyColor = '#DC2626'; // Red
-    } else if (daysRemaining === 1) {
-      subject = '⚠️ Last Day of Your LOBAISEO Trial!';
+    let subject, heading, subheading, ctaText, accentColor, badgeText, messageLine1, messageLine2;
+
+    if (isExpired) {
+      subject = 'Your LOBAISEO Free Trial Has Ended — Upgrade to Continue';
+      heading = 'Your Free Trial Has Expired';
+      subheading = `Your 7-day trial ended on ${trialEndDate}`;
+      messageLine1 = `Hi ${userName || 'there'}, your LOBAISEO free trial has come to an end.`;
+      messageLine2 = `All your Google Business Profile automation — AI review replies, scheduled posts, and insights — has been paused. Upgrade now to instantly restore access and keep your business profile growing.`;
+      ctaText = 'Upgrade Now to Restore Access';
+      accentColor = '#DC2626';
+      badgeText = 'TRIAL EXPIRED';
+    } else if (isLastDay) {
+      subject = '⚠️ Last Day of Your LOBAISEO Trial — Act Now!';
       heading = 'Your Trial Ends Today!';
-      message = `This is your last day to enjoy all premium features! Your trial expires in less than 24 hours. Upgrade now to keep your Google Business Profile automation running smoothly.`;
-      ctaText = 'Upgrade Before It\'s Too Late';
-      urgencyColor = '#DC2626'; // Red
-    } else if (daysRemaining <= 3) {
-      subject = `⏰ Only ${daysRemaining} Days Left on Your LOBAISEO Trial`;
-      heading = `${daysRemaining} Days Remaining`;
-      message = `Your trial ends on ${trialEndDate}. Time is running out! Upgrade now to continue automating your Google Business Profile reviews, posts, and more without interruption.`;
+      subheading = 'Less than 24 hours remaining';
+      messageLine1 = `Hi ${userName || 'there'}, this is your final reminder — your LOBAISEO trial expires today.`;
+      messageLine2 = `Upgrade before midnight to keep your Google Business Profile automation running without interruption.`;
+      ctaText = 'Upgrade Before It Expires';
+      accentColor = '#DC2626';
+      badgeText = 'LAST DAY';
+    } else if (isUrgent) {
+      subject = `Only ${daysRemaining} Days Left on Your LOBAISEO Trial`;
+      heading = `${daysRemaining} Days Left in Your Trial`;
+      subheading = `Trial ends on ${trialEndDate}`;
+      messageLine1 = `Hi ${userName || 'there'}, your LOBAISEO trial is almost over.`;
+      messageLine2 = `Upgrade now to keep AI-powered review replies, auto-posting, and multi-location management running for your business.`;
       ctaText = 'Upgrade Now';
-      urgencyColor = '#EA580C'; // Orange
+      accentColor = '#EA580C';
+      badgeText = `${daysRemaining} DAYS LEFT`;
     } else {
-      subject = `🚀 ${daysRemaining} Days Left in Your LOBAISEO Trial`;
-      heading = `${daysRemaining} Days to Go`;
-      message = `Your trial ends on ${trialEndDate}. Make the most of your remaining time and upgrade to unlock unlimited automation for your Google Business Profile!`;
+      subject = `${daysRemaining} Days Remaining on Your LOBAISEO Trial`;
+      heading = `${daysRemaining} Days Left to Explore`;
+      subheading = `Trial ends on ${trialEndDate}`;
+      messageLine1 = `Hi ${userName || 'there'}, you have ${daysRemaining} days left in your LOBAISEO free trial.`;
+      messageLine2 = `Make the most of it — and when you're ready, upgrade to unlock unlimited Google Business Profile automation.`;
       ctaText = 'View Upgrade Options';
-      urgencyColor = '#2563EB'; // Blue
+      accentColor = '#4F46E5';
+      badgeText = `${daysRemaining} DAYS LEFT`;
     }
+
+    const expiredBanner = isExpired ? `
+    <!-- Expired Alert Banner -->
+    <div style="background: linear-gradient(135deg, #FEF2F2 0%, #FEE2E2 100%); border: 2px solid #FECACA; border-radius: 12px; padding: 24px; margin: 0 0 32px 0; text-align: center;">
+      <div style="font-size: 48px; margin-bottom: 12px;">🔒</div>
+      <p style="margin: 0; color: #991B1B; font-size: 18px; font-weight: 700;">Your account is paused</p>
+      <p style="margin: 8px 0 0 0; color: #B91C1C; font-size: 14px;">Upgrade to instantly restore all features</p>
+    </div>` : '';
 
     return {
       subject,
-      html: `
-<!DOCTYPE html>
-<html>
+      html: `<!DOCTYPE html>
+<html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>${subject}</title>
-  <style>
-    body { margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f3f4f6; }
-    .container { max-width: 600px; margin: 0 auto; background-color: #ffffff; }
-    .header { background: linear-gradient(135deg, #1E2DCD 0%, #4F46E5 100%); padding: 40px 30px; text-align: center; }
-    .logo { color: #ffffff; font-size: 32px; font-weight: bold; margin: 0; }
-    .content { padding: 40px 30px; }
-    .urgency-badge { background-color: ${urgencyColor}; color: white; display: inline-block; padding: 8px 20px; border-radius: 20px; font-size: 14px; font-weight: 600; margin-bottom: 20px; }
-    .heading { color: #111827; font-size: 28px; font-weight: bold; margin: 0 0 20px 0; line-height: 1.3; }
-    .message { color: #4B5563; font-size: 16px; line-height: 1.6; margin-bottom: 30px; }
-    .cta-button { display: inline-block; background-color: ${urgencyColor}; color: #ffffff; text-decoration: none; padding: 16px 40px; border-radius: 8px; font-size: 16px; font-weight: 600; margin: 10px 0; transition: all 0.3s; }
-    .cta-button:hover { transform: translateY(-2px); box-shadow: 0 10px 20px rgba(0,0,0,0.2); }
-    .features { background-color: #F9FAFB; padding: 30px; border-radius: 8px; margin: 30px 0; }
-    .feature-item { display: flex; align-items: start; margin-bottom: 15px; }
-    .feature-icon { color: #10B981; font-size: 20px; margin-right: 12px; font-weight: bold; }
-    .feature-text { color: #374151; font-size: 14px; line-height: 1.5; }
-    .footer { background-color: #F9FAFB; padding: 30px; text-align: center; color: #6B7280; font-size: 14px; }
-    .footer-links { margin: 20px 0; }
-    .footer-link { color: #4F46E5; text-decoration: none; margin: 0 15px; }
-    .social-links { margin: 20px 0; }
-    .social-link { display: inline-block; margin: 0 10px; color: #6B7280; text-decoration: none; }
-  </style>
 </head>
-<body>
-  <div class="container">
-    <!-- Header -->
-    <div class="header">
-      <h1 class="logo">LOBAISEO</h1>
-      <p style="color: rgba(255,255,255,0.9); margin: 10px 0 0 0; font-size: 16px;">Google Business Profile Automation</p>
-    </div>
+<body style="margin:0;padding:0;background-color:#F3F4F6;font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#F3F4F6;padding:32px 16px;">
+    <tr>
+      <td align="center">
+        <table width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background-color:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08);">
 
-    <!-- Content -->
-    <div class="content">
-      <div class="urgency-badge">${emailType === 'expired' ? 'TRIAL EXPIRED' : `${daysRemaining} DAY${daysRemaining > 1 ? 'S' : ''} LEFT`}</div>
+          <!-- Header -->
+          <tr>
+            <td style="background:linear-gradient(135deg,#1E2DCD 0%,#4F46E5 50%,#7C3AED 100%);padding:40px 40px 32px;text-align:center;">
+              <p style="margin:0;color:#ffffff;font-size:28px;font-weight:800;letter-spacing:-0.5px;">LOBAISEO</p>
+              <p style="margin:8px 0 20px;color:rgba(255,255,255,0.85);font-size:13px;letter-spacing:1px;text-transform:uppercase;">Google Business Profile Automation</p>
+              <!-- Status Badge -->
+              <div style="display:inline-block;background-color:${accentColor};color:#ffffff;padding:8px 22px;border-radius:24px;font-size:12px;font-weight:700;letter-spacing:1.5px;">${badgeText}</div>
+            </td>
+          </tr>
 
-      <h2 class="heading">${heading}</h2>
+          <!-- Content -->
+          <tr>
+            <td style="padding:40px 40px 32px;">
 
-      <p class="message">Hi ${userName || 'there'},</p>
+              ${expiredBanner}
 
-      <p class="message">${message}</p>
+              <h1 style="margin:0 0 8px;color:#111827;font-size:26px;font-weight:700;line-height:1.3;">${heading}</h1>
+              <p style="margin:0 0 28px;color:#6B7280;font-size:15px;">${subheading}</p>
 
-      <div style="text-align: center; margin: 40px 0;">
-        <a href="${this.appUrl}/billing" class="cta-button">${ctaText}</a>
-      </div>
+              <p style="margin:0 0 12px;color:#374151;font-size:16px;line-height:1.7;">${messageLine1}</p>
+              <p style="margin:0 0 36px;color:#374151;font-size:16px;line-height:1.7;">${messageLine2}</p>
 
-      <!-- Features Reminder -->
-      <div class="features">
-        <h3 style="color: #111827; font-size: 18px; margin: 0 0 20px 0;">What You'll Keep With Premium:</h3>
+              <!-- CTA Button -->
+              <div style="text-align:center;margin:0 0 40px;">
+                <a href="${this.appUrl}/billing"
+                   style="display:inline-block;background-color:${accentColor};color:#ffffff;text-decoration:none;padding:18px 48px;border-radius:10px;font-size:16px;font-weight:700;letter-spacing:0.3px;box-shadow:0 4px 14px rgba(0,0,0,0.2);">
+                  ${ctaText} →
+                </a>
+              </div>
 
-        <div class="feature-item">
-          <span class="feature-icon">✓</span>
-          <span class="feature-text"><strong>Automated Review Replies</strong> - AI-powered responses to all customer reviews</span>
-        </div>
+              <!-- Divider -->
+              <div style="border-top:1px solid #E5E7EB;margin:0 0 32px;"></div>
 
-        <div class="feature-item">
-          <span class="feature-icon">✓</span>
-          <span class="feature-text"><strong>Scheduled Posts</strong> - Auto-publish engaging content to your profiles</span>
-        </div>
+              <!-- Features Grid -->
+              <p style="margin:0 0 20px;color:#111827;font-size:17px;font-weight:700;">What you get with a paid plan:</p>
 
-        <div class="feature-item">
-          <span class="feature-icon">✓</span>
-          <span class="feature-text"><strong>Multi-Location Management</strong> - Manage all your business profiles in one place</span>
-        </div>
+              <table width="100%" cellpadding="0" cellspacing="0">
+                <tr>
+                  <td width="50%" style="padding:0 8px 16px 0;vertical-align:top;">
+                    <div style="background:#F0FDF4;border-radius:10px;padding:16px;">
+                      <p style="margin:0 0 6px;font-size:20px;">🤖</p>
+                      <p style="margin:0 0 4px;color:#166534;font-size:14px;font-weight:700;">AI Review Replies</p>
+                      <p style="margin:0;color:#4B7A58;font-size:13px;line-height:1.5;">Auto-respond to every customer review with personalised AI replies</p>
+                    </div>
+                  </td>
+                  <td width="50%" style="padding:0 0 16px 8px;vertical-align:top;">
+                    <div style="background:#EFF6FF;border-radius:10px;padding:16px;">
+                      <p style="margin:0 0 6px;font-size:20px;">📅</p>
+                      <p style="margin:0 0 4px;color:#1E40AF;font-size:14px;font-weight:700;">Scheduled Posts</p>
+                      <p style="margin:0;color:#3B63B8;font-size:13px;line-height:1.5;">Auto-publish fresh content to your Google Business Profile daily</p>
+                    </div>
+                  </td>
+                </tr>
+                <tr>
+                  <td width="50%" style="padding:0 8px 0 0;vertical-align:top;">
+                    <div style="background:#FFF7ED;border-radius:10px;padding:16px;">
+                      <p style="margin:0 0 6px;font-size:20px;">📍</p>
+                      <p style="margin:0 0 4px;color:#9A3412;font-size:14px;font-weight:700;">Multi-Location</p>
+                      <p style="margin:0;color:#B45309;font-size:13px;line-height:1.5;">Manage all your business locations from one dashboard</p>
+                    </div>
+                  </td>
+                  <td width="50%" style="padding:0 0 0 8px;vertical-align:top;">
+                    <div style="background:#FAF5FF;border-radius:10px;padding:16px;">
+                      <p style="margin:0 0 6px;font-size:20px;">📊</p>
+                      <p style="margin:0 0 4px;color:#6B21A8;font-size:14px;font-weight:700;">Analytics & Insights</p>
+                      <p style="margin:0;color:#7C3AED;font-size:13px;line-height:1.5;">Track your profile performance, ratings, and growth metrics</p>
+                    </div>
+                  </td>
+                </tr>
+              </table>
 
-        <div class="feature-item">
-          <span class="feature-icon">✓</span>
-          <span class="feature-text"><strong>Analytics & Insights</strong> - Track performance and engagement metrics</span>
-        </div>
+              <!-- Divider -->
+              <div style="border-top:1px solid #E5E7EB;margin:32px 0 24px;"></div>
 
-        <div class="feature-item">
-          <span class="feature-icon">✓</span>
-          <span class="feature-text"><strong>Priority Support</strong> - Get help when you need it most</span>
-        </div>
-      </div>
+              <p style="margin:0;color:#6B7280;font-size:14px;line-height:1.6;text-align:center;">
+                Questions? Just reply to this email — we're happy to help.<br>
+                <a href="${this.websiteUrl}" style="color:#4F46E5;text-decoration:none;font-weight:600;">Visit LOBAISEO.com</a>
+              </p>
+            </td>
+          </tr>
 
-      <p class="message" style="font-size: 14px; color: #6B7280;">
-        Questions about upgrading? Our team is here to help! Reply to this email or visit our
-        <a href="${this.websiteUrl}" style="color: #4F46E5; text-decoration: none;">website</a> for more information.
-      </p>
-    </div>
+          <!-- Footer -->
+          <tr>
+            <td style="background-color:#F9FAFB;padding:24px 40px;border-top:1px solid #E5E7EB;">
+              <table width="100%" cellpadding="0" cellspacing="0">
+                <tr>
+                  <td align="center">
+                    <p style="margin:0 0 12px;font-size:13px;color:#6B7280;">
+                      <a href="${this.appUrl}/billing" style="color:#4F46E5;text-decoration:none;margin:0 12px;">Upgrade Now</a>
+                      <span style="color:#D1D5DB;">|</span>
+                      <a href="${this.websiteUrl}" style="color:#4F46E5;text-decoration:none;margin:0 12px;">Website</a>
+                      <span style="color:#D1D5DB;">|</span>
+                      <a href="${this.appUrl}/settings" style="color:#4F46E5;text-decoration:none;margin:0 12px;">Account Settings</a>
+                    </p>
+                    <p style="margin:0 0 8px;font-size:12px;color:#9CA3AF;">© ${new Date().getFullYear()} LOBAISEO. All rights reserved.</p>
+                    <p style="margin:0;font-size:12px;color:#9CA3AF;">
+                      You received this because you signed up for a LOBAISEO trial.<br>
+                      <a href="${this.appUrl}/settings" style="color:#9CA3AF;text-decoration:underline;">Manage preferences</a>
+                    </p>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
 
-    <!-- Footer -->
-    <div class="footer">
-      <div class="footer-links">
-        <a href="${this.appUrl}/billing" class="footer-link">View Pricing</a>
-        <a href="${this.websiteUrl}" class="footer-link">Visit Website</a>
-        <a href="${this.appUrl}/settings" class="footer-link">Account Settings</a>
-      </div>
-
-      <p style="margin: 20px 0; font-size: 13px;">
-        © ${new Date().getFullYear()} LOBAISEO. All rights reserved.
-      </p>
-
-      <p style="margin: 10px 0; font-size: 12px; color: #9CA3AF;">
-        You're receiving this email because you have an active trial with LOBAISEO.<br>
-        <a href="${this.appUrl}/settings" style="color: #9CA3AF; text-decoration: underline;">Manage email preferences</a>
-      </p>
-    </div>
-  </div>
+        </table>
+      </td>
+    </tr>
+  </table>
 </body>
-</html>
-      `,
-      text: `${heading}\n\nHi ${userName || 'there'},\n\n${message}\n\nUpgrade now: ${this.appUrl}/billing\n\nQuestions? Reply to this email or visit ${this.websiteUrl}\n\n© ${new Date().getFullYear()} LOBAISEO. All rights reserved.`
+</html>`,
+      text: `${heading}\n\n${subheading}\n\n${messageLine1}\n\n${messageLine2}\n\nUpgrade now: ${this.appUrl}/billing\n\nQuestions? Reply to this email or visit ${this.websiteUrl}\n\n© ${new Date().getFullYear()} LOBAISEO. All rights reserved.`
     };
   }
 

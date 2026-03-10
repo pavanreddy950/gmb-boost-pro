@@ -1,6 +1,9 @@
 import express from 'express';
 import dynamicDailyActivityScheduler from '../services/dynamicDailyActivityScheduler.js';
 import newDailyActivityEmailService from '../services/newDailyActivityEmailService.js';
+import TrialEmailService from '../services/trialEmailService.js';
+
+const trialEmailService = new TrialEmailService();
 
 const router = express.Router();
 
@@ -105,6 +108,44 @@ router.post('/send-test', async (req, res) => {
       error: error.message,
       stack: error.stack
     });
+  }
+});
+
+/**
+ * Test endpoint: Send a trial-expired email to a specific address
+ * POST /api/email-test/send-expired
+ * Body: { email: "test@example.com", name: "Test User" }
+ */
+router.post('/send-expired', async (req, res) => {
+  try {
+    const { email, name } = req.body;
+
+    if (!email) {
+      return res.status(400).json({ success: false, error: 'Email is required' });
+    }
+
+    console.log(`[EmailTest] 🔴 Sending trial-expired email to ${email}...`);
+
+    const expiredDate = new Date();
+    expiredDate.setDate(expiredDate.getDate() - 1); // expired yesterday
+    const formattedDate = expiredDate.toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' });
+
+    const result = await trialEmailService.sendTrialReminderEmail(
+      email,
+      name || email.split('@')[0],
+      0,
+      formattedDate,
+      'expired'
+    );
+
+    if (result && result.success !== false) {
+      return res.json({ success: true, message: `Trial-expired email sent to ${email}` });
+    } else {
+      return res.status(500).json({ success: false, error: result?.error || 'Failed to send' });
+    }
+  } catch (error) {
+    console.error('[EmailTest] Error sending expired email:', error);
+    return res.status(500).json({ success: false, error: error.message });
   }
 });
 

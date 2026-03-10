@@ -442,7 +442,7 @@ INDUSTRY CONTEXT: This is a ${businessCategory} business. Use appropriate indust
       const prompt = `Generate 3 completely unique, professional business reply suggestions for a ${reviewRating}-star customer review.
 ${keywordPrompt}${categoryContext}
 
-Business: ${businessName}
+Business Name: "${businessName}"
 Customer Review: "${reviewContent}"
 Rating: ${reviewRating}/5 stars
 Reply Tone: ${tone}
@@ -451,23 +451,38 @@ Uniqueness Seed: ${uniqueSeed}
 
 CRITICAL: Every generation MUST produce COMPLETELY DIFFERENT replies - never repeat the same phrasing.
 
-Guidelines:
-- Each reply must be unique in style, vocabulary, and approach
-- Keep replies professional but ${tone}
-- Acknowledge the customer's feedback specifically
-${keywordList.length > 0 ? `- Naturally include business keywords (${keywordList.join(', ')}) if appropriate` : '- DO NOT mention any specific services or features - keep reply generic'}
-- Include business name "${businessName}" naturally
-- Vary length and structure significantly
-- For positive reviews: express gratitude, highlight strengths, invite return
-- For neutral reviews: show appreciation, willingness to improve
-- For negative reviews: apologize sincerely, offer specific resolution
-- Make each reply sound authentic and personalized
+🚫 ABSOLUTELY FORBIDDEN PHRASES (NEVER USE THESE):
+- "our team" → ALWAYS use "${businessName} team" or just "${businessName}"
+- "our business" → ALWAYS use "${businessName}"
+- "the team" → ALWAYS use "the ${businessName} team"
+- "our staff" → ALWAYS use "our team at ${businessName}"
+- "our service" → ALWAYS use "our service at ${businessName}"
+- "we strive" without business name → ALWAYS say "here at ${businessName}, we strive"
+- Any generic placeholder — always use the REAL business name: "${businessName}"
+
+✅ MANDATORY RULES:
+- Use the EXACT business name "${businessName}" at least once in EVERY reply
+- Replies must sound like they come from "${businessName}" specifically, not a generic business
+- Sign off or reference "${businessName}" by name — never say "our team" alone
+- Acknowledge the customer's specific feedback from the review
+- Keep each reply unique in structure and vocabulary
+${keywordList.length > 0 ? `- Naturally include business keywords (${keywordList.join(', ')}) if appropriate` : '- Keep reply focused on the customer experience'}
+- Vary length and structure significantly across the 3 replies
+- For positive reviews: express gratitude, highlight strengths, invite return to "${businessName}"
+- For neutral reviews: show appreciation, willingness to improve at "${businessName}"
+- For negative reviews: apologize sincerely, offer specific resolution, invite them back to "${businessName}"
+
+GOOD EXAMPLE (for a business named "Sunrise Bakery"):
+"Thank you for visiting Sunrise Bakery! We're so glad you enjoyed your experience. The entire Sunrise Bakery team works hard every day to make sure each guest leaves happy. We'd love to see you back soon!"
+
+BAD EXAMPLE (REJECTED):
+"Thank you for your kind words! Our team works hard to ensure everyone has a great experience. We hope to see you again soon!" ← REJECTED: no business name, generic "our team"
 
 Return ONLY this JSON array (no markdown):
 [
-  {"reply": "[First unique reply with keywords]", "tone": "${tone}", "focus": "gratitude"},
-  {"reply": "[Second completely different reply with keywords]", "tone": "${tone}", "focus": "engagement"},
-  {"reply": "[Third distinct reply with keywords]", "tone": "${tone}", "focus": "resolution"}
+  {"reply": "[First unique reply — must include '${businessName}']", "tone": "${tone}", "focus": "gratitude"},
+  {"reply": "[Second completely different reply — must include '${businessName}']", "tone": "${tone}", "focus": "engagement"},
+  {"reply": "[Third distinct reply — must include '${businessName}']", "tone": "${tone}", "focus": "resolution"}
 ]`;
 
       const response = await fetch(this.openaiEndpoint, {
@@ -480,7 +495,12 @@ Return ONLY this JSON array (no markdown):
           messages: [
             {
               role: 'system',
-              content: 'You are a professional business communication expert. Every reply must be completely unique and different. Never repeat the same vocabulary, phrasing, or structure. Naturally incorporate business keywords when relevant. Return ONLY valid JSON arrays with no markdown.'
+              content: `You are a professional business communication expert writing replies on behalf of "${businessName}". CRITICAL RULES:
+1. ALWAYS use the exact business name "${businessName}" in every reply — NEVER say "our team", "our business", or "the team" without the business name.
+2. Every reply must be completely unique in vocabulary and structure.
+3. Never use generic placeholders — always reference "${businessName}" specifically.
+4. Return ONLY valid JSON arrays with no markdown.
+5. Replies must feel personal and specific to "${businessName}", not copy-paste templates.`
             },
             {
               role: 'user',

@@ -30,7 +30,7 @@ class SubscriptionService {
         'Performance Analytics',
         'Priority Support'
       ],
-      trialDays: 15
+      trialDays: 7
     });
 
     this.plans.set('yearly_basic', {
@@ -46,7 +46,7 @@ class SubscriptionService {
         'API Access',
         'Dedicated Support'
       ],
-      trialDays: 15
+      trialDays: 7
     });
 
     // Current active plan
@@ -66,7 +66,7 @@ class SubscriptionService {
         'Priority Support',
         'Dedicated Support'
       ],
-      trialDays: 15
+      trialDays: 7
     });
   }
 
@@ -106,8 +106,8 @@ class SubscriptionService {
 
     const now = new Date();
     const trialEndDate = new Date();
-    // PRODUCTION MODE: 15 days trial
-    trialEndDate.setDate(trialEndDate.getDate() + 15); // 15 days trial
+    // PRODUCTION MODE: 7 days trial
+    trialEndDate.setDate(trialEndDate.getDate() + 7); // 7 days trial
     // TEST MODE: Uncomment below for 2 minutes trial for testing
     // trialEndDate.setMinutes(trialEndDate.getMinutes() + 2);
 
@@ -210,7 +210,7 @@ class SubscriptionService {
           canUsePlatform: false,
           requiresPayment: true,
           billingOnly: true, // ONLY BILLING PAGE ACCESSIBLE
-          message: 'Your 15-day trial has expired. Please upgrade to continue.'
+          message: 'Your 7-day trial has expired. Please upgrade to continue.'
         };
       }
     }
@@ -316,7 +316,7 @@ class SubscriptionService {
           canUsePlatform: false,
           requiresPayment: true,
           billingOnly: true,
-          message: 'Your 15-day trial has expired. Please upgrade to continue.'
+          message: 'Your 7-day trial has expired. Please upgrade to continue.'
         };
       }
     }

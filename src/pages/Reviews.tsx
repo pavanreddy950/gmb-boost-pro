@@ -62,28 +62,6 @@ interface SortConfig {
   direction: 'asc' | 'desc';
 }
 
-const REPLY_TEMPLATES = [
-  {
-    id: 'positive',
-    name: 'Positive Review',
-    content: 'Thank you so much for your wonderful review! We\'re thrilled to hear about your positive experience. Your feedback means the world to us and motivates our team to continue providing excellent service. We look forward to serving you again soon!'
-  },
-  {
-    id: 'negative', 
-    name: 'Negative Review',
-    content: 'Thank you for taking the time to share your feedback. We sincerely apologize for not meeting your expectations. Your concerns are important to us, and we would appreciate the opportunity to discuss this further and make things right. Please contact us directly so we can address your concerns properly.'
-  },
-  {
-    id: 'neutral',
-    name: 'Neutral Review', 
-    content: 'Thank you for your review and feedback. We appreciate you taking the time to share your experience with us. We\'re always working to improve our services and your input helps us do that. We hope to have the opportunity to serve you again and provide an even better experience.'
-  },
-  {
-    id: 'general',
-    name: 'General Response',
-    content: 'Thank you for your review! We appreciate your feedback and look forward to serving you better in the future.'
-  }
-];
 
 const Reviews = () => {
   const [reviews, setReviews] = useState<Review[]>([]);
@@ -101,7 +79,6 @@ const Reviews = () => {
   const [selectedReview, setSelectedReview] = useState<Review | null>(null);
   const [replyDialogOpen, setReplyDialogOpen] = useState(false);
   const [customReply, setCustomReply] = useState('');
-  const [selectedTemplate, setSelectedTemplate] = useState('custom');
   const [replyLoading, setReplyLoading] = useState(false);
   const [aiSuggestions, setAiSuggestions] = useState<string[]>([]);
   const [loadingSuggestions, setLoadingSuggestions] = useState(false);
@@ -266,15 +243,13 @@ const Reviews = () => {
     const review = reviews.find(r => r.id === reviewId);
     if (!review) return;
 
-    // Auto-select template based on sentiment
-    const template = REPLY_TEMPLATES.find(t => t.id === review.sentiment) || REPLY_TEMPLATES.find(t => t.id === 'general');
-    if (template) {
-      setSelectedTemplate(template.id);
-      setCustomReply(template.content);
-    }
-    
     setSelectedReview(review);
+    setCustomReply('');
+    setAiSuggestions([]);
     setReplyDialogOpen(true);
+
+    // Auto-generate AI suggestions immediately
+    generateAISuggestions(review);
   };
 
   const handleSendReply = async () => {
@@ -307,7 +282,7 @@ const Reviews = () => {
       setReplyDialogOpen(false);
       setSelectedReview(null);
       setCustomReply('');
-      setSelectedTemplate('');
+      setAiSuggestions([]);
       
       console.log('Reply sent successfully!');
     } catch (error) {
@@ -318,201 +293,42 @@ const Reviews = () => {
     }
   };
 
-  const handleTemplateChange = (templateId: string) => {
-    setSelectedTemplate(templateId);
-    const template = REPLY_TEMPLATES.find(t => t.id === templateId);
-    if (template && templateId !== 'custom') {
-      setCustomReply(template.content);
-    }
-  };
-
-  // Handle manual typing - clear template selection if user types manually
-  const handleManualReplyChange = (value: string) => {
-    setCustomReply(value);
-    // Only clear template if content differs significantly from any template
-    const isFromTemplate = REPLY_TEMPLATES.some(template =>
-      template.content === value || value === ''
-    );
-    if (!isFromTemplate && selectedTemplate !== 'custom') {
-      setSelectedTemplate('custom');
-    }
-  };
 
   // Generate AI-powered reply suggestions
   const generateAISuggestions = async (review: Review) => {
     if (!review) return;
 
     setLoadingSuggestions(true);
+    setAiSuggestions([]);
     try {
-      // Try backend AI service first, fall back to local generation
-      let suggestions: string[] = [];
+      const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000';
+      const response = await fetch(`${backendUrl}/api/ai-reviews/reply-suggestions`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          businessName: review.profileName,
+          reviewContent: review.content,
+          reviewRating: review.rating,
+          reviewId: review.id,
+          userId: currentUser?.email || currentUser?.uid
+        }),
+      });
 
-      try {
-        // Call backend AI service for more sophisticated reply suggestions
-        const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000';
-        const response = await fetch(`${backendUrl}/api/ai-reviews/reply-suggestions`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            businessName: review.profileName,
-            reviewContent: review.content,
-            reviewRating: review.rating,
-            reviewId: review.id,
-            userId: currentUser?.email || currentUser?.uid
-          }),
-        });
+      if (!response.ok) throw new Error('AI service error');
 
-        if (response.ok) {
-          const data = await response.json();
-          if (data.success && data.suggestions) {
-            // Extract reply text from AI-generated suggestions
-            suggestions = data.suggestions.map((s: any) => s.text || s.reply || s).slice(0, 3);
-            console.log('Using backend AI reply suggestions:', suggestions.length, 'suggestions received');
-          }
-        } else {
-          throw new Error('Backend AI service unavailable');
-        }
-      } catch (backendError) {
-        console.log('Backend AI service unavailable, using local suggestions:', backendError.message);
-        // Fall back to local smart replies
-        suggestions = generateSmartReplies(review);
+      const data = await response.json();
+      if (data.success && data.suggestions) {
+        const suggestions = data.suggestions.map((s: any) => s.text || s.reply || s).slice(0, 3);
+        setAiSuggestions(suggestions);
       }
-
-      // Ensure we have suggestions
-      if (suggestions.length === 0) {
-        suggestions = generateSmartReplies(review);
-      }
-
-      setAiSuggestions(suggestions);
     } catch (error) {
       console.error('Error generating AI suggestions:', error);
-      // Final fallback to empty array
       setAiSuggestions([]);
     } finally {
       setLoadingSuggestions(false);
     }
   };
 
-  // Smart reply generation based on review analysis with enhanced variation
-  const generateSmartReplies = (review: Review): string[] => {
-    const suggestions: string[] = [];
-    const businessName = review.profileName;
-    const rating = review.rating;
-    const content = review.content.toLowerCase();
-    const timestamp = Date.now();
-    const reviewId = review.id;
-
-    // Analyze keywords for personalized responses
-    const hasService = content.includes('service');
-    const hasStaff = content.includes('staff') || content.includes('team');
-    const hasQuality = content.includes('quality');
-    const hasPrice = content.includes('price') || content.includes('cost');
-    const hasWait = content.includes('wait') || content.includes('time');
-    const hasCleanliness = content.includes('clean');
-    const hasFood = content.includes('food') || content.includes('meal');
-    const hasAtmosphere = content.includes('atmosphere') || content.includes('ambiance');
-
-    // Add randomization based on review ID and timestamp
-    const seed = parseInt(reviewId.slice(-4), 16) + timestamp;
-    const variationIndex = seed % 3;
-
-    // Enhanced response variations
-    const thankYouPhrases = [
-      'Thank you so much for',
-      'We really appreciate',
-      'We\'re grateful for',
-      'Thank you for taking the time to share'
-    ];
-
-    const positiveClosings = [
-      `We look forward to welcoming you back to ${businessName} soon!`,
-      `We hope to see you again at ${businessName} in the near future!`,
-      `We\'d love to serve you again at ${businessName}!`,
-      `Thank you for choosing ${businessName} and we hope to see you soon!`
-    ];
-
-    const improvementPhrases = [
-      'We\'re always looking for ways to improve',
-      'We\'re committed to continuous improvement',
-      'We value your input as we work to enhance our service',
-      'Your feedback helps us grow and improve'
-    ];
-
-    if (rating >= 4) {
-      // Positive reviews with variations
-      const thankYou = thankYouPhrases[variationIndex % thankYouPhrases.length];
-      const closing = positiveClosings[variationIndex % positiveClosings.length];
-
-      suggestions.push(`${thankYou} your wonderful ${rating}-star review! We're thrilled to hear about your positive experience at ${businessName}. Your feedback means the world to us and motivates our team to continue providing excellent service.`);
-
-      if (hasService) {
-        const serviceResponses = [
-          `We're so glad you were happy with our service! Our team works hard to ensure every customer has a great experience.`,
-          `It's wonderful to hear that our service met your expectations! We pride ourselves on providing excellent customer care.`,
-          `Your satisfaction with our service is exactly what we strive for! Thank you for recognizing our efforts.`
-        ];
-        suggestions.push(serviceResponses[variationIndex % serviceResponses.length]);
-      }
-
-      if (hasStaff) {
-        const staffResponses = [
-          `Our team will be delighted to hear your kind words! We'll make sure to share your feedback with them.`,
-          `I'll be sure to pass along your compliments to our team - they'll be thrilled to hear this!`,
-          `Your recognition of our staff means so much to us. They work hard to provide excellent service every day.`
-        ];
-        suggestions.push(staffResponses[variationIndex % staffResponses.length]);
-      }
-
-      suggestions.push(closing);
-    } else if (rating === 3) {
-      // Neutral reviews with variations
-      const improvement = improvementPhrases[variationIndex % improvementPhrases.length];
-
-      suggestions.push(`Thank you for your honest feedback about your experience at ${businessName}. We appreciate you taking the time to share your thoughts and ${improvement.toLowerCase()}.`);
-
-      const neutralResponses = [
-        'We value your feedback and would love to discuss how we can enhance your experience.',
-        'Your input is valuable to us and we\'d appreciate the opportunity to address any concerns.',
-        'We take all feedback seriously and would welcome the chance to improve your experience.'
-      ];
-      suggestions.push(neutralResponses[variationIndex % neutralResponses.length]);
-
-      if (hasService) {
-        suggestions.push(`We appreciate your feedback about our service. ${improvement} and your input helps us identify areas where we can do better.`);
-      }
-    } else {
-      // Negative reviews with variations
-      const apologyPhrases = [
-        'We sincerely apologize that your experience',
-        'We\'re truly sorry that your visit',
-        'We deeply regret that your experience'
-      ];
-
-      const apology = apologyPhrases[variationIndex % apologyPhrases.length];
-      suggestions.push(`${apology} at ${businessName} didn't meet your expectations. Your feedback is important to us, and we take all concerns seriously. We'd appreciate the opportunity to discuss this with you directly to make things right.`);
-
-      if (hasWait) {
-        suggestions.push(`We're sorry about the wait time you experienced. We're working on improving our efficiency to serve our customers better. Please give us another chance to provide you with the quality service you deserve.`);
-      }
-
-      if (hasService) {
-        suggestions.push(`We apologize for falling short in our service. This is not the standard we strive for at ${businessName}. We would welcome the opportunity to speak with you about your experience and show you the level of service we're known for.`);
-      }
-
-      const invitationPhrases = [
-        'Thank you for bringing this to our attention. We\'re committed to making improvements',
-        'We appreciate you sharing your concerns with us. We\'re dedicated to doing better',
-        'Your feedback helps us grow and improve. We\'re working hard to address these issues'
-      ];
-      suggestions.push(`${invitationPhrases[variationIndex % invitationPhrases.length]} and would like to invite you back to experience the better service we're working towards.`);
-    }
-
-    // Add uniqueness by shuffling and limiting to 3 unique suggestions
-    const uniqueSuggestions = [...new Set(suggestions)];
-    return uniqueSuggestions.slice(0, 3);
-  };
 
   // Copy suggestion to clipboard
   const copySuggestionToClipboard = async (suggestion: string, index: number) => {
@@ -947,7 +763,9 @@ const Reviews = () => {
                                     onClick={() => {
                                       setSelectedReview(review);
                                       setCustomReply(review.replyContent || '');
+                                      setAiSuggestions([]);
                                       setReplyDialogOpen(true);
+                                      generateAISuggestions(review);
                                     }}
                                     className="h-8 w-8 p-0"
                                   >
@@ -1028,66 +846,45 @@ const Reviews = () => {
           </DialogHeader>
           
           <div className="space-y-4">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <label className="text-sm font-medium mb-2 block">
-                  Reply Template (Optional)
-                </label>
-                <Select value={selectedTemplate} onValueChange={handleTemplateChange}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Choose a template" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="custom">Custom Reply</SelectItem>
-                    {REPLY_TEMPLATES.map(template => (
-                      <SelectItem key={template.id} value={template.id}>
-                        {template.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              
-              <div>
-                <label className="text-sm font-medium mb-2 block">
-                  AI Suggestions
+            {/* AI Suggestions - always shown, auto-generated */}
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <label className="text-sm font-medium flex items-center gap-2">
+                  <Bot className="h-4 w-4 text-primary" />
+                  AI-Generated Replies
                 </label>
                 <Button
-                  variant="outline"
+                  variant="ghost"
+                  size="sm"
                   onClick={() => selectedReview && generateAISuggestions(selectedReview)}
                   disabled={loadingSuggestions}
-                  className="w-full justify-start text-xs sm:text-sm"
+                  className="text-xs h-7 gap-1"
                 >
-                  {loadingSuggestions ? (
-                    <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
-                  ) : (
-                    <Bot className="mr-2 h-4 w-4" />
-                  )}
-                  <span className="hidden sm:inline">Generate Smart Replies</span>
-                  <span className="sm:hidden">Generate Replies</span>
+                  <RefreshCw className={`h-3 w-3 ${loadingSuggestions ? 'animate-spin' : ''}`} />
+                  Regenerate
                 </Button>
               </div>
-            </div>
-            
-            {/* AI Suggestions */}
-            {aiSuggestions.length > 0 && (
-              <div>
-                <label className="text-sm font-medium mb-2 block">
-                  AI-Generated Suggestions
-                </label>
-                <div className="space-y-2 max-h-40 overflow-y-auto">
+
+              {loadingSuggestions ? (
+                <div className="flex items-center justify-center py-8 text-muted-foreground gap-2">
+                  <RefreshCw className="h-4 w-4 animate-spin" />
+                  <span className="text-sm">Reading review and generating personalized replies...</span>
+                </div>
+              ) : aiSuggestions.length > 0 ? (
+                <div className="space-y-2 max-h-52 overflow-y-auto">
                   {aiSuggestions.map((suggestion, index) => (
                     <div
                       key={`suggestion-${index}-${selectedReview?.id}`}
-                      className="p-3 border rounded-lg hover:bg-muted/50 transition-colors group"
+                      className="p-3 border rounded-lg hover:bg-muted/50 transition-colors group cursor-pointer"
+                      onClick={() => setCustomReply(suggestion)}
                     >
                       <div className="flex gap-2">
                         <p className="text-sm flex-1 leading-relaxed">{suggestion}</p>
-                        <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
                           <Button
                             variant="ghost"
                             size="sm"
-                            onClick={() => copySuggestionToClipboard(suggestion, index)}
+                            onClick={(e) => { e.stopPropagation(); copySuggestionToClipboard(suggestion, index); }}
                             className="h-8 w-8 p-0"
                             title="Copy to clipboard"
                           >
@@ -1100,9 +897,9 @@ const Reviews = () => {
                           <Button
                             variant="ghost"
                             size="sm"
-                            onClick={() => setCustomReply(suggestion)}
+                            onClick={(e) => { e.stopPropagation(); setCustomReply(suggestion); }}
                             className="h-8 w-8 p-0"
-                            title="Use this suggestion"
+                            title="Use this reply"
                           >
                             <Send className="h-3 w-3" />
                           </Button>
@@ -1111,17 +908,21 @@ const Reviews = () => {
                     </div>
                   ))}
                 </div>
-              </div>
-            )}
-            
+              ) : (
+                <div className="flex items-center justify-center py-6 text-muted-foreground text-sm border rounded-lg border-dashed">
+                  AI replies could not be generated. You can type a custom reply below.
+                </div>
+              )}
+            </div>
+
             <div>
               <label className="text-sm font-medium mb-2 block">
-                Your Reply
+                Your Reply <span className="text-muted-foreground font-normal text-xs">(click a suggestion above to use it, or type your own)</span>
               </label>
               <Textarea
-                placeholder="Write your reply to this review or select an AI suggestion above..."
+                placeholder="Click an AI suggestion above to use it, or write your own reply..."
                 value={customReply}
-                onChange={(e) => handleManualReplyChange(e.target.value)}
+                onChange={(e) => setCustomReply(e.target.value)}
                 rows={4}
                 className="resize-none"
               />
@@ -1150,7 +951,6 @@ const Reviews = () => {
                 setReplyDialogOpen(false);
                 setSelectedReview(null);
                 setCustomReply('');
-                setSelectedTemplate('');
                 setAiSuggestions([]);
                 setCopiedSuggestionIndex(null);
               }}

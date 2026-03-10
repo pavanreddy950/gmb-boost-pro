@@ -1,5 +1,308 @@
 [
   {
+    "id": "audit_1772095238795_vw74cqckl",
+    "userId": "QlJvlBBTEPSV4tb2rsYsDaxdSgd2",
+    "userEmail": "hello.lobaiseo@gmail.com",
+    "locationId": "locations/143639376938647655",
+    "locationName": "Makeup by Nandani Puri",
+    "performance": {
+      "timeSeriesData": [
+        {
+          "views": 4,
+          "impressions": 4,
+          "calls": 1,
+          "websiteClicks": 0,
+          "directionRequests": 0,
+          "date": "2026-01-27"
+        },
+        {
+          "views": 1,
+          "impressions": 1,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 3,
+          "date": "2026-01-28"
+        },
+        {
+          "views": 5,
+          "impressions": 5,
+          "calls": 1,
+          "websiteClicks": 1,
+          "directionRequests": 5,
+          "date": "2026-01-29"
+        },
+        {
+          "views": 5,
+          "impressions": 5,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 1,
+          "date": "2026-01-30"
+        },
+        {
+          "views": 7,
+          "impressions": 7,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 4,
+          "date": "2026-01-31"
+        },
+        {
+          "views": 7,
+          "impressions": 7,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 0,
+          "date": "2026-02-01"
+        },
+        {
+          "views": 3,
+          "impressions": 3,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 0,
+          "date": "2026-02-02"
+        },
+        {
+          "views": 9,
+          "impressions": 9,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 0,
+          "date": "2026-02-03"
+        },
+        {
+          "views": 2,
+          "impressions": 2,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 6,
+          "date": "2026-02-04"
+        },
+        {
+          "views": 2,
+          "impressions": 2,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 0,
+          "date": "2026-02-05"
+        },
+        {
+          "views": 1,
+          "impressions": 1,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 1,
+          "date": "2026-02-06"
+        },
+        {
+          "views": 1,
+          "impressions": 1,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 2,
+          "date": "2026-02-07"
+        },
+        {
+          "views": 1,
+          "impressions": 1,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 4,
+          "date": "2026-02-08"
+        },
+        {
+          "views": 10,
+          "impressions": 10,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 10,
+          "date": "2026-02-09"
+        },
+        {
+          "views": 10,
+          "impressions": 10,
+          "calls": 2,
+          "websiteClicks": 0,
+          "directionRequests": 0,
+          "date": "2026-02-10"
+        },
+        {
+          "views": 7,
+          "impressions": 7,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 0,
+          "date": "2026-02-11"
+        },
+        {
+          "views": 0,
+          "impressions": 0,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 0,
+          "date": "2026-02-12"
+        },
+        {
+          "views": 1,
+          "impressions": 1,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 0,
+          "date": "2026-02-13"
+        },
+        {
+          "views": 2,
+          "impressions": 2,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 2,
+          "date": "2026-02-14"
+        },
+        {
+          "views": 8,
+          "impressions": 8,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 1,
+          "date": "2026-02-15"
+        },
+        {
+          "views": 4,
+          "impressions": 4,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 1,
+          "date": "2026-02-16"
+        },
+        {
+          "views": 6,
+          "impressions": 6,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 0,
+          "date": "2026-02-17"
+        },
+        {
+          "views": 4,
+          "impressions": 4,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 0,
+          "date": "2026-02-18"
+        },
+        {
+          "views": 3,
+          "impressions": 3,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 2,
+          "date": "2026-02-19"
+        },
+        {
+          "views": 8,
+          "impressions": 8,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 0,
+          "date": "2026-02-20"
+        },
+        {
+          "views": 4,
+          "impressions": 4,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 0,
+          "date": "2026-02-21"
+        },
+        {
+          "views": 2,
+          "impressions": 2,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 0,
+          "date": "2026-02-22"
+        },
+        {
+          "views": 2,
+          "impressions": 2,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 1,
+          "date": "2026-02-23"
+        },
+        {
+          "views": 0,
+          "impressions": 0,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 0,
+          "date": "2026-02-24"
+        },
+        {
+          "views": 0,
+          "impressions": 0,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 0,
+          "date": "2026-02-25"
+        },
+        {
+          "views": 0,
+          "impressions": 0,
+          "calls": 0,
+          "websiteClicks": 0,
+          "directionRequests": 0,
+          "date": "2026-02-26"
+        }
+      ]
+    },
+    "recommendations": {
+      "recommendations": []
+    },
+    "score": {
+      "overall": 69,
+      "performance": 2,
+      "engagement": 100,
+      "searchRank": 14,
+      "profileCompletion": 73,
+      "seoScore": 100,
+      "reviewScore": 25,
+      "reviewReplyScore": 100,
+      "profileCompletionDetails": {
+        "totalFields": 15,
+        "completedFields": 11,
+        "missingFields": [
+          "Labels",
+          "Google Ads",
+          "Attributes",
+          "Special Hours"
+        ]
+      },
+      "seoDetails": {
+        "hasDescription": true,
+        "hasKeywords": true,
+        "hasCategories": true
+      },
+      "reviewDetails": {
+        "totalReviews": 17,
+        "reviewsLast30Days": 2,
+        "reviewsPerWeek": 0.4666666666666667,
+        "repliedReviews": 17,
+        "replyRate": 100
+      }
+    },
+    "dateRange": {
+      "startDate": "2026-01-27",
+      "endDate": "2026-02-26"
+    },
+    "timestamp": "2026-02-26T08:40:38.795Z",
+    "metadata": {
+      "source": "audit_tool",
+      "timestamp": "2026-02-26T08:40:38.783Z"
+    }
+  },
+  {
     "id": "audit_1767714133952_y8b53h0s2",
     "userId": "QlJvlBBTEPSV4tb2rsYsDaxdSgd2",
     "userEmail": "hello.lobaiseo@gmail.com",

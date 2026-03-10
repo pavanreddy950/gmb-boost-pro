@@ -3,9 +3,12 @@ import fs from 'fs/promises';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import newDailyActivityEmailService from './newDailyActivityEmailService.js';
+import TrialEmailService from './trialEmailService.js';
 import supabaseSubscriptionService from './supabaseSubscriptionService.js';
 import supabaseAuditService from './supabaseAuditService.js';
 import supabaseTokenStorage from './supabaseTokenStorage.js';
+
+const trialEmailService = new TrialEmailService();
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -334,6 +337,29 @@ class DynamicDailyActivityScheduler {
         isSubscribed: realData.isSubscribed,
         isAdmin: realData.isAdmin
       };
+
+      // 🔴 EXPIRED USERS: Send trial-expired email, NOT the normal daily report
+      if (realData.isTrialExpired) {
+        console.log(`[DynamicDailyActivityScheduler] 🔴 Trial EXPIRED for ${email} — sending upgrade email`);
+        const trialEndDate = subscription.trial_end_date || subscription.trialEndDate;
+        const formattedEndDate = trialEndDate
+          ? new Date(trialEndDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })
+          : 'recently';
+        const result = await trialEmailService.sendTrialReminderEmail(
+          email,
+          userData.userName,
+          0,
+          formattedEndDate,
+          'expired'
+        );
+        if (result && result.success !== false) {
+          this.emailTracking.set(email, new Date());
+          console.log(`[DynamicDailyActivityScheduler] ✅ Expired email sent to ${email}`);
+        } else {
+          console.error(`[DynamicDailyActivityScheduler] ❌ Failed expired email to ${email}:`, result?.error);
+        }
+        return result || { success: false };
+      }
 
       // Fetch audit data (if available)
       const auditData = await this.getUserAuditData(email);
